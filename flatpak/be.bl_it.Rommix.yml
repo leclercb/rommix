@@ -1,0 +1,82 @@
+# Flatpak manifest for Rommix.
+#
+# This packages a *prebuilt* Electron application tree (dist/linux-unpacked,
+# produced by `npm run pack:dir`). Building npm dependencies inside
+# flatpak-builder would require vendoring every package as an offline source —
+# worth doing for a Flathub submission, unnecessary for a personal build.
+# See README.md for how to move to a fully offline build if you ever publish.
+id: be.bl_it.Rommix
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+
+# Supplies the shared Electron dependencies and the zypak launcher, which lets
+# Chromium's sandbox work inside a flatpak.
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+
+command: rommix
+separate-locales: false
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+
+  # Controllers. Chromium's Gamepad API reads /dev/input/event*, so without
+  # device access the entire UI becomes keyboard-only.
+  - --device=all
+
+  # The ROM tree. RetroDECK's ROM folder is user-selectable and frequently
+  # lives on an SD card, so both the home directory and the removable-media
+  # mount point are needed to install games and read back save files.
+  - --filesystem=home
+  - --filesystem=/run/media:rw
+  - --filesystem=xdg-run/gamescope-0:ro
+
+  # Rommix launches RetroDECK/RetroArch, which are themselves flatpaks. Nested
+  # `flatpak run` is not possible, so we hop to the host through flatpak-spawn.
+  # This is a broad permission: anything Rommix can spawn on the host runs
+  # unsandboxed. It is the only way to start another flatpak from inside one.
+  - --talk-name=org.freedesktop.Flatpak
+
+modules:
+  - name: rommix
+    buildsystem: simple
+    build-commands:
+      # The application tree itself.
+      - mkdir -p /app/rommix
+      - cp -a linux-unpacked/. /app/rommix/
+
+      # zypak-wrapper hands Chromium a sandbox it can actually use under flatpak.
+      - install -Dm755 rommix.sh /app/bin/rommix
+
+      - install -Dm644 be.bl_it.Rommix.desktop /app/share/applications/be.bl_it.Rommix.desktop
+      - install -Dm644 be.bl_it.Rommix.metainfo.xml
+        /app/share/metainfo/be.bl_it.Rommix.metainfo.xml
+      - install -Dm644 be.bl_it.Rommix.svg
+        /app/share/icons/hicolor/scalable/apps/be.bl_it.Rommix.svg
+
+    sources:
+      - type: dir
+        path: ../dist
+        dest: .
+
+      - type: file
+        path: be.bl_it.Rommix.desktop
+
+      - type: file
+        path: be.bl_it.Rommix.metainfo.xml
+
+      - type: file
+        path: be.bl_it.Rommix.svg
+
+      - type: script
+        dest-filename: rommix.sh
+        commands:
+          # --ozone-platform-hint=auto is also set in code; passing it here too
+          # keeps behaviour identical when launched from a .desktop file.
+          - exec zypak-wrapper /app/rommix/rommix "$@"

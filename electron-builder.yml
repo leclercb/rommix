@@ -1,0 +1,23 @@
+# electron-builder only produces the unpacked application tree; the flatpak
+# manifest is what actually packages Rommix. `--linux dir` gives us
+# dist/linux-unpacked/, which flatpak-builder copies into /app.
+appId: be.bl_it.Rommix
+productName: Rommix
+executableName: rommix
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+# Rommix ships no native modules, so there is nothing to rebuild per-arch.
+npmRebuild: false
+
+linux:
+  target:
+    - dir
+  category: Game
+  executableName: rommix

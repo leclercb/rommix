@@ -1,0 +1,40 @@
+{
+  "name": "rommix",
+  "version": "0.1.0",
+  "description": "Big Picture style RomM launcher for Linux desktop, gamescope and Steam, with RetroDECK/RetroArch integration",
+  "license": "MIT",
+  "author": "Benjamin Leclerc",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "node --test src/shared/*.test.ts",
+    "build": "npm run typecheck && electron-vite build",
+    "pack:dir": "npm run build && electron-builder --linux dir",
+    "flatpak": "./scripts/build-flatpak.sh"
+  },
+  "dependencies": {
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/yauzl": "^2.10.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true,
+    "electron@33.4.11": true
+  }
+}

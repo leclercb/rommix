@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>be.bl_it.Rommix</id>
+
+  <name>Rommix</name>
+  <summary>Big Picture launcher for a RomM library</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Rommix is a controller-first front end for a self-hosted RomM server. It
+      browses your library the way a console dashboard does, downloads games
+      into RetroDECK's ROM folder, and launches them in RetroDECK or RetroArch.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Browse and search your whole RomM library with cover art</li>
+      <li>Sign in by pairing the device, so no password is typed on a TV</li>
+      <li>Download games straight into the correct RetroDECK system folder</li>
+      <li>Launch into RetroDECK, which picks the emulator for each system</li>
+      <li>Sync save files and save states back to RomM when you quit</li>
+      <li>Designed for gamescope, handhelds and Steam Big Picture</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">be.bl_it.Rommix.desktop</launchable>
+
+  <categories>
+    <category>Game</category>
+  </categories>
+
+  <supports>
+    <control>gamepad</control>
+  </supports>
+  <recommends>
+    <control>gamepad</control>
+  </recommends>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-08-17">
+      <description>
+        <p>First release: library browsing, downloads, launching and save sync.</p>
+      </description>
+    </release>
+  </releases>
+</component>
