@@ -2,15 +2,17 @@ import { safeStorage } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { hostname } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
 
 /**
  * On-disk state for RomMix.
  *
- * Lives in `config/` inside RomMix's root (see `root.ts`), which the bootstrap
- * points Electron's userData at — so all of this sits beside the emulators
- * RomMix installed rather than in a hidden per-app directory. Three files:
+ * Lives in `config/` inside RomMix's root (see `root.ts`), so all of this sits
+ * beside the emulators RomMix installed rather than in a hidden per-app
+ * directory. Electron's own userData is left where it is: it holds Chromium's
+ * caches and lock files, which are not RomMix's state and would follow the
+ * folder around. Three files:
  *
  *   settings.json        user preferences + the configured server (no secrets)
  *   credentials.bin      the RomM tokens, encrypted with safeStorage when available
@@ -197,14 +199,21 @@ export class Store {
     this.persistInstalled()
   }
 
-  /** Drop index entries whose files no longer exist (manual deletion, SD card removed). */
+  /**
+   * Drop index entries whose files have been deleted.
+   *
+   * A missing *directory* is not a missing game: an unmounted SD card takes a
+   * whole library's worth of paths with it, and forgetting them would leave the
+   * user re-downloading games that are sitting on a card they plug back in a
+   * minute later. Only a file that has gone from a folder still there counts.
+   */
   pruneInstalled(): number {
     let removed = 0
     for (const [romId, entry] of this.installedCache) {
-      if (!existsSync(entry.path)) {
-        this.installedCache.delete(romId)
-        removed += 1
-      }
+      if (existsSync(entry.path)) continue
+      if (!existsSync(dirname(entry.path))) continue
+      this.installedCache.delete(romId)
+      removed += 1
     }
     if (removed > 0) this.persistInstalled()
     return removed

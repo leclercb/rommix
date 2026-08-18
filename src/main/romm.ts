@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { Blob } from 'node:buffer'
 import { createWriteStream } from 'node:fs'
 import { readFile, rename, rm } from 'node:fs/promises'
@@ -206,7 +207,10 @@ export class RommClient {
           name: deviceName,
           client: 'rommix',
           platform: 'linux',
-          client_version: process.env.npm_package_version ?? '0.1.0',
+          // From the packaged app, not the environment: npm_package_version is
+          // only set when RomMix is started through npm, so a real install
+          // would have reported a made-up version forever.
+          client_version: app.getVersion(),
           requested_scopes: REQUIRED_SCOPES
         })
       },

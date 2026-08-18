@@ -1,7 +1,7 @@
 import { type JSX, type Ref, useCallback, useEffect, useRef, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
 import { CoverArt, GameRow, Hints, PlatformIcon, Spinner } from '../components'
-import { useFocusable } from '../input/focus'
+import { useAction, useFocusable } from '../input/focus'
 import { useApp } from '../state'
 
 /**
@@ -73,6 +73,11 @@ function useShelf(query: RomQuery): Shelf {
 
 export function HomeScreen(): JSX.Element {
   const { installedIds, navigate } = useApp()
+
+  // Y is the search button everywhere it is offered, and the only search box is
+  // the library's — so here it takes you there rather than doing nothing while
+  // the hint bar claims otherwise.
+  useAction('search', () => navigate({ name: 'library' }))
 
   const continuePlaying = useShelf({
     last_played: true,
@@ -162,11 +167,7 @@ export function HomeScreen(): JSX.Element {
   )
 }
 
-/**
- * The featured game. Focusable, because it is the first thing on the screen and
- * was previously the one thing on it that could not be selected — the pad
- * skipped straight past it to the shelves.
- */
+/** The featured game. Focusable: it is the first thing on the screen. */
 function Hero({
   rom,
   reason,

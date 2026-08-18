@@ -147,6 +147,14 @@ export function SettingsScreen(): JSX.Element {
         onToggle={() => void saveSettings({ syncSavesUp: !settings.syncSavesUp })}
       />
 
+      <h2 className="section-title">Downloads</h2>
+      <Toggle
+        label="Ask before deleting a downloaded game"
+        hint="Uninstall is a focused button one A press from removing a multi-gigabyte file."
+        on={settings.confirmUninstall}
+        onToggle={() => void saveSettings({ confirmUninstall: !settings.confirmUninstall })}
+      />
+
       <h2 className="section-title">RomMix folder</h2>
       <p className="faint" style={{ fontSize: 14 }}>
         Everything RomMix owns lives here — settings, your RomM credentials, the index of
@@ -194,8 +202,7 @@ export function SettingsScreen(): JSX.Element {
             <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
           </dl>
 
-          {/* Per-emulator detail deliberately lives only in the Emulators
-              section above; listing it again here showed every emulator twice. */}
+          {/* Per-emulator detail lives only in the Emulators section above. */}
 
           {diagnostics.notes.length > 0
             ? diagnostics.notes.map((note) => (
@@ -265,11 +272,10 @@ function EmulatorList({
    * Start an emulator with no game.
    *
    * Some of what RomMix needs can only be done by the emulator itself:
-   * RetroDECK does not create its folder layout until it has been run once —
-   * which the pre-flight check reports and previously left the user to fix on
-   * the desktop — and cores, game directories and BIOS setup are all its own
-   * screens. The probe is re-run afterwards, since running it once is often
-   * exactly what makes it usable.
+   * RetroDECK does not create its folder layout until it has been run once, and
+   * cores, game directories and BIOS setup are all its own screens. The probe
+   * is re-run afterwards, since running it once is often exactly what makes it
+   * usable.
    */
   const run = async (id: EmulatorId, name: string): Promise<void> => {
     try {

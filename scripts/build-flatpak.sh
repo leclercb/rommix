@@ -24,8 +24,8 @@ require npm
 require flatpak
 
 # flatpak-builder ships two ways, and the flatpak one provides no binary on
-# PATH — so checking for the command alone rejected a perfectly good install
-# while telling the user to perform exactly that install.
+# PATH, so both have to be looked for: checking the command alone would reject a
+# perfectly good install and then advise performing exactly that install.
 if command -v flatpak-builder >/dev/null 2>&1; then
   FLATPAK_BUILDER=(flatpak-builder)
 elif flatpak info org.flatpak.Builder >/dev/null 2>&1; then

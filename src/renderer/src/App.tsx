@@ -1,5 +1,5 @@
 import type { JSX, Ref } from 'react'
-import { CoverArt, Overlay } from './components'
+import { CoverArt, FocusButton, Logo, Overlay } from './components'
 import { useAction, useFocusable } from './input/focus'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
@@ -12,11 +12,15 @@ import { SettingsScreen } from './screens/Settings'
 
 /** App shell: navigation rail, the current screen, and global overlays. */
 export function App(): JSX.Element {
-  const { route, goBack, downloads, runningRomId, toasts, status } = useApp()
+  const { route, goBack, navigate, downloads, runningRomId, toasts, status } = useApp()
 
   // B / Escape goes back everywhere except the connect screen, where there is
   // nothing behind us.
   useAction('back', goBack, route.name !== 'connect')
+
+  // X / Start opens Settings: on a console this button is the menu, and
+  // Settings is where every switch in RomMix lives.
+  useAction('menu', () => navigate({ name: 'settings' }), route.name !== 'settings')
 
   if (route.name === 'connect') {
     return (
@@ -36,7 +40,10 @@ export function App(): JSX.Element {
     <div className="app">
       <nav className="rail">
         <div className="rail__brand">
-          Rom<span>Mix</span>
+          <Logo className="rail__logo" />
+          <div className="rail__wordmark">
+            Rom<span>Mix</span>
+          </div>
         </div>
         <RailItem icon="⌂" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
         <RailItem
@@ -91,7 +98,7 @@ function Screen({ route }: { route: Route }): JSX.Element {
     case 'home':
       return <HomeScreen />
     case 'library':
-      return <LibraryScreen platformId={route.platformId} />
+      return <LibraryScreen />
     case 'detail':
       return <DetailScreen romId={route.romId} />
     case 'downloads':
@@ -133,6 +140,10 @@ function RailItem({
 /**
  * Shown while an emulator owns the screen. RomMix is still running behind
  * gamescope, and this makes it obvious that input is going elsewhere.
+ *
+ * The close button is the way back from an emulator that has hung or opened
+ * off-screen: it asks the process to quit, so the session still ends normally
+ * and the saves it wrote are still uploaded.
  */
 function RunningOverlay(): JSX.Element {
   return (
@@ -141,6 +152,11 @@ function RunningOverlay(): JSX.Element {
         The emulator has focus. Quit it to come back to RomMix — your saves are synced to RomM
         automatically when it closes.
       </p>
+      <div className="btn-row">
+        <FocusButton variant="danger" onSelect={() => void window.rommix.game.stop()} autoFocus>
+          Close the emulator
+        </FocusButton>
+      </div>
     </Overlay>
   )
 }
@@ -149,9 +165,8 @@ function RunningOverlay(): JSX.Element {
  * Notifications, all one shape.
  *
  * A toast about a game leads with its cover and title and then says what
- * happened; one about the app is just the message. That uniformity is the
- * point — before this, "Download started" and "Game uninstalled" each invented
- * their own wording and neither said which game.
+ * happened; one about the app is just the message. The uniformity is the point:
+ * every notification concerning a game says which game, in the same place.
  */
 function Toasts({ toasts }: { toasts: Toast[] }): JSX.Element {
   return (

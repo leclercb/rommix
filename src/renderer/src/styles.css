@@ -105,16 +105,28 @@ input {
 }
 
 .rail__brand {
-  font-size: 25px;
-  font-weight: 750;
-  letter-spacing: -0.5px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 22px;
-  /* Matches .rail__item's horizontal padding so the wordmark lines up with the
-     menu labels below it. */
+  /* Matches .rail__item's horizontal padding so the mark and wordmark line up
+     with the menu labels below them. */
   padding-left: 16px;
 }
 
-.rail__brand span {
+.rail__logo {
+  width: 48px;
+  height: 48px;
+}
+
+.rail__wordmark {
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.5px;
+}
+
+.rail__wordmark span {
   color: var(--accent);
 }
 
@@ -503,14 +515,6 @@ input {
   border-radius: var(--radius);
   background: var(--surface);
   margin-bottom: 10px;
-}
-
-.emulator__rank {
-  font-size: 19px;
-  font-weight: 750;
-  color: var(--text-faint);
-  min-width: 22px;
-  font-variant-numeric: tabular-nums;
 }
 
 .emulator__body {
@@ -975,16 +979,6 @@ input {
   font-weight: 700;
   margin-right: 7px;
   color: var(--text);
-}
-
-.list {
-  margin: 0;
-  padding-left: 20px;
-  color: var(--text-dim);
-}
-
-.list li {
-  margin-bottom: 6px;
 }
 
 .kv {

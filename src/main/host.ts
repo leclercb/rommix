@@ -4,6 +4,7 @@ import { access, constants, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { APPIMAGE_SEARCH_DIRS } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
 
 /**
@@ -89,30 +90,15 @@ export async function binaryPath(names: readonly string[]): Promise<string | nul
 }
 
 /**
- * Directories an AppImage is plausibly sitting in. AppImages are loose files
- * rather than installs, so there is nothing to query — they have to be looked
- * for where people put them.
- */
-function appImageDirs(): string[] {
-  const home = realHome()
-  return [
-    join(home, 'Applications'),
-    join(home, '.local', 'bin'),
-    join(home, '.local', 'share', 'applications'),
-    join(home, 'Downloads'),
-    join(home, 'bin')
-  ]
-}
-
-/**
  * First file matching one of these case-insensitive filename globs.
  *
  * Only `*` is supported, which is all the patterns need, and the rest of the
  * pattern is escaped so a descriptor cannot inject regex of its own.
  */
 export async function findAppImage(patterns: readonly string[]): Promise<string | null> {
-  for (const dir of appImageDirs()) {
-    const hit = await findMatchingFile(dir, patterns)
+  const home = realHome()
+  for (const segments of APPIMAGE_SEARCH_DIRS) {
+    const hit = await findMatchingFile(join(home, ...segments), patterns)
     if (hit) return hit
   }
   return null
@@ -141,12 +127,10 @@ export async function findMatchingFile(
 /**
  * argv prefix that starts a resolved install, from inside or outside a sandbox.
  *
- * An AppImage is executed directly rather than through a helper. RomMix used
- * to prefix `appimage-run` on hosts that had it, which is actively wrong: that
- * helper unpacks a squashfs payload, and an AppImage built with uruntime — as
- * Eden's is — carries DwarFS instead, so a perfectly good image fails to
- * start. The image's own runtime handles either format, so the right thing is
- * to get out of its way and let the OS resolve the rest.
+ * An AppImage is executed directly, never through `appimage-run`: that helper
+ * unpacks a squashfs payload, and an AppImage built with uruntime — as Eden's
+ * is — carries DwarFS instead, so a perfectly good image fails to start. The
+ * image's own runtime handles either format.
  */
 export function execPrefix(
   install: ResolvedInstall,

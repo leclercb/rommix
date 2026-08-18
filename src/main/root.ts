@@ -15,7 +15,7 @@ import { join } from 'node:path'
  *
  *   1. the ROMMIX_HOME environment variable
  *   2. a one-line pointer file in the platform's default config location
- *   3. ~/RomMix
+ *   3. ~/rommix
  *
  * The pointer is deliberately tiny and outside the root, so a root on a
  * removable disk that is not mounted degrades to "cannot find it" rather than
@@ -100,8 +100,11 @@ export function relocateRoot(next: string): void {
   const current = rootPaths()
   const target = rootPaths(next)
 
+  // The same layout `ensureRoot` creates, so the new root is complete before
+  // the next launch rather than half-built until something writes to it.
   mkdirSync(target.config, { recursive: true })
   mkdirSync(target.emulators, { recursive: true })
+  mkdirSync(target.roms, { recursive: true })
 
   if (existsSync(current.config) && current.config !== target.config) {
     cpSync(current.config, target.config, { recursive: true, errorOnExist: false, force: true })

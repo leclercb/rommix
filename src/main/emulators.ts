@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { EMULATORS } from '@config/emulators'
-import { RETRODECK_APP_ID } from '@config/emulators/retrodeck.ts'
+import { EMULATORS, RETRODECK_APP_ID, RETRODECK_CONFIG } from '@config/emulators'
 import type {
   DirBase,
   DirSpec,
@@ -119,35 +118,30 @@ interface RetroDeckConfig {
   paths?: Record<string, string>
 }
 
-/** Where RetroDECK keeps its own configuration inside its flatpak data dir. */
-function retroDeckConfigDir(): string {
-  return join(realHome(), '.var', 'app', RETRODECK_APP_ID, 'config', 'retrodeck')
-}
-
 /**
  * Discover RetroDECK's folder layout.
  *
- * Modern RetroDECK stores everything in retrodeck.json; older builds used a
- * flat `key=value` retrodeck.cfg. Both are read because a user's install may
- * predate the migration. The paths matter: the ROM root is user-selectable
- * (internal storage vs SD card), so hardcoding ~/retrodeck would silently put
- * ROMs where RetroDECK never looks.
+ * The ROM root is user-selectable (internal storage vs SD card), so it has to
+ * be read rather than assumed — hardcoding ~/retrodeck would silently put ROMs
+ * where RetroDECK never looks. Which files to read and what the keys are called
+ * is `RETRODECK_CONFIG`; this only does the reading, newest format first.
  */
-export function retroDeckPaths(): EmulationPaths {
-  const configDir = retroDeckConfigDir()
+function retroDeckPaths(): EmulationPaths {
+  const { configDir, json, legacy, fallback } = RETRODECK_CONFIG
+  const dir = join(realHome(), '.var', 'app', RETRODECK_APP_ID, ...configDir)
 
-  const jsonPath = join(configDir, 'retrodeck.json')
+  const jsonPath = join(dir, json.file)
   if (existsSync(jsonPath)) {
     try {
-      const cfg = JSON.parse(readFileSync(jsonPath, 'utf8')) as RetroDeckConfig
-      const p = cfg.paths ?? {}
-      if (p.roms_path) {
+      const config = JSON.parse(readFileSync(jsonPath, 'utf8')) as RetroDeckConfig
+      const paths = config.paths ?? {}
+      if (paths[json.keys.roms]) {
         return {
-          home: p.rd_home_path ?? null,
-          roms: p.roms_path,
-          saves: p.saves_path ?? null,
-          states: p.states_path ?? null,
-          bios: p.bios_path ?? null
+          home: paths[json.keys.home] ?? null,
+          roms: paths[json.keys.roms],
+          saves: paths[json.keys.saves] ?? null,
+          states: paths[json.keys.states] ?? null,
+          bios: paths[json.keys.bios] ?? null
         }
       }
     } catch {
@@ -155,22 +149,22 @@ export function retroDeckPaths(): EmulationPaths {
     }
   }
 
-  const cfgPath = join(configDir, 'retrodeck.cfg')
-  if (existsSync(cfgPath)) {
+  const legacyPath = join(dir, legacy.file)
+  if (existsSync(legacyPath)) {
     try {
       const values = new Map<string, string>()
-      for (const line of readFileSync(cfgPath, 'utf8').split('\n')) {
+      for (const line of readFileSync(legacyPath, 'utf8').split('\n')) {
         const match = /^([a-z_]+)=(.*)$/.exec(line.trim())
         if (match) values.set(match[1], match[2])
       }
-      const home = values.get('rdhome') ?? null
+      const home = values.get(legacy.homeKey)
       if (home) {
         return {
           home,
-          roms: values.get('roms_folder') ?? join(home, 'roms'),
-          saves: values.get('saves_folder') ?? join(home, 'saves'),
-          states: values.get('states_folder') ?? join(home, 'states'),
-          bios: values.get('bios_folder') ?? join(home, 'bios')
+          roms: values.get(legacy.keys.roms) ?? join(home, fallback.roms),
+          saves: values.get(legacy.keys.saves) ?? join(home, fallback.saves),
+          states: values.get(legacy.keys.states) ?? join(home, fallback.states),
+          bios: values.get(legacy.keys.bios) ?? join(home, fallback.bios)
         }
       }
     } catch {
@@ -178,20 +172,17 @@ export function retroDeckPaths(): EmulationPaths {
     }
   }
 
-  // Last resort: RetroDECK's default location. Only usable if it really exists,
-  // otherwise we would rather report "not configured" than invent a path.
-  const fallback = join(realHome(), 'retrodeck')
-  if (existsSync(fallback)) {
-    return {
-      home: fallback,
-      roms: join(fallback, 'roms'),
-      saves: join(fallback, 'saves'),
-      states: join(fallback, 'states'),
-      bios: join(fallback, 'bios')
-    }
+  // Last resort: the default location, and only if it really exists —
+  // reporting "not configured" beats inventing a path.
+  const home = join(realHome(), fallback.home)
+  if (!existsSync(home)) return NO_PATHS
+  return {
+    home,
+    roms: join(home, fallback.roms),
+    saves: join(home, fallback.saves),
+    states: join(home, fallback.states),
+    bios: join(home, fallback.bios)
   }
-
-  return NO_PATHS
 }
 
 /**
@@ -212,12 +203,11 @@ async function probe(
 ): Promise<EmulatorState> {
   const install = await resolveInstall(descriptor, settings)
   const specialProbe = PATH_PROBES[descriptor.id]
-  const discovered = !install
+  const paths = !install
     ? NO_PATHS
     : specialProbe
       ? specialProbe()
       : declaredPaths(descriptor, install)
-  const paths = discovered
 
   // An emulator that owns its library is only useful once that library exists;
   // before that there is nowhere to install to.
@@ -232,6 +222,7 @@ async function probe(
     name: descriptor.name,
     dispatch: descriptor.dispatch,
     saveLayout: descriptor.saveLayout,
+    saveTree: descriptor.saveTree,
     available: unavailableReason === null,
     install,
     paths,

@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
 import { systemInfo } from '@config/systems'
-import { useAction, useFocusable } from './input/focus'
+import { FocusLayer, useAction, useFocusable } from './input/focus'
 import type { RommRom } from '@shared/types'
 
 /** Shared presentational pieces for the 10-foot UI. */
@@ -274,14 +274,79 @@ export function Hints({ items }: { items: { key: string; label: string }[] }): J
   )
 }
 
+/**
+ * A modal panel.
+ *
+ * Its contents are a focus layer of their own, so the screen behind it stops
+ * being reachable while it is open — without that, the pad walks straight out
+ * of a confirmation dialog onto the buttons it is asking about.
+ */
 export function Overlay({ title, children }: { title: string; children: ReactNode }): JSX.Element {
   return (
     <div className="overlay">
       <div className="overlay__panel">
         <h2 className="overlay__title">{title}</h2>
-        {children}
+        <FocusLayer>{children}</FocusLayer>
       </div>
     </div>
+  )
+}
+
+/**
+ * The RomMix mark: a cartridge whose label is a cassette.
+ *
+ * The same drawing as the app icon (flatpak/be.bl_it.RomMix.svg) minus its dark
+ * plate — the rail already supplies the ground, and a second rounded square
+ * inside the chrome would read as a floating badge. Colours come from the
+ * palette rather than the icon's literals, so the mark follows the theme.
+ */
+export function Logo({ className }: { className?: string }): JSX.Element {
+  // Palette tokens have to arrive as CSS declarations: a var() sitting in an SVG
+  // presentation attribute (fill="var(--accent)") is never substituted, and the
+  // shape silently renders black.
+  const body = { fill: 'url(#rommix-mark)' }
+  const ground = { fill: 'var(--bg)' }
+  const accent = { fill: 'var(--accent)' }
+
+  return (
+    <svg className={className} viewBox="22 22 84 84" role="img" aria-label="RomMix">
+      <defs>
+        <linearGradient id="rommix-mark" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" style={{ stopColor: 'var(--accent)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--accent-strong)' }} />
+        </linearGradient>
+      </defs>
+
+      {/* Connector tab and contacts, behind the body */}
+      <rect
+        x="40"
+        y="82"
+        width="48"
+        height="24"
+        rx="6"
+        style={{ fill: 'var(--accent-strong)' }}
+        opacity="0.75"
+      />
+      <g style={ground} opacity="0.55">
+        <rect x="48" y="94" width="6" height="10" rx="2" />
+        <rect x="61" y="94" width="6" height="10" rx="2" />
+        <rect x="74" y="94" width="6" height="10" rx="2" />
+      </g>
+
+      <rect x="22" y="22" width="84" height="68" rx="11" style={body} />
+
+      {/* Label window, cut as a cassette */}
+      <rect x="32" y="32" width="64" height="38" rx="7" style={ground} />
+      <rect x="50" y="48.5" width="28" height="5" style={accent} opacity="0.4" />
+      <g style={{ fill: 'none', stroke: 'var(--accent)' }} strokeWidth="4">
+        <circle cx="50" cy="51" r="9" />
+        <circle cx="78" cy="51" r="9" />
+      </g>
+      <circle cx="50" cy="51" r="2.5" style={accent} />
+      <circle cx="78" cy="51" r="2.5" style={accent} />
+
+      <rect x="36" y="76" width="56" height="4" rx="2" style={ground} opacity="0.5" />
+    </svg>
   )
 }
 

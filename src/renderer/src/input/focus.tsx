@@ -27,7 +27,7 @@ import {
 export type Direction = 'up' | 'down' | 'left' | 'right'
 
 /** Buttons the UI reacts to, named by intent rather than by index. */
-export type Action = 'confirm' | 'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight'
+export type Action = 'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight'
 
 interface FocusableEntry {
   id: string
@@ -44,13 +44,21 @@ interface FocusContextValue {
   move(direction: Direction): void
   activate(): void
   /** Subscribe to a non-directional action. Returns an unsubscribe function. */
-  onAction(action: Action, handler: () => void, layer?: number): () => void
-  pushLayer(): number
-  popLayer(layer: number): void
-  currentLayer: number
+  onAction(action: Action, handler: () => void, layer: number): () => void
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
+
+/**
+ * The layer a subtree's focusables belong to.
+ *
+ * Lexical rather than a stack: an overlay wraps its children in the next layer
+ * up, so what is behind it stops being reachable for exactly as long as it is
+ * mounted. A push/pop pair would have to run in an effect, and effects run
+ * child-first — the overlay's own buttons would have registered on the layer
+ * below before the push ever happened.
+ */
+const LayerContext = createContext(0)
 
 interface Rect {
   cx: number
@@ -109,12 +117,14 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const entries = useRef(new Map<string, FocusableEntry>())
   const actionHandlers = useRef(new Map<Action, { handler: () => void; layer: number }[]>())
   const [focusedId, setFocusedId] = useState<string | null>(null)
-  const [currentLayer, setCurrentLayer] = useState(0)
   const focusedRef = useRef<string | null>(null)
+  // Highest layer with anything on it: whatever is topmost owns the input.
   const layerRef = useRef(0)
+  // Where focus was on each layer, so closing an overlay puts it back rather
+  // than dropping the user at the top of the page behind it.
+  const restorePoints = useRef(new Map<number, string>())
 
   focusedRef.current = focusedId
-  layerRef.current = currentLayer
 
   const visibleEntries = useCallback((): FocusableEntry[] => {
     const layer = layerRef.current
@@ -126,23 +136,51 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const setFocus = useCallback((id: string): void => {
     const entry = entries.current.get(id)
     if (!entry) return
+    focusedRef.current = id
     setFocusedId(id)
     entry.element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
   }, [])
 
+  /**
+   * Recompute which layer owns the input, and make sure focus is on it.
+   *
+   * Called whenever a focusable comes or goes, which is the only thing that can
+   * change the answer: an overlay is simply a set of focusables one layer up.
+   */
+  const settleLayer = useCallback((): void => {
+    let top = 0
+    for (const entry of entries.current.values()) top = Math.max(top, entry.layer)
+
+    const previous = layerRef.current
+    if (top !== previous) {
+      if (focusedRef.current) restorePoints.current.set(previous, focusedRef.current)
+      layerRef.current = top
+      restorePoints.current.delete(previous > top ? previous : top)
+    }
+
+    const focused = focusedRef.current ? entries.current.get(focusedRef.current) : undefined
+    if (focused?.layer === top) return
+
+    const restored = restorePoints.current.get(top)
+    if (restored && entries.current.get(restored)?.layer === top) {
+      setFocus(restored)
+      return
+    }
+    const first = visibleEntries()[0] ?? [...entries.current.values()].find((e) => e.layer === top)
+    focusedRef.current = first?.id ?? null
+    setFocusedId(first?.id ?? null)
+  }, [setFocus, visibleEntries])
+
   const register = useCallback(
     (entry: FocusableEntry): (() => void) => {
       entries.current.set(entry.id, entry)
-      // Seed focus with the first thing that appears on the active layer.
-      if (focusedRef.current === null && entry.layer === layerRef.current) {
-        setFocusedId(entry.id)
-      }
+      settleLayer()
       return () => {
         entries.current.delete(entry.id)
-        if (focusedRef.current === entry.id) setFocusedId(null)
+        settleLayer()
       }
     },
-    []
+    [settleLayer]
   )
 
   const move = useCallback(
@@ -176,7 +214,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [])
 
   const onAction = useCallback(
-    (action: Action, handler: () => void, layer = 0): (() => void) => {
+    (action: Action, handler: () => void, layer: number): (() => void) => {
       const list = actionHandlers.current.get(action) ?? []
       const record = { handler, layer }
       list.push(record)
@@ -198,37 +236,12 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     target?.handler()
   }, [])
 
-  const pushLayer = useCallback((): number => {
-    const next = layerRef.current + 1
-    layerRef.current = next
-    setCurrentLayer(next)
-    setFocusedId(null)
-    return next
-  }, [])
-
-  const popLayer = useCallback((layer: number): void => {
-    const next = Math.max(0, layer - 1)
-    layerRef.current = next
-    setCurrentLayer(next)
-    setFocusedId(null)
-  }, [])
-
   useGamepad(move, fireAction, activate)
   useKeyboard(move, fireAction, activate)
 
   const value = useMemo<FocusContextValue>(
-    () => ({
-      register,
-      focusedId,
-      setFocus,
-      move,
-      activate,
-      onAction,
-      pushLayer,
-      popLayer,
-      currentLayer
-    }),
-    [register, focusedId, setFocus, move, activate, onAction, pushLayer, popLayer, currentLayer]
+    () => ({ register, focusedId, setFocus, move, activate, onAction }),
+    [register, focusedId, setFocus, move, activate, onAction]
   )
 
   return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
@@ -238,6 +251,15 @@ export function useFocusContext(): FocusContextValue {
   const ctx = useContext(FocusContext)
   if (!ctx) throw new Error('useFocusContext must be used inside a FocusProvider')
   return ctx
+}
+
+/**
+ * Put everything inside into its own focus layer, so nothing behind it can be
+ * reached until it unmounts. Wrapped around a modal's contents.
+ */
+export function FocusLayer({ children }: { children: ReactNode }): JSX.Element {
+  const layer = useContext(LayerContext)
+  return <LayerContext.Provider value={layer + 1}>{children}</LayerContext.Provider>
 }
 
 let nextId = 0
@@ -267,7 +289,8 @@ export function useFocusable(options: {
   autoFocus?: boolean
 }): UseFocusableResult {
   const { onSelect, enabled = true, autoFocus = false } = options
-  const { register, focusedId, setFocus, currentLayer } = useFocusContext()
+  const { register, focusedId, setFocus } = useFocusContext()
+  const layer = useContext(LayerContext)
   const ref = useRef<HTMLElement | null>(null)
   const idRef = useRef<string>('')
   if (!idRef.current) idRef.current = `focusable-${nextId++}`
@@ -279,13 +302,8 @@ export function useFocusable(options: {
 
   useEffect(() => {
     if (!enabled || !ref.current) return
-    return register({
-      id,
-      element: ref.current,
-      onSelect: () => selectRef.current?.(),
-      layer: currentLayer
-    })
-  }, [enabled, id, register, currentLayer])
+    return register({ id, element: ref.current, onSelect: () => selectRef.current?.(), layer })
+  }, [enabled, id, register, layer])
 
   useEffect(() => {
     if (autoFocus && enabled) setFocus(id)
@@ -305,14 +323,15 @@ export function useFocusable(options: {
 
 /** Register a handler for a controller action while the component is mounted. */
 export function useAction(action: Action, handler: () => void, enabled = true): void {
-  const { onAction, currentLayer } = useFocusContext()
+  const { onAction } = useFocusContext()
+  const layer = useContext(LayerContext)
   const handlerRef = useRef(handler)
   handlerRef.current = handler
 
   useEffect(() => {
     if (!enabled) return
-    return onAction(action, () => handlerRef.current(), currentLayer)
-  }, [action, enabled, onAction, currentLayer])
+    return onAction(action, () => handlerRef.current(), layer)
+  }, [action, enabled, onAction, layer])
 }
 
 // ---------------------------------------------------------------------------

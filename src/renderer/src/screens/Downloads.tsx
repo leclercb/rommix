@@ -15,9 +15,10 @@ const STATE_LABELS: Record<DownloadItem['state'], string> = {
 
 /** Transfer queue plus everything currently on local disk. */
 export function DownloadsScreen(): JSX.Element {
-  const { downloads, installed, navigate, notify, refreshInstalled } = useApp()
+  const { downloads, installed, navigate, notify, refreshInstalled, settings } = useApp()
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState<{ checked: number; total: number } | null>(null)
+  const [confirming, setConfirming] = useState<InstalledRom | null>(null)
 
   useEffect(() => window.rommix.library.onSyncProgress(setProgress), [])
 
@@ -82,6 +83,7 @@ export function DownloadsScreen(): JSX.Element {
   }, [installed])
 
   const remove = async (entry: InstalledRom): Promise<void> => {
+    setConfirming(null)
     try {
       await window.rommix.downloads.uninstall(entry.romId)
       await refreshInstalled()
@@ -169,12 +171,35 @@ export function DownloadsScreen(): JSX.Element {
                 key={entry.romId}
                 entry={entry}
                 onSelect={() => navigate({ name: 'detail', romId: entry.romId })}
-                onRemove={() => void remove(entry)}
+                // The same rule as the detail screen: this button is one A
+                // press away from deleting a game, so it asks unless the user
+                // has turned confirmation off.
+                onRemove={() =>
+                  settings?.confirmUninstall === false ? void remove(entry) : setConfirming(entry)
+                }
               />
             ))}
           </section>
         ))
       )}
+
+      {confirming ? (
+        <Overlay title="Uninstall this game?">
+          <p className="muted">
+            {confirming.fileName} will be deleted from{' '}
+            {confirming.path.replace(/\/[^/]*$/, '')}. Your saves on RomM are not touched, and you
+            can download it again at any time.
+          </p>
+          <div className="btn-row">
+            <FocusButton onSelect={() => setConfirming(null)} autoFocus>
+              Keep it
+            </FocusButton>
+            <FocusButton variant="danger" onSelect={() => void remove(confirming)}>
+              Uninstall, freeing {formatBytes(confirming.sizeBytes)}
+            </FocusButton>
+          </div>
+        </Overlay>
+      ) : null}
 
       <Hints
         items={[
@@ -224,12 +249,9 @@ function ProgressRow({
 }
 
 /**
- * One installed game.
- *
- * Shows the game's name rather than its filename — the two were previously the
- * same string printed twice, once as a title and once inside the path — with
- * the cover for recognition and every file the game is made of underneath, so
- * a multi-disc set is visibly more than one file.
+ * One installed game: the name RomM knows it by, its cover for recognition, and
+ * every file it is made of underneath, so a multi-disc set is visibly more than
+ * one file.
  */
 function InstalledRow({
   entry,

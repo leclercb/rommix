@@ -1,18 +1,17 @@
 /**
  * The shape of an emulator entry.
  *
- * RomMix used to model emulators as a closed union of two "runners", and a
- * single global preference picked one for the whole app. That one choice then
- * decided four unrelated things at once: where ROMs are written, which process
- * is spawned, where saves live, and where BIOS files go. A third emulator
- * breaks all four, because those decisions have different natural keys — ROMs
- * belong to a *platform*, a process belongs to a *platform + emulator* pair,
- * and BIOS layout belongs to the emulator alone.
+ * Everything RomMix needs to drive an emulator is declared here rather than
+ * decided in the code that uses it: where ROMs are written, which process is
+ * spawned, where saves and BIOS files live, and how the save tree is laid out.
+ * Those have different natural keys — ROMs belong to a *platform*, a process to
+ * a *platform + emulator* pair, and BIOS layout to the emulator alone — so a
+ * single "which emulator" preference cannot express them.
  *
- * A descriptor is therefore pure data plus one argv builder. It lives in
- * `shared` so it can be unit-tested without touching the filesystem; anything
- * that has to look at the machine — is it installed, where did it put its
- * config — is the main process's job, in `src/main/emulators.ts`.
+ * A descriptor is pure data plus one argv builder, so it can be unit-tested
+ * without touching the filesystem. Anything that has to look at the machine —
+ * is it installed, where did it put its config — is the main process's job, in
+ * `src/main/emulators.ts`.
  */
 
 /** Stable identifier for an emulator, e.g. 'retrodeck'. Persisted in settings. */
@@ -26,10 +25,9 @@ export type EmulatorId = string
  * RomMix names it, as with RetroArch, where the libretro core is chosen here
  * and passed on the command line.
  *
- * "Frontend vs standalone" was the earlier name and it read wrong: RetroArch is
- * plainly a frontend for libretro cores, yet it belongs on the `rommix` side
- * because RomMix picks the core. The distinction that matters is *who chooses*,
- * not how the program markets itself.
+ * The distinction is *who chooses*, not how the program markets itself:
+ * RetroArch is plainly a frontend for libretro cores, yet it belongs on the
+ * `rommix` side because RomMix picks the core.
  */
 export type EmulatorDispatch = 'self' | 'rommix'
 
@@ -96,15 +94,38 @@ export interface EmulationPaths {
  * How the emulator stores per-game save data, which decides how much of it
  * RomMix can meaningfully sync to RomM:
  *
- *  - `per-game-file`  one file named after the ROM (libretro `.srm`). Syncable.
- *  - `per-game-dir`   a directory per title, usually keyed by a title id rather
- *                     than the filename. Syncable, but as an archive.
+ *  - `per-game-file`  one file named after the ROM (libretro `.srm`). Synced.
+ *  - `per-game-dir`   a directory per title, keyed by a title id rather than by
+ *                     the ROM filename. Nothing here can be matched to a ROM,
+ *                     so RomMix skips it rather than syncing the wrong game's
+ *                     data.
  *  - `shared-device`  one memory card shared by every game (PCSX2, Dolphin).
  *                     Per-game sync is not expressible, so RomMix skips it.
  *  - `delegated`      a frontend's tree, whose layout depends on whichever
  *                     emulator the frontend chose. Walked heuristically.
  */
 export type SaveLayout = 'per-game-file' | 'per-game-dir' | 'shared-device' | 'delegated'
+
+/**
+ * How the save and state directories are arranged beneath their roots.
+ *
+ * `system-nested` is a frontend's convention: `<saves>/<es-de system>/…`, with
+ * standalone emulators one directory further down. `flat` is an emulator that
+ * writes into the root itself, which is what RetroArch does — walking a system
+ * subdirectory there would find nothing and, worse, *write* a pulled save into
+ * a folder the emulator never reads.
+ */
+export type SaveTree = 'system-nested' | 'flat'
+
+/** Extensions and patterns that identify save data on disk. */
+export interface SaveFileConventions {
+  /** Battery-save extensions, lowercase and including the dot. */
+  saveExtensions: readonly string[]
+  /** Matches a save state; libretro numbers them `.state1`, `.state2`, … */
+  statePattern: RegExp
+  /** How deep below a save root to look before giving up. */
+  maxDepth: number
+}
 
 export interface LaunchContext {
   /** argv prefix that starts the program, already wrapped for the sandbox. */
@@ -122,11 +143,10 @@ export interface EmulatorDescriptor {
   /**
    * ES-DE systems this emulator runs.
    *
-   * Always a concrete list, even for a frontend. An earlier design let a
-   * frontend declare 'delegated' — "it decides for itself" — which read as
-   * "everything" and was simply untrue: RetroDECK ships no Switch emulator, so
-   * Switch ROMs were routed to it and failed at launch. A list that can be
-   * wrong and corrected beats a claim that cannot be checked.
+   * Always a concrete list, even for a frontend that resolves the emulator
+   * itself: "it decides for itself" reads as "everything", and RetroDECK ships
+   * no Switch emulator, so a Switch ROM sent to it fails at launch. A list that
+   * can be wrong and corrected beats a claim that cannot be checked.
    */
   readonly systems: readonly string[]
   /**
@@ -146,6 +166,8 @@ export interface EmulatorDescriptor {
    */
   readonly dirs: Partial<Record<keyof EmulationPaths, DirSpec>>
   readonly saveLayout: SaveLayout
+  /** Arrangement below `dirs.saves` and `dirs.states`. */
+  readonly saveTree: SaveTree
   /** Set when RomMix can fetch and install this emulator itself. */
   readonly releases?: ReleaseSource
   /**
@@ -163,6 +185,7 @@ export interface EmulatorState {
   name: string
   dispatch: EmulatorDispatch
   saveLayout: SaveLayout
+  saveTree: SaveTree
   /** Installed, and usable right now. */
   available: boolean
   install: ResolvedInstall | null

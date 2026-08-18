@@ -22,7 +22,7 @@ import type {
 export type Route =
   | { name: 'connect' }
   | { name: 'home' }
-  | { name: 'library'; platformId?: number }
+  | { name: 'library' }
   | { name: 'detail'; romId: number }
   | { name: 'downloads' }
   | { name: 'bios' }

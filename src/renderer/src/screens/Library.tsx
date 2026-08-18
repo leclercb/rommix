@@ -15,11 +15,11 @@ const PAGE_SIZE = 60
  * sentinel into view and fetches the next page before the user arrives —
  * there is nothing to aim at and press.
  */
-export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Element {
+export function LibraryScreen(): JSX.Element {
   const { installedIds, navigate } = useApp()
 
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
-  const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(platformId)
+  const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [roms, setRoms] = useState<RommRom[]>([])

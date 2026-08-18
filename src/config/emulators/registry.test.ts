@@ -3,6 +3,8 @@ import { test } from 'node:test'
 import { ESDE_SYSTEMS } from '../systems.ts'
 import {
   EMULATORS,
+  RETRODECK_CONFIG,
+  SAVE_CONVENTIONS,
   defaultEmulatorFor,
   emulatorById,
   emulatorsForSystem,
@@ -24,6 +26,7 @@ function state(id: string, available: boolean): EmulatorState {
     name: descriptor.name,
     dispatch: descriptor.dispatch,
     saveLayout: descriptor.saveLayout,
+    saveTree: descriptor.saveTree,
     available,
     install: available ? { kind: 'flatpak', ref: 'test.app.Id' } : null,
     paths: { home: null, roms: '/roms', saves: null, states: null, bios: null },
@@ -46,10 +49,9 @@ test('every declared system is a real ES-DE system directory', () => {
 })
 
 test('RetroDECK declares Switch unsupported, because it ships no Switch emulator', () => {
-  // The bug this replaced: RetroDECK used to claim every system, so a Switch
-  // ROM was routed to it and failed at launch. ES-DE defines a `switch` entry,
-  // but its only live command resolves to a RetroDECK component that is not
-  // shipped.
+  // ES-DE defines a `switch` entry, but its only live command resolves to a
+  // RetroDECK component that is not shipped, so a ROM sent there fails at
+  // launch.
   assert.equal(supportsSystem(retrodeck, 'switch'), false)
   assert.equal(supportsSystem(retrodeck, 'snes'), true)
   assert.equal(supportsSystem(retrodeck, 'ps2'), true)
@@ -152,8 +154,6 @@ test('RetroArch is launched with the core mapped for the system', () => {
 })
 
 test('Eden takes the ROM path positionally, after the AppImage itself', () => {
-  // The AppImage is executed directly — no `appimage-run` helper, which only
-  // handles a squashfs payload and chokes on the DwarFS one Eden ships.
   const argv = eden.launch({
     exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
     system: 'switch',
@@ -217,4 +217,46 @@ test('Eden declares the environment it needs to open a window at all', () => {
 test('an emulator with nothing to declare has no environment', () => {
   assert.equal(retrodeck.env, undefined)
   assert.equal(retroarch.env, undefined)
+})
+
+test('every emulator declares where its saves live and how they are arranged', () => {
+  // Both halves are needed to find a save at all, and a missing one would only
+  // show up as "nothing to sync" long after the session that wrote it.
+  for (const emulator of EMULATORS) {
+    assert.ok(
+      emulator.saveTree === 'system-nested' || emulator.saveTree === 'flat',
+      `${emulator.id} declares no save tree`
+    )
+  }
+})
+
+test('a frontend nests saves per system and a standalone emulator does not', () => {
+  // RetroArch writes `<rom>.srm` straight into its save directory. Walking a
+  // system subdirectory would find nothing, and a pull would write the save
+  // into a folder RetroArch never reads.
+  assert.equal(retrodeck.saveTree, 'system-nested')
+  assert.equal(retroarch.saveTree, 'flat')
+})
+
+test('RetroDECK declares where its own configuration is, rather than main guessing', () => {
+  assert.equal(RETRODECK_CONFIG.json.file, 'retrodeck.json')
+  assert.equal(RETRODECK_CONFIG.json.keys.roms, 'roms_path')
+  assert.equal(RETRODECK_CONFIG.legacy.file, 'retrodeck.cfg')
+  assert.equal(RETRODECK_CONFIG.legacy.homeKey, 'rdhome')
+})
+
+test('save conventions cover the extensions emulators actually write', () => {
+  assert.ok(SAVE_CONVENTIONS.saveExtensions.includes('.srm'))
+  assert.ok(SAVE_CONVENTIONS.statePattern.test('game.state1'))
+  assert.ok(SAVE_CONVENTIONS.statePattern.test('game.auto'))
+  assert.equal(SAVE_CONVENTIONS.statePattern.test('game.srm'), false)
+})
+
+test('an emulator only declares a directory it really has', () => {
+  // A path that does not exist is worse than an absent one: the pre-flight
+  // check prints it as fact, and save sync reports "nothing found" for a tree
+  // that was never there.
+  assert.equal(eden.dirs.states, undefined)
+  assert.ok(eden.dirs.saves)
+  assert.ok(eden.dirs.bios)
 })

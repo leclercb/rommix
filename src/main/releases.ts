@@ -90,8 +90,7 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
 export async function installAsset(
   emulatorId: string,
   asset: EmulatorAsset,
-  onProgress: (progress: EmulatorInstallProgress) => void,
-  signal?: AbortSignal
+  onProgress: (progress: EmulatorInstallProgress) => void
 ): Promise<string> {
   const dir = managedEmulatorDir(emulatorId)
   await rm(dir, { recursive: true, force: true })
@@ -100,7 +99,7 @@ export async function installAsset(
   const destination = join(dir, asset.name)
   const partial = `${destination}.part`
 
-  const response = await fetch(asset.url, { signal })
+  const response = await fetch(asset.url)
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: ${asset.url} responded ${response.status}`)
   }

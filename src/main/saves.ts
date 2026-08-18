@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
+import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { EmulatorState, RemoteAsset, RommRom, SaveSyncResult } from '@shared/types'
 import type { RommClient } from './romm'
 import type { Store } from './store'
@@ -7,12 +8,13 @@ import type { Store } from './store'
 /**
  * Two-way save and save-state sync between RomM and the local emulator tree.
  *
- * The tree walked is the one belonging to whichever emulator ran the game.
- * RetroDECK keeps saves at `<saves_path>/<system>/…` and states at
- * `<states_path>/<system>/…`. Libretro cores write `<rom name>.srm` next to
- * that; standalone emulators nest one directory deeper under their own name.
- * Rather than encode every emulator's convention, RomMix walks a couple of
- * levels down and matches on the ROM's file stem.
+ * The tree walked is the one belonging to whichever emulator ran the game, and
+ * both where it starts and how it is shaped come from that emulator's
+ * descriptor: `paths.saves`/`paths.states` for the roots, and `saveTree` for
+ * whether they are nested per ES-DE system — a frontend's convention, where
+ * standalone emulators sit one directory deeper again — or flat, which is what
+ * RetroArch does. Below that, RomMix walks a couple of levels and matches on
+ * the ROM's file stem rather than encoding every emulator's own arrangement.
  *
  * RomM records which emulator produced each save, and RomMix sends the
  * descriptor id — so a RetroArch `.srm` is not pulled down into an emulator
@@ -28,15 +30,8 @@ import type { Store } from './store'
  * first. Losing a save file is far worse than an extra sync round-trip.
  */
 
-/** Extensions we treat as battery saves. */
-const SAVE_EXTENSIONS = new Set([
-  '.srm', '.sav', '.rtc', '.eep', '.fla', '.mcr', '.mcd', '.gme', '.dsv', '.ss0', '.bsv'
-])
-
-/** Save-state extensions; RetroArch numbers them .state1, .state2, … */
-const STATE_PATTERN = /\.(state|auto)\d*$/i
-
-const MAX_DEPTH = 3
+const SAVE_EXTENSIONS = new Set(SAVE_CONVENTIONS.saveExtensions)
+const { statePattern: STATE_PATTERN, maxDepth: MAX_DEPTH } = SAVE_CONVENTIONS
 
 interface LocalAsset {
   path: string
@@ -78,6 +73,18 @@ function canSyncPerGame(emulator: EmulatorState): boolean {
   return emulator.saveLayout === 'per-game-file' || emulator.saveLayout === 'delegated'
 }
 
+/**
+ * The directory this emulator's saves for one system actually live in.
+ *
+ * A frontend files them under the ES-DE system; a standalone emulator writes
+ * into its save directory itself. Getting this wrong is not merely a failed
+ * search: a pull would create `saves/snes/` beside the flat `saves/` the
+ * emulator reads, and the game would start with the save it had before.
+ */
+function saveDirFor(emulator: EmulatorState, root: string, system: string): string {
+  return emulator.saveTree === 'system-nested' ? join(root, system) : root
+}
+
 export class SaveSync {
   constructor(
     private readonly store: Store,
@@ -91,6 +98,7 @@ export class SaveSync {
    * how we detect "what did this play session actually write".
    */
   private async findLocal(
+    emulator: EmulatorState,
     root: string | null,
     system: string,
     rom: RommRom,
@@ -98,7 +106,7 @@ export class SaveSync {
     since = 0
   ): Promise<LocalAsset[]> {
     if (!root) return []
-    const systemDir = join(root, system)
+    const systemDir = saveDirFor(emulator, root, system)
     const stem = normaliseStem(rom.fs_name_no_ext)
     const results: LocalAsset[] = []
 
@@ -122,8 +130,9 @@ export class SaveSync {
       }
       if (info.mtimeMs <= since) continue
 
-      // If the file sits in a subdirectory of the system folder, that folder is
-      // the emulator name (RetroDECK's convention for standalone emulators).
+      // A file in a subdirectory of the system folder is named for the
+      // emulator that wrote it, which is how a frontend separates the
+      // standalone emulators it dispatches to.
       const relative = path.slice(systemDir.length + 1)
       const parts = relative.split('/')
       const emulator = parts.length > 1 ? parts[0] : null
@@ -237,8 +246,8 @@ export class SaveSync {
       kind === 'save' ? await this.client.saves(rom.id) : await this.client.states(rom.id)
     if (remote.length === 0) return 0
 
-    const local = await this.findLocal(root, system, rom, kind)
-    const targetDir = join(root, system)
+    const local = await this.findLocal(emulator, root, system, rom, kind)
+    const targetDir = saveDirFor(emulator, root, system)
     let written = 0
 
     for (const item of remote) {
@@ -288,8 +297,8 @@ export class SaveSync {
     system: string,
     since: number
   ): Promise<{ saves: number; states: number }> {
-    const saves = await this.findLocal(emulator.paths.saves, system, rom, 'save', since)
-    const states = await this.findLocal(emulator.paths.states, system, rom, 'state', since)
+    const saves = await this.findLocal(emulator, emulator.paths.saves, system, rom, 'save', since)
+    const states = await this.findLocal(emulator, emulator.paths.states, system, rom, 'state', since)
 
     let uploadedSaves = 0
     for (const asset of saves) {

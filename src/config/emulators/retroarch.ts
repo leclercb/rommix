@@ -32,6 +32,10 @@ export const retroarch: EmulatorDescriptor = {
     bios: { base: 'config', path: 'retroarch/system' }
   },
   saveLayout: 'per-game-file',
+  // RetroArch writes `<rom name>.srm` into the save directory itself. There is
+  // no per-system subdirectory to descend into, and pulling a save down into
+  // one would put it somewhere RetroArch never looks.
+  saveTree: 'flat',
   launch: ({ exec, system, romPath }) => {
     const core = coreForSystem(system)
     if (!core) return null

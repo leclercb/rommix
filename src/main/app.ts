@@ -64,10 +64,6 @@ export class RomMixApp {
     return resolveEmulator(this.emulatorCache, system, this.store.settings.systemEmulators)
   }
 
-  get emulators(): EmulatorState[] {
-    return this.emulatorCache ?? []
-  }
-
   send(channel: string, payload: unknown): void {
     if (this.window && !this.window.isDestroyed()) {
       this.window.webContents.send(channel, payload)

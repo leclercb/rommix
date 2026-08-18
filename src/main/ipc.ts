@@ -1,6 +1,6 @@
 import { app, ipcMain } from 'electron'
 import type { ConnectPayload } from '@shared/api'
-import { emulatorById } from '@config/emulators'
+import { EMULATORS, emulatorById } from '@config/emulators'
 import type {
   BiosReport,
   BiosSyncResult,
@@ -384,7 +384,15 @@ export function registerIpc(rommix: RomMixApp): void {
       )
     }
     if (!emulators.some((emulator) => emulator.available)) {
-      notes.push('No emulator found. Install RetroDECK (net.retrodeck.retrodeck) from Flathub.')
+      // Named from the registry rather than written out, so this cannot go on
+      // recommending an emulator RomMix has stopped shipping a descriptor for.
+      const suggestion = EMULATORS.find((descriptor) => descriptor.dispatch === 'self')
+      notes.push(
+        suggestion
+          ? `No emulator found. Install ${suggestion.name}, which covers most systems, from the ` +
+            'Emulators section above.'
+          : 'No emulator found. Install one from the Emulators section above.'
+      )
     } else {
       // Each descriptor already phrases its own problem; a half-usable install
       // is worth naming even when something else is available.
@@ -423,7 +431,6 @@ export function registerIpc(rommix: RomMixApp): void {
     }
   })
 
-  /** Where RomMix keeps its own files, and where it would by default. */
   /**
    * Install an emulator that ships as a flatpak.
    *
@@ -449,6 +456,7 @@ export function registerIpc(rommix: RomMixApp): void {
     await rommix.refreshEmulators()
   })
 
+  /** Where RomMix keeps its own files, and where it would by default. */
   handle('system:root', (): RootLocation => ({
     current: resolveRoot(),
     fallback: defaultRoot(),

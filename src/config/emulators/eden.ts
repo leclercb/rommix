@@ -3,14 +3,10 @@ import type { EmulatorDescriptor } from './types.ts'
 /**
  * Eden — a Nintendo Switch emulator continuing the Yuzu codebase.
  *
- * Eden is the descriptor that justifies the registry: it breaks every
- * assumption the RetroDECK/RetroArch pair quietly shared.
- *
  *  - It is **not on Flathub**. It ships as an AppImage from its own releases,
  *    so it is found by looking for a file rather than by `flatpak info`.
- *  - It covers **exactly one system**, so a single global "preferred emulator"
- *    can never be the right way to select it — that is what the per-system
- *    pin in `settings.systemEmulators` is for.
+ *  - It covers **exactly one system**, which is what the per-system pin in
+ *    `settings.systemEmulators` is for.
  *  - Its "BIOS" is **not a file you drop in a folder**. It needs `prod.keys`
  *    in the keys directory and a firmware *dump* under `nand/`, which is not a
  *    copy RomMix can perform. `dirs.bios` therefore points at the keys
@@ -23,9 +19,7 @@ import type { EmulatorDescriptor } from './types.ts'
  *
  * Being Yuzu-derived it follows the usual XDG layout — `~/.config/eden` and
  * `~/.local/share/eden` — which an AppImage uses directly, since it is not
- * sandboxed. The paths below are resolved from those roots, so the pre-flight
- * check in Settings prints exactly what RomMix concluded: verify them against
- * a real install before trusting the BIOS and save wiring.
+ * sandboxed.
  */
 export const eden: EmulatorDescriptor = {
   id: 'eden',
@@ -71,11 +65,12 @@ export const eden: EmulatorDescriptor = {
     // user can add under Eden's Game Directories to see them there too.
     roms: { base: 'rommix', path: 'roms' },
     saves: { base: 'data', path: 'eden/nand/user/save' },
-    // Yuzu-lineage emulators have no separate save-state tree; states live
-    // with the rest of the profile data.
-    states: { base: 'data', path: 'eden/states' },
+    // No `states`: Yuzu-lineage emulators keep save states inside the profile
+    // data rather than in a tree of their own, and naming a directory that does
+    // not exist would only make the diagnostics panel print a fiction.
     bios: { base: 'data', path: 'eden/keys' }
   },
   saveLayout: 'per-game-dir',
+  saveTree: 'flat',
   launch: ({ exec, romPath }) => [...exec, romPath]
 }

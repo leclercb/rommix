@@ -13,6 +13,20 @@ import type { EmulatorDescriptor, EmulatorId, EmulatorState } from './types.ts'
  */
 export const EMULATORS: readonly EmulatorDescriptor[] = [retrodeck, retroarch, eden]
 
+/**
+ * Directories an AppImage is plausibly sitting in, relative to the user's home.
+ *
+ * An AppImage is a loose file rather than an install, so there is nothing to
+ * query — it has to be looked for where people put them.
+ */
+export const APPIMAGE_SEARCH_DIRS: readonly (readonly string[])[] = [
+  ['Applications'],
+  ['.local', 'bin'],
+  ['.local', 'share', 'applications'],
+  ['Downloads'],
+  ['bin']
+]
+
 export function emulatorById(id: EmulatorId): EmulatorDescriptor | null {
   return EMULATORS.find((emulator) => emulator.id === id) ?? null
 }
@@ -87,7 +101,8 @@ export function isInstallableAsset(assetName: string, suffix: string): boolean {
 
 export { eden } from './eden.ts'
 export { retroarch } from './retroarch.ts'
-export { retrodeck } from './retrodeck.ts'
+export { retrodeck, RETRODECK_APP_ID, RETRODECK_CONFIG } from './retrodeck.ts'
+export { SAVE_CONVENTIONS } from './saves.ts'
 
 export type {
   DirBase,
@@ -101,5 +116,7 @@ export type {
   LaunchContext,
   ReleaseSource,
   ResolvedInstall,
-  SaveLayout
+  SaveFileConventions,
+  SaveLayout,
+  SaveTree
 } from './types.ts'

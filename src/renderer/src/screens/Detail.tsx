@@ -257,9 +257,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
           <FocusButton
             variant="danger"
             onSelect={() =>
-              // `confirmUninstall` existed as a setting but nothing honoured it,
-              // so a single A press on a focused danger button deleted a
-              // multi-gigabyte download outright.
+              // Without the confirmation, one A press on a focused danger
+              // button deletes a multi-gigabyte download outright.
               settings?.confirmUninstall === false ? void uninstall() : setConfirmingRemoval(true)
             }
             disabled={busy || running}

@@ -68,17 +68,16 @@ saying where the root is would otherwise live inside the root, it is resolved
 from `ROMMIX_HOME`, then a one-line pointer at `~/.config/rommix/root`, then
 the default.
 
-ROMs are the exception, and go to a single **library root** shared by every
-emulator — by default whatever folder the emulator for that platform already
-uses, so a RetroDECK library stays where ES-DE scrapes it. RetroDECK's own
-configuration is read from
+ROMs are the exception: they go into the ROM folder of the emulator that runs
+their platform, so a RetroDECK library stays where ES-DE scrapes it and a game
+downloaded for RetroArch is still there when RetroArch is started on its own.
+Emulators with no library of their own — RetroArch, Eden — are pointed at
+`roms/` inside the RomMix folder. RetroDECK's own configuration is read from
 `~/.var/app/net.retrodeck.retrodeck/config/retrodeck/retrodeck.json` rather
 than assuming `~/retrodeck`, since that path is user-selectable and frequently
-points at an SD card. One root works because every emulator is handed an
-absolute path at launch, so a ROM never has to sit inside the tree of the
-program that opens it.
+points at an SD card.
 
-The layout is `<library>/<es-de system>/`, which is not cosmetic: RetroDECK
+The layout below the root is `<roms>/<es-de system>/`, which is not cosmetic: RetroDECK
 infers the emulator from that path segment, and ES-DE scrapes the same shape.
 A single-file ROM lands as a file even when RomM zipped it for transport;
 genuine multi-file games (cue+bin, multi-disc) are unpacked into a directory,
@@ -86,7 +85,7 @@ and the file to launch is chosen from it — the `.m3u` or `.cue` rather than th
 much larger `.bin` it references.
 
 The RomM platform slug is translated to an ES-DE system directory by
-`src/shared/systems.ts`. When a platform has no mapping, RomMix **refuses to
+`src/config/systems.ts`. When a platform has no mapping, RomMix **refuses to
 guess** and tells you to pick a folder — installing to the wrong directory
 fails silently at launch time, which is far worse than an upfront error.
 
@@ -110,12 +109,23 @@ not a changed one, so an unplugged SD card does not make a library look empty.
 
 ### Emulators
 
-Emulators are entries in a registry (`src/shared/emulators/`) rather than a
+Emulators are entries in a registry (`src/config/emulators/`) rather than a
 union type in the code. Each is a descriptor: how it might be installed, which
-ES-DE systems it runs, where it keeps its folders, how its saves are laid out,
-and one function that builds the argv to start a game. It is pure data, so it
-is unit-tested without touching the filesystem; probing the machine — is it
-installed, where did it actually put its config — is `src/main/emulators.ts`.
+ES-DE systems it runs, where it keeps its folders, how its saves are laid out
+and arranged, and one function that builds the argv to start a game. It is pure
+data, so it is unit-tested without touching the filesystem; probing the machine
+— is it installed, where did it actually put its config — is
+`src/main/emulators.ts`.
+
+**Nothing about a particular emulator is written into the code that drives it.**
+RetroDECK's ROM root cannot be a template, because the user chooses it, so the
+descriptor declares *where that choice is recorded and what the keys are called*
+(`RETRODECK_CONFIG`) and the main process only does the reading. The save
+extensions emulators write, the folders AppImages are looked for in, and whether
+a save tree is nested per system or flat are all declarations too — that last
+one matters, because walking `saves/<system>/` for RetroArch, which writes
+straight into `saves/`, finds nothing and pulls remote saves down into a folder
+it never reads.
 
 The split exists because a single "which emulator" setting was deciding four
 things with different natural keys: ROMs belong to a *platform*, a process to a

@@ -5,10 +5,10 @@ import { ensureRoot } from './root'
 
 /** RomMix main process bootstrap. */
 
-// The root has to exist before the Store reads from it. Electron's own
-// userData is deliberately left alone: redirecting it dragged Chromium's
-// caches, cookies, GPU state and singleton locks into RomMix's folder, which
-// is meant to hold the handful of files RomMix itself writes.
+// The root has to exist before the Store reads from it. Electron's own userData
+// is deliberately left alone: it holds Chromium's caches, cookies, GPU state and
+// singleton locks, none of which belong in a folder meant to hold the handful of
+// files RomMix itself writes.
 ensureRoot()
 
 // Must run before `app.ready`.

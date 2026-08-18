@@ -210,9 +210,13 @@ function PairingOverlay({
     }
   }, [pairing, baseUrl, onPaired, onError])
 
+  // The address is whatever was typed into the field, which may well have no
+  // scheme — and a QR code of `romm.local/…` is one a phone cannot open. The
+  // main process normalises the same way before it talks to the server.
+  const origin = /^https?:\/\//i.test(baseUrl) ? baseUrl : `https://${baseUrl}`
   const verificationUrl = pairing.verification_path_complete.startsWith('http')
     ? pairing.verification_path_complete
-    : `${baseUrl}${pairing.verification_path_complete}`
+    : `${origin.replace(/\/+$/, '')}${pairing.verification_path_complete}`
 
   return (
     <Overlay title="Approve this device">

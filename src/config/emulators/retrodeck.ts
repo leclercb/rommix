@@ -58,9 +58,11 @@ const RETRODECK_STANDALONE_SYSTEMS = [
  * release; a newer one that adds an emulator is corrected per platform in
  * Settings rather than by waiting for a RomMix update.
  *
- * Its folders are not declared here: the ROM root is user-selectable
- * (internal storage vs SD card), so it is read from RetroDECK's own config by
- * `retroDeckPaths()` in src/main/emulators.ts.
+ * Its folders cannot be declared as `dirs` templates: the ROM root is
+ * user-selectable (internal storage vs SD card), so it is read from
+ * RetroDECK's own configuration. Where that configuration lives and what its
+ * keys are called is `RETRODECK_CONFIG` below; the reading of it is
+ * `src/main/emulators.ts`.
  */
 export const retrodeck: EmulatorDescriptor = {
   id: 'retrodeck',
@@ -73,5 +75,48 @@ export const retrodeck: EmulatorDescriptor = {
   ownsLibrary: true,
   dirs: {},
   saveLayout: 'delegated',
+  saveTree: 'system-nested',
   launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath]
 }
+
+/**
+ * Where RetroDECK records the folder layout the user chose, and what it calls
+ * each path.
+ *
+ * Two formats: current builds keep everything in `retrodeck.json`, older ones
+ * in a flat `key=value` `retrodeck.cfg`. Both are described because an install
+ * may predate the migration. The legacy file records only the home directory
+ * reliably, hence the subdirectory names to hang off it.
+ */
+export const RETRODECK_CONFIG = {
+  /** Relative to the flatpak's per-app tree, `~/.var/app/<app id>/`. */
+  configDir: ['config', 'retrodeck'],
+  json: {
+    file: 'retrodeck.json',
+    keys: {
+      home: 'rd_home_path',
+      roms: 'roms_path',
+      saves: 'saves_path',
+      states: 'states_path',
+      bios: 'bios_path'
+    }
+  },
+  legacy: {
+    file: 'retrodeck.cfg',
+    homeKey: 'rdhome',
+    keys: {
+      roms: 'roms_folder',
+      saves: 'saves_folder',
+      states: 'states_folder',
+      bios: 'bios_folder'
+    }
+  },
+  /** Used only when neither file can be read, and only if it really exists. */
+  fallback: {
+    home: 'retrodeck',
+    roms: 'roms',
+    saves: 'saves',
+    states: 'states',
+    bios: 'bios'
+  }
+} as const

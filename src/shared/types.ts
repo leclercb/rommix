@@ -291,7 +291,7 @@ export interface Settings {
   syncSavesDown: boolean
   /** Push saves/states back to RomM after the game exits. */
   syncSavesUp: boolean
-  /** Delete the local ROM file when uninstalling from the detail screen. */
+  /** Ask for confirmation before deleting a downloaded game. */
   confirmUninstall: boolean
   /** Stable identifier reported to RomM as this device. */
   deviceId: string

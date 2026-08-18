@@ -4,5 +4,6 @@ dist/
 build/
 .flatpak-builder/
 .direnv/
+*.tsbuildinfo
 *.local
 .DS_Store

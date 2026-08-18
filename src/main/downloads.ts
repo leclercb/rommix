@@ -20,11 +20,12 @@ import type { Store } from './store'
  * Downloads ROMs from RomM into the library, and reconciles the library with
  * what is already on disk.
  *
- * Layout is `<library root>/<es-de system>/<file>`. The system directory is
- * not cosmetic: RetroDECK infers which emulator to use by matching the
+ * Layout is `<the emulator's own ROM folder>/<es-de system>/<file>`. The root
+ * comes from the emulator that runs the platform, so a game stays visible to
+ * that emulator when it is started on its own. The system directory is not
+ * cosmetic either: RetroDECK infers which emulator to use by matching the
  * `roms/<system>/` path segment, so a correctly placed file needs no further
- * hints — and ES-DE scrapes the same layout. One root serves every emulator,
- * because each is handed an absolute path at launch.
+ * hints — and ES-DE scrapes the same layout.
  *
  * Transfers run one at a time. Parallel ROM downloads mostly just make each
  * one slower and thrash the disk on a handheld, and a serial queue keeps the

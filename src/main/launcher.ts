@@ -30,14 +30,6 @@ export class Launcher {
     private readonly saveSync: SaveSync
   ) {}
 
-  get isRunning(): boolean {
-    return this.current !== null
-  }
-
-  get runningRomId(): number | null {
-    return this.current?.romId ?? null
-  }
-
   /** Build the argv for an emulator, or null when it cannot run this system. */
   buildCommand(options: LaunchOptions): string[] | null {
     const { emulator, system, romPath } = options
