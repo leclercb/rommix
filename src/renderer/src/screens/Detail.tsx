@@ -30,8 +30,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const startDownload = async (): Promise<void> => {
     setBusy(true)
     try {
-      await window.rommix.downloads.start(romId)
-      notify('Download started')
+      const item = await window.rommix.downloads.start(romId)
+      // Already on disk: the main process adopts it instead of queueing, so
+      // saying "download started" would be a plain lie.
+      notify(item.state === 'done' ? 'Already downloaded' : 'Download started')
     } catch (cause) {
       notify((cause as Error).message, 'error')
     } finally {

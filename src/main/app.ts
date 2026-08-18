@@ -1,6 +1,6 @@
 import { BrowserWindow, protocol, shell } from 'electron'
 import { join } from 'node:path'
-import { chooseEmulator } from '@shared/emulators'
+import { resolveEmulator } from '@shared/emulators'
 import { DownloadManager } from './downloads'
 import { detectEmulators } from './emulators'
 import { Launcher } from './launcher'
@@ -35,6 +35,10 @@ export class RomMixApp {
       this.activeEmulator(system)
     )
     this.downloads.on('update', (items) => this.send('downloads:update', items))
+    // The renderer keeps its own copy of the installed list; without these it
+    // would still believe a game is missing right after RomMix adopted it.
+    this.downloads.on('installed', () => this.send('library:installed', this.store.installed))
+    this.downloads.on('adopted', (entries) => this.send('library:adopted', entries))
   }
 
   async refreshEmulators(): Promise<EmulatorState[]> {
@@ -53,12 +57,7 @@ export class RomMixApp {
    */
   activeEmulator(system?: string): EmulatorState | null {
     if (!this.emulatorCache) return null
-    const { emulatorPriority, systemEmulators } = this.store.settings
-    return chooseEmulator(this.emulatorCache, {
-      priority: emulatorPriority,
-      pinned: system ? systemEmulators[system] : undefined,
-      system
-    })
+    return resolveEmulator(this.emulatorCache, system, this.store.settings.systemEmulators)
   }
 
   get emulators(): EmulatorState[] {

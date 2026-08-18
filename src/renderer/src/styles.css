@@ -98,10 +98,10 @@ input {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: calc(var(--safe-y) + 8px) 24px var(--safe-y) var(--safe-x);
+  padding: calc(var(--safe-y) + 8px) 36px var(--safe-y) var(--safe-x);
   border-right: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.28);
-  min-width: 248px;
+  min-width: 268px;
 }
 
 .rail__brand {
@@ -293,18 +293,32 @@ input {
    Cover art and cards
    -------------------------------------------------------------------------- */
 
+/* A strict 3:4 tile.
+   The height comes from a padding-ratio spacer rather than `aspect-ratio`, and
+   nothing inside is in normal flow. Covers arrive from RomM at whatever
+   proportions the scraper found, and every softer approach lets one of them
+   influence the box: a percentage height against an `aspect-ratio` parent
+   resolves to `auto` (so the image takes its own intrinsic height and
+   `object-fit` never applies), and content in flow can push a flex container
+   past its ratio. Percentage padding always resolves against the *width*,
+   which is definite here, so every tile is exactly the same height whether it
+   holds a tall cover, a wide one, or the name fallback. */
 .cover {
   position: relative;
-  aspect-ratio: 3 / 4;
   border-radius: var(--radius);
   overflow: hidden;
   background: linear-gradient(150deg, #202836, #131821);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+}
+
+.cover::before {
+  content: '';
+  display: block;
+  padding-top: 133.333%;
 }
 
 .cover img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -312,15 +326,17 @@ input {
 }
 
 .cover__fallback {
+  position: absolute;
+  inset: 0;
   padding: 10px;
   font-size: 14px;
   font-weight: 650;
   text-align: center;
   color: var(--text-faint);
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card {
@@ -358,6 +374,96 @@ input {
   text-overflow: ellipsis;
 }
 
+/* --------------------------------------------------------------------------
+   Emulator list (Settings)
+   -------------------------------------------------------------------------- */
+
+.emulator {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+
+.emulator__rank {
+  font-size: 19px;
+  font-weight: 750;
+  color: var(--text-faint);
+  min-width: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.emulator__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.emulator__name {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.emulator__meta,
+.emulator__path {
+  font-size: 14px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.emulator__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emulator__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Installed / not-installed marker: a coloured dot plus a word, because on a
+   TV a colour alone is easy to miss and a word alone is easy to skim past. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 3px 11px 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.status::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status[data-state='ok'] {
+  color: var(--success);
+}
+
+.status[data-state='warn'] {
+  color: var(--warning);
+}
+
+.status[data-state='off'] {
+  color: var(--text-faint);
+}
+
 /* A small dot marking a ROM that is already on disk. */
 .card__installed {
   position: absolute;
@@ -388,8 +494,25 @@ input {
   display: none;
 }
 
+/* `min-width: 0` is load-bearing, not tidying.
+   A flex item defaults to `min-width: auto`, which resolves to its min-content
+   width — and `.card__title` is `white-space: nowrap`, so a long game name
+   reports a min-content width of the whole title. The `overflow: hidden` that
+   ellipsises it sits on the title, not on the flex item, so it does not zero
+   that contribution. Cards with long names were therefore rendering *wider*
+   than 168px, and because the cover's height is a percentage of its width,
+   wider meant taller. The covers differed in height because they differed in
+   width. */
 .row > * {
   flex: 0 0 168px;
+  min-width: 0;
+}
+
+/* Marks the end of an endless shelf. Overrides the card width above so it
+   occupies no meaningful space of its own. */
+.row__sentinel {
+  flex: 0 0 1px;
+  align-self: stretch;
 }
 
 .grid {
@@ -397,6 +520,12 @@ input {
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: 22px 18px;
   padding: 10px 4px 20px;
+}
+
+/* Same automatic-minimum-size trap as `.row > *`: a grid item also defaults to
+   `min-width: auto`, so a long title would push the card past its track. */
+.grid > * {
+  min-width: 0;
 }
 
 /* --------------------------------------------------------------------------

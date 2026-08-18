@@ -10,7 +10,10 @@ import type {
   RommRom,
   RommRomPage,
   RomQuery,
-  EmulatorState,
+  EmulatorAsset,
+  EmulatorInstallProgress,
+  EmulatorRelease,
+  RootLocation,
   Settings,
   AuthMode
 } from './types'
@@ -49,6 +52,10 @@ export interface RomMixBridge {
     roms(query: RomQuery): Promise<RommRomPage>
     rom(id: number): Promise<RommRom>
     installed(): Promise<InstalledRom[]>
+    /** The installed list changed — a download finished, or a ROM was adopted. */
+    onInstalledChanged(listener: (installed: InstalledRom[]) => void): () => void
+    /** ROMs found already on disk rather than downloaded. */
+    onAdopted(listener: (entries: InstalledRom[]) => void): () => void
   }
   downloads: {
     list(): Promise<DownloadItem[]>
@@ -66,8 +73,16 @@ export interface RomMixBridge {
   system: {
     settings(): Promise<Settings>
     updateSettings(patch: Partial<Settings>): Promise<Settings>
-    emulators(): Promise<EmulatorState[]>
+    /** Releases RomMix could install for an emulator that ships as a download. */
+    emulatorReleases(id: string): Promise<EmulatorRelease[]>
+    /** Download an asset and adopt it as that emulator's executable. */
+    installEmulator(id: string, asset: EmulatorAsset): Promise<string>
+    onInstallProgress(listener: (progress: EmulatorInstallProgress) => void): () => void
     diagnostics(): Promise<DiagnosticsReport>
+    root(): Promise<RootLocation>
+    /** Repoint RomMix's folder, copying the configuration across. Needs a restart. */
+    setRoot(path: string): Promise<RootLocation>
+    restart(): Promise<void>
     /** Turn a RomM asset path into a URL the renderer can put in an <img>. */
     imageUrl(path: string | null): string | null
     toggleFullscreen(): Promise<boolean>

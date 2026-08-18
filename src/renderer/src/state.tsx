@@ -118,6 +118,21 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     return window.rommix.game.onState((state) => setRunningRomId(state.running ? state.romId : null))
   }, [])
 
+  // The main process reconciles the library against the disk as pages load, so
+  // the installed list changes without anything here having asked for it.
+  useEffect(() => window.rommix.library.onInstalledChanged(setInstalled), [])
+
+  useEffect(() => {
+    return window.rommix.library.onAdopted((entries) => {
+      const count = entries.length
+      notify(
+        count === 1
+          ? `${entries[0].fileName} was already on disk — added to your library`
+          : `${count} games were already on disk — added to your library`
+      )
+    })
+  }, [notify])
+
   const installedIds = useMemo(() => new Set(installed.map((item) => item.romId)), [installed])
 
   const value = useMemo<AppState>(

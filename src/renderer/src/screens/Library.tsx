@@ -1,17 +1,19 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import type { RommPlatform, RommRom } from '@shared/types'
-import { FocusButton, GameCard, Hints, Spinner, TextField } from '../components'
+import { GameCard, Hints, Spinner, TextField } from '../components'
 import { useAction, useFocusable } from '../input/focus'
 import { useApp } from '../state'
 
 const PAGE_SIZE = 60
 
 /**
- * The full library browser: search, filter by platform, and a paginated grid.
+ * The full library browser: search, filter by platform, and an endless grid.
  *
- * Paging is explicit ("Load more") rather than infinite scroll — with a
- * controller you cannot flick a scrollbar, and a focusable button at the end of
- * the grid is something the spatial navigator can actually reach.
+ * Paging is driven by a sentinel below the grid rather than a "Load more"
+ * button. That works on a controller as well as a mouse because moving focus
+ * calls scrollIntoView, so navigating towards the bottom row scrolls the
+ * sentinel into view and fetches the next page before the user arrives —
+ * there is nothing to aim at and press.
  */
 export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Element {
   const { installedIds, navigate } = useApp()
@@ -25,6 +27,10 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const searchRef = useRef<HTMLDivElement | null>(null)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  // Synchronous guard: `loading` state lands a render too late to stop the
+  // observer firing several times while one request is still in flight.
+  const inFlight = useRef(false)
 
   useEffect(() => {
     void window.rommix.library
@@ -41,6 +47,8 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
 
   const load = useCallback(
     async (offset: number): Promise<void> => {
+      if (inFlight.current) return
+      inFlight.current = true
       setLoading(true)
       setError(null)
       try {
@@ -55,6 +63,7 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
       } catch (cause) {
         setError((cause as Error).message)
       } finally {
+        inFlight.current = false
         setLoading(false)
       }
     },
@@ -65,6 +74,28 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
   useEffect(() => {
     void load(0)
   }, [load])
+
+  /**
+   * Fetch the next page as the end of the grid comes into view.
+   *
+   * The margin is deliberately generous: a page is 60 covers, and starting the
+   * request a screenful early means the next rows are usually there by the time
+   * focus reaches them, so the grid never visibly stalls.
+   */
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    if (roms.length === 0 || roms.length >= total) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void load(roms.length)
+      },
+      { rootMargin: '600px 0px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [load, roms.length, total])
 
   // Y jumps to the search box, as the hint bar advertises.
   useAction('search', () => {
@@ -126,17 +157,18 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
         ))}
       </div>
 
+      {/* Sits directly below the grid: crossing it is what pulls the next page. */}
+      <div ref={sentinelRef} aria-hidden="true" />
+
       {loading ? <Spinner /> : null}
 
       {!loading && roms.length === 0 && !error ? (
         <div className="empty">No games match that search.</div>
       ) : null}
 
-      {!loading && roms.length < total ? (
-        <div className="btn-row">
-          <FocusButton onSelect={() => void load(roms.length)}>
-            Load more ({total - roms.length} remaining)
-          </FocusButton>
+      {!loading && roms.length > 0 && roms.length >= total ? (
+        <div className="empty" style={{ padding: '28px 0' }}>
+          That is all {total.toLocaleString()} of them.
         </div>
       ) : null}
 

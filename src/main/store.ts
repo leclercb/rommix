@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
-import { EMULATORS, normalisePriority } from '@shared/emulators'
 import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
 
 /**
@@ -38,7 +37,7 @@ const EMPTY_CREDENTIALS: StoredCredentials = {
 
 function defaultSettings(): Settings {
   return {
-    emulatorPriority: EMULATORS.map((emulator) => emulator.id),
+    libraryRoot: null,
     systemEmulators: {},
     emulatorPaths: {},
     pathOverrides: {},
@@ -54,23 +53,38 @@ function defaultSettings(): Settings {
 interface LegacySettings {
   /** Before emulators were a registry. */
   preferredRunner?: string
-  /** Before preference became an order rather than a single value. */
+  /** Before per-system choice replaced a single global preference. */
   preferredEmulator?: string
+  /** Before per-system choice replaced a global order. */
+  emulatorPriority?: string[]
 }
 
 /**
  * Carry settings written by an older RomMix forward.
  *
- * Both legacy keys held a single emulator id, which is just the head of a
- * priority list — so the value is promoted to the front and the registry order
- * fills in behind it, preserving what the user actually chose.
+ * All three legacy keys expressed a *global* preference, which the per-system
+ * map deliberately has no equivalent for: the whole point is that one emulator
+ * is not the right answer for every platform. They are dropped rather than
+ * translated — the defaults derived from the registry are a better answer than
+ * anything that could be reconstructed from them, and any real deviation is
+ * one choice per platform in Settings.
  */
 function migrateSettings(settings: Settings): Settings {
-  const { preferredRunner, preferredEmulator, ...rest } = settings as Settings & LegacySettings
-  const legacy = preferredEmulator ?? preferredRunner
+  const { preferredRunner, preferredEmulator, emulatorPriority, ...rest } = settings as Settings &
+    LegacySettings
+  void preferredRunner
+  void preferredEmulator
+  void emulatorPriority
 
-  const priority = legacy ? [legacy, ...rest.emulatorPriority] : rest.emulatorPriority
-  return { ...rest, emulatorPriority: normalisePriority(priority) }
+  return {
+    ...rest,
+    // The device name is what RomM lists this client as, and it is stored, so
+    // the rename to RomMix would otherwise only reach installs that had never
+    // run. Only the old default is rewritten — a name the user chose is theirs.
+    deviceName: rest.deviceName.startsWith('Rommix @')
+      ? rest.deviceName.replace(/^Rommix @/, 'RomMix @')
+      : rest.deviceName
+  }
 }
 
 /** Atomic JSON write, so a crash mid-write cannot truncate the file. */

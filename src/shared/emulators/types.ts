@@ -19,9 +19,10 @@
 export type EmulatorId = string
 
 /**
- * A frontend owns a library and resolves the real emulator itself: RetroDECK
- * reads its own es_systems.xml and honours the user's <altemulator>. A
- * standalone emulator runs the systems it declares and nothing else.
+ * A frontend owns a library and picks the real emulator itself once handed a
+ * system; a standalone emulator is that emulator. Both declare exactly which
+ * systems they run — the distinction only affects how they are launched and
+ * where their files live, never whether they can be trusted with a ROM.
  */
 export type EmulatorRole = 'frontend' | 'standalone'
 
@@ -37,16 +38,29 @@ export type InstallSpec =
   | { kind: 'binary'; names: readonly string[] }
   | { kind: 'appimage'; patterns: readonly string[] }
 
+/**
+ * Where an emulator's own releases can be listed, for emulators RomMix can
+ * install itself. Only Forgejo/Gitea-shaped APIs are modelled, which is what
+ * Eden publishes; a distro package or flatpak needs none of this.
+ */
+export interface ReleaseSource {
+  /** Endpoint returning the release list. */
+  api: string
+  /**
+   * Exact filename suffix of a usable download. An exact suffix rather than a
+   * substring on purpose: Eden ships `.AppImage.zsync` update files beside
+   * every `.AppImage`, and offering one as an emulator would be a download
+   * that cannot run.
+   */
+  assetSuffix: string
+  /** Human-readable home page, shown next to the picker. */
+  homepage: string
+}
+
 /** An install that was actually found. `ref` is a flatpak app id or a path. */
 export interface ResolvedInstall {
   kind: 'flatpak' | 'binary' | 'appimage'
   ref: string
-  /**
-   * Command that has to run the ref rather than the ref running itself. On
-   * NixOS an AppImage cannot execute directly — there is no generic loader —
-   * so it goes through `appimage-run`.
-   */
-  wrapper?: readonly string[]
 }
 
 /**
@@ -97,8 +111,16 @@ export interface EmulatorDescriptor {
   readonly name: string
   readonly role: EmulatorRole
   readonly install: readonly InstallSpec[]
-  /** ES-DE systems this emulator runs, or 'delegated' when it decides itself. */
-  readonly systems: readonly string[] | 'delegated'
+  /**
+   * ES-DE systems this emulator runs.
+   *
+   * Always a concrete list, even for a frontend. An earlier design let a
+   * frontend declare 'delegated' — "it decides for itself" — which read as
+   * "everything" and was simply untrue: RetroDECK ships no Switch emulator, so
+   * Switch ROMs were routed to it and failed at launch. A list that can be
+   * wrong and corrected beats a claim that cannot be checked.
+   */
+  readonly systems: readonly string[]
   /**
    * True when the emulator owns a folder layout that RomMix has to discover
    * rather than create — which also means it is unusable until the emulator
@@ -108,6 +130,8 @@ export interface EmulatorDescriptor {
   /** Path templates, resolved against whichever install was found. */
   readonly dirs: Partial<Record<keyof EmulationPaths, DirSpec>>
   readonly saveLayout: SaveLayout
+  /** Set when RomMix can fetch and install this emulator itself. */
+  readonly releases?: ReleaseSource
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
 }

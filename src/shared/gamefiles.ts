@@ -14,7 +14,7 @@ export interface GameFile {
 }
 
 /** Files that are never the thing you hand an emulator. */
-export const SIDECAR_EXTENSIONS: ReadonlySet<string> = new Set([
+const SIDECAR_EXTENSIONS: ReadonlySet<string> = new Set([
   '.txt', '.nfo', '.xml', '.dat', '.md5', '.sfv', '.sbi', '.sub', '.ccd', '.jpg', '.jpeg', '.png'
 ])
 
@@ -26,7 +26,7 @@ export const SIDECAR_EXTENSIONS: ReadonlySet<string> = new Set([
  * set is the `.m3u` rather than any single disc in it — which is also why the
  * playlist outranks the descriptor.
  */
-export const DESCRIPTOR_EXTENSIONS: readonly string[] = ['.m3u', '.cue', '.gdi']
+const DESCRIPTOR_EXTENSIONS: readonly string[] = ['.m3u', '.cue', '.gdi']
 
 /** Lowercase extension including the dot, or '' when there is none. */
 function extensionOf(name: string): string {

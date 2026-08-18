@@ -3,10 +3,11 @@ import { test } from 'node:test'
 import { ESDE_SYSTEMS } from '../systems.ts'
 import {
   EMULATORS,
-  chooseEmulator,
+  defaultEmulatorFor,
   emulatorById,
   emulatorsForSystem,
-  normalisePriority,
+  isInstallableAsset,
+  resolveEmulator,
   supportsSystem
 } from './index.ts'
 import { eden } from './eden.ts'
@@ -39,22 +40,32 @@ test('every declared system is a real ES-DE system directory', () => {
   // Same reasoning as the platform map: a typo here would quietly make an
   // emulator look incapable of running a system it handles fine.
   for (const emulator of EMULATORS) {
-    if (emulator.systems === 'delegated') continue
     const unknown = emulator.systems.filter((system) => !ESDE_SYSTEMS.has(system))
     assert.deepEqual(unknown, [], `${emulator.id} declares unknown systems`)
   }
 })
 
-test('a frontend supports every system, a standalone only what it declares', () => {
-  assert.equal(supportsSystem(retrodeck, 'switch'), true)
+test('RetroDECK declares Switch unsupported, because it ships no Switch emulator', () => {
+  // The bug this replaced: RetroDECK used to claim every system, so a Switch
+  // ROM was routed to it and failed at launch. ES-DE defines a `switch` entry,
+  // but its only live command resolves to a RetroDECK component that is not
+  // shipped.
+  assert.equal(supportsSystem(retrodeck, 'switch'), false)
+  assert.equal(supportsSystem(retrodeck, 'snes'), true)
+  assert.equal(supportsSystem(retrodeck, 'ps2'), true)
+})
+
+test('a standalone emulator supports only what it declares', () => {
   assert.equal(supportsSystem(retroarch, 'snes'), true)
   assert.equal(supportsSystem(retroarch, 'switch'), false)
+  assert.equal(supportsSystem(eden, 'switch'), true)
+  assert.equal(supportsSystem(eden, 'snes'), false)
 })
 
 test('emulatorsForSystem narrows to the ones that can run it', () => {
   assert.deepEqual(
     emulatorsForSystem('switch').map((emulator) => emulator.id),
-    ['retrodeck', 'eden']
+    ['eden']
   )
   assert.deepEqual(
     emulatorsForSystem('snes').map((emulator) => emulator.id),
@@ -66,88 +77,48 @@ test('unknown ids resolve to null rather than throwing', () => {
   assert.equal(emulatorById('not-a-real-emulator'), null)
 })
 
-const DEFAULT_ORDER = ['retrodeck', 'retroarch', 'eden']
+test('defaults follow registry order and do not depend on what is installed', () => {
+  assert.equal(defaultEmulatorFor('snes'), 'retrodeck')
+  assert.equal(defaultEmulatorFor('switch'), 'eden')
+  assert.equal(defaultEmulatorFor('not-a-system'), null)
+})
 
-test('the highest emulator in the order wins when several are available', () => {
+test('with nothing chosen, the first available emulator for the system wins', () => {
   const states = [state('retrodeck', true), state('retroarch', true)]
-  assert.equal(chooseEmulator(states, { priority: ['retroarch', 'retrodeck'] })?.id, 'retroarch')
+  assert.equal(resolveEmulator(states, 'snes')?.id, 'retrodeck')
 })
 
-test('an uninstalled entry is skipped for the next one down', () => {
+test('an uninstalled default degrades to one that is installed', () => {
   const states = [state('retrodeck', false), state('retroarch', true)]
-  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER })?.id, 'retroarch')
+  assert.equal(resolveEmulator(states, 'snes')?.id, 'retroarch')
 })
 
-test('an entry that cannot run the system is skipped, not treated as a failure', () => {
-  // The question a single global preference cannot answer. Eden sits at the
-  // top, yet an SNES ROM still reaches RetroArch, because position only
-  // matters among emulators that actually run the system.
-  const states = [state('retroarch', true), state('eden', true)]
-  const priority = ['eden', 'retroarch']
-  assert.equal(chooseEmulator(states, { priority, system: 'snes' })?.id, 'retroarch')
-  assert.equal(chooseEmulator(states, { priority, system: 'switch' })?.id, 'eden')
+test('a chosen emulator beats the default', () => {
+  const states = [state('retrodeck', true), state('retroarch', true)]
+  assert.equal(resolveEmulator(states, 'snes', { snes: 'retroarch' })?.id, 'retroarch')
 })
 
-test('the order decides between two emulators that both run a system', () => {
-  // The "two Switch emulators" case: both cover it, so the answer is whichever
-  // the user put higher — a single "preferred emulator" value could not say.
+test('a chosen emulator that is not installed fails rather than substituting', () => {
+  const states = [state('retrodeck', true), state('retroarch', false)]
+  assert.equal(resolveEmulator(states, 'snes', { snes: 'retroarch' }), null)
+})
+
+test('a choice cannot route a system to an emulator that does not run it', () => {
   const states = [state('retrodeck', true), state('eden', true)]
-  assert.equal(
-    chooseEmulator(states, { priority: ['eden', 'retrodeck'], system: 'switch' })?.id,
-    'eden'
-  )
-  assert.equal(
-    chooseEmulator(states, { priority: ['retrodeck', 'eden'], system: 'switch' })?.id,
-    'retrodeck'
-  )
+  assert.equal(resolveEmulator(states, 'snes', { snes: 'eden' }), null)
 })
 
-test('an emulator absent from the order is still usable, in registry order', () => {
-  const states = [state('retrodeck', true), state('eden', true)]
-  assert.equal(chooseEmulator(states, { priority: [], system: 'switch' })?.id, 'retrodeck')
+test('a choice for one system does not affect another', () => {
+  const states = [state('retrodeck', true), state('retroarch', true), state('eden', true)]
+  const chosen = { snes: 'retroarch' }
+  assert.equal(resolveEmulator(states, 'snes', chosen)?.id, 'retroarch')
+  assert.equal(resolveEmulator(states, 'ps2', chosen)?.id, 'retrodeck')
+  assert.equal(resolveEmulator(states, 'switch', chosen)?.id, 'eden')
 })
 
 test('no installed emulator runs the system resolves to null', () => {
-  const states = [state('retrodeck', false), state('retroarch', true)]
-  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER, system: 'switch' }), null)
-})
-
-test('nothing available resolves to null', () => {
-  const states = [state('retrodeck', false), state('retroarch', false)]
-  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER }), null)
-})
-
-test('a pin beats an order that would otherwise send the system elsewhere', () => {
-  const states = [state('retrodeck', true), state('eden', true)]
-  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER, system: 'switch' })?.id, 'retrodeck')
-  assert.equal(
-    chooseEmulator(states, { priority: DEFAULT_ORDER, pinned: 'eden', system: 'switch' })?.id,
-    'eden'
-  )
-})
-
-test('a pin to an unavailable emulator fails rather than silently substituting', () => {
   const states = [state('retrodeck', true), state('eden', false)]
-  assert.equal(
-    chooseEmulator(states, { priority: DEFAULT_ORDER, pinned: 'eden', system: 'switch' }),
-    null
-  )
-})
-
-test('a pin cannot route a system to an emulator that does not run it', () => {
-  const states = [state('retrodeck', true), state('eden', true)]
-  assert.equal(
-    chooseEmulator(states, { priority: DEFAULT_ORDER, pinned: 'eden', system: 'snes' }),
-    null
-  )
-})
-
-test('a stored order gains emulators added since it was written', () => {
-  assert.deepEqual(normalisePriority(['retroarch']), ['retroarch', 'retrodeck', 'eden'])
-})
-
-test('a stored order drops emulators that no longer exist', () => {
-  assert.deepEqual(normalisePriority(['yuzu', 'eden']), ['eden', 'retrodeck', 'retroarch'])
+  assert.equal(resolveEmulator(states, 'switch'), null)
 })
 
 test('RetroDECK is launched by system so it resolves the emulator itself', () => {
@@ -207,4 +178,33 @@ test('an emulator returns null rather than argv for a system it cannot run', () 
     romPath: '/roms/switch/game.nsp'
   })
   assert.equal(argv, null)
+})
+
+test('the zsync manifest beside every AppImage is not offered as a download', () => {
+  // Both are real asset names from Eden's release feed. A substring test would
+  // offer the second, which is a few kilobytes of update metadata rather than
+  // anything that runs.
+  assert.equal(isInstallableAsset('Eden-Linux-v0.2.1-amd64-clang-pgo.AppImage', '.AppImage'), true)
+  assert.equal(
+    isInstallableAsset('Eden-Linux-amd64-clang-pgo.AppImage.zsync', '.AppImage'),
+    false
+  )
+})
+
+test('other platforms\' assets are not offered either', () => {
+  for (const name of [
+    'Eden-Windows-v0.2.1-amd64-clang-pgo.zip',
+    'Eden-macOS-v0.2.1.dmg',
+    'Eden-Android-v0.2.1-standard.apk',
+    'Eden-v0.2.1.torrent'
+  ]) {
+    assert.equal(isInstallableAsset(name, '.AppImage'), false, name)
+  }
+})
+
+test('Eden declares a release source RomMix can install from', () => {
+  assert.ok(eden.releases)
+  // Not a GitHub mirror: github.com/eden-emulator/Releases answers 451.
+  assert.match(eden.releases.api, /^https:\/\/git\.eden-emu\.dev\//)
+  assert.equal(eden.releases.assetSuffix, '.AppImage')
 })

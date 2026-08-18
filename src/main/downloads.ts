@@ -23,11 +23,6 @@ import type { Store } from './store'
  * progress UI honest.
  */
 
-export interface DownloadEvents {
-  update: (items: DownloadItem[]) => void
-  installed: (entry: InstalledRom) => void
-}
-
 /** Reject absolute paths and `..` segments from zip entries (zip-slip). */
 function safeJoin(root: string, entryName: string): string | null {
   const cleaned = entryName.replace(/\\/g, '/').replace(/^\/+/, '')
@@ -232,24 +227,23 @@ export class DownloadManager extends EventEmitter {
           `systems, or an emulator for this one.`
       )
     }
-    if (!emulator.paths.roms) {
+    // One library root for everything, falling back to whatever the resolved
+    // emulator discovered. Emulators are handed an absolute path at launch, so
+    // the ROM does not need to sit inside the tree of the one that opens it.
+    const root = this.store.settings.libraryRoot ?? emulator.paths.roms
+    if (!root) {
       throw new RommError(
-        `${emulator.name} has no ROM folder configured. Run it once, or set the path in Settings.`
+        `No ROM folder is configured. Run ${emulator.name} once so RomMix can find its folders, ` +
+          `or set a ROM library folder in Settings.`
       )
     }
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
     // zip and are unpacked into their own directory.
     const asDirectory = rom.has_multiple_files
-    const dir = join(emulator.paths.roms, system)
+    const dir = join(root, system)
     const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, rom.fs_name)
     return { dir, path, system, asDirectory }
-  }
-
-  /** Where would this ROM be installed? Used by the UI before downloading. */
-  previewTarget(rom: RommRom): { path: string; system: string } {
-    const { path, system } = this.plan(rom)
-    return { path, system }
   }
 
   enqueue(rom: RommRom): DownloadItem {
@@ -374,7 +368,7 @@ export class DownloadManager extends EventEmitter {
     }
   }
 
-  private recordInstalled(rom: RommRom, system: string, installed: InstallResult): void {
+  private recordInstalled(rom: RommRom, system: string, installed: InstallResult): InstalledRom {
     const entry: InstalledRom = {
       romId: rom.id,
       path: installed.path,
@@ -387,6 +381,69 @@ export class DownloadManager extends EventEmitter {
     }
     this.store.addInstalled(entry)
     this.emit('installed', entry)
+    return entry
+  }
+
+  /**
+   * Adopt ROMs that are already on disk but missing from the index.
+   *
+   * `installed.json` records what RomMix downloaded; it is not the truth about
+   * the disk, and the two drift apart easily — the index moved with RomMix's
+   * folder while the ROMs stayed in the emulator's library, a backup was
+   * restored, or the files were put there by something else. Making the user
+   * download a game they already have because a JSON file went missing is the
+   * wrong answer, so each ROM the UI asks about is checked against the place
+   * it would have been installed to.
+   *
+   * Two stats per unknown ROM, and only for what is actually on screen.
+   */
+  async adopt(roms: readonly RommRom[]): Promise<InstalledRom[]> {
+    const adopted: InstalledRom[] = []
+    for (const rom of roms) {
+      if (this.store.getInstalled(rom.id)) continue
+
+      let target: { dir: string; system: string }
+      try {
+        target = this.plan(rom)
+      } catch {
+        // Unmapped platform, or no emulator can run it: nothing to look for.
+        continue
+      }
+
+      // The two shapes an install can take, matching what `unpack` produces.
+      const asFile = join(target.dir, rom.fs_name)
+      const asDirectory = join(target.dir, rom.fs_name_no_ext)
+
+      const fileInfo = await stat(asFile).catch(() => null)
+      if (fileInfo?.isFile()) {
+        adopted.push(
+          this.recordInstalled(rom, target.system, {
+            path: asFile,
+            launchPath: asFile,
+            sizeBytes: fileInfo.size,
+            isDirectory: false
+          })
+        )
+        continue
+      }
+
+      const dirInfo = await stat(asDirectory).catch(() => null)
+      if (dirInfo?.isDirectory()) {
+        adopted.push(
+          this.recordInstalled(rom, target.system, {
+            path: asDirectory,
+            launchPath: (await pickLaunchFile(asDirectory)) ?? asDirectory,
+            sizeBytes: await directorySize(asDirectory).catch(() => 0),
+            isDirectory: true
+          })
+        )
+      }
+    }
+
+    // Announced as a group: a library page can adopt dozens at once, and one
+    // notification per game would bury the screen.
+    if (adopted.length > 0) this.emit('adopted', adopted)
+    return adopted
   }
 
   /**

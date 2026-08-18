@@ -11,10 +11,11 @@ import type {
   ResolvedInstall
 } from '@shared/emulators'
 import type { Settings } from '@shared/types'
+import { managedEmulatorDir } from './releases'
 import {
-  appImageWrapper,
   binaryPath,
   findAppImage,
+  findMatchingFile,
   flatpakInstalled,
   realHome,
   xdgConfigHome,
@@ -49,8 +50,19 @@ async function resolveInstall(
   const configured = settings.emulatorPaths[descriptor.id]
   if (configured && existsSync(configured)) {
     return configured.toLowerCase().endsWith('.appimage')
-      ? { kind: 'appimage', ref: configured, wrapper: await appImageWrapper() }
+      ? { kind: 'appimage', ref: configured }
       : { kind: 'binary', ref: configured }
+  }
+
+  // Anything RomMix installed itself, before the generic search. A recorded
+  // path goes stale the moment the RomMix folder is renamed or moved, and
+  // re-finding the emulator where RomMix actually puts them beats falling
+  // through to a stray copy in ~/Downloads — or reporting it as missing when
+  // it is sitting right there.
+  for (const spec of descriptor.install) {
+    if (spec.kind !== 'appimage') continue
+    const managed = await findMatchingFile(managedEmulatorDir(descriptor.id), spec.patterns)
+    if (managed) return { kind: 'appimage', ref: managed }
   }
 
   for (const spec of descriptor.install) {
@@ -61,7 +73,7 @@ async function resolveInstall(
       if (path) return { kind: 'binary', ref: path }
     } else {
       const path = await findAppImage(spec.patterns)
-      if (path) return { kind: 'appimage', ref: path, wrapper: await appImageWrapper() }
+      if (path) return { kind: 'appimage', ref: path }
     }
   }
   return null
@@ -106,7 +118,7 @@ interface RetroDeckConfig {
 }
 
 /** Where RetroDECK keeps its own configuration inside its flatpak data dir. */
-export function retroDeckConfigDir(): string {
+function retroDeckConfigDir(): string {
   return join(realHome(), '.var', 'app', RETRODECK_APP_ID, 'config', 'retrodeck')
 }
 
@@ -192,10 +204,15 @@ const PATH_PROBES: Readonly<Record<string, () => EmulationPaths>> = {
 // Detection
 // ---------------------------------------------------------------------------
 
+/**
+ * `roms` is deliberately absent: where ROMs are written is a property of the
+ * library (`settings.libraryRoot`), not of each emulator, so overriding it
+ * here would have silently retargeted every emulator's own tree.
+ */
 function applyOverrides(paths: EmulationPaths, overrides: Partial<EmulationPaths>): EmulationPaths {
   return {
     home: overrides.home ?? paths.home,
-    roms: overrides.roms ?? paths.roms,
+    roms: paths.roms,
     saves: overrides.saves ?? paths.saves,
     states: overrides.states ?? paths.states,
     bios: overrides.bios ?? paths.bios

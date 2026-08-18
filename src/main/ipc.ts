@@ -1,14 +1,20 @@
 import { app, ipcMain } from 'electron'
 import type { ConnectPayload } from '@shared/api'
+import { emulatorById } from '@shared/emulators'
 import type {
   ConnectionStatus,
   DiagnosticsReport,
   DownloadItem,
+  EmulatorAsset,
+  EmulatorRelease,
   LaunchResult,
+  RootLocation,
   Settings
 } from '@shared/types'
 import type { RomMixApp } from './app'
 import { canSpawnHost, inFlatpak, isWritable } from './host'
+import { fetchReleases, installAsset } from './releases'
+import { defaultRoot, relocateRoot, resolveRoot } from './root'
 import { RommError, normaliseBaseUrl } from './romm'
 
 /**
@@ -118,8 +124,26 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('library:platforms', () => client.platforms())
   handle('library:collections', () => client.collections())
-  handle('library:roms', (query) => client.roms(query ?? {}))
-  handle('library:rom', (id: number) => client.rom(id))
+  /**
+   * The library, reconciled with the disk on the way past.
+   *
+   * A ROM already sitting where RomMix would install it counts as downloaded
+   * even if nothing in the index says so — which is what keeps moving the
+   * RomMix folder, or restoring it, from making a full library look empty.
+   */
+  handle('library:roms', async (query) => {
+    await rommix.ensureEmulators()
+    const page = await client.roms(query ?? {})
+    await downloads.adopt(page.items)
+    return page
+  })
+
+  handle('library:rom', async (id: number) => {
+    await rommix.ensureEmulators()
+    const rom = await client.rom(id)
+    await downloads.adopt([rom])
+    return rom
+  })
   handle('library:installed', () => store.installed)
 
   // -- downloads ------------------------------------------------------------
@@ -130,6 +154,24 @@ export function registerIpc(rommix: RomMixApp): void {
     // Probe first so an emulator installed since startup is seen.
     await rommix.ensureEmulators()
     const rom = await client.rom(romId)
+
+    // Check the disk before queueing anything. Without this, a game RomMix has
+    // simply not noticed yet gets downloaded again over the copy already there.
+    await downloads.adopt([rom])
+    const existing = store.getInstalled(romId)
+    if (existing) {
+      return {
+        romId,
+        name: rom.name ?? rom.fs_name,
+        system: existing.system,
+        state: 'done',
+        receivedBytes: existing.sizeBytes,
+        totalBytes: existing.sizeBytes,
+        error: null,
+        targetPath: existing.path
+      }
+    }
+
     return downloads.enqueue(rom)
   })
 
@@ -181,7 +223,40 @@ export function registerIpc(rommix: RomMixApp): void {
     return next
   })
 
-  handle('system:emulators', () => rommix.refreshEmulators())
+  /** Releases RomMix could install for this emulator, newest first. */
+  handle('emulators:releases', async (id: string): Promise<EmulatorRelease[]> => {
+    const descriptor = emulatorById(id)
+    if (!descriptor?.releases) {
+      throw new RommError(`RomMix cannot install ${descriptor?.name ?? id} for you`)
+    }
+    return fetchReleases(descriptor.releases)
+  })
+
+  /**
+   * Download an asset and adopt it as this emulator's executable.
+   *
+   * The path is recorded in settings rather than left to auto-discovery: the
+   * managed directory is deliberately not one of the folders scanned for a
+   * stray AppImage, so what RomMix installed is always explicit.
+   */
+  handle('emulators:install', async (id: string, asset: EmulatorAsset): Promise<string> => {
+    const descriptor = emulatorById(id)
+    if (!descriptor?.releases) {
+      throw new RommError(`RomMix cannot install ${descriptor?.name ?? id} for you`)
+    }
+    if (!asset.name.endsWith(descriptor.releases.assetSuffix)) {
+      throw new RommError(`${asset.name} is not something RomMix can run`)
+    }
+
+    const path = await installAsset(id, asset, (progress) =>
+      rommix.send('emulators:progress', progress)
+    )
+    store.updateSettings({
+      emulatorPaths: { ...store.settings.emulatorPaths, [id]: path }
+    })
+    await rommix.refreshEmulators()
+    return path
+  })
 
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
     const emulators = await rommix.refreshEmulators()
@@ -221,6 +296,29 @@ export function registerIpc(rommix: RomMixApp): void {
       romsWritable,
       notes
     }
+  })
+
+  /** Where RomMix keeps its own files, and where it would by default. */
+  handle('system:root', (): RootLocation => ({
+    current: resolveRoot(),
+    fallback: defaultRoot(),
+    fromEnvironment: Boolean(process.env.ROMMIX_HOME?.trim())
+  }))
+
+  handle('system:setRoot', (next: string): RootLocation => {
+    const target = next.trim()
+    if (!target.startsWith('/')) {
+      throw new RommError('The RomMix folder must be an absolute path')
+    }
+    // Copies the configuration across and repoints; the move only takes effect
+    // once Electron restarts, since userData is fixed before the app starts.
+    relocateRoot(target)
+    return { current: target, fallback: defaultRoot(), fromEnvironment: false }
+  })
+
+  handle('system:restart', () => {
+    app.relaunch()
+    app.exit(0)
   })
 
   handle('system:toggleFullscreen', () => rommix.toggleFullscreen())

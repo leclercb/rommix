@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useMemo, useState, type ReactNode, type Ref } from 'react'
+import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
 import { useFocusable } from './input/focus'
 import type { RommRom } from '@shared/types'
@@ -191,23 +191,52 @@ export function GameCard({
   )
 }
 
-/** A horizontally scrolling shelf of games. */
+/**
+ * A horizontally scrolling shelf of games.
+ *
+ * `onEndReached` makes the shelf endless. The sentinel is observed against the
+ * row itself rather than the viewport, because this scroller moves sideways
+ * independently of the page — and the margin is horizontal so the next batch
+ * is requested while the end of the shelf is still off to the right.
+ */
 export function GameRow({
   title,
   roms,
   installedIds,
-  onSelect
+  onSelect,
+  onEndReached
 }: {
   title: string
   roms: RommRom[]
   installedIds: Set<number>
   onSelect: (rom: RommRom) => void
+  onEndReached?: () => void
 }): JSX.Element | null {
+  const rowRef = useRef<HTMLDivElement | null>(null)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const row = rowRef.current
+    const sentinel = sentinelRef.current
+    if (!onEndReached || !row || !sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) onEndReached()
+      },
+      { root: row, rootMargin: '0px 600px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [onEndReached, roms.length])
+
+  // After the hooks: bailing earlier would call a different number of them.
   if (roms.length === 0) return null
+
   return (
     <section>
       <h2 className="section-title">{title}</h2>
-      <div className="row">
+      <div className="row" ref={rowRef}>
         {roms.map((rom) => (
           <GameCard
             key={rom.id}
@@ -217,6 +246,9 @@ export function GameRow({
             showPlatform
           />
         ))}
+        {onEndReached ? (
+          <div className="row__sentinel" ref={sentinelRef} aria-hidden="true" />
+        ) : null}
       </div>
     </section>
   )

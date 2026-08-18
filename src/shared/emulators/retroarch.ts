@@ -1,7 +1,7 @@
 import { ESDE_TO_LIBRETRO_CORE, coreForSystem } from '../systems.ts'
 import type { EmulatorDescriptor } from './types.ts'
 
-export const RETROARCH_APP_ID = 'org.libretro.RetroArch'
+const RETROARCH_APP_ID = 'org.libretro.RetroArch'
 
 /**
  * Standalone RetroArch.

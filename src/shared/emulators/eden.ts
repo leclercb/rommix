@@ -38,6 +38,17 @@ export const eden: EmulatorDescriptor = {
     { kind: 'appimage', patterns: ['eden*.appimage'] }
   ],
   systems: ['switch'],
+  /**
+   * Eden's own Forgejo instance, not a GitHub mirror: the
+   * github.com/eden-emulator/Releases repository answers HTTP 451, having been
+   * blocked following a DMCA notice, so anything built against it would be
+   * dead on arrival. This endpoint needs no authentication.
+   */
+  releases: {
+    api: 'https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases',
+    assetSuffix: '.AppImage',
+    homepage: 'https://eden-emu.dev'
+  },
   ownsLibrary: false,
   dirs: {
     saves: { base: 'data', path: 'eden/nand/user/save' },

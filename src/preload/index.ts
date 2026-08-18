@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ConnectPayload, GameState, RomMixBridge } from '@shared/api'
-import type { DownloadItem, RomQuery, Settings } from '@shared/types'
+import type {
+  DownloadItem,
+  InstalledRom,
+  EmulatorAsset,
+  EmulatorInstallProgress,
+  RomQuery,
+  Settings
+} from '@shared/types'
 
 /**
  * The only channel between the renderer and the outside world.
@@ -30,7 +37,11 @@ const bridge: RomMixBridge = {
     collections: () => ipcRenderer.invoke('library:collections'),
     roms: (query: RomQuery) => ipcRenderer.invoke('library:roms', query),
     rom: (id: number) => ipcRenderer.invoke('library:rom', id),
-    installed: () => ipcRenderer.invoke('library:installed')
+    installed: () => ipcRenderer.invoke('library:installed'),
+    onInstalledChanged: (listener: (installed: InstalledRom[]) => void) =>
+      subscribe<InstalledRom[]>('library:installed', listener),
+    onAdopted: (listener: (entries: InstalledRom[]) => void) =>
+      subscribe<InstalledRom[]>('library:adopted', listener)
   },
   downloads: {
     list: () => ipcRenderer.invoke('downloads:list'),
@@ -49,8 +60,15 @@ const bridge: RomMixBridge = {
   system: {
     settings: () => ipcRenderer.invoke('system:settings'),
     updateSettings: (patch: Partial<Settings>) => ipcRenderer.invoke('system:updateSettings', patch),
-    emulators: () => ipcRenderer.invoke('system:emulators'),
+    emulatorReleases: (id: string) => ipcRenderer.invoke('emulators:releases', id),
+    installEmulator: (id: string, asset: EmulatorAsset) =>
+      ipcRenderer.invoke('emulators:install', id, asset),
+    onInstallProgress: (listener: (progress: EmulatorInstallProgress) => void) =>
+      subscribe<EmulatorInstallProgress>('emulators:progress', listener),
     diagnostics: () => ipcRenderer.invoke('system:diagnostics'),
+    root: () => ipcRenderer.invoke('system:root'),
+    setRoot: (path: string) => ipcRenderer.invoke('system:setRoot', path),
+    restart: () => ipcRenderer.invoke('system:restart'),
     // Synchronous on purpose: it only builds a URL string, and <img src> needs
     // it during render.
     imageUrl: (path: string | null) =>

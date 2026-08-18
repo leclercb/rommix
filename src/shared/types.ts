@@ -251,16 +251,11 @@ import type { EmulatorId, EmulationPaths, EmulatorState } from './emulators/type
 
 export interface Settings {
   /**
-   * Emulators in order of preference. RomMix uses the first one that is
-   * installed *and* can run the system in hand, so an emulator that covers a
-   * single system can sit anywhere in the list without affecting the rest.
-   */
-  emulatorPriority: EmulatorId[]
-  /**
-   * ES-DE system -> emulator id, pinning one system to one emulator. Honoured
-   * strictly: a pinned emulator that is not installed is an error rather than
-   * a silent fallback. This is the only way to reach a single-system emulator
-   * when a frontend that delegates every system is also installed.
+   * ES-DE system -> emulator id: which emulator runs each platform.
+   *
+   * Only systems the user has actually chosen for are stored; anything absent
+   * uses `defaultEmulatorFor()`. A recorded choice is honoured strictly — an
+   * emulator that is not installed is reported rather than silently swapped.
    */
   systemEmulators: Record<string, EmulatorId>
   /**
@@ -268,7 +263,19 @@ export interface Settings {
    * find it. AppImages in particular live wherever the user put them.
    */
   emulatorPaths: Record<EmulatorId, string>
-  /** Override the auto-discovered ROM/save/state roots. */
+  /**
+   * Where ROMs are written, overriding the folder discovered from whichever
+   * emulator would run them.
+   *
+   * One root for the whole library, not one per emulator. Every emulator
+   * RomMix drives is handed an absolute path at launch, so a ROM does not have
+   * to live inside the tree of the emulator that opens it — and once a
+   * platform can be pointed at any emulator, a per-emulator ROM folder would
+   * mean the same game landing in a different place depending on a setting
+   * that has nothing to do with storage.
+   */
+  libraryRoot: string | null
+  /** Override the auto-discovered save/state roots. */
   pathOverrides: Partial<EmulationPaths>
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
   systemOverrides: Record<string, string>
@@ -325,6 +332,41 @@ export interface LaunchResult {
   uploadedSaves: number
   uploadedStates: number
   playSeconds: number
+}
+
+/** A downloadable file attached to an emulator release. */
+export interface EmulatorAsset {
+  name: string
+  url: string
+  /** 0 when the release API does not report it, which Eden's does not. */
+  sizeBytes: number
+}
+
+/** One release of an emulator RomMix can install itself. */
+export interface EmulatorRelease {
+  tag: string
+  name: string
+  prerelease: boolean
+  publishedAt: string | null
+  /** Only assets RomMix can actually run; never empty. */
+  assets: EmulatorAsset[]
+}
+
+/** Emitted on `emulators:progress` while an emulator is downloading. */
+export interface EmulatorInstallProgress {
+  emulatorId: EmulatorId
+  assetName: string
+  receivedBytes: number
+  totalBytes: number
+}
+
+/** Where RomMix keeps everything it owns. */
+export interface RootLocation {
+  current: string
+  /** What it would be with nothing configured. */
+  fallback: string
+  /** Set by ROMMIX_HOME, which overrides the stored pointer and cannot be changed here. */
+  fromEnvironment: boolean
 }
 
 /** Result of the pre-flight check shown on the Settings screen. */

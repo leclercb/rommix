@@ -14,7 +14,7 @@ import type { SaveSync } from './saves'
  * afterwards, reporting the session — is the same whichever emulator ran.
  */
 
-export interface LaunchOptions {
+interface LaunchOptions {
   rom: RommRom
   romPath: string
   system: string

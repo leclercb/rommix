@@ -1,5 +1,5 @@
-import { type JSX, useEffect, useState } from 'react'
-import type { RommRom } from '@shared/types'
+import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
+import type { RommRom, RomQuery } from '@shared/types'
 import { CoverArt, GameRow, Hints, Spinner } from '../components'
 import { useApp } from '../state'
 
@@ -8,37 +8,81 @@ import { useApp } from '../state'
  * mirroring how RomM's own home page groups a library.
  */
 
-interface Shelves {
-  continuePlaying: RommRom[]
-  favourites: RommRom[]
-  recentlyAdded: RommRom[]
+const SHELF_PAGE = 20
+
+interface Shelf {
+  items: RommRom[]
+  total: number
+  loaded: boolean
+  error: string | null
+  loadMore: () => void
+}
+
+/**
+ * One shelf: a query plus its own offset, so scrolling one to the end pages
+ * that shelf alone and leaves the others where they are.
+ *
+ * The query is serialised to key the effect. Callers pass an object literal,
+ * which is a new reference every render, and comparing it by identity would
+ * refetch the shelf on each one.
+ */
+function useShelf(query: RomQuery): Shelf {
+  const [items, setItems] = useState<RommRom[]>([])
+  const [total, setTotal] = useState(0)
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // Synchronous guard: `loaded` lands a render too late to stop the row's
+  // observer firing again while a request is already out.
+  const inFlight = useRef(false)
+
+  const key = JSON.stringify(query)
+
+  const fetchPage = useCallback(
+    async (offset: number): Promise<void> => {
+      if (inFlight.current) return
+      inFlight.current = true
+      try {
+        const page = await window.rommix.library.roms({
+          ...(JSON.parse(key) as RomQuery),
+          limit: SHELF_PAGE,
+          offset
+        })
+        setTotal(page.total)
+        setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]))
+      } catch (cause) {
+        setError((cause as Error).message)
+      } finally {
+        inFlight.current = false
+        setLoaded(true)
+      }
+    },
+    [key]
+  )
+
+  useEffect(() => {
+    void fetchPage(0)
+  }, [fetchPage])
+
+  const loadMore = useCallback(() => {
+    if (items.length > 0 && items.length < total) void fetchPage(items.length)
+  }, [fetchPage, items.length, total])
+
+  return { items, total, loaded, error, loadMore }
 }
 
 export function HomeScreen(): JSX.Element {
-  const { installedIds, navigate, installed } = useApp()
-  const [shelves, setShelves] = useState<Shelves | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [highlight, setHighlight] = useState<RommRom | null>(null)
+  const { installedIds, navigate } = useApp()
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [played, favourites, recent] = await Promise.all([
-          window.rommix.library.roms({ last_played: true, limit: 20, order_by: 'last_played', order_dir: 'desc' }),
-          window.rommix.library.roms({ favorite: true, limit: 20 }),
-          window.rommix.library.roms({ limit: 20, order_by: 'created_at', order_dir: 'desc' })
-        ])
-        setShelves({
-          continuePlaying: played.items,
-          favourites: favourites.items,
-          recentlyAdded: recent.items
-        })
-        setHighlight(played.items[0] ?? recent.items[0] ?? null)
-      } catch (cause) {
-        setError((cause as Error).message)
-      }
-    })()
-  }, [])
+  const continuePlaying = useShelf({
+    last_played: true,
+    order_by: 'last_played',
+    order_dir: 'desc'
+  })
+  const favourites = useShelf({ favorite: true })
+  const recentlyAdded = useShelf({ order_by: 'created_at', order_dir: 'desc' })
+
+  const error = continuePlaying.error ?? favourites.error ?? recentlyAdded.error
+  const ready = continuePlaying.loaded && favourites.loaded && recentlyAdded.loaded
 
   if (error) {
     return (
@@ -49,7 +93,7 @@ export function HomeScreen(): JSX.Element {
     )
   }
 
-  if (!shelves) {
+  if (!ready) {
     return (
       <div className="content">
         <Spinner />
@@ -57,11 +101,13 @@ export function HomeScreen(): JSX.Element {
     )
   }
 
-  // Games already on disk, resolved from the shelves we have loaded.
-  const onDisk = [...shelves.continuePlaying, ...shelves.favourites, ...shelves.recentlyAdded]
+  // Games already on disk, resolved from whatever the shelves have loaded so
+  // far — so this shelf grows as the others are scrolled.
+  const onDisk = [...continuePlaying.items, ...favourites.items, ...recentlyAdded.items]
     .filter((rom, index, all) => all.findIndex((r) => r.id === rom.id) === index)
     .filter((rom) => installedIds.has(rom.id))
 
+  const highlight = continuePlaying.items[0] ?? recentlyAdded.items[0] ?? null
   const open = (rom: RommRom): void => navigate({ name: 'detail', romId: rom.id })
 
   return (
@@ -70,32 +116,31 @@ export function HomeScreen(): JSX.Element {
 
       <GameRow
         title="Continue playing"
-        roms={shelves.continuePlaying}
+        roms={continuePlaying.items}
         installedIds={installedIds}
         onSelect={open}
+        onEndReached={continuePlaying.loadMore}
       />
-      <GameRow
-        title="Ready to play"
-        roms={onDisk}
-        installedIds={installedIds}
-        onSelect={open}
-      />
+      {/* No onEndReached: this shelf is a filter over the others, not a query. */}
+      <GameRow title="Ready to play" roms={onDisk} installedIds={installedIds} onSelect={open} />
       <GameRow
         title="Favourites"
-        roms={shelves.favourites}
+        roms={favourites.items}
         installedIds={installedIds}
         onSelect={open}
+        onEndReached={favourites.loadMore}
       />
       <GameRow
         title="Recently added"
-        roms={shelves.recentlyAdded}
+        roms={recentlyAdded.items}
         installedIds={installedIds}
         onSelect={open}
+        onEndReached={recentlyAdded.loadMore}
       />
 
-      {shelves.continuePlaying.length === 0 &&
-      shelves.recentlyAdded.length === 0 &&
-      shelves.favourites.length === 0 ? (
+      {continuePlaying.items.length === 0 &&
+      recentlyAdded.items.length === 0 &&
+      favourites.items.length === 0 ? (
         <div className="empty">
           Your RomM library looks empty. Add some ROMs on the server and run a scan.
         </div>
@@ -108,9 +153,6 @@ export function HomeScreen(): JSX.Element {
           { key: 'B', label: 'Back' }
         ]}
       />
-      <div className="faint" style={{ marginTop: 24, fontSize: 14 }}>
-        {installed.length} game{installed.length === 1 ? '' : 's'} downloaded locally
-      </div>
     </div>
   )
 }

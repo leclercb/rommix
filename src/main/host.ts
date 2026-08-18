@@ -29,7 +29,7 @@ export function inFlatpak(): boolean {
  * flatpak-spawn (which needs --talk-name=org.freedesktop.Flatpak in the
  * manifest). Outside a sandbox the command is returned untouched.
  */
-export function hostCommand(argv: string[]): string[] {
+function hostCommand(argv: string[]): string[] {
   return inFlatpak() ? ['flatpak-spawn', '--host', ...argv] : argv
 }
 
@@ -111,42 +111,45 @@ function appImageDirs(): string[] {
  * pattern is escaped so a descriptor cannot inject regex of its own.
  */
 export async function findAppImage(patterns: readonly string[]): Promise<string | null> {
+  for (const dir of appImageDirs()) {
+    const hit = await findMatchingFile(dir, patterns)
+    if (hit) return hit
+  }
+  return null
+}
+
+/** First file in `dir` matching one of the globs, or null. */
+export async function findMatchingFile(
+  dir: string,
+  patterns: readonly string[]
+): Promise<string | null> {
   const matchers = patterns.map(
     (pattern) =>
       new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*')}$`, 'i')
   )
 
-  for (const dir of appImageDirs()) {
-    let entries: string[]
-    try {
-      entries = await readdir(dir)
-    } catch {
-      continue
-    }
-    const hit = entries.find((entry) => matchers.some((matcher) => matcher.test(entry)))
-    if (hit) return join(dir, hit)
+  let entries: string[]
+  try {
+    entries = await readdir(dir)
+  } catch {
+    return null
   }
-  return null
+  const hit = entries.find((entry) => matchers.some((matcher) => matcher.test(entry)))
+  return hit ? join(dir, hit) : null
 }
 
 /**
- * How to actually execute an AppImage.
+ * argv prefix that starts a resolved install, from inside or outside a sandbox.
  *
- * On NixOS an AppImage cannot run itself: its payload is dynamically linked
- * against a generic-linux loader that does not exist there, exactly like the
- * Electron binary npm ships. `appimage-run` unpacks it into an FHS environment
- * instead. Where it is absent the AppImage is run directly, which is right
- * everywhere else and on a NixOS with binfmt registration.
+ * An AppImage is executed directly rather than through a helper. RomMix used
+ * to prefix `appimage-run` on hosts that had it, which is actively wrong: that
+ * helper unpacks a squashfs payload, and an AppImage built with uruntime — as
+ * Eden's is — carries DwarFS instead, so a perfectly good image fails to
+ * start. The image's own runtime handles either format, so the right thing is
+ * to get out of its way and let the OS resolve the rest.
  */
-export async function appImageWrapper(): Promise<readonly string[] | undefined> {
-  return (await binaryPath(['appimage-run'])) ? ['appimage-run'] : undefined
-}
-
-/** argv prefix that starts a resolved install, from inside or outside a sandbox. */
 export function execPrefix(install: ResolvedInstall): string[] {
-  const argv =
-    install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [...(install.wrapper ?? []), install.ref]
-  return hostCommand(argv)
+  return hostCommand(install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [install.ref])
 }
 
 /** Can we actually write into this directory tree? */
