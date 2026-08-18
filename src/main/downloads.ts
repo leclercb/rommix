@@ -1,9 +1,10 @@
 import { EventEmitter } from 'node:events'
-import { createWriteStream } from 'node:fs'
-import { mkdir, rm, stat } from 'node:fs/promises'
-import { dirname, join, normalize, resolve, sep } from 'node:path'
+import { createWriteStream, existsSync } from 'node:fs'
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
+import { basename, dirname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
+import { chooseLaunchFile } from '@shared/gamefiles'
 import { resolveSystem } from '@shared/systems'
 import type { DownloadItem, EmulatorState, InstalledRom, RommRom } from '@shared/types'
 import { RommClient, RommError } from './romm'
@@ -90,13 +91,101 @@ async function extractZip(zipPath: string, destDir: string): Promise<void> {
 
 /** Recursive directory size, used to record what an extracted game occupies. */
 async function directorySize(path: string): Promise<number> {
-  const { readdir } = await import('node:fs/promises')
   let total = 0
   for (const entry of await readdir(path, { withFileTypes: true })) {
     const child = join(path, entry.name)
     total += entry.isDirectory() ? await directorySize(child) : (await stat(child)).size
   }
   return total
+}
+
+/**
+ * Walk an extracted game and nominate the file to launch.
+ *
+ * The choice itself is `chooseLaunchFile`; this only gathers what it needs off
+ * disk, and descends through the single wrapper folder that archives so often
+ * add.
+ */
+async function pickLaunchFile(dir: string): Promise<string | null> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+  const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name)
+  const subdirs = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+
+  if (files.length === 0 && subdirs.length === 1) return pickLaunchFile(join(dir, subdirs[0]))
+
+  const sized = await Promise.all(
+    files.map(async (name) => ({ name, sizeBytes: (await stat(join(dir, name))).size }))
+  )
+  const chosen = chooseLaunchFile(sized)
+  return chosen ? join(dir, chosen) : null
+}
+
+interface InstallResult {
+  path: string
+  launchPath: string
+  sizeBytes: number
+  isDirectory: boolean
+}
+
+/**
+ * Unpack a downloaded archive and work out what actually landed on disk.
+ *
+ * RomM zips lone ROMs for transport as well as genuine multi-file games, and
+ * the two must not be installed the same way. A single ROM unpacked into a
+ * directory of its own leaves ES-DE showing a folder instead of the game and
+ * the emulator with a directory it cannot open, so it is lifted into the
+ * system folder and the staging directory thrown away.
+ */
+async function unpack(
+  rom: RommRom,
+  archivePath: string,
+  systemDir: string,
+  targetPath: string,
+  asDirectory: boolean
+): Promise<InstallResult> {
+  const dirTarget = asDirectory ? targetPath : join(systemDir, rom.fs_name_no_ext)
+  // A lone ROM is staged aside first, because where it ends up depends on what
+  // the archive turns out to contain.
+  const staging = asDirectory ? dirTarget : join(systemDir, `.${rom.fs_name_no_ext}.rommix-tmp`)
+
+  await extractZip(archivePath, staging)
+  await rm(archivePath, { force: true })
+
+  if (!asDirectory) {
+    const single = await onlyFile(staging)
+    if (single) {
+      const finalPath = join(systemDir, basename(single))
+      await rm(finalPath, { force: true })
+      await rename(single, finalPath)
+      await rm(staging, { recursive: true, force: true })
+      return {
+        path: finalPath,
+        launchPath: finalPath,
+        sizeBytes: (await stat(finalPath)).size,
+        isDirectory: false
+      }
+    }
+    // Several files after all, so it is a real multi-file game: promote the
+    // staging directory to the name the game should have.
+    await rm(dirTarget, { recursive: true, force: true })
+    await rename(staging, dirTarget)
+  }
+
+  return {
+    path: dirTarget,
+    launchPath: (await pickLaunchFile(dirTarget)) ?? dirTarget,
+    sizeBytes: await directorySize(dirTarget),
+    isDirectory: true
+  }
+}
+
+/** The one file an archive unpacked to, or null when it held more than one. */
+async function onlyFile(dir: string): Promise<string | null> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+  if (entries.length !== 1) return null
+  const [entry] = entries
+  if (entry.isDirectory()) return onlyFile(join(dir, entry.name))
+  return entry.isFile() ? join(dir, entry.name) : null
 }
 
 export class DownloadManager extends EventEmitter {
@@ -254,22 +343,22 @@ export class DownloadManager extends EventEmitter {
         controller.signal
       )
 
-      let sizeBytes: number
+      let installed: InstallResult
       if (asDirectory || (await isZip(downloadTo))) {
         item.state = 'extracting'
         this.emitUpdate()
-
-        const targetDir = asDirectory ? path : join(dir, rom.fs_name_no_ext)
-        await extractZip(downloadTo, targetDir)
-        await rm(downloadTo, { force: true })
-        sizeBytes = await directorySize(targetDir)
-
-        this.recordInstalled(rom, targetDir, system, sizeBytes, true)
-        item.targetPath = targetDir
+        installed = await unpack(rom, downloadTo, dir, path, asDirectory)
       } else {
-        sizeBytes = (await stat(path)).size
-        this.recordInstalled(rom, path, system, sizeBytes, false)
+        installed = {
+          path,
+          launchPath: path,
+          sizeBytes: (await stat(path)).size,
+          isDirectory: false
+        }
       }
+
+      this.recordInstalled(rom, system, installed)
+      item.targetPath = installed.path
 
       item.state = 'done'
       item.receivedBytes = item.totalBytes
@@ -285,24 +374,32 @@ export class DownloadManager extends EventEmitter {
     }
   }
 
-  private recordInstalled(
-    rom: RommRom,
-    path: string,
-    system: string,
-    sizeBytes: number,
-    isDirectory: boolean
-  ): void {
+  private recordInstalled(rom: RommRom, system: string, installed: InstallResult): void {
     const entry: InstalledRom = {
       romId: rom.id,
-      path,
+      path: installed.path,
+      launchPath: installed.launchPath,
       system,
-      fileName: isDirectory ? rom.fs_name_no_ext : rom.fs_name,
-      sizeBytes,
+      fileName: basename(installed.path),
+      sizeBytes: installed.sizeBytes,
       installedAt: new Date().toISOString(),
-      isDirectory
+      isDirectory: installed.isDirectory
     }
     this.store.addInstalled(entry)
     this.emit('installed', entry)
+  }
+
+  /**
+   * The file to hand an emulator for an installed ROM.
+   *
+   * Entries recorded before Rommix tracked a launch target — and any whose
+   * recorded file has since gone — are resolved from disk instead, so an
+   * existing install does not have to be downloaded again to become playable.
+   */
+  async launchTarget(entry: InstalledRom): Promise<string> {
+    if (entry.launchPath && existsSync(entry.launchPath)) return entry.launchPath
+    if (!entry.isDirectory) return entry.path
+    return (await pickLaunchFile(entry.path)) ?? entry.path
   }
 
   /** Delete a ROM from disk and drop it from the index. */

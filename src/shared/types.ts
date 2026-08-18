@@ -255,6 +255,18 @@ export interface Settings {
    * run the system in question.
    */
   preferredEmulator: EmulatorId
+  /**
+   * ES-DE system -> emulator id, pinning one system to one emulator. Honoured
+   * strictly: a pinned emulator that is not installed is an error rather than
+   * a silent fallback. This is the only way to reach a single-system emulator
+   * when a frontend that delegates every system is also installed.
+   */
+  systemEmulators: Record<string, EmulatorId>
+  /**
+   * Emulator id -> absolute path of its executable, when auto-discovery cannot
+   * find it. AppImages in particular live wherever the user put them.
+   */
+  emulatorPaths: Record<EmulatorId, string>
   /** Override the auto-discovered ROM/save/state roots. */
   pathOverrides: Partial<EmulationPaths>
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
@@ -275,6 +287,13 @@ export interface InstalledRom {
   romId: number
   /** Absolute path to the file (or the game directory for multi-file ROMs). */
   path: string
+  /**
+   * The file to hand an emulator. Equal to `path` for a single file; for a
+   * multi-file game it is the disc descriptor or playlist inside the
+   * directory, because emulators cannot be given a directory. Entries written
+   * before Rommix recorded this are resolved from disk at launch time.
+   */
+  launchPath: string
   system: string
   fileName: string
   sizeBytes: number

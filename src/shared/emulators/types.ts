@@ -25,15 +25,28 @@ export type EmulatorId = string
  */
 export type EmulatorRole = 'frontend' | 'standalone'
 
-/** How the program might be installed. Tried in order, first hit wins. */
+/**
+ * How the program might be installed. Tried in order, first hit wins.
+ *
+ * `appimage` exists because not every emulator ships on Flathub — Eden is
+ * AppImage-only — and an AppImage is a loose file in a download folder rather
+ * than something on PATH, so it has to be looked for by name.
+ */
 export type InstallSpec =
   | { kind: 'flatpak'; appId: string }
   | { kind: 'binary'; names: readonly string[] }
+  | { kind: 'appimage'; patterns: readonly string[] }
 
 /** An install that was actually found. `ref` is a flatpak app id or a path. */
 export interface ResolvedInstall {
-  kind: 'flatpak' | 'binary'
+  kind: 'flatpak' | 'binary' | 'appimage'
   ref: string
+  /**
+   * Command that has to run the ref rather than the ref running itself. On
+   * NixOS an AppImage cannot execute directly — there is no generic loader —
+   * so it goes through `appimage-run`.
+   */
+  wrapper?: readonly string[]
 }
 
 /**

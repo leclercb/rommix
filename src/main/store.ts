@@ -38,6 +38,8 @@ const EMPTY_CREDENTIALS: StoredCredentials = {
 function defaultSettings(): Settings {
   return {
     preferredEmulator: 'retrodeck',
+    systemEmulators: {},
+    emulatorPaths: {},
     pathOverrides: {},
     systemOverrides: {},
     syncSavesDown: true,

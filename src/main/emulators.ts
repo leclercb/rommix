@@ -11,7 +11,15 @@ import type {
   ResolvedInstall
 } from '@shared/emulators'
 import type { Settings } from '@shared/types'
-import { binaryPath, flatpakInstalled, realHome, xdgConfigHome, xdgDataHome } from './host'
+import {
+  appImageWrapper,
+  binaryPath,
+  findAppImage,
+  flatpakInstalled,
+  realHome,
+  xdgConfigHome,
+  xdgDataHome
+} from './host'
 
 /**
  * Probing the machine for the emulators in the registry.
@@ -28,14 +36,32 @@ const NO_PATHS: EmulationPaths = { home: null, roms: null, saves: null, states: 
 // Installs
 // ---------------------------------------------------------------------------
 
-/** Find the first way this emulator is installed, or null if it is not. */
-async function resolveInstall(descriptor: EmulatorDescriptor): Promise<ResolvedInstall | null> {
+/**
+ * Find the first way this emulator is installed, or null if it is not.
+ *
+ * An explicit path in settings wins outright: it is the escape hatch for an
+ * AppImage kept somewhere Rommix would never think to look.
+ */
+async function resolveInstall(
+  descriptor: EmulatorDescriptor,
+  settings: Settings
+): Promise<ResolvedInstall | null> {
+  const configured = settings.emulatorPaths[descriptor.id]
+  if (configured && existsSync(configured)) {
+    return configured.toLowerCase().endsWith('.appimage')
+      ? { kind: 'appimage', ref: configured, wrapper: await appImageWrapper() }
+      : { kind: 'binary', ref: configured }
+  }
+
   for (const spec of descriptor.install) {
     if (spec.kind === 'flatpak') {
       if (await flatpakInstalled(spec.appId)) return { kind: 'flatpak', ref: spec.appId }
-    } else {
+    } else if (spec.kind === 'binary') {
       const path = await binaryPath(spec.names)
       if (path) return { kind: 'binary', ref: path }
+    } else {
+      const path = await findAppImage(spec.patterns)
+      if (path) return { kind: 'appimage', ref: path, wrapper: await appImageWrapper() }
     }
   }
   return null
@@ -180,7 +206,7 @@ async function probe(
   descriptor: EmulatorDescriptor,
   settings: Settings
 ): Promise<EmulatorState> {
-  const install = await resolveInstall(descriptor)
+  const install = await resolveInstall(descriptor, settings)
   const specialProbe = PATH_PROBES[descriptor.id]
   const discovered = !install
     ? NO_PATHS

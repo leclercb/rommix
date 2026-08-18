@@ -3,5 +3,6 @@ out/
 dist/
 build/
 .flatpak-builder/
+.direnv/
 *.local
 .DS_Store

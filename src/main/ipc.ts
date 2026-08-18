@@ -157,7 +157,9 @@ export function registerIpc(rommix: RommixApp): void {
     try {
       return await launcher.launch({
         rom,
-        romPath: installed.path,
+        // Never `installed.path`: for a multi-file game that is the directory,
+        // and an emulator can only be given a file.
+        romPath: await downloads.launchTarget(installed),
         system: installed.system,
         emulator
       })

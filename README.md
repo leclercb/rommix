@@ -93,6 +93,17 @@ what it bundles would duplicate configuration Rommix does not own. Standalone
 emulators declare the systems they run, and Rommix will not fall back to one
 that cannot run the system in hand.
 
+Because a frontend delegates *every* system, it also wins every fallback — so
+a single-system emulator like Eden could never be selected by a global
+preference alone. `settings.systemEmulators` pins one ES-DE system to one
+emulator and is honoured strictly: a pin to something uninstalled is an error,
+not a quiet substitution back to the frontend.
+
+Not every emulator is a package. Eden ships only as an AppImage, so it is
+found by filename in the usual download folders, or named outright in
+`settings.emulatorPaths`. Where `appimage-run` exists it is used to start it,
+because on NixOS an AppImage cannot execute itself.
+
 ### Save sync
 
 Before launch, saves newer on the server are pulled down. After the emulator

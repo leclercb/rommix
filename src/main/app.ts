@@ -53,7 +53,12 @@ export class RommixApp {
    */
   activeEmulator(system?: string): EmulatorState | null {
     if (!this.emulatorCache) return null
-    return chooseEmulator(this.emulatorCache, this.store.settings.preferredEmulator, system)
+    const { preferredEmulator, systemEmulators } = this.store.settings
+    return chooseEmulator(this.emulatorCache, {
+      preferred: preferredEmulator,
+      pinned: system ? systemEmulators[system] : undefined,
+      system
+    })
   }
 
   get emulators(): EmulatorState[] {

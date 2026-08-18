@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { access, constants } from 'node:fs/promises'
+import { access, constants, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -88,9 +88,65 @@ export async function binaryPath(names: readonly string[]): Promise<string | nul
   return null
 }
 
+/**
+ * Directories an AppImage is plausibly sitting in. AppImages are loose files
+ * rather than installs, so there is nothing to query — they have to be looked
+ * for where people put them.
+ */
+function appImageDirs(): string[] {
+  const home = realHome()
+  return [
+    join(home, 'Applications'),
+    join(home, '.local', 'bin'),
+    join(home, '.local', 'share', 'applications'),
+    join(home, 'Downloads'),
+    join(home, 'bin')
+  ]
+}
+
+/**
+ * First file matching one of these case-insensitive filename globs.
+ *
+ * Only `*` is supported, which is all the patterns need, and the rest of the
+ * pattern is escaped so a descriptor cannot inject regex of its own.
+ */
+export async function findAppImage(patterns: readonly string[]): Promise<string | null> {
+  const matchers = patterns.map(
+    (pattern) =>
+      new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*')}$`, 'i')
+  )
+
+  for (const dir of appImageDirs()) {
+    let entries: string[]
+    try {
+      entries = await readdir(dir)
+    } catch {
+      continue
+    }
+    const hit = entries.find((entry) => matchers.some((matcher) => matcher.test(entry)))
+    if (hit) return join(dir, hit)
+  }
+  return null
+}
+
+/**
+ * How to actually execute an AppImage.
+ *
+ * On NixOS an AppImage cannot run itself: its payload is dynamically linked
+ * against a generic-linux loader that does not exist there, exactly like the
+ * Electron binary npm ships. `appimage-run` unpacks it into an FHS environment
+ * instead. Where it is absent the AppImage is run directly, which is right
+ * everywhere else and on a NixOS with binfmt registration.
+ */
+export async function appImageWrapper(): Promise<readonly string[] | undefined> {
+  return (await binaryPath(['appimage-run'])) ? ['appimage-run'] : undefined
+}
+
 /** argv prefix that starts a resolved install, from inside or outside a sandbox. */
 export function execPrefix(install: ResolvedInstall): string[] {
-  return hostCommand(install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [install.ref])
+  const argv =
+    install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [...(install.wrapper ?? []), install.ref]
+  return hostCommand(argv)
 }
 
 /** Can we actually write into this directory tree? */
