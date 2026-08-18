@@ -220,7 +220,7 @@ export class DownloadManager extends EventEmitter {
     )
     if (!system) {
       throw new RommError(
-        `Rommix does not know which folder "${rom.platform_display_name}" maps to. ` +
+        `RomMix does not know which folder "${rom.platform_display_name}" maps to. ` +
           `Set a folder for it in Settings → Platform folders.`
       )
     }
@@ -392,7 +392,7 @@ export class DownloadManager extends EventEmitter {
   /**
    * The file to hand an emulator for an installed ROM.
    *
-   * Entries recorded before Rommix tracked a launch target — and any whose
+   * Entries recorded before RomMix tracked a launch target — and any whose
    * recorded file has since gone — are resolved from disk instead, so an
    * existing install does not have to be downloaded again to become playable.
    */

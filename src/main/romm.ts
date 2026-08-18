@@ -22,13 +22,13 @@ import type { Store } from './store'
  * Client for the RomM 5.1.0 REST API.
  *
  * Auth: RomM accepts a Bearer JWT from the OAuth2 password grant, a long-lived
- * `rmm_...` client token, or HTTP basic. Rommix uses the first two — a JWT pair
+ * `rmm_...` client token, or HTTP basic. RomMix uses the first two — a JWT pair
  * that it silently refreshes, or a client token that never expires. Device
  * pairing (POST /api/auth/device/init) yields a client token without ever
  * typing a password on a controller, which is the path the TV UI prefers.
  */
 
-/** Scopes Rommix needs: browse the library, sync saves, record play state. */
+/** Scopes RomMix needs: browse the library, sync saves, record play state. */
 export const REQUIRED_SCOPES = [
   'me.read',
   'roms.read',

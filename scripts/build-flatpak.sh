@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build and install Rommix as a flatpak.
+# Build and install RomMix as a flatpak.
 #
 # Two stages: npm produces the Electron application tree, then flatpak-builder
 # packages that tree. Run from the repository root.
@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_ID="be.bl_it.Rommix"
+APP_ID="be.bl_it.RomMix"
 MANIFEST="flatpak/${APP_ID}.yml"
 BUILD_DIR="build/flatpak"
 
@@ -55,7 +55,7 @@ flatpak-builder \
 
 cat <<EOF
 
-Done. Rommix is installed for your user.
+Done. RomMix is installed for your user.
 
   Run it:            flatpak run ${APP_ID}
   Run in gamescope:  gamescope -f -- flatpak run ${APP_ID}

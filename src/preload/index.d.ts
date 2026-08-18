@@ -1,8 +1,8 @@
-import type { RommixBridge } from '@shared/api'
+import type { RomMixBridge } from '@shared/api'
 
 declare global {
   interface Window {
-    rommix: RommixBridge
+    rommix: RomMixBridge
   }
 }
 

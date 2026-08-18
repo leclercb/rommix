@@ -6,6 +6,7 @@ import {
   chooseEmulator,
   emulatorById,
   emulatorsForSystem,
+  normalisePriority,
   supportsSystem
 } from './index.ts'
 import { eden } from './eden.ts'
@@ -65,50 +66,88 @@ test('unknown ids resolve to null rather than throwing', () => {
   assert.equal(emulatorById('not-a-real-emulator'), null)
 })
 
-test('the preferred emulator wins when it is available', () => {
+const DEFAULT_ORDER = ['retrodeck', 'retroarch', 'eden']
+
+test('the highest emulator in the order wins when several are available', () => {
   const states = [state('retrodeck', true), state('retroarch', true)]
-  assert.equal(chooseEmulator(states, { preferred: 'retroarch' })?.id, 'retroarch')
+  assert.equal(chooseEmulator(states, { priority: ['retroarch', 'retrodeck'] })?.id, 'retroarch')
 })
 
-test('an unavailable preference falls back to one that is installed', () => {
+test('an uninstalled entry is skipped for the next one down', () => {
   const states = [state('retrodeck', false), state('retroarch', true)]
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck' })?.id, 'retroarch')
+  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER })?.id, 'retroarch')
 })
 
-test('the fallback never picks an emulator that cannot run the system', () => {
-  // The failure a global "preferred runner" invites: RetroDECK is the
-  // preference but is not installed, and the only alternative has no core for
-  // this system. Handing it the ROM anyway would fail at launch time instead.
+test('an entry that cannot run the system is skipped, not treated as a failure', () => {
+  // The question a single global preference cannot answer. Eden sits at the
+  // top, yet an SNES ROM still reaches RetroArch, because position only
+  // matters among emulators that actually run the system.
+  const states = [state('retroarch', true), state('eden', true)]
+  const priority = ['eden', 'retroarch']
+  assert.equal(chooseEmulator(states, { priority, system: 'snes' })?.id, 'retroarch')
+  assert.equal(chooseEmulator(states, { priority, system: 'switch' })?.id, 'eden')
+})
+
+test('the order decides between two emulators that both run a system', () => {
+  // The "two Switch emulators" case: both cover it, so the answer is whichever
+  // the user put higher — a single "preferred emulator" value could not say.
+  const states = [state('retrodeck', true), state('eden', true)]
+  assert.equal(
+    chooseEmulator(states, { priority: ['eden', 'retrodeck'], system: 'switch' })?.id,
+    'eden'
+  )
+  assert.equal(
+    chooseEmulator(states, { priority: ['retrodeck', 'eden'], system: 'switch' })?.id,
+    'retrodeck'
+  )
+})
+
+test('an emulator absent from the order is still usable, in registry order', () => {
+  const states = [state('retrodeck', true), state('eden', true)]
+  assert.equal(chooseEmulator(states, { priority: [], system: 'switch' })?.id, 'retrodeck')
+})
+
+test('no installed emulator runs the system resolves to null', () => {
   const states = [state('retrodeck', false), state('retroarch', true)]
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck', system: 'switch' }), null)
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck', system: 'snes' })?.id, 'retroarch')
+  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER, system: 'switch' }), null)
 })
 
 test('nothing available resolves to null', () => {
   const states = [state('retrodeck', false), state('retroarch', false)]
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck' }), null)
+  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER }), null)
 })
 
-test('a pin beats a frontend that would otherwise swallow every system', () => {
-  // The reason Eden needs a pin at all: RetroDECK delegates every system, so
-  // it wins the global preference for 'switch' too, whether or not it has a
-  // Switch emulator behind it.
+test('a pin beats an order that would otherwise send the system elsewhere', () => {
   const states = [state('retrodeck', true), state('eden', true)]
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck', system: 'switch' })?.id, 'retrodeck')
+  assert.equal(chooseEmulator(states, { priority: DEFAULT_ORDER, system: 'switch' })?.id, 'retrodeck')
   assert.equal(
-    chooseEmulator(states, { preferred: 'retrodeck', pinned: 'eden', system: 'switch' })?.id,
+    chooseEmulator(states, { priority: DEFAULT_ORDER, pinned: 'eden', system: 'switch' })?.id,
     'eden'
   )
 })
 
 test('a pin to an unavailable emulator fails rather than silently substituting', () => {
   const states = [state('retrodeck', true), state('eden', false)]
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck', pinned: 'eden', system: 'switch' }), null)
+  assert.equal(
+    chooseEmulator(states, { priority: DEFAULT_ORDER, pinned: 'eden', system: 'switch' }),
+    null
+  )
 })
 
 test('a pin cannot route a system to an emulator that does not run it', () => {
   const states = [state('retrodeck', true), state('eden', true)]
-  assert.equal(chooseEmulator(states, { preferred: 'retrodeck', pinned: 'eden', system: 'snes' }), null)
+  assert.equal(
+    chooseEmulator(states, { priority: DEFAULT_ORDER, pinned: 'eden', system: 'snes' }),
+    null
+  )
+})
+
+test('a stored order gains emulators added since it was written', () => {
+  assert.deepEqual(normalisePriority(['retroarch']), ['retroarch', 'retrodeck', 'eden'])
+})
+
+test('a stored order drops emulators that no longer exist', () => {
+  assert.deepEqual(normalisePriority(['yuzu', 'eden']), ['eden', 'retrodeck', 'retroarch'])
 })
 
 test('RetroDECK is launched by system so it resolves the emulator itself', () => {

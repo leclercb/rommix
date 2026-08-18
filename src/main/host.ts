@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import type { ResolvedInstall } from '@shared/emulators'
 
 /**
- * Talking to the machine Rommix is installed on, from either side of a flatpak
+ * Talking to the machine RomMix is installed on, from either side of a flatpak
  * sandbox. Nothing here knows about any particular emulator — that is
  * `emulators.ts`.
  */
@@ -15,7 +15,7 @@ import type { ResolvedInstall } from '@shared/emulators'
 const execFileAsync = promisify(execFile)
 
 /**
- * True when Rommix is itself running inside a flatpak sandbox. Flatpak always
+ * True when RomMix is itself running inside a flatpak sandbox. Flatpak always
  * writes /.flatpak-info into the sandbox, and sets FLATPAK_ID.
  */
 export function inFlatpak(): boolean {
@@ -25,7 +25,7 @@ export function inFlatpak(): boolean {
 /**
  * Wrap a command so it runs on the host rather than inside our sandbox.
  *
- * `flatpak run` cannot be nested, so a sandboxed Rommix has to hop out via
+ * `flatpak run` cannot be nested, so a sandboxed RomMix has to hop out via
  * flatpak-spawn (which needs --talk-name=org.freedesktop.Flatpak in the
  * manifest). Outside a sandbox the command is returned untouched.
  */
@@ -44,7 +44,7 @@ export function realHome(): string {
  * XDG config and data roots on the *host*.
  *
  * XDG_CONFIG_HOME from the environment is deliberately ignored: inside our
- * sandbox it points at Rommix's own config directory, so using it would look
+ * sandbox it points at RomMix's own config directory, so using it would look
  * for another application's settings in entirely the wrong place.
  */
 export function xdgConfigHome(): string {

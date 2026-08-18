@@ -3,17 +3,18 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
+import { EMULATORS, normalisePriority } from '@shared/emulators'
 import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
 
 /**
- * On-disk state for Rommix.
+ * On-disk state for RomMix.
  *
  * Everything lives under Electron's userData directory, which inside the
- * flatpak resolves to ~/.var/app/be.bl_it.Rommix/config/Rommix. Three files:
+ * flatpak resolves to ~/.var/app/be.bl_it.RomMix/config/RomMix. Three files:
  *
  *   settings.json   user preferences + the configured server (no secrets)
  *   credentials.bin the RomM tokens, encrypted with safeStorage when available
- *   installed.json  index of ROMs Rommix has written to disk
+ *   installed.json  index of ROMs RomMix has written to disk
  */
 
 interface StoredCredentials {
@@ -37,7 +38,7 @@ const EMPTY_CREDENTIALS: StoredCredentials = {
 
 function defaultSettings(): Settings {
   return {
-    preferredEmulator: 'retrodeck',
+    emulatorPriority: EMULATORS.map((emulator) => emulator.id),
     systemEmulators: {},
     emulatorPaths: {},
     pathOverrides: {},
@@ -46,23 +47,30 @@ function defaultSettings(): Settings {
     syncSavesUp: true,
     confirmUninstall: true,
     deviceId: randomUUID(),
-    deviceName: `Rommix @ ${hostname()}`
+    deviceName: `RomMix @ ${hostname()}`
   }
 }
 
+interface LegacySettings {
+  /** Before emulators were a registry. */
+  preferredRunner?: string
+  /** Before preference became an order rather than a single value. */
+  preferredEmulator?: string
+}
+
 /**
- * Carry settings written by an older Rommix forward.
+ * Carry settings written by an older RomMix forward.
  *
- * `preferredRunner` held one of two hardcoded runner names before emulators
- * became a registry; the ids are unchanged, so the value only has to move to
- * its new key.
+ * Both legacy keys held a single emulator id, which is just the head of a
+ * priority list — so the value is promoted to the front and the registry order
+ * fills in behind it, preserving what the user actually chose.
  */
 function migrateSettings(settings: Settings): Settings {
-  const legacy = (settings as Settings & { preferredRunner?: string }).preferredRunner
-  if (!legacy) return settings
+  const { preferredRunner, preferredEmulator, ...rest } = settings as Settings & LegacySettings
+  const legacy = preferredEmulator ?? preferredRunner
 
-  const { preferredRunner: _dropped, ...rest } = settings as Settings & { preferredRunner?: string }
-  return { ...rest, preferredEmulator: legacy }
+  const priority = legacy ? [legacy, ...rest.emulatorPriority] : rest.emulatorPriority
+  return { ...rest, emulatorPriority: normalisePriority(priority) }
 }
 
 /** Atomic JSON write, so a crash mid-write cannot truncate the file. */

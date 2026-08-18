@@ -1,8 +1,8 @@
 /**
  * Types mirroring the RomM 5.1.0 API (verified against a live instance's
- * /openapi.json) plus Rommix's own local state.
+ * /openapi.json) plus RomMix's own local state.
  *
- * Only the fields Rommix actually uses are modelled; RomM returns a great
+ * Only the fields RomMix actually uses are modelled; RomM returns a great
  * deal more per ROM (per-provider metadata blobs, sibling roms, ...).
  */
 
@@ -197,7 +197,7 @@ export interface RommState {
   updated_at: string
 }
 
-/** Query parameters Rommix passes to GET /api/roms. */
+/** Query parameters RomMix passes to GET /api/roms. */
 export interface RomQuery {
   search_term?: string
   platform_ids?: number[]
@@ -211,7 +211,7 @@ export interface RomQuery {
 }
 
 // ---------------------------------------------------------------------------
-// Rommix local state
+// RomMix local state
 // ---------------------------------------------------------------------------
 
 export type AuthMode = 'password' | 'device' | 'token'
@@ -235,7 +235,7 @@ export interface ConnectionStatus {
 /**
  * Emulators are described by the registry in `@shared/emulators`, not by a
  * union here; these are re-exported so the rest of the app has one import for
- * "Rommix's types".
+ * "RomMix's types".
  */
 export type {
   EmulationPaths,
@@ -251,10 +251,11 @@ import type { EmulatorId, EmulationPaths, EmulatorState } from './emulators/type
 
 export interface Settings {
   /**
-   * Emulator Rommix prefers; it falls back to another installed one that can
-   * run the system in question.
+   * Emulators in order of preference. RomMix uses the first one that is
+   * installed *and* can run the system in hand, so an emulator that covers a
+   * single system can sit anywhere in the list without affecting the rest.
    */
-  preferredEmulator: EmulatorId
+  emulatorPriority: EmulatorId[]
   /**
    * ES-DE system -> emulator id, pinning one system to one emulator. Honoured
    * strictly: a pinned emulator that is not installed is an error rather than
@@ -291,7 +292,7 @@ export interface InstalledRom {
    * The file to hand an emulator. Equal to `path` for a single file; for a
    * multi-file game it is the disc descriptor or playlist inside the
    * directory, because emulators cannot be given a directory. Entries written
-   * before Rommix recorded this are resolved from disk at launch time.
+   * before RomMix recorded this are resolved from disk at launch time.
    */
   launchPath: string
   system: string

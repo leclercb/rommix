@@ -13,7 +13,7 @@ import type { EmulatorDescriptor } from './types.ts'
  *    pin in `settings.systemEmulators` is for.
  *  - Its "BIOS" is **not a file you drop in a folder**. It needs `prod.keys`
  *    in the keys directory and a firmware *dump* under `nand/`, which is not a
- *    copy Rommix can perform. `dirs.bios` therefore points at the keys
+ *    copy RomMix can perform. `dirs.bios` therefore points at the keys
  *    directory so the pre-flight check can show it, and nothing is placed
  *    automatically.
  *  - Its saves live under `nand/user/save/…` keyed by **title id**, not by ROM
@@ -24,7 +24,7 @@ import type { EmulatorDescriptor } from './types.ts'
  * Being Yuzu-derived it follows the usual XDG layout — `~/.config/eden` and
  * `~/.local/share/eden` — which an AppImage uses directly, since it is not
  * sandboxed. The paths below are resolved from those roots, so the pre-flight
- * check in Settings prints exactly what Rommix concluded: verify them against
+ * check in Settings prints exactly what RomMix concluded: verify them against
  * a real install before trusting the BIOS and save wiring.
  */
 export const eden: EmulatorDescriptor = {

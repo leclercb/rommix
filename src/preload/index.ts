@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ConnectPayload, GameState, RommixBridge } from '@shared/api'
+import type { ConnectPayload, GameState, RomMixBridge } from '@shared/api'
 import type { DownloadItem, RomQuery, Settings } from '@shared/types'
 
 /**
@@ -16,7 +16,7 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
   return () => ipcRenderer.removeListener(channel, wrapped)
 }
 
-const bridge: RommixBridge = {
+const bridge: RomMixBridge = {
   server: {
     status: () => ipcRenderer.invoke('server:status'),
     connect: (payload: ConnectPayload) => ipcRenderer.invoke('server:connect', payload),

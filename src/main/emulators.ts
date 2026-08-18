@@ -40,7 +40,7 @@ const NO_PATHS: EmulationPaths = { home: null, roms: null, saves: null, states: 
  * Find the first way this emulator is installed, or null if it is not.
  *
  * An explicit path in settings wins outright: it is the escape hatch for an
- * AppImage kept somewhere Rommix would never think to look.
+ * AppImage kept somewhere RomMix would never think to look.
  */
 async function resolveInstall(
   descriptor: EmulatorDescriptor,

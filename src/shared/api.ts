@@ -35,7 +35,7 @@ export interface GameState {
  * The surface exposed to the renderer on `window.rommix`.
  * Every method crosses the context bridge and is therefore asynchronous.
  */
-export interface RommixBridge {
+export interface RomMixBridge {
   server: {
     status(): Promise<ConnectionStatus>
     connect(payload: ConnectPayload): Promise<ConnectionStatus>

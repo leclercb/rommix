@@ -207,7 +207,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
       {running ? (
         <div className="notice notice--warn">
-          The game is running. Rommix will sync your saves back to RomM when you quit the emulator.
+          The game is running. RomMix will sync your saves back to RomM when you quit the emulator.
         </div>
       ) : null}
 

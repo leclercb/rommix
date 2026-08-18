@@ -1,5 +1,5 @@
 /*
- * Rommix — a 10-foot interface.
+ * RomMix — a 10-foot interface.
  *
  * Sizing assumes a couch: nothing smaller than 16px, generous hit areas, and a
  * 3.5% safe-area inset so nothing important lands in a TV's overscan. Focus is
@@ -90,14 +90,18 @@ input {
     var(--bg);
 }
 
+/* The left padding is the TV-safe margin, since that edge is the screen edge.
+   The right edge is internal, so it only needs enough room to keep the item
+   highlight from running into the divider — but it must not be so much smaller
+   than --safe-x that the items read as shoved against the border. */
 .rail {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: calc(var(--safe-y) + 8px) 14px var(--safe-y) var(--safe-x);
+  padding: calc(var(--safe-y) + 8px) 24px var(--safe-y) var(--safe-x);
   border-right: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.28);
-  min-width: 232px;
+  min-width: 248px;
 }
 
 .rail__brand {
@@ -105,7 +109,9 @@ input {
   font-weight: 750;
   letter-spacing: -0.5px;
   margin-bottom: 22px;
-  padding-left: 12px;
+  /* Matches .rail__item's horizontal padding so the wordmark lines up with the
+     menu labels below it. */
+  padding-left: 16px;
 }
 
 .rail__brand span {
@@ -630,6 +636,21 @@ input {
   font-size: 26px;
   font-weight: 720;
   margin: 0 0 10px;
+}
+
+/* The QR sits on its own white plate: the code needs a light quiet zone, and a
+   plate keeps that from reading as a rendering glitch against the dark panel. */
+.pair-qr {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 4px;
+}
+
+.pair-qr svg {
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 45%);
+  max-width: 100%;
+  height: auto;
 }
 
 .pair-code {

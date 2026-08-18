@@ -7,7 +7,7 @@ import type {
   LaunchResult,
   Settings
 } from '@shared/types'
-import type { RommixApp } from './app'
+import type { RomMixApp } from './app'
 import { canSpawnHost, inFlatpak, isWritable } from './host'
 import { RommError, normaliseBaseUrl } from './romm'
 
@@ -32,7 +32,7 @@ function handle<Args extends unknown[], Result>(
   })
 }
 
-export function registerIpc(rommix: RommixApp): void {
+export function registerIpc(rommix: RomMixApp): void {
   const { store, client, downloads, launcher } = rommix
 
   /** Current connection state, including who we are signed in as. */
@@ -191,7 +191,7 @@ export function registerIpc(rommix: RommixApp): void {
 
     if (inFlatpak() && !spawn) {
       notes.push(
-        'flatpak-spawn cannot reach the host. Rommix needs --talk-name=org.freedesktop.Flatpak ' +
+        'flatpak-spawn cannot reach the host. RomMix needs --talk-name=org.freedesktop.Flatpak ' +
           'to start an emulator; grant it with Flatseal.'
       )
     }
@@ -208,7 +208,7 @@ export function registerIpc(rommix: RommixApp): void {
     const romsWritable = await isWritable(active?.paths.roms ?? null)
     if (active && !romsWritable) {
       notes.push(
-        `The ROM folder ${active.paths.roms} is not writable. Grant Rommix access to it ` +
+        `The ROM folder ${active.paths.roms} is not writable. Grant RomMix access to it ` +
           '(--filesystem=home, or the SD card path) with Flatseal.'
       )
     }

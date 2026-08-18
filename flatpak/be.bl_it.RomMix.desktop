@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=Rommix
+Name=RomMix
 GenericName=RomM Game Launcher
 Comment=Browse, download and play your RomM library through RetroDECK
 Exec=rommix
-Icon=be.bl_it.Rommix
+Icon=be.bl_it.RomMix
 Terminal=false
 Categories=Game;Emulator;
 Keywords=rom;romm;retro;emulator;retrodeck;retroarch;games;
-StartupWMClass=Rommix
+StartupWMClass=RomMix
 PrefersNonDefaultGPU=true

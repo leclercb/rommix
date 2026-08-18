@@ -1,7 +1,7 @@
 /**
  * The shape of an emulator entry.
  *
- * Rommix used to model emulators as a closed union of two "runners", and a
+ * RomMix used to model emulators as a closed union of two "runners", and a
  * single global preference picked one for the whole app. That one choice then
  * decided four unrelated things at once: where ROMs are written, which process
  * is spawned, where saves live, and where BIOS files go. A third emulator
@@ -72,13 +72,13 @@ export interface EmulationPaths {
 
 /**
  * How the emulator stores per-game save data, which decides how much of it
- * Rommix can meaningfully sync to RomM:
+ * RomMix can meaningfully sync to RomM:
  *
  *  - `per-game-file`  one file named after the ROM (libretro `.srm`). Syncable.
  *  - `per-game-dir`   a directory per title, usually keyed by a title id rather
  *                     than the filename. Syncable, but as an archive.
  *  - `shared-device`  one memory card shared by every game (PCSX2, Dolphin).
- *                     Per-game sync is not expressible, so Rommix skips it.
+ *                     Per-game sync is not expressible, so RomMix skips it.
  *  - `delegated`      a frontend's tree, whose layout depends on whichever
  *                     emulator the frontend chose. Walked heuristically.
  */
@@ -100,7 +100,7 @@ export interface EmulatorDescriptor {
   /** ES-DE systems this emulator runs, or 'delegated' when it decides itself. */
   readonly systems: readonly string[] | 'delegated'
   /**
-   * True when the emulator owns a folder layout that Rommix has to discover
+   * True when the emulator owns a folder layout that RomMix has to discover
    * rather than create — which also means it is unusable until the emulator
    * has been run at least once and that layout exists.
    */

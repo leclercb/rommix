@@ -1,8 +1,8 @@
-# Rommix
+# RomMix
 
 A Big Picture–style front end for a self-hosted [RomM](https://romm.app) server.
 
-Rommix browses your RomM library like a console dashboard, downloads games into
+RomMix browses your RomM library like a console dashboard, downloads games into
 RetroDECK's ROM folder, launches them in RetroDECK (or RetroArch), and syncs
 your save files and save states back to RomM when you quit.
 
@@ -57,7 +57,7 @@ straight to disk. Cover art is the one exception: it is served through a custom
 
 ### Where files go
 
-Rommix reads RetroDECK's own configuration at
+RomMix reads RetroDECK's own configuration at
 `~/.var/app/net.retrodeck.retrodeck/config/retrodeck/retrodeck.json` to discover
 the real ROM, save and state folders. It does **not** assume `~/retrodeck` —
 that path is user-selectable and frequently points at an SD card.
@@ -69,7 +69,7 @@ further hints. Multi-file games (cue+bin, multi-disc) arrive from RomM as a zip
 and are unpacked into their own directory.
 
 The RomM platform slug is translated to an ES-DE system directory by
-`src/shared/systems.ts`. When a platform has no mapping, Rommix **refuses to
+`src/shared/systems.ts`. When a platform has no mapping, RomMix **refuses to
 guess** and tells you to pick a folder — installing to the wrong directory
 fails silently at launch time, which is far worse than an upfront error.
 
@@ -89,8 +89,8 @@ things with different natural keys: ROMs belong to a *platform*, a process to a
 RetroDECK is a `frontend`, and deliberately opaque: it declares `'delegated'`
 systems and is launched with `-s <system>`, so it resolves the emulator from
 its own `es_systems.xml` and honours the user's `<altemulator>`. Enumerating
-what it bundles would duplicate configuration Rommix does not own. Standalone
-emulators declare the systems they run, and Rommix will not fall back to one
+what it bundles would duplicate configuration RomMix does not own. Standalone
+emulators declare the systems they run, and RomMix will not fall back to one
 that cannot run the system in hand.
 
 Because a frontend delegates *every* system, it also wins every fallback — so
@@ -144,11 +144,11 @@ then hands the tree to `flatpak-builder`.
 ## Running it
 
 ```bash
-flatpak run be.bl_it.Rommix                      # desktop
-gamescope -f -- flatpak run be.bl_it.Rommix      # gamescope session
+flatpak run be.bl_it.RomMix                      # desktop
+gamescope -f -- flatpak run be.bl_it.RomMix      # gamescope session
 ```
 
-**From Steam:** add `flatpak run be.bl_it.Rommix` as a non-Steam game. Rommix
+**From Steam:** add `flatpak run be.bl_it.RomMix` as a non-Steam game. RomMix
 starts fullscreen and is fully navigable with the controller, so Big Picture
 needs no extra configuration.
 
@@ -176,7 +176,7 @@ Three ways to sign in, in the order that suits a controller:
    Administration → Client tokens page.
 3. **Username and password** — the OAuth2 password grant, refreshed silently.
 
-Rommix requests only the scopes it needs: reading the library and platforms,
+RomMix requests only the scopes it needs: reading the library and platforms,
 reading and writing assets (saves and states), and per-ROM user state.
 
 ---
@@ -186,18 +186,18 @@ reading and writing assets (saves and states), and per-ROM user state.
 Settings → **Pre-flight check** names the common environmental failures
 explicitly. The usual ones:
 
-**"flatpak-spawn cannot reach the host"** — Rommix needs
+**"flatpak-spawn cannot reach the host"** — RomMix needs
 `--talk-name=org.freedesktop.Flatpak` to start RetroDECK, because nested
 `flatpak run` is impossible. Grant it in Flatseal.
 
-**"The ROM folder is not writable"** — grant Rommix access to wherever your ROMs
+**"The ROM folder is not writable"** — grant RomMix access to wherever your ROMs
 live. `--filesystem=home` and `--filesystem=/run/media` are in the manifest, but
 an unusual location needs adding manually.
 
 **"RetroDECK has not been run yet"** — RetroDECK creates its folder layout on
 first run. Start it once, then re-run the check.
 
-**A platform installs nowhere / "Rommix does not know which folder…"** — add a
+**A platform installs nowhere / "RomMix does not know which folder…"** — add a
 mapping in `settings.systemOverrides` (RomM platform slug → ES-DE folder name).
 
 ---

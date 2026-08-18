@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>be.bl_it.Rommix</id>
+  <id>be.bl_it.RomMix</id>
 
-  <name>Rommix</name>
+  <name>RomMix</name>
   <summary>Big Picture launcher for a RomM library</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -10,7 +10,7 @@
 
   <description>
     <p>
-      Rommix is a controller-first front end for a self-hosted RomM server. It
+      RomMix is a controller-first front end for a self-hosted RomM server. It
       browses your library the way a console dashboard does, downloads games
       into RetroDECK's ROM folder, and launches them in RetroDECK or RetroArch.
     </p>
@@ -25,7 +25,7 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">be.bl_it.Rommix.desktop</launchable>
+  <launchable type="desktop-id">be.bl_it.RomMix.desktop</launchable>
 
   <categories>
     <category>Game</category>

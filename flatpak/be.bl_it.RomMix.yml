@@ -1,11 +1,11 @@
-# Flatpak manifest for Rommix.
+# Flatpak manifest for RomMix.
 #
 # This packages a *prebuilt* Electron application tree (dist/linux-unpacked,
 # produced by `npm run pack:dir`). Building npm dependencies inside
 # flatpak-builder would require vendoring every package as an offline source —
 # worth doing for a Flathub submission, unnecessary for a personal build.
 # See README.md for how to move to a fully offline build if you ever publish.
-id: be.bl_it.Rommix
+id: be.bl_it.RomMix
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
@@ -37,9 +37,9 @@ finish-args:
   - --filesystem=/run/media:rw
   - --filesystem=xdg-run/gamescope-0:ro
 
-  # Rommix launches RetroDECK/RetroArch, which are themselves flatpaks. Nested
+  # RomMix launches RetroDECK/RetroArch, which are themselves flatpaks. Nested
   # `flatpak run` is not possible, so we hop to the host through flatpak-spawn.
-  # This is a broad permission: anything Rommix can spawn on the host runs
+  # This is a broad permission: anything RomMix can spawn on the host runs
   # unsandboxed. It is the only way to start another flatpak from inside one.
   - --talk-name=org.freedesktop.Flatpak
 
@@ -54,11 +54,11 @@ modules:
       # zypak-wrapper hands Chromium a sandbox it can actually use under flatpak.
       - install -Dm755 rommix.sh /app/bin/rommix
 
-      - install -Dm644 be.bl_it.Rommix.desktop /app/share/applications/be.bl_it.Rommix.desktop
-      - install -Dm644 be.bl_it.Rommix.metainfo.xml
-        /app/share/metainfo/be.bl_it.Rommix.metainfo.xml
-      - install -Dm644 be.bl_it.Rommix.svg
-        /app/share/icons/hicolor/scalable/apps/be.bl_it.Rommix.svg
+      - install -Dm644 be.bl_it.RomMix.desktop /app/share/applications/be.bl_it.RomMix.desktop
+      - install -Dm644 be.bl_it.RomMix.metainfo.xml
+        /app/share/metainfo/be.bl_it.RomMix.metainfo.xml
+      - install -Dm644 be.bl_it.RomMix.svg
+        /app/share/icons/hicolor/scalable/apps/be.bl_it.RomMix.svg
 
     sources:
       - type: dir
@@ -66,13 +66,13 @@ modules:
         dest: .
 
       - type: file
-        path: be.bl_it.Rommix.desktop
+        path: be.bl_it.RomMix.desktop
 
       - type: file
-        path: be.bl_it.Rommix.metainfo.xml
+        path: be.bl_it.RomMix.metainfo.xml
 
       - type: file
-        path: be.bl_it.Rommix.svg
+        path: be.bl_it.RomMix.svg
 
       - type: script
         dest-filename: rommix.sh

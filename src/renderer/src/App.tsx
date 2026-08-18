@@ -35,7 +35,7 @@ export function App(): JSX.Element {
     <div className="app">
       <nav className="rail">
         <div className="rail__brand">
-          rom<span>mix</span>
+          Rom<span>Mix</span>
         </div>
         <RailItem icon="⌂" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
         <RailItem
@@ -122,14 +122,14 @@ function RailItem({
 }
 
 /**
- * Shown while an emulator owns the screen. Rommix is still running behind
+ * Shown while an emulator owns the screen. RomMix is still running behind
  * gamescope, and this makes it obvious that input is going elsewhere.
  */
 function RunningOverlay(): JSX.Element {
   return (
     <Overlay title="Game running">
       <p className="muted">
-        The emulator has focus. Quit it to come back to Rommix — your saves are synced to RomM
+        The emulator has focus. Quit it to come back to RomMix — your saves are synced to RomM
         automatically when it closes.
       </p>
     </Overlay>

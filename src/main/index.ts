@@ -1,8 +1,8 @@
 import { BrowserWindow, app, protocol } from 'electron'
-import { IMAGE_SCHEME, RommixApp } from './app'
+import { IMAGE_SCHEME, RomMixApp } from './app'
 import { registerIpc } from './ipc'
 
-/** Rommix main process bootstrap. */
+/** RomMix main process bootstrap. */
 
 // Must run before `app.ready`.
 protocol.registerSchemesAsPrivileged([
@@ -30,7 +30,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   applyDisplayFlags()
 
-  const rommix = new RommixApp()
+  const rommix = new RomMixApp()
 
   void app.whenReady().then(async () => {
     rommix.registerImageProtocol()

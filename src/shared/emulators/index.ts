@@ -4,9 +4,9 @@ import { retrodeck } from './retrodeck.ts'
 import type { EmulatorDescriptor, EmulatorId, EmulatorState } from './types.ts'
 
 /**
- * Every emulator Rommix knows how to drive.
+ * Every emulator RomMix knows how to drive.
  *
- * Order is meaningful: it is the tie-break when Rommix has to pick one for the
+ * Order is meaningful: it is the tie-break when RomMix has to pick one for the
  * user, so frontends come first — RetroDECK covers the most systems and
  * already encodes the user's own per-system emulator preferences.
  */
@@ -26,8 +26,13 @@ export function emulatorsForSystem(system: string): EmulatorDescriptor[] {
 }
 
 export interface EmulatorChoice {
-  /** The global default, from settings. */
-  preferred: EmulatorId
+  /**
+   * Emulators in the user's order of preference. The first one that is
+   * installed *and* runs the system wins, so an entry that cannot run a
+   * particular system simply does not apply to it — no emulator has to be
+   * capable of everything to sit at the top.
+   */
+  priority: readonly EmulatorId[]
   /** A pin for this system, from `settings.systemEmulators`. */
   pinned?: EmulatorId
   /** ES-DE system the ROM belongs to, when one is known. */
@@ -38,9 +43,14 @@ export interface EmulatorChoice {
  * Pick the emulator to use.
  *
  * `system` narrows the candidates to emulators that actually run it. Without
- * it the fallback would happily hand an SNES ROM to a Switch emulator, which
- * is the failure mode a flat "preferred runner" setting invites once there is
+ * it the choice would happily hand an SNES ROM to a Switch emulator, which is
+ * the failure mode a flat "preferred runner" setting invites once there is
  * more than one standalone emulator installed.
+ *
+ * The ordered list is what makes this explainable. A single global "preferred
+ * emulator" cannot answer either of the questions that matter — what happens
+ * when it does not run this system, and which of two emulators for the *same*
+ * system wins — because both answers are an order, not a single value.
  *
  * A `pinned` emulator is honoured **strictly**: if it is not usable the answer
  * is null, not a silent substitution. A frontend delegates every system, so it
@@ -52,7 +62,7 @@ export function chooseEmulator(
   states: readonly EmulatorState[],
   choice: EmulatorChoice
 ): EmulatorState | null {
-  const { preferred, pinned, system } = choice
+  const { priority, pinned, system } = choice
   const usable = states.filter((state) => {
     if (!state.available) return false
     if (system == null) return true
@@ -61,7 +71,28 @@ export function chooseEmulator(
   })
 
   if (pinned != null) return usable.find((state) => state.id === pinned) ?? null
-  return usable.find((state) => state.id === preferred) ?? usable[0] ?? null
+
+  for (const id of priority) {
+    const hit = usable.find((state) => state.id === id)
+    if (hit) return hit
+  }
+  // Anything the user has never ordered falls back to registry order, so a
+  // newly added emulator is usable before it is ever configured.
+  return usable[0] ?? null
+}
+
+/**
+ * The stored priority, with any emulator missing from it appended in registry
+ * order. Keeps a saved list valid across RomMix versions that add emulators.
+ */
+export function normalisePriority(stored: readonly EmulatorId[]): EmulatorId[] {
+  const known = stored.filter((id) => emulatorById(id) != null)
+  return [...known, ...EMULATORS.map((e) => e.id).filter((id) => !known.includes(id))]
+}
+
+/** How many systems this emulator covers, for display. */
+export function systemCount(emulator: EmulatorDescriptor): number | 'all' {
+  return emulator.systems === 'delegated' ? 'all' : emulator.systems.length
 }
 
 export { eden } from './eden.ts'

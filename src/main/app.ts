@@ -19,7 +19,7 @@ export const IMAGE_SCHEME = 'rommix-img'
  * Cover art is the exception — it goes over a custom protocol that attaches
  * the auth header for us.
  */
-export class RommixApp {
+export class RomMixApp {
   readonly store = new Store()
   readonly client = new RommClient(this.store)
   readonly saveSync = new SaveSync(this.store, this.client)
@@ -53,9 +53,9 @@ export class RommixApp {
    */
   activeEmulator(system?: string): EmulatorState | null {
     if (!this.emulatorCache) return null
-    const { preferredEmulator, systemEmulators } = this.store.settings
+    const { emulatorPriority, systemEmulators } = this.store.settings
     return chooseEmulator(this.emulatorCache, {
-      preferred: preferredEmulator,
+      priority: emulatorPriority,
       pinned: system ? systemEmulators[system] : undefined,
       system
     })

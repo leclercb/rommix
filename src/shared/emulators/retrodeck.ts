@@ -11,7 +11,7 @@ export const RETRODECK_APP_ID = 'net.retrodeck.retrodeck'
  * <altemulator> the user set in ES-DE. Passing the system and letting
  * RetroDECK choose is both simpler and more faithful to the user's own
  * configuration than picking an emulator here, which is why `systems` is
- * 'delegated' and Rommix never reaches past it to the emulator underneath.
+ * 'delegated' and RomMix never reaches past it to the emulator underneath.
  * Enumerating what RetroDECK bundles would duplicate configuration we do not
  * own and desync on every RetroDECK release.
  *

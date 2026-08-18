@@ -1,6 +1,6 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
 import type { AuthMode, RommDeviceAuthInit } from '@shared/types'
-import { FocusButton, Hints, Overlay, SegmentedControl, TextField } from '../components'
+import { FocusButton, Hints, Overlay, QrCode, SegmentedControl, TextField } from '../components'
 import { useApp } from '../state'
 
 /**
@@ -62,7 +62,7 @@ export function ConnectScreen(): JSX.Element {
     <div className="content">
       <h1 className="page-title">Connect to RomM</h1>
       <p className="page-subtitle">
-        Point Rommix at your RomM server to browse and download your library.
+        Point RomMix at your RomM server to browse and download your library.
       </p>
 
       <div className="form">
@@ -88,7 +88,7 @@ export function ConnectScreen(): JSX.Element {
 
         {mode === 'device' ? (
           <p className="muted">
-            Rommix shows a short code that you approve from RomM in any browser — no password typed
+            RomMix shows a short code that you approve from RomM in any browser — no password typed
             on the couch.
           </p>
         ) : null}
@@ -217,9 +217,13 @@ function PairingOverlay({
   return (
     <Overlay title="Approve this device">
       <p className="muted">
-        Open the address below on your phone or computer and enter the code to let Rommix into your
-        library.
+        Scan this with your phone, or open the address below on any device, then enter the code to
+        let RomMix into your library.
       </p>
+
+      <div className="pair-qr">
+        <QrCode value={verificationUrl} />
+      </div>
 
       <div className="pair-code">{pairing.user_code}</div>
 

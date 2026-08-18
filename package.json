@@ -17,6 +17,7 @@
     "flatpak": "./scripts/build-flatpak.sh"
   },
   "dependencies": {
+    "qrcode-generator": "^2.0.4",
     "yauzl": "^3.2.0"
   },
   "devDependencies": {

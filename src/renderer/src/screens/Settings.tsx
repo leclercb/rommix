@@ -1,5 +1,5 @@
-import { type JSX, useEffect, useState } from 'react'
-import { EMULATORS } from '@shared/emulators'
+import { Fragment, type JSX, useEffect, useState } from 'react'
+import { emulatorById, systemCount } from '@shared/emulators'
 import type { DiagnosticsReport, EmulatorId } from '@shared/types'
 import { FocusButton, Hints, SegmentedControl, Spinner, TextField } from '../components'
 import { useApp } from '../state'
@@ -67,20 +67,35 @@ export function SettingsScreen(): JSX.Element {
         </FocusButton>
       </div>
 
-      <h2 className="section-title">Emulator</h2>
-      <label className="field__label">Where should Rommix send games?</label>
-      <SegmentedControl<EmulatorId>
-        value={settings.preferredEmulator}
-        onChange={(value) => {
-          void saveSettings({ preferredEmulator: value }).then(async () =>
+      <h2 className="section-title">Emulator priority</h2>
+      <p className="faint" style={{ fontSize: 14 }}>
+        For each game, RomMix uses the first emulator in this list that is installed{' '}
+        <em>and</em> can run that system. An emulator further down is not a fallback for
+        everything — it is simply what gets used for the systems the ones above it do not cover.
+      </p>
+      <PriorityList
+        order={settings.emulatorPriority}
+        diagnostics={diagnostics}
+        onReorder={(next) => {
+          void saveSettings({ emulatorPriority: next }).then(async () =>
             setDiagnostics(await window.rommix.system.diagnostics())
           )
         }}
-        options={EMULATORS.map((emulator) => ({ value: emulator.id, label: emulator.name }))}
       />
-      <p className="faint" style={{ fontSize: 14, marginTop: -8 }}>
-        RetroDECK picks the right emulator per system from its own configuration. Rommix falls back
-        to another installed emulator when the preferred one cannot run a system.
+      {Object.keys(settings.systemEmulators).length > 0 ? (
+        <dl className="kv">
+          {Object.entries(settings.systemEmulators).map(([system, id]) => (
+            <Fragment key={system}>
+              <dt>{system}</dt>
+              <dd>pinned to {id}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      ) : null}
+      <p className="faint" style={{ fontSize: 14 }}>
+        A single system can be pinned to one emulator regardless of this order, which is how you
+        choose between two emulators for the same system. Pins are strict: if the pinned emulator
+        is missing, RomMix reports it rather than quietly using another.
       </p>
 
       <h2 className="section-title">Save sync</h2>
@@ -104,10 +119,10 @@ export function SettingsScreen(): JSX.Element {
           value={romsOverride}
           onChange={setRomsOverride}
           placeholder={
-            diagnostics?.emulators.find((e) => e.id === settings.preferredEmulator)?.paths.roms ??
+            diagnostics?.emulators.find((e) => e.id === diagnostics.activeEmulator)?.paths.roms ??
             '/home/you/retrodeck/roms'
           }
-          hint="Leave empty to use the folder Rommix discovers from RetroDECK's own configuration."
+          hint="Leave empty to use the folder RomMix discovers from RetroDECK's own configuration."
         />
         <div className="btn-row">
           <FocusButton onSelect={() => void applyRomsOverride()}>Save folder</FocusButton>
@@ -172,7 +187,7 @@ export function SettingsScreen(): JSX.Element {
           Toggle fullscreen
         </FocusButton>
         <FocusButton variant="danger" onSelect={() => void window.rommix.system.quit()}>
-          Quit Rommix
+          Quit RomMix
         </FocusButton>
       </div>
 
@@ -182,6 +197,71 @@ export function SettingsScreen(): JSX.Element {
           { key: 'B', label: 'Back' }
         ]}
       />
+    </div>
+  )
+}
+
+/**
+ * The emulator order, as a list the user can move entries up and down in.
+ *
+ * A segmented control cannot express this: it asks "which one", and the honest
+ * answer is "in what order", because the interesting cases are an emulator
+ * that does not cover a system and two emulators that cover the same one.
+ * Each row states what that emulator actually covers, so the order visibly
+ * only matters where coverage overlaps.
+ */
+function PriorityList({
+  order,
+  diagnostics,
+  onReorder
+}: {
+  order: EmulatorId[]
+  diagnostics: DiagnosticsReport | null
+  onReorder: (next: EmulatorId[]) => void
+}): JSX.Element {
+  const move = (index: number, delta: number): void => {
+    const next = [...order]
+    const target = index + delta
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    onReorder(next)
+  }
+
+  return (
+    <div className="form">
+      {order.map((id, index) => {
+        const descriptor = emulatorById(id)
+        if (!descriptor) return null
+        const state = diagnostics?.emulators.find((emulator) => emulator.id === id)
+        const covers = systemCount(descriptor)
+
+        return (
+          <div className="btn-row" key={id}>
+            <span style={{ flex: 1 }}>
+              <strong>
+                {index + 1}. {descriptor.name}
+              </strong>{' '}
+              <span className="faint">
+                {covers === 'all'
+                  ? 'every system, chosen by RetroDECK itself'
+                  : `${covers} system${covers === 1 ? '' : 's'}`}
+                {' · '}
+                {state ? (state.available ? 'installed' : 'not installed') : 'not checked'}
+              </span>
+            </span>
+            <FocusButton variant="ghost" disabled={index === 0} onSelect={() => move(index, -1)}>
+              Up
+            </FocusButton>
+            <FocusButton
+              variant="ghost"
+              disabled={index === order.length - 1}
+              onSelect={() => move(index, 1)}
+            >
+              Down
+            </FocusButton>
+          </div>
+        )
+      })}
     </div>
   )
 }

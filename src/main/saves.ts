@@ -10,7 +10,7 @@ import type { Store } from './store'
  * RetroDECK keeps saves at `<saves_path>/<system>/…` and states at
  * `<states_path>/<system>/…`. Libretro cores write `<rom name>.srm` next to
  * that; standalone emulators nest one directory deeper under their own name.
- * Rather than encode every emulator's convention, Rommix walks a couple of
+ * Rather than encode every emulator's convention, RomMix walks a couple of
  * levels down and matches on the ROM's file stem.
  *
  * That only works for emulators that name saves after the ROM, which is what
