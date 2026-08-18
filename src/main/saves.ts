@@ -7,11 +7,16 @@ import type { Store } from './store'
 /**
  * Two-way save and save-state sync between RomM and the local emulator tree.
  *
+ * The tree walked is the one belonging to whichever emulator ran the game.
  * RetroDECK keeps saves at `<saves_path>/<system>/…` and states at
  * `<states_path>/<system>/…`. Libretro cores write `<rom name>.srm` next to
  * that; standalone emulators nest one directory deeper under their own name.
  * Rather than encode every emulator's convention, RomMix walks a couple of
  * levels down and matches on the ROM's file stem.
+ *
+ * RomM records which emulator produced each save, and RomMix sends the
+ * descriptor id — so a RetroArch `.srm` is not pulled down into an emulator
+ * that would not understand it.
  *
  * That only works for emulators that name saves after the ROM, which is what
  * the descriptor's `saveLayout` records. An emulator whose games share one

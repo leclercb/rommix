@@ -1,15 +1,15 @@
 import { BrowserWindow, app, protocol } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app'
 import { registerIpc } from './ipc'
-import { ensureRoot, rootPaths } from './root'
+import { ensureRoot } from './root'
 
 /** RomMix main process bootstrap. */
 
-// Before anything reads a path: everything RomMix owns lives under one root,
-// and Electron's userData is redirected into it. This has to happen here
-// rather than in the Store, because `app.getPath('userData')` is consulted by
-// Electron itself (caches, GPU state) as soon as the app starts.
-app.setPath('userData', rootPaths(ensureRoot()).config)
+// The root has to exist before the Store reads from it. Electron's own
+// userData is deliberately left alone: redirecting it dragged Chromium's
+// caches, cookies, GPU state and singleton locks into RomMix's folder, which
+// is meant to hold the handful of files RomMix itself writes.
+ensureRoot()
 
 // Must run before `app.ready`.
 protocol.registerSchemesAsPrivileged([

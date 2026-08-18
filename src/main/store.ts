@@ -1,4 +1,4 @@
-import { app, safeStorage } from 'electron'
+import { safeStorage } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { hostname } from 'node:os'
@@ -8,12 +8,14 @@ import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
 /**
  * On-disk state for RomMix.
  *
- * Everything lives under Electron's userData directory, which inside the
- * flatpak resolves to ~/.var/app/be.bl_it.RomMix/config/RomMix. Three files:
+ * Lives in `config/` inside RomMix's root (see `root.ts`), which the bootstrap
+ * points Electron's userData at — so all of this sits beside the emulators
+ * RomMix installed rather than in a hidden per-app directory. Three files:
  *
  *   settings.json   user preferences + the configured server (no secrets)
  *   credentials.bin the RomM tokens, encrypted with safeStorage when available
- *   installed.json  index of ROMs RomMix has written to disk
+ *   installed.json  a cache of which ROMs are on disk, not the authority on it;
+ *                   `DownloadManager.adopt` reconciles it against the files
  */
 
 interface StoredCredentials {
@@ -40,7 +42,6 @@ function defaultSettings(): Settings {
     libraryRoot: null,
     systemEmulators: {},
     emulatorPaths: {},
-    pathOverrides: {},
     systemOverrides: {},
     syncSavesDown: true,
     syncSavesUp: true,
@@ -114,7 +115,7 @@ export class Store {
   private credentialsCache: StoredCredentials
   private installedCache: Map<number, InstalledRom>
 
-  constructor(dir = app.getPath('userData')) {
+  constructor(dir: string) {
     this.dir = dir
     mkdirSync(this.dir, { recursive: true })
     this.settingsPath = join(this.dir, 'settings.json')

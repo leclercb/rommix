@@ -204,21 +204,6 @@ const PATH_PROBES: Readonly<Record<string, () => EmulationPaths>> = {
 // Detection
 // ---------------------------------------------------------------------------
 
-/**
- * `roms` is deliberately absent: where ROMs are written is a property of the
- * library (`settings.libraryRoot`), not of each emulator, so overriding it
- * here would have silently retargeted every emulator's own tree.
- */
-function applyOverrides(paths: EmulationPaths, overrides: Partial<EmulationPaths>): EmulationPaths {
-  return {
-    home: overrides.home ?? paths.home,
-    roms: paths.roms,
-    saves: overrides.saves ?? paths.saves,
-    states: overrides.states ?? paths.states,
-    bios: overrides.bios ?? paths.bios
-  }
-}
-
 async function probe(
   descriptor: EmulatorDescriptor,
   settings: Settings
@@ -230,7 +215,7 @@ async function probe(
     : specialProbe
       ? specialProbe()
       : declaredPaths(descriptor, install)
-  const paths = applyOverrides(discovered, settings.pathOverrides)
+  const paths = discovered
 
   // An emulator that owns its library is only useful once that library exists;
   // before that there is nowhere to install to.

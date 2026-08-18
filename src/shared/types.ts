@@ -247,7 +247,7 @@ export type {
   SaveLayout
 } from './emulators/types.ts'
 
-import type { EmulatorId, EmulationPaths, EmulatorState } from './emulators/types.ts'
+import type { EmulatorId, EmulatorState } from './emulators/types.ts'
 
 export interface Settings {
   /**
@@ -275,8 +275,6 @@ export interface Settings {
    * that has nothing to do with storage.
    */
   libraryRoot: string | null
-  /** Override the auto-discovered save/state roots. */
-  pathOverrides: Partial<EmulationPaths>
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
   systemOverrides: Record<string, string>
   /** Pull newer saves down from RomM before launching. */

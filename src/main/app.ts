@@ -6,6 +6,7 @@ import { detectEmulators } from './emulators'
 import { Launcher } from './launcher'
 import { RommClient } from './romm'
 import { SaveSync } from './saves'
+import { rootPaths } from './root'
 import { Store } from './store'
 import type { EmulatorState } from '@shared/types'
 
@@ -20,7 +21,7 @@ export const IMAGE_SCHEME = 'rommix-img'
  * the auth header for us.
  */
 export class RomMixApp {
-  readonly store = new Store()
+  readonly store = new Store(rootPaths().config)
   readonly client = new RommClient(this.store)
   readonly saveSync = new SaveSync(this.store, this.client)
   readonly launcher = new Launcher(this.client, this.saveSync)

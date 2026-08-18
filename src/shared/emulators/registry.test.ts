@@ -151,17 +151,16 @@ test('RetroArch is launched with the core mapped for the system', () => {
   ])
 })
 
-test('Eden takes the ROM path positionally, behind its AppImage wrapper', () => {
-  // The wrapper is what `execPrefix` produces on a host where an AppImage
-  // cannot execute itself; the descriptor only appends the ROM.
+test('Eden takes the ROM path positionally, after the AppImage itself', () => {
+  // The AppImage is executed directly — no `appimage-run` helper, which only
+  // handles a squashfs payload and chokes on the DwarFS one Eden ships.
   const argv = eden.launch({
-    exec: ['appimage-run', '/home/u/Applications/Eden-x86_64.AppImage'],
+    exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
     system: 'switch',
     romPath: '/roms/switch/game.nsp'
   })
   assert.deepEqual(argv, [
-    'appimage-run',
-    '/home/u/Applications/Eden-x86_64.AppImage',
+    '/home/u/rommix/emulators/eden/Eden.AppImage',
     '/roms/switch/game.nsp'
   ])
 })

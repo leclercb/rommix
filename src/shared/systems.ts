@@ -1,11 +1,14 @@
 /**
- * Mapping between RomM platform slugs and ES-DE / RetroDECK system directories.
+ * Mapping between RomM platform slugs and ES-DE system directories.
  *
- * RomM platform slugs follow IGDB's slugs. RetroDECK stores ROMs at
- * `<roms_path>/<es-de system name>/`, and its `run_game` helper infers the
- * system from exactly that path segment, so putting a file in the right
- * directory is what makes `flatpak run net.retrodeck.retrodeck <file>` work
- * without any further hints.
+ * The ES-DE system name is RomMix's internal identifier for a platform: it
+ * names the folder a ROM is installed into, it is what emulators declare
+ * support for, and it is the key of the platform -> emulator map in settings.
+ *
+ * RomM platform slugs follow IGDB's slugs. The directory layout is not
+ * cosmetic either: RetroDECK's `run_game` infers which emulator to use from
+ * exactly that path segment, so a correctly placed file launches with no
+ * further hints.
  *
  * The ES-DE system names below come from ES-DE's own
  * `resources/systems/linux/es_systems.xml` (195 systems). The RomM-side slugs

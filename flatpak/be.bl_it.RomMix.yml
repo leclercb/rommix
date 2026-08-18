@@ -30,15 +30,18 @@ finish-args:
   # device access the entire UI becomes keyboard-only.
   - --device=all
 
-  # The ROM tree. RetroDECK's ROM folder is user-selectable and frequently
-  # lives on an SD card, so both the home directory and the removable-media
-  # mount point are needed to install games and read back save files.
+  # RomMix's own folder (~/rommix by default, relocatable), the ROM tree, and
+  # each emulator's save directory all live under the real home — and a
+  # RetroDECK library is frequently on an SD card, so the removable-media mount
+  # point is needed too. Emulators RomMix downloads are written here and then
+  # executed on the host, so they must be on a path the host can see.
   - --filesystem=home
   - --filesystem=/run/media:rw
   - --filesystem=xdg-run/gamescope-0:ro
 
-  # RomMix launches RetroDECK/RetroArch, which are themselves flatpaks. Nested
-  # `flatpak run` is not possible, so we hop to the host through flatpak-spawn.
+  # Emulators are started on the host: some are flatpaks (RetroDECK,
+  # RetroArch), which cannot be nested inside ours, and some are AppImages that
+  # need the host's FUSE and loader. Both go through flatpak-spawn.
   # This is a broad permission: anything RomMix can spawn on the host runs
   # unsandboxed. It is the only way to start another flatpak from inside one.
   - --talk-name=org.freedesktop.Flatpak

@@ -547,6 +547,15 @@ input {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
 }
 
+.hero__reason {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
 .hero__title {
   font-size: 46px;
   font-weight: 780;

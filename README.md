@@ -41,9 +41,13 @@ that stores ROMs, that is acceptable.
 ## How it fits together
 
 ```
-RomM server ──HTTP──> main process ──> ~/retrodeck/roms/<system>/game.zip
+RomM server ──HTTP──> main process ──> <library>/<system>/game
                           │
-                          └──flatpak-spawn──> flatpak run net.retrodeck.retrodeck -s <system> <game>
+                          │  platform -> emulator (settings, else registry default)
+                          │
+                          └──flatpak-spawn──> flatpak run …retrodeck -s <system> <game>
+                                              /path/to/Eden.AppImage <game>
+                                              retroarch -L <core> <game>
                                                           │
                                         saves ────────────┘
                           ┌───────────────────────────────┘
@@ -57,21 +61,40 @@ straight to disk. Cover art is the one exception: it is served through a custom
 
 ### Where files go
 
-RomMix reads RetroDECK's own configuration at
-`~/.var/app/net.retrodeck.retrodeck/config/retrodeck/retrodeck.json` to discover
-the real ROM, save and state folders. It does **not** assume `~/retrodeck` —
-that path is user-selectable and frequently points at an SD card.
+Everything RomMix owns lives in one folder, `~/rommix` by default and
+relocatable from Settings: `config/` (settings, credentials, the installed
+index) and `emulators/` (anything RomMix downloaded). Because the setting
+saying where the root is would otherwise live inside the root, it is resolved
+from `ROMMIX_HOME`, then a one-line pointer at `~/.config/rommix/root`, then
+the default.
 
-ROMs are installed to `<roms_path>/<es-de system>/`. That layout is not
-cosmetic: RetroDECK's `run_game` infers which emulator to use by matching the
-`roms/<system>/` path segment, so a correctly placed file launches with no
-further hints. Multi-file games (cue+bin, multi-disc) arrive from RomM as a zip
-and are unpacked into their own directory.
+ROMs are the exception, and go to a single **library root** shared by every
+emulator — by default whatever folder the emulator for that platform already
+uses, so a RetroDECK library stays where ES-DE scrapes it. RetroDECK's own
+configuration is read from
+`~/.var/app/net.retrodeck.retrodeck/config/retrodeck/retrodeck.json` rather
+than assuming `~/retrodeck`, since that path is user-selectable and frequently
+points at an SD card. One root works because every emulator is handed an
+absolute path at launch, so a ROM never has to sit inside the tree of the
+program that opens it.
+
+The layout is `<library>/<es-de system>/`, which is not cosmetic: RetroDECK
+infers the emulator from that path segment, and ES-DE scrapes the same shape.
+A single-file ROM lands as a file even when RomM zipped it for transport;
+genuine multi-file games (cue+bin, multi-disc) are unpacked into a directory,
+and the file to launch is chosen from it — the `.m3u` or `.cue` rather than the
+much larger `.bin` it references.
 
 The RomM platform slug is translated to an ES-DE system directory by
 `src/shared/systems.ts`. When a platform has no mapping, RomMix **refuses to
 guess** and tells you to pick a folder — installing to the wrong directory
 fails silently at launch time, which is far worse than an upfront error.
+
+`installed.json` records what was downloaded, but it is a cache rather than the
+authority: as library pages load, RomMix checks whether each ROM is already
+sitting where it would have installed it and adopts what it finds. Moving the
+RomMix folder, restoring a backup or copying ROMs in by hand therefore does not
+make a full library look empty.
 
 ### Emulators
 
@@ -86,23 +109,29 @@ The split exists because a single "which emulator" setting was deciding four
 things with different natural keys: ROMs belong to a *platform*, a process to a
 *platform + emulator* pair, and BIOS layout to the emulator alone.
 
-RetroDECK is a `frontend`, and deliberately opaque: it declares `'delegated'`
-systems and is launched with `-s <system>`, so it resolves the emulator from
-its own `es_systems.xml` and honours the user's `<altemulator>`. Enumerating
-what it bundles would duplicate configuration RomMix does not own. Standalone
-emulators declare the systems they run, and RomMix will not fall back to one
-that cannot run the system in hand.
+**Every emulator declares a concrete platform list, frontends included.**
+RetroDECK is still launched with `-s <system>` so that it picks the emulator
+from its own `es_systems.xml` and honours the user's `<altemulator>` — RomMix
+never reaches past it. But it does not get to claim it runs everything: it
+ships no Switch emulator, and an earlier design where a frontend declared
+"it decides for itself" read as "all platforms" and silently routed Switch ROMs
+into a program that could not open them. A list that can be wrong and corrected
+beats a claim that cannot be checked.
 
-Because a frontend delegates *every* system, it also wins every fallback — so
-a single-system emulator like Eden could never be selected by a global
-preference alone. `settings.systemEmulators` pins one ES-DE system to one
-emulator and is honoured strictly: a pin to something uninstalled is an error,
-not a quiet substitution back to the frontend.
+Which emulator runs a platform is therefore an explicit map,
+`settings.systemEmulators`, with defaults derived from the registry: the first
+emulator that declares the platform, frontends first. A recorded choice is
+honoured **strictly** — an emulator that is not installed is reported rather
+than silently swapped — while an unset platform falls back to the first
+*available* emulator that covers it.
 
-Not every emulator is a package. Eden ships only as an AppImage, so it is
-found by filename in the usual download folders, or named outright in
-`settings.emulatorPaths`. Where `appimage-run` exists it is used to start it,
-because on NixOS an AppImage cannot execute itself.
+Not every emulator is a package. Eden ships only as an AppImage, so it is found
+by filename in RomMix's own `emulators/` folder, then the usual download
+folders, or named outright in `settings.emulatorPaths`. RomMix can also fetch
+it: the descriptor carries a release endpoint, and Settings offers the builds
+that endpoint actually published, filtered to assets that can run. AppImages
+are executed directly — wrapping them in `appimage-run` breaks the newer ones,
+whose payload is DwarFS rather than squashfs.
 
 ### Save sync
 
@@ -110,6 +139,13 @@ Before launch, saves newer on the server are pulled down. After the emulator
 exits, anything written during the session is uploaded. A remote save only
 overwrites a local one when it is strictly newer, and the local file is copied
 to `*.rommix-bak` first.
+
+How much of this is possible depends on the emulator, which is why a descriptor
+declares a `saveLayout`. One file named after the ROM (libretro `.srm`) syncs
+cleanly. A directory keyed by title id — Eden's `nand/user/save` — does not
+match on filename, and an emulator whose games share one memory card has no
+per-game save to attribute at all; those are skipped rather than uploading one
+game's data under another's name.
 
 ---
 
@@ -187,8 +223,8 @@ Settings → **Pre-flight check** names the common environmental failures
 explicitly. The usual ones:
 
 **"flatpak-spawn cannot reach the host"** — RomMix needs
-`--talk-name=org.freedesktop.Flatpak` to start RetroDECK, because nested
-`flatpak run` is impossible. Grant it in Flatseal.
+`--talk-name=org.freedesktop.Flatpak` to start an emulator on the host, because
+nested `flatpak run` is impossible. Grant it in Flatseal.
 
 **"The ROM folder is not writable"** — grant RomMix access to wherever your ROMs
 live. `--filesystem=home` and `--filesystem=/run/media` are in the manifest, but
@@ -200,6 +236,15 @@ first run. Start it once, then re-run the check.
 **A platform installs nowhere / "RomMix does not know which folder…"** — add a
 mapping in `settings.systemOverrides` (RomM platform slug → ES-DE folder name).
 
+**"No installed emulator can run …"** — nothing on the machine declares that
+platform. Settings → **Platforms** shows what each one resolves to; Settings →
+**Emulators** shows what is installed and what each covers.
+
+**An AppImage emulator will not start on NixOS** — AppImages need a loader for
+the binaries inside (`programs.nix-ld.enable`), and must *not* be routed through
+`appimage-run` (`programs.appimage.binfmt = false`), which only understands a
+squashfs payload and fails on the DwarFS ones newer builds use.
+
 ---
 
 ## Project layout
@@ -207,7 +252,8 @@ mapping in `settings.systemOverrides` (RomM platform slug → ES-DE folder name)
 ```
 src/
   shared/     RomM 5.1.0 API types, platform mapping, emulator registry (+ tests)
-  main/       store, RomM client, emulator probing, downloads, save sync, launcher
+  main/       root layout, store, RomM client, emulator probing and install,
+              downloads, save sync, launcher
   preload/    the contextBridge surface
   renderer/   React UI — focus engine, components, screens
 flatpak/      manifest, desktop entry, metainfo, icon

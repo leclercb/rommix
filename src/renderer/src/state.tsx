@@ -5,10 +5,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from 'react'
-import type { ConnectionStatus, DownloadItem, InstalledRom, Settings } from '@shared/types'
+import type {
+  ConnectionStatus,
+  DownloadItem,
+  DownloadState,
+  InstalledRom,
+  Settings
+} from '@shared/types'
 
 /** Application-wide state: connection, settings, downloads and navigation. */
 
@@ -106,13 +113,33 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [])
 
   // Live download progress from the main process.
+  //
+  // Announcing completion needs the *previous* states, not the current ones: an
+  // item stays 'done' in the queue until it is cleared, so notifying on the
+  // value alone would repeat on every subsequent progress event.
+  const seenStates = useRef(new Map<number, DownloadState>())
   useEffect(() => {
     return window.rommix.downloads.onUpdate((items) => {
       setDownloads(items)
+
+      let finished = false
+      for (const item of items) {
+        const previous = seenStates.current.get(item.romId)
+        seenStates.current.set(item.romId, item.state)
+        if (previous === item.state) continue
+
+        if (item.state === 'done') {
+          finished = true
+          notify(`${item.name} downloaded`)
+        } else if (item.state === 'error' && item.error) {
+          notify(`${item.name}: ${item.error}`, 'error')
+        }
+      }
+
       // A finished download changes what the library can launch.
-      if (items.some((item) => item.state === 'done')) void refreshInstalled()
+      if (finished) void refreshInstalled()
     })
-  }, [refreshInstalled])
+  }, [refreshInstalled, notify])
 
   useEffect(() => {
     return window.rommix.game.onState((state) => setRunningRomId(state.running ? state.romId : null))

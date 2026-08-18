@@ -70,8 +70,8 @@ export class Launcher {
     const argv = this.buildCommand(options)
     if (!argv) {
       return failure(
-        `${emulator.name} cannot run "${system}". Pick a different emulator in Settings, ` +
-          `or install RetroDECK, which resolves the emulator per system itself.`
+        `${emulator.name} cannot run "${system}". Choose a different emulator for this ` +
+          `platform in Settings, or install one that covers it.`
       )
     }
     const command = argv.join(' ')

@@ -1,6 +1,6 @@
 import { type JSX, useEffect, useState } from 'react'
 import type { InstalledRom, RommRom } from '@shared/types'
-import { CoverArt, FocusButton, Hints, Spinner, formatBytes } from '../components'
+import { CoverArt, FocusButton, Hints, Overlay, Spinner, formatBytes } from '../components'
 import { useApp } from '../state'
 
 /**
@@ -8,11 +8,13 @@ import { useApp } from '../state'
  * play it, remove it.
  */
 export function DetailScreen({ romId }: { romId: number }): JSX.Element {
-  const { installed, downloads, runningRomId, goBack, notify, refreshInstalled } = useApp()
+  const { installed, downloads, runningRomId, goBack, notify, refreshInstalled, settings } =
+    useApp()
 
   const [rom, setRom] = useState<RommRom | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmingRemoval, setConfirmingRemoval] = useState(false)
 
   useEffect(() => {
     setRom(null)
@@ -65,11 +67,12 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   }
 
   const uninstall = async (): Promise<void> => {
+    setConfirmingRemoval(false)
     setBusy(true)
     try {
       await window.rommix.downloads.uninstall(romId)
       await refreshInstalled()
-      notify('Removed from local storage')
+      notify(`${entry?.fileName ?? 'Game'} uninstalled`)
     } catch (cause) {
       notify((cause as Error).message, 'error')
     } finally {
@@ -145,8 +148,17 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         )}
 
         {entry ? (
-          <FocusButton variant="danger" onSelect={() => void uninstall()} disabled={busy || running}>
-            Remove download
+          <FocusButton
+            variant="danger"
+            onSelect={() =>
+              // `confirmUninstall` existed as a setting but nothing honoured it,
+              // so a single A press on a focused danger button deleted a
+              // multi-gigabyte download outright.
+              settings?.confirmUninstall === false ? void uninstall() : setConfirmingRemoval(true)
+            }
+            disabled={busy || running}
+          >
+            Uninstall
           </FocusButton>
         ) : null}
 
@@ -211,6 +223,23 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--warn">
           The game is running. RomMix will sync your saves back to RomM when you quit the emulator.
         </div>
+      ) : null}
+
+      {confirmingRemoval && entry ? (
+        <Overlay title="Uninstall this game?">
+          <p className="muted">
+            {entry.fileName} will be deleted from {entry.path.replace(/\/[^/]*$/, '')}. Your saves
+            on RomM are not touched, and you can download it again at any time.
+          </p>
+          <div className="btn-row">
+            <FocusButton onSelect={() => setConfirmingRemoval(false)} autoFocus>
+              Keep it
+            </FocusButton>
+            <FocusButton variant="danger" onSelect={() => void uninstall()}>
+              Uninstall, freeing {formatBytes(entry.sizeBytes)}
+            </FocusButton>
+          </div>
+        </Overlay>
       ) : null}
 
       <Hints

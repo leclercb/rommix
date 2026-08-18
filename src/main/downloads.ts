@@ -8,15 +8,18 @@ import { chooseLaunchFile } from '@shared/gamefiles'
 import { resolveSystem } from '@shared/systems'
 import type { DownloadItem, EmulatorState, InstalledRom, RommRom } from '@shared/types'
 import { RommClient, RommError } from './romm'
+import { rootPaths } from './root'
 import type { Store } from './store'
 
 /**
- * Downloads ROMs from RomM into the emulator's ROM tree.
+ * Downloads ROMs from RomM into the library, and reconciles the library with
+ * what is already on disk.
  *
- * Layout is `<roms_path>/<es-de system>/<file>`, which is exactly what
- * RetroDECK's `run_game` expects: it infers the system by matching the
+ * Layout is `<library root>/<es-de system>/<file>`. The system directory is
+ * not cosmetic: RetroDECK infers which emulator to use by matching the
  * `roms/<system>/` path segment, so a correctly placed file needs no further
- * hints at launch time.
+ * hints — and ES-DE scrapes the same layout. One root serves every emulator,
+ * because each is handed an absolute path at launch.
  *
  * Transfers run one at a time. Parallel ROM downloads mostly just make each
  * one slower and thrash the disk on a handheld, and a serial queue keeps the
@@ -216,7 +219,7 @@ export class DownloadManager extends EventEmitter {
     if (!system) {
       throw new RommError(
         `RomMix does not know which folder "${rom.platform_display_name}" maps to. ` +
-          `Set a folder for it in Settings → Platform folders.`
+          `Add a mapping for "${rom.platform_slug}" to settings.systemOverrides.`
       )
     }
 
@@ -227,16 +230,12 @@ export class DownloadManager extends EventEmitter {
           `systems, or an emulator for this one.`
       )
     }
-    // One library root for everything, falling back to whatever the resolved
-    // emulator discovered. Emulators are handed an absolute path at launch, so
-    // the ROM does not need to sit inside the tree of the one that opens it.
-    const root = this.store.settings.libraryRoot ?? emulator.paths.roms
-    if (!root) {
-      throw new RommError(
-        `No ROM folder is configured. Run ${emulator.name} once so RomMix can find its folders, ` +
-          `or set a ROM library folder in Settings.`
-      )
-    }
+    // One library root for everything, because each emulator is handed an
+    // absolute path at launch and so needs no tree of its own. Preference goes
+    // to the emulator's own folder when it has one, so a RetroDECK library
+    // stays where ES-DE already scrapes it; RomMix's own folder is the answer
+    // for a setup with no frontend to inherit a layout from.
+    const root = this.store.settings.libraryRoot ?? emulator.paths.roms ?? rootPaths().roms
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
     // zip and are unpacked into their own directory.

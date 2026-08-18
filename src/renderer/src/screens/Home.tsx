@@ -107,12 +107,16 @@ export function HomeScreen(): JSX.Element {
     .filter((rom, index, all) => all.findIndex((r) => r.id === rom.id) === index)
     .filter((rom) => installedIds.has(rom.id))
 
+  // The hero is simply the head of the first shelf that has anything: the game
+  // you last played, or failing that the newest in the library. Labelled,
+  // because an unexplained game at the top of the screen invites the question.
   const highlight = continuePlaying.items[0] ?? recentlyAdded.items[0] ?? null
+  const highlightReason = continuePlaying.items[0] ? 'Continue playing' : 'Recently added'
   const open = (rom: RommRom): void => navigate({ name: 'detail', romId: rom.id })
 
   return (
     <div className="content">
-      {highlight ? <Hero rom={highlight} /> : null}
+      {highlight ? <Hero rom={highlight} reason={highlightReason} /> : null}
 
       <GameRow
         title="Continue playing"
@@ -157,7 +161,7 @@ export function HomeScreen(): JSX.Element {
   )
 }
 
-function Hero({ rom }: { rom: RommRom }): JSX.Element {
+function Hero({ rom, reason }: { rom: RommRom; reason: string }): JSX.Element {
   const title = rom.name ?? rom.fs_name
   const year = rom.metadatum.first_release_date
     ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
@@ -169,6 +173,7 @@ function Hero({ rom }: { rom: RommRom }): JSX.Element {
         <CoverArt path={rom.path_cover_large ?? rom.path_cover_small} name={title} />
       </div>
       <div>
+        <div className="hero__reason">{reason}</div>
         <h1 className="hero__title">{title}</h1>
         <div className="hero__meta">
           <span className="chip">{rom.platform_display_name}</span>
