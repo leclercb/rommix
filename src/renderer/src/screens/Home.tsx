@@ -1,6 +1,14 @@
-import { type JSX, type Ref, useCallback, useEffect, useRef, useState } from 'react'
+import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
-import { CoverArt, GameRow, Hints, PlatformIcon, Spinner } from '../components'
+import {
+  CoverArt,
+  GameRow,
+  Hints,
+  PlatformIcon,
+  Spinner,
+  tileFromInstalled,
+  tileFromRom
+} from '../components'
 import { useAction, useFocusable } from '../input/focus'
 import { useApp } from '../state'
 
@@ -71,8 +79,29 @@ function useShelf(query: RomQuery): Shelf {
   return { items, total, loaded, error, loadMore }
 }
 
+/** How many of the games on disk the shelf shows before Downloads takes over. */
+const READY_TO_PLAY_SHELF = 30
+
 export function HomeScreen(): JSX.Element {
-  const { installedIds, navigate } = useApp()
+  const { installed, installedIds, navigate } = useApp()
+
+  /**
+   * The games on this device, newest install first.
+   *
+   * Built from the download index rather than by filtering the shelves above:
+   * those are three queries with their own paging, so a game on disk appeared
+   * here only if it happened to be a favourite, recent or recently played —
+   * which made the one shelf about *this machine* the least reliable on the
+   * screen. Downloads has the complete list; this is the top of it.
+   */
+  const readyToPlay = useMemo(
+    () =>
+      [...installed]
+        .sort((a, b) => b.installedAt.localeCompare(a.installedAt))
+        .slice(0, READY_TO_PLAY_SHELF)
+        .map(tileFromInstalled),
+    [installed]
+  )
 
   // Y is the search button everywhere it is offered, and the only search box is
   // the library's — so here it takes you there rather than doing nothing while
@@ -107,42 +136,49 @@ export function HomeScreen(): JSX.Element {
     )
   }
 
-  // Games already on disk, resolved from whatever the shelves have loaded so
-  // far — so this shelf grows as the others are scrolled.
-  const onDisk = [...continuePlaying.items, ...favourites.items, ...recentlyAdded.items]
-    .filter((rom, index, all) => all.findIndex((r) => r.id === rom.id) === index)
-    .filter((rom) => installedIds.has(rom.id))
-
   // The hero is simply the head of the first shelf that has anything: the game
   // you last played, or failing that the newest in the library. Labelled,
   // because an unexplained game at the top of the screen invites the question.
   const highlight = continuePlaying.items[0] ?? recentlyAdded.items[0] ?? null
   const highlightReason = continuePlaying.items[0] ? 'Continue playing' : 'Recently added'
-  const open = (rom: RommRom): void => navigate({ name: 'detail', romId: rom.id })
+  const open = (tile: { romId: number }): void =>
+    navigate({ name: 'detail', romId: tile.romId })
 
   return (
     <div className="content">
-      {highlight ? <Hero rom={highlight} reason={highlightReason} onSelect={() => open(highlight)} /> : null}
+      {highlight ? (
+        <Hero
+          rom={highlight}
+          reason={highlightReason}
+          onSelect={() => navigate({ name: 'detail', romId: highlight.id })}
+        />
+      ) : null}
 
       <GameRow
         title="Continue playing"
-        roms={continuePlaying.items}
+        tiles={continuePlaying.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={continuePlaying.loadMore}
       />
-      {/* No onEndReached: this shelf is a filter over the others, not a query. */}
-      <GameRow title="Ready to play" roms={onDisk} installedIds={installedIds} onSelect={open} />
+      {/* No onEndReached: this shelf is the download index, which is already
+          here in full, rather than a query that pages. */}
+      <GameRow
+        title="Ready to play"
+        tiles={readyToPlay}
+        installedIds={installedIds}
+        onSelect={open}
+      />
       <GameRow
         title="Favourites"
-        roms={favourites.items}
+        tiles={favourites.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={favourites.loadMore}
       />
       <GameRow
         title="Recently added"
-        roms={recentlyAdded.items}
+        tiles={recentlyAdded.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={recentlyAdded.loadMore}

@@ -22,8 +22,16 @@ interface LaunchOptions {
 }
 
 export class Launcher {
-  /** Set while a game is running, so the UI can block a second launch. */
-  private current: { romId: number; kill: () => void } | null = null
+  /**
+   * The session in progress, so a second launch can be refused.
+   *
+   * Claimed for the whole of `launch`, not just the spawn: a session starts by
+   * pulling saves down over the network, and leaving the slot free until the
+   * process exists would let a second launch run that pull concurrently and
+   * open the same save files. `kill` starts as a request to abandon the session
+   * before the emulator is spawned, and becomes a signal to it afterwards.
+   */
+  private current: { romId: number; kill: () => void; stopped: boolean } | null = null
 
   constructor(
     private readonly client: RommClient,
@@ -72,56 +80,83 @@ export class Launcher {
     }
     const command = argv.join(' ')
 
-    // Pull remote saves before the emulator opens them. A failure here is
-    // reported but does not block play — the local save is still valid.
-    let pullError: string | null = null
+    // Claimed before the first await, so a second launch is refused for the
+    // whole session rather than only once the emulator is up. Until there is a
+    // process, stopping can only be recorded as an intention.
+    const session = {
+      romId: rom.id,
+      kill: (): void => {
+        session.stopped = true
+      },
+      stopped: false
+    }
+    this.current = session
+
     try {
-      await this.saveSync.pull(rom, emulator, system)
-    } catch (cause) {
-      pullError = (cause as Error).message
-    }
+      // Pull remote saves before the emulator opens them. A failure here is
+      // reported but does not block play — the local save is still valid.
+      let pullError: string | null = null
+      try {
+        await this.saveSync.pull(rom, emulator, system)
+      } catch (cause) {
+        pullError = (cause as Error).message
+      }
 
-    const startedAt = new Date()
-    // Anything the emulator writes after this instant is part of this session.
-    // One second of slack absorbs clock/filesystem timestamp granularity.
-    const since = startedAt.getTime() - 1000
+      // Stopped while the saves were coming down: there is no process to
+      // signal, so the request has to be honoured here instead.
+      if (session.stopped) return failure('Stopped before the game started', command)
 
-    const exitError = await this.run(argv, rom.id, emulatorById(emulator.id)?.env)
-    const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
+      const startedAt = new Date()
+      // Anything the emulator writes after this instant is part of this
+      // session. One second of slack absorbs clock/filesystem timestamp
+      // granularity.
+      const since = startedAt.getTime() - 1000
 
-    if (exitError) {
-      return { ...failure(exitError, command), playSeconds }
-    }
+      const exitError = await this.run(argv, session, emulatorById(emulator.id)?.env)
+      const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
 
-    let uploadedSaves = 0
-    let uploadedStates = 0
-    let pushError: string | null = null
-    try {
-      const pushed = await this.saveSync.push(rom, emulator, system, since)
-      uploadedSaves = pushed.saves
-      uploadedStates = pushed.states
-    } catch (cause) {
-      pushError = (cause as Error).message
-    }
+      if (exitError) {
+        return { ...failure(exitError, command), playSeconds }
+      }
 
-    await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+      let uploadedSaves = 0
+      let uploadedStates = 0
+      let pushError: string | null = null
+      try {
+        const pushed = await this.saveSync.push(rom, emulator, system, since)
+        uploadedSaves = pushed.saves
+        uploadedStates = pushed.states
+      } catch (cause) {
+        pushError = (cause as Error).message
+      }
 
-    const warnings = [pullError, pushError].filter(Boolean)
-    return {
-      ok: true,
-      emulator: emulator.id,
-      command,
-      error: warnings.length ? `Save sync warning: ${warnings.join('; ')}` : null,
-      uploadedSaves,
-      uploadedStates,
-      playSeconds
+      await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+
+      const warnings = [pullError, pushError].filter(Boolean)
+      return {
+        ok: true,
+        emulator: emulator.id,
+        command,
+        error: warnings.length ? `Save sync warning: ${warnings.join('; ')}` : null,
+        uploadedSaves,
+        uploadedStates,
+        playSeconds
+      }
+    } finally {
+      // Released only once the saves are back on the server, not when the
+      // emulator exits: until then the session still owns the save files.
+      this.current = null
     }
   }
 
-  /** Spawn and await the process. Resolves to an error string, or null on success. */
+  /**
+   * Spawn and await the process. Resolves to an error string, or null on
+   * success. The session's `kill` is repointed at the process, so `stop`
+   * signals it from here on; clearing the session is `launch`'s job.
+   */
   private run(
     argv: string[],
-    romId: number,
+    session: { kill: () => void },
     env: Readonly<Record<string, string>> = {}
   ): Promise<string | null> {
     return new Promise((resolvePromise) => {
@@ -138,15 +173,13 @@ export class Launcher {
         stderr = (stderr + chunk.toString()).slice(-4000)
       })
 
-      this.current = { romId, kill: () => child.kill('SIGTERM') }
+      session.kill = () => child.kill('SIGTERM')
 
       child.on('error', (err) => {
-        this.current = null
         resolvePromise(`Could not start the emulator: ${err.message}`)
       })
 
       child.on('close', (code) => {
-        this.current = null
         // Emulators exit 0 on a clean quit. A non-zero code with no output
         // usually means the user killed it, which is not an error worth showing.
         if (code === 0 || code === null) return resolvePromise(null)

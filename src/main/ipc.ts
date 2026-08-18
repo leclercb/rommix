@@ -313,12 +313,22 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('system:updateSettings', async (patch: Partial<Settings>) => {
     const next = store.updateSettings(patch)
-    // Path or emulator changes invalidate the probe.
-    await rommix.refreshEmulators()
-    // Repointing a platform at another emulator changes which downloads count
-    // as present, so the renderer's copy of the list is stale the moment this
-    // returns.
-    rommix.send('library:installed', downloads.installed)
+
+    // Only a hand-written executable path changes what probing the machine
+    // would find. Re-running it for a save-sync toggle would mean a `flatpak
+    // info` and a PATH search per emulator every time a switch is flipped.
+    if ('emulatorPaths' in patch) await rommix.refreshEmulators()
+
+    // Repointing a platform at another emulator — or remapping one to a
+    // different folder — changes which downloads count as present, so the
+    // renderer's copy of the list is stale the moment this returns.
+    if (
+      'emulatorPaths' in patch ||
+      'systemEmulators' in patch ||
+      'systemOverrides' in patch
+    ) {
+      rommix.send('library:installed', downloads.installed)
+    }
     return next
   })
 

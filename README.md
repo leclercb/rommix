@@ -113,7 +113,8 @@ for tabs, `/` to search, `m` for Settings.
 
 ## Using it
 
-**Home** shows the game you last played, your favourites and recent additions.
+**Home** shows the game you last played, the games already on this device, your
+favourites and recent additions.
 
 **Library** is everything on your server, searchable and filterable by platform.
 A dot on a cover means the game is already downloaded.

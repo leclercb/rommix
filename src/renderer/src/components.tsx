@@ -2,7 +2,7 @@ import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Re
 import qrcode from 'qrcode-generator'
 import { systemInfo } from '@config/systems'
 import { FocusLayer, useAction, useFocusable } from './input/focus'
-import type { RommRom } from '@shared/types'
+import type { InstalledRom, RommRom } from '@shared/types'
 
 /** Shared presentational pieces for the 10-foot UI. */
 
@@ -165,32 +165,78 @@ function SegmentedOption({
   )
 }
 
+/**
+ * What a cover tile needs to draw itself.
+ *
+ * A game can be shown from two directions — a record on the server, or a copy
+ * on this disk — and only one of them has a RomM platform slug. Normalising
+ * both to this is what lets a shelf be built from the download index without
+ * fetching every game back from the server one at a time.
+ */
+export interface GameTile {
+  romId: number
+  title: string
+  coverPath: string | null
+  platformName: string
+  /** RomM's platform slug when it is known; the ES-DE system otherwise. */
+  platformSlug: string
+  /** ES-DE system, which carries the curated fallback icon. */
+  system?: string | null
+}
+
+export function tileFromRom(rom: RommRom): GameTile {
+  return {
+    romId: rom.id,
+    title: rom.name ?? rom.fs_name,
+    coverPath: rom.path_cover_small ?? rom.path_cover_large,
+    platformName: rom.platform_display_name,
+    platformSlug: rom.platform_slug
+  }
+}
+
+export function tileFromInstalled(entry: InstalledRom): GameTile {
+  return {
+    romId: entry.romId,
+    title: entry.name || entry.fileName,
+    coverPath: entry.coverPath,
+    platformName: entry.platformName,
+    // The index records the ES-DE system rather than RomM's slug, which the
+    // icon lookup falls back to happily.
+    platformSlug: entry.system,
+    system: entry.system
+  }
+}
+
 /** A cover-art tile in a row or grid. */
 export function GameCard({
-  rom,
+  tile,
   installed,
   onSelect,
   showPlatform = false
 }: {
-  rom: RommRom
+  tile: GameTile
   installed: boolean
   onSelect: () => void
   showPlatform?: boolean
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect })
-  const title = rom.name ?? rom.fs_name
 
   return (
     <button ref={ref as Ref<HTMLButtonElement>} className="card" {...props}>
       <div style={{ position: 'relative' }}>
-        <CoverArt path={rom.path_cover_small ?? rom.path_cover_large} name={title} />
+        <CoverArt path={tile.coverPath} name={tile.title} />
         {installed ? <span className="card__installed" title="Downloaded" /> : null}
       </div>
-      <div className="card__title">{title}</div>
+      <div className="card__title">{tile.title}</div>
       {showPlatform ? (
         <div className="card__meta">
-          <PlatformIcon slug={rom.platform_slug} size={16} label={rom.platform_display_name} />
-          <span>{rom.platform_display_name}</span>
+          <PlatformIcon
+            slug={tile.platformSlug}
+            system={tile.system}
+            size={16}
+            label={tile.platformName}
+          />
+          <span>{tile.platformName}</span>
         </div>
       ) : null}
     </button>
@@ -207,15 +253,15 @@ export function GameCard({
  */
 export function GameRow({
   title,
-  roms,
+  tiles,
   installedIds,
   onSelect,
   onEndReached
 }: {
   title: string
-  roms: RommRom[]
+  tiles: GameTile[]
   installedIds: Set<number>
-  onSelect: (rom: RommRom) => void
+  onSelect: (tile: GameTile) => void
   onEndReached?: () => void
 }): JSX.Element | null {
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -234,21 +280,21 @@ export function GameRow({
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [onEndReached, roms.length])
+  }, [onEndReached, tiles.length])
 
   // After the hooks: bailing earlier would call a different number of them.
-  if (roms.length === 0) return null
+  if (tiles.length === 0) return null
 
   return (
     <section>
       <h2 className="section-title">{title}</h2>
       <div className="row" ref={rowRef}>
-        {roms.map((rom) => (
+        {tiles.map((tile) => (
           <GameCard
-            key={rom.id}
-            rom={rom}
-            installed={installedIds.has(rom.id)}
-            onSelect={() => onSelect(rom)}
+            key={tile.romId}
+            tile={tile}
+            installed={installedIds.has(tile.romId)}
+            onSelect={() => onSelect(tile)}
             showPlatform
           />
         ))}

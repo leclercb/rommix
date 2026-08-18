@@ -340,7 +340,14 @@ export class DownloadManager extends EventEmitter {
     this.emit('update', this.items)
   }
 
-  /** Drain the queue one item at a time. */
+  /**
+   * Drain the queue one item at a time.
+   *
+   * Every failure has to be recorded against the item that caused it. The loop
+   * only ever ends when nothing is left queued, so an exception escaping here
+   * would strand not just the failed download but every one behind it, still
+   * showing "Waiting" with nothing left to move them.
+   */
   private async pump(seed: RommRom): Promise<void> {
     if (this.running) return
     this.running = true
@@ -349,10 +356,16 @@ export class DownloadManager extends EventEmitter {
       while (true) {
         const item = this.queue.find((i) => i.state === 'queued')
         if (!item) break
-        // The seeded ROM is already loaded; anything else needs a fresh fetch
-        // so we have the current file list.
-        const rom = item.romId === seed.id ? seed : await this.client.rom(item.romId)
-        await this.runOne(item, rom)
+        try {
+          // The seeded ROM is already loaded; anything else needs a fresh fetch
+          // so we have the current file list.
+          const rom = item.romId === seed.id ? seed : await this.client.rom(item.romId)
+          await this.runOne(item, rom)
+        } catch (cause) {
+          item.state = 'error'
+          item.error = (cause as Error).message
+          this.emitUpdate()
+        }
       }
     } finally {
       this.running = false
@@ -365,11 +378,16 @@ export class DownloadManager extends EventEmitter {
     item.state = 'downloading'
     this.emitUpdate()
 
-    const { dir, path, system, emulatorId, asDirectory } = this.plan(rom)
-    // Multi-file games download to a temporary archive next to their target.
-    const downloadTo = asDirectory ? `${path}.zip` : path
+    // Planned inside the try: the emulator for this platform can have been
+    // changed, or become unavailable, between queueing and starting, and that
+    // belongs on this item as an error rather than thrown at the queue.
+    let downloadTo: string | null = null
 
     try {
+      const { dir, path, system, emulatorId, asDirectory } = this.plan(rom)
+      // Multi-file games download to a temporary archive next to their target.
+      downloadTo = asDirectory ? `${path}.zip` : path
+
       await mkdir(dir, { recursive: true })
       await this.client.downloadRom(
         rom,
@@ -406,7 +424,7 @@ export class DownloadManager extends EventEmitter {
       const aborted = controller.signal.aborted
       item.state = aborted ? 'cancelled' : 'error'
       item.error = aborted ? null : (cause as Error).message
-      await rm(downloadTo, { force: true }).catch(() => undefined)
+      if (downloadTo) await rm(downloadTo, { force: true }).catch(() => undefined)
       this.emitUpdate()
     } finally {
       this.controllers.delete(rom.id)
