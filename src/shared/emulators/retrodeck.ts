@@ -65,7 +65,7 @@ const RETRODECK_STANDALONE_SYSTEMS = [
 export const retrodeck: EmulatorDescriptor = {
   id: 'retrodeck',
   name: 'RetroDECK',
-  role: 'frontend',
+  dispatch: 'self',
   install: [{ kind: 'flatpak', appId: RETRODECK_APP_ID }],
   systems: [
     ...new Set([...Object.keys(ESDE_TO_LIBRETRO_CORE), ...RETRODECK_STANDALONE_SYSTEMS])

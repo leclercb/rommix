@@ -17,7 +17,7 @@ const RETROARCH_APP_ID = 'org.libretro.RetroArch'
 export const retroarch: EmulatorDescriptor = {
   id: 'retroarch',
   name: 'RetroArch',
-  role: 'standalone',
+  dispatch: 'rommix',
   install: [
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
     { kind: 'binary', names: ['retroarch'] }

@@ -144,18 +144,18 @@ export function SettingsScreen(): JSX.Element {
       />
 
       <h2 className="section-title">Save sync</h2>
-      <div className="segmented">
-        <Toggle
-          label="Download newer saves before playing"
-          on={settings.syncSavesDown}
-          onToggle={() => void saveSettings({ syncSavesDown: !settings.syncSavesDown })}
-        />
-        <Toggle
-          label="Upload saves after playing"
-          on={settings.syncSavesUp}
-          onToggle={() => void saveSettings({ syncSavesUp: !settings.syncSavesUp })}
-        />
-      </div>
+      <Toggle
+        label="Download newer saves before playing"
+        hint="A remote save replaces a local one only when it is strictly newer, and the local file is kept as *.rommix-bak."
+        on={settings.syncSavesDown}
+        onToggle={() => void saveSettings({ syncSavesDown: !settings.syncSavesDown })}
+      />
+      <Toggle
+        label="Upload saves after playing"
+        hint="Only files the session actually wrote are sent back to RomM."
+        on={settings.syncSavesUp}
+        onToggle={() => void saveSettings({ syncSavesUp: !settings.syncSavesUp })}
+      />
 
       <h2 className="section-title">RomMix folder</h2>
       <p className="faint" style={{ fontSize: 14 }}>
@@ -168,7 +168,7 @@ export function SettingsScreen(): JSX.Element {
           label="Folder"
           value={rootDraft}
           onChange={setRootDraft}
-          placeholder={root?.fallback ?? '/home/you/RomMix'}
+          placeholder={root?.fallback ?? '/home/you/rommix'}
           hint={
             root?.fromEnvironment
               ? 'Set by ROMMIX_HOME, which wins over anything chosen here.'
@@ -197,11 +197,8 @@ export function SettingsScreen(): JSX.Element {
           label="ROM library folder"
           value={romsOverride}
           onChange={setRomsOverride}
-          placeholder={
-            diagnostics?.emulators.find((e) => e.id === diagnostics.activeEmulator)?.paths.roms ??
-            '/home/you/retrodeck/roms'
-          }
-          hint="An absolute path, e.g. a folder on an SD card."
+          placeholder="Follow each platform's emulator"
+          hint="Leave empty and each game goes to the folder its own emulator uses — see Platforms above. Set an absolute path to keep the whole library in one place instead."
         />
         <div className="btn-row">
           <FocusButton onSelect={() => void applyRomsOverride()}>Save folder</FocusButton>
@@ -218,9 +215,14 @@ export function SettingsScreen(): JSX.Element {
             <dd>{diagnostics.inFlatpak ? 'yes' : 'no'}</dd>
             <dt>Can start host apps</dt>
             <dd>{diagnostics.canSpawnHost ? 'yes' : 'no'}</dd>
-            <dt>Active emulator</dt>
-            <dd>{diagnostics.activeEmulator ?? 'none found'}</dd>
-            <dt>ROM folder writable</dt>
+            <dt>Emulators installed</dt>
+            <dd>
+              {diagnostics.emulators.filter((e) => e.available).length} of{' '}
+              {diagnostics.emulators.length}
+            </dd>
+            <dt>ROM library folder</dt>
+            <dd>{diagnostics.libraryRoot ?? 'none — no emulator has one yet'}</dd>
+            <dt>Library folder writable</dt>
             <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
           </dl>
 
@@ -286,6 +288,28 @@ function EmulatorList({
   onInstalled: () => void
 }): JSX.Element {
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
+  const [flatpakBusy, setFlatpakBusy] = useState<EmulatorId | null>(null)
+  const [flatpakLine, setFlatpakLine] = useState<string | null>(null)
+
+  useEffect(
+    () =>
+      window.rommix.system.onInstallProgress((progress) => {
+        if (progress.message) setFlatpakLine(progress.message)
+      }),
+    []
+  )
+
+  const installFromFlathub = async (id: EmulatorId): Promise<void> => {
+    setFlatpakBusy(id)
+    setFlatpakLine(null)
+    try {
+      await window.rommix.system.installEmulatorFlatpak(id)
+      onInstalled()
+    } finally {
+      setFlatpakBusy(null)
+      setFlatpakLine(null)
+    }
+  }
 
   return (
     <div>
@@ -302,7 +326,9 @@ function EmulatorList({
               </div>
               <div className="emulator__meta">
                 {covers} platform{covers === 1 ? '' : 's'}
-                {descriptor.role === 'frontend' ? ' · picks the emulator itself per platform' : ''}
+                {descriptor.dispatch === 'self'
+                  ? ' · chooses the emulator itself for each platform'
+                  : ''}
               </div>
               {state?.install ? (
                 <div className="emulator__path" title={state.install.ref}>
@@ -318,16 +344,34 @@ function EmulatorList({
                 <div className="emulator__meta">{state.unavailableReason}</div>
               ) : null}
             </div>
-            {descriptor.releases ? (
-              <div className="emulator__actions">
+            <div className="emulator__actions">
+              {descriptor.releases ? (
                 <FocusButton variant="ghost" onSelect={() => setInstalling(descriptor.id)}>
                   {state?.available ? 'Change version' : 'Download'}
                 </FocusButton>
-              </div>
-            ) : null}
+              ) : null}
+              {/* A flatpak emulator that is simply absent can be fetched from
+                  Flathub; one that is present needs no button. */}
+              {!state?.install && descriptor.install.some((i) => i.kind === 'flatpak') ? (
+                <FocusButton
+                  variant="ghost"
+                  disabled={flatpakBusy !== null}
+                  onSelect={() => void installFromFlathub(descriptor.id)}
+                >
+                  {flatpakBusy === descriptor.id ? 'Installing…' : 'Install'}
+                </FocusButton>
+              ) : null}
+            </div>
           </div>
         )
       })}
+
+      {flatpakBusy ? (
+        <Overlay title="Installing from Flathub">
+          <p className="muted">{flatpakLine ?? 'Contacting Flathub…'}</p>
+          <Spinner />
+        </Overlay>
+      ) : null}
 
       {installing ? (
         <InstallPicker
@@ -542,25 +586,37 @@ function PlatformList({
   )
 }
 
+/**
+ * A labelled setting with its own On/Off control, rather than the label
+ * smuggled into the text of one of the options.
+ */
 function Toggle({
   label,
+  hint,
   on,
   onToggle
 }: {
   label: string
+  hint?: string
   on: boolean
   onToggle: () => void
 }): JSX.Element {
   return (
-    <SegmentedControl<'on' | 'off'>
-      value={on ? 'on' : 'off'}
-      onChange={(next) => {
-        if ((next === 'on') !== on) onToggle()
-      }}
-      options={[
-        { value: 'on', label: `${label}: on` },
-        { value: 'off', label: 'off' }
-      ]}
-    />
+    <div className="setting">
+      <div className="setting__text">
+        <div className="setting__label">{label}</div>
+        {hint ? <div className="setting__hint">{hint}</div> : null}
+      </div>
+      <SegmentedControl<'on' | 'off'>
+        value={on ? 'on' : 'off'}
+        onChange={(next) => {
+          if ((next === 'on') !== on) onToggle()
+        }}
+        options={[
+          { value: 'on', label: 'On' },
+          { value: 'off', label: 'Off' }
+        ]}
+      />
+    </div>
   )
 }

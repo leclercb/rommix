@@ -228,7 +228,7 @@ async function probe(
   return {
     id: descriptor.id,
     name: descriptor.name,
-    role: descriptor.role,
+    dispatch: descriptor.dispatch,
     saveLayout: descriptor.saveLayout,
     available: unavailableReason === null,
     install,

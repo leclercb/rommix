@@ -19,12 +19,19 @@
 export type EmulatorId = string
 
 /**
- * A frontend owns a library and picks the real emulator itself once handed a
- * system; a standalone emulator is that emulator. Both declare exactly which
- * systems they run — the distinction only affects how they are launched and
- * where their files live, never whether they can be trusted with a ROM.
+ * Who decides which emulator core actually runs a game.
+ *
+ * `self` means the program is handed the system and resolves the emulator from
+ * its own configuration — RetroDECK reading its es_systems.xml. `rommix` means
+ * RomMix names it, as with RetroArch, where the libretro core is chosen here
+ * and passed on the command line.
+ *
+ * "Frontend vs standalone" was the earlier name and it read wrong: RetroArch is
+ * plainly a frontend for libretro cores, yet it belongs on the `rommix` side
+ * because RomMix picks the core. The distinction that matters is *who chooses*,
+ * not how the program markets itself.
  */
-export type EmulatorRole = 'frontend' | 'standalone'
+export type EmulatorDispatch = 'self' | 'rommix'
 
 /**
  * How the program might be installed. Tried in order, first hit wins.
@@ -109,7 +116,7 @@ export interface LaunchContext {
 export interface EmulatorDescriptor {
   readonly id: EmulatorId
   readonly name: string
-  readonly role: EmulatorRole
+  readonly dispatch: EmulatorDispatch
   readonly install: readonly InstallSpec[]
   /**
    * ES-DE systems this emulator runs.
@@ -145,7 +152,7 @@ export interface EmulatorDescriptor {
 export interface EmulatorState {
   id: EmulatorId
   name: string
-  role: EmulatorRole
+  dispatch: EmulatorDispatch
   saveLayout: SaveLayout
   /** Installed, and usable right now. */
   available: boolean

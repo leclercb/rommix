@@ -63,6 +63,7 @@ const bridge: RomMixBridge = {
     emulatorReleases: (id: string) => ipcRenderer.invoke('emulators:releases', id),
     installEmulator: (id: string, asset: EmulatorAsset) =>
       ipcRenderer.invoke('emulators:install', id, asset),
+    installEmulatorFlatpak: (id: string) => ipcRenderer.invoke('emulators:installFlatpak', id),
     onInstallProgress: (listener: (progress: EmulatorInstallProgress) => void) =>
       subscribe<EmulatorInstallProgress>('emulators:progress', listener),
     diagnostics: () => ipcRenderer.invoke('system:diagnostics'),

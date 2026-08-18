@@ -22,7 +22,21 @@ require() {
 
 require npm
 require flatpak
-require flatpak-builder "Install it with: flatpak install -y flathub org.flatpak.Builder"
+
+# flatpak-builder ships two ways, and the flatpak one provides no binary on
+# PATH — so checking for the command alone rejected a perfectly good install
+# while telling the user to perform exactly that install.
+if command -v flatpak-builder >/dev/null 2>&1; then
+  FLATPAK_BUILDER=(flatpak-builder)
+elif flatpak info org.flatpak.Builder >/dev/null 2>&1; then
+  FLATPAK_BUILDER=(flatpak run org.flatpak.Builder)
+else
+  echo "error: flatpak-builder is not installed." >&2
+  echo "  Install it with: flatpak install -y flathub org.flatpak.Builder" >&2
+  echo "  (or your distribution's flatpak-builder package)" >&2
+  exit 1
+fi
+echo "==> Using ${FLATPAK_BUILDER[*]}"
 
 echo "==> Checking flatpak runtimes"
 for ref in \
@@ -45,7 +59,7 @@ if [ ! -d dist/linux-unpacked ]; then
 fi
 
 echo "==> Building the flatpak"
-flatpak-builder \
+"${FLATPAK_BUILDER[@]}" \
   --force-clean \
   --user \
   --install \

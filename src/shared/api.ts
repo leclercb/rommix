@@ -77,6 +77,8 @@ export interface RomMixBridge {
     emulatorReleases(id: string): Promise<EmulatorRelease[]>
     /** Download an asset and adopt it as that emulator's executable. */
     installEmulator(id: string, asset: EmulatorAsset): Promise<string>
+    /** Install an emulator that ships as a flatpak, from Flathub. */
+    installEmulatorFlatpak(id: string): Promise<void>
     onInstallProgress(listener: (progress: EmulatorInstallProgress) => void): () => void
     diagnostics(): Promise<DiagnosticsReport>
     root(): Promise<RootLocation>

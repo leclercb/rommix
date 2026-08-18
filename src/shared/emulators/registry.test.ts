@@ -22,7 +22,7 @@ function state(id: string, available: boolean): EmulatorState {
   return {
     id: descriptor.id,
     name: descriptor.name,
-    role: descriptor.role,
+    dispatch: descriptor.dispatch,
     saveLayout: descriptor.saveLayout,
     available,
     install: available ? { kind: 'flatpak', ref: 'test.app.Id' } : null,

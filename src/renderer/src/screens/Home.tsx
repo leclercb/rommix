@@ -1,6 +1,7 @@
-import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
+import { type JSX, type Ref, useCallback, useEffect, useRef, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
 import { CoverArt, GameRow, Hints, Spinner } from '../components'
+import { useFocusable } from '../input/focus'
 import { useApp } from '../state'
 
 /**
@@ -116,7 +117,7 @@ export function HomeScreen(): JSX.Element {
 
   return (
     <div className="content">
-      {highlight ? <Hero rom={highlight} reason={highlightReason} /> : null}
+      {highlight ? <Hero rom={highlight} reason={highlightReason} onSelect={() => open(highlight)} /> : null}
 
       <GameRow
         title="Continue playing"
@@ -161,14 +162,28 @@ export function HomeScreen(): JSX.Element {
   )
 }
 
-function Hero({ rom, reason }: { rom: RommRom; reason: string }): JSX.Element {
+/**
+ * The featured game. Focusable, because it is the first thing on the screen and
+ * was previously the one thing on it that could not be selected — the pad
+ * skipped straight past it to the shelves.
+ */
+function Hero({
+  rom,
+  reason,
+  onSelect
+}: {
+  rom: RommRom
+  reason: string
+  onSelect: () => void
+}): JSX.Element {
+  const { ref, props } = useFocusable({ onSelect, autoFocus: true })
   const title = rom.name ?? rom.fs_name
   const year = rom.metadatum.first_release_date
     ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
     : null
 
   return (
-    <div className="hero">
+    <div ref={ref as Ref<HTMLDivElement>} className="hero" {...props}>
       <div className="hero__art">
         <CoverArt path={rom.path_cover_large ?? rom.path_cover_small} name={title} />
       </div>
@@ -185,6 +200,7 @@ function Hero({ rom, reason }: { rom: RommRom; reason: string }): JSX.Element {
           ))}
         </div>
         {rom.summary ? <p className="hero__summary">{rom.summary}</p> : null}
+        <div className="hero__hint">Press A to open</div>
       </div>
     </div>
   )

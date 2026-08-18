@@ -240,8 +240,8 @@ export interface ConnectionStatus {
 export type {
   EmulationPaths,
   EmulatorDescriptor,
+  EmulatorDispatch,
   EmulatorId,
-  EmulatorRole,
   EmulatorState,
   ResolvedInstall,
   SaveLayout
@@ -356,6 +356,8 @@ export interface EmulatorInstallProgress {
   assetName: string
   receivedBytes: number
   totalBytes: number
+  /** Set instead of byte counts when the installer reports text, as flatpak does. */
+  message?: string
 }
 
 /** Where RomMix keeps everything it owns. */
@@ -372,7 +374,12 @@ export interface DiagnosticsReport {
   inFlatpak: boolean
   canSpawnHost: boolean
   emulators: EmulatorState[]
-  activeEmulator: EmulatorId | null
+  /**
+   * Where downloads actually land. Once the emulator is chosen per platform
+   * there is no single "active" one to report, but there is still exactly one
+   * library folder, and whether it is writable is the thing that breaks.
+   */
+  libraryRoot: string | null
   romsWritable: boolean
   notes: string[]
 }

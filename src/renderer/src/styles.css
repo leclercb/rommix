@@ -374,6 +374,31 @@ input {
   text-overflow: ellipsis;
 }
 
+/* A setting: what it does on the left, its control on the right. */
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting__text {
+  flex: 1;
+  min-width: 240px;
+}
+
+.setting__label {
+  font-weight: 650;
+}
+
+.setting__hint {
+  font-size: 14px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
 /* --------------------------------------------------------------------------
    Emulator list (Settings)
    -------------------------------------------------------------------------- */
@@ -532,19 +557,41 @@ input {
    Hero
    -------------------------------------------------------------------------- */
 
+/* The horizontal padding is what the focus ring needs: it is drawn on the
+   hero's own edge, so with no inset it sat flush against the cover art. */
 .hero {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 30px;
   align-items: end;
   min-height: 300px;
-  padding: 26px 0 10px;
+  padding: 26px 22px 18px;
+  margin: 0 -22px;
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+
+.hero[data-focused='true'] {
+  background: var(--surface);
+  box-shadow: var(--focus-ring);
 }
 
 .hero__art {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+.hero__hint {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.hero[data-focused='true'] .hero__hint {
+  opacity: 1;
 }
 
 .hero__reason {

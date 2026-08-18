@@ -12,7 +12,7 @@ import type {
   Settings
 } from '@shared/types'
 import type { RomMixApp } from './app'
-import { canSpawnHost, inFlatpak, isWritable } from './host'
+import { canSpawnHost, inFlatpak, installFlatpak, isWritable } from './host'
 import { fetchReleases, installAsset } from './releases'
 import { defaultRoot, relocateRoot, resolveRoot } from './root'
 import { RommError, normaliseBaseUrl } from './romm'
@@ -260,8 +260,8 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
     const emulators = await rommix.refreshEmulators()
-    const active = rommix.activeEmulator()
     const spawn = await canSpawnHost()
+    const libraryRoot = rommix.libraryRoot()
     const notes: string[] = []
 
     if (inFlatpak() && !spawn) {
@@ -280,10 +280,10 @@ export function registerIpc(rommix: RomMixApp): void {
       }
     }
 
-    const romsWritable = await isWritable(active?.paths.roms ?? null)
-    if (active && !romsWritable) {
+    const romsWritable = await isWritable(libraryRoot)
+    if (libraryRoot && !romsWritable) {
       notes.push(
-        `The ROM folder ${active.paths.roms} is not writable. Grant RomMix access to it ` +
+        `The ROM library folder ${libraryRoot} is not writable. Grant RomMix access to it ` +
           '(--filesystem=home, or the SD card path) with Flatseal.'
       )
     }
@@ -292,13 +292,38 @@ export function registerIpc(rommix: RomMixApp): void {
       inFlatpak: inFlatpak(),
       canSpawnHost: spawn,
       emulators,
-      activeEmulator: active?.id ?? null,
+      libraryRoot,
       romsWritable,
       notes
     }
   })
 
   /** Where RomMix keeps its own files, and where it would by default. */
+  /**
+   * Install an emulator that ships as a flatpak.
+   *
+   * Separate from `emulators:install`, which downloads a release asset: here
+   * the package manager owns the bytes, so there is nothing to place and no
+   * path to record — a re-probe simply finds it.
+   */
+  handle('emulators:installFlatpak', async (id: string): Promise<void> => {
+    const descriptor = emulatorById(id)
+    const spec = descriptor?.install.find((entry) => entry.kind === 'flatpak')
+    if (!descriptor || !spec || spec.kind !== 'flatpak') {
+      throw new RommError(`${descriptor?.name ?? id} is not distributed as a flatpak`)
+    }
+    await installFlatpak(spec.appId, (line) =>
+      rommix.send('emulators:progress', {
+        emulatorId: id,
+        assetName: spec.appId,
+        receivedBytes: 0,
+        totalBytes: 0,
+        message: line
+      })
+    )
+    await rommix.refreshEmulators()
+  })
+
   handle('system:root', (): RootLocation => ({
     current: resolveRoot(),
     fallback: defaultRoot(),

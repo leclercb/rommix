@@ -30,7 +30,7 @@ import type { EmulatorDescriptor } from './types.ts'
 export const eden: EmulatorDescriptor = {
   id: 'eden',
   name: 'Eden',
-  role: 'standalone',
+  dispatch: 'rommix',
   install: [
     // Listed first so a packaged build is preferred if one ever appears; today
     // only the AppImage pattern matches anything.

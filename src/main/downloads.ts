@@ -8,7 +8,6 @@ import { chooseLaunchFile } from '@shared/gamefiles'
 import { resolveSystem } from '@shared/systems'
 import type { DownloadItem, EmulatorState, InstalledRom, RommRom } from '@shared/types'
 import { RommClient, RommError } from './romm'
-import { rootPaths } from './root'
 import type { Store } from './store'
 
 /**
@@ -194,7 +193,8 @@ export class DownloadManager extends EventEmitter {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
-    private readonly getEmulator: (system?: string) => EmulatorState | null
+    private readonly getEmulator: (system?: string) => EmulatorState | null,
+    private readonly getLibraryRoot: () => string
   ) {
     super()
   }
@@ -230,12 +230,10 @@ export class DownloadManager extends EventEmitter {
           `systems, or an emulator for this one.`
       )
     }
-    // One library root for everything, because each emulator is handed an
-    // absolute path at launch and so needs no tree of its own. Preference goes
-    // to the emulator's own folder when it has one, so a RetroDECK library
-    // stays where ES-DE already scrapes it; RomMix's own folder is the answer
-    // for a setup with no frontend to inherit a layout from.
-    const root = this.store.settings.libraryRoot ?? emulator.paths.roms ?? rootPaths().roms
+    // The same root the Settings pre-flight reports. Resolving it per emulator
+    // here instead would send a Switch ROM somewhere different from a Mega
+    // Drive one while the UI claimed a single library folder.
+    const root = this.getLibraryRoot()
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
     // zip and are unpacked into their own directory.

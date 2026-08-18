@@ -32,8 +32,11 @@ export class RomMixApp {
   private window: BrowserWindow | null = null
 
   constructor() {
-    this.downloads = new DownloadManager(this.store, this.client, (system) =>
-      this.activeEmulator(system)
+    this.downloads = new DownloadManager(
+      this.store,
+      this.client,
+      (system) => this.activeEmulator(system),
+      () => this.libraryRoot()
     )
     this.downloads.on('update', (items) => this.send('downloads:update', items))
     // The renderer keeps its own copy of the installed list; without these it
@@ -63,6 +66,25 @@ export class RomMixApp {
 
   get emulators(): EmulatorState[] {
     return this.emulatorCache ?? []
+  }
+
+  /**
+   * The one folder every download lands in.
+   *
+   * Unset, it is the library of an installed emulator that owns one — which
+   * means a RetroDECK setup keeps its ROMs where ES-DE already scrapes them —
+   * and RomMix's own folder otherwise. Deliberately a single value rather than
+   * per-platform: emulators are handed an absolute path at launch, so nothing
+   * requires a Switch ROM to live somewhere different from a Mega Drive one,
+   * and "where are my ROMs" should have one answer.
+   */
+  libraryRoot(): string {
+    const configured = this.store.settings.libraryRoot
+    if (configured) return configured
+    const owner = (this.emulatorCache ?? []).find(
+      (state) => state.available && state.paths.roms !== null
+    )
+    return owner?.paths.roms ?? rootPaths().roms
   }
 
   send(channel: string, payload: unknown): void {

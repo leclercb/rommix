@@ -1,8 +1,8 @@
-import type { DownloadItem } from '@shared/types'
+import type { DownloadItem, InstalledRom } from '@shared/types'
 import { FocusButton, Hints, formatBytes } from '../components'
 import { useFocusable } from '../input/focus'
 import { useApp } from '../state'
-import type { JSX, Ref } from 'react'
+import { useMemo, type JSX, type Ref } from 'react'
 
 const STATE_LABELS: Record<DownloadItem['state'], string> = {
   queued: 'Waiting',
@@ -26,11 +26,31 @@ export function DownloadsScreen(): JSX.Element {
 
   const totalOnDisk = installed.reduce((sum, item) => sum + item.sizeBytes, 0)
 
+  /**
+   * Grouped by platform, biggest group first, newest install first within each.
+   * A flat list of everything on disk stops being readable the moment a library
+   * is more than a couple of screens long.
+   */
+  const byPlatform = useMemo(() => {
+    const groups = new Map<string, InstalledRom[]>()
+    for (const entry of installed) {
+      const group = groups.get(entry.system)
+      if (group) group.push(entry)
+      else groups.set(entry.system, [entry])
+    }
+    for (const group of groups.values()) {
+      group.sort((a, b) => b.installedAt.localeCompare(a.installedAt))
+    }
+    return [...groups.entries()].sort(
+      (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
+    )
+  }, [installed])
+
   const remove = async (romId: number): Promise<void> => {
     try {
       await window.rommix.downloads.uninstall(romId)
       await refreshInstalled()
-      notify('Removed from local storage')
+      notify('Game uninstalled')
     } catch (cause) {
       notify((cause as Error).message, 'error')
     }
@@ -78,20 +98,25 @@ export function DownloadsScreen(): JSX.Element {
       {installed.length === 0 ? (
         <div className="empty">Nothing downloaded yet. Pick a game and press Download.</div>
       ) : (
-        installed
-          .slice()
-          .sort((a, b) => b.installedAt.localeCompare(a.installedAt))
-          .map((entry) => (
-            <InstalledRow
-              key={entry.romId}
-              name={entry.fileName}
-              system={entry.system}
-              size={entry.sizeBytes}
-              path={entry.path}
-              onSelect={() => navigate({ name: 'detail', romId: entry.romId })}
-              onRemove={() => void remove(entry.romId)}
-            />
-          ))
+        byPlatform.map(([system, entries]) => (
+          <section key={system}>
+            <h3 className="section-title" style={{ fontSize: 17 }}>
+              {system} · {entries.length} game{entries.length === 1 ? '' : 's'} ·{' '}
+              {formatBytes(entries.reduce((sum, entry) => sum + entry.sizeBytes, 0))}
+            </h3>
+            {entries.map((entry) => (
+              <InstalledRow
+                key={entry.romId}
+                name={entry.fileName}
+                system={entry.system}
+                size={entry.sizeBytes}
+                path={entry.path}
+                onSelect={() => navigate({ name: 'detail', romId: entry.romId })}
+                onRemove={() => void remove(entry.romId)}
+              />
+            ))}
+          </section>
+        ))
       )}
 
       <Hints
