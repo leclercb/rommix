@@ -148,8 +148,18 @@ export async function findMatchingFile(
  * start. The image's own runtime handles either format, so the right thing is
  * to get out of its way and let the OS resolve the rest.
  */
-export function execPrefix(install: ResolvedInstall): string[] {
-  return hostCommand(install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [install.ref])
+export function execPrefix(
+  install: ResolvedInstall,
+  env: Readonly<Record<string, string>> = {}
+): string[] {
+  const argv = install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [install.ref]
+  if (!inFlatpak()) return argv
+
+  // flatpak-spawn starts a *fresh* process on the host and does not carry our
+  // environment across, so anything the emulator needs has to be passed
+  // explicitly. Outside the sandbox the spawn options handle it instead.
+  const passed = Object.entries(env).map(([key, value]) => `--env=${key}=${value}`)
+  return ['flatpak-spawn', '--host', ...passed, ...argv]
 }
 
 /** Can we actually write into this directory tree? */

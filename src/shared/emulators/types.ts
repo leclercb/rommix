@@ -132,6 +132,11 @@ export interface EmulatorDescriptor {
   readonly saveLayout: SaveLayout
   /** Set when RomMix can fetch and install this emulator itself. */
   readonly releases?: ReleaseSource
+  /**
+   * Environment the emulator needs in order to start, merged over RomMix's own.
+   * For things the emulator will not do for itself — not for tuning.
+   */
+  readonly env?: Readonly<Record<string, string>>
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
 }

@@ -43,7 +43,11 @@ export class Launcher {
     const { emulator, system, romPath } = options
     const descriptor = emulatorById(emulator.id)
     if (!descriptor || !emulator.install) return null
-    return descriptor.launch({ exec: execPrefix(emulator.install), system, romPath })
+    return descriptor.launch({
+      exec: execPrefix(emulator.install, descriptor.env),
+      system,
+      romPath
+    })
   }
 
   /**
@@ -90,7 +94,7 @@ export class Launcher {
     // One second of slack absorbs clock/filesystem timestamp granularity.
     const since = startedAt.getTime() - 1000
 
-    const exitError = await this.run(argv, rom.id)
+    const exitError = await this.run(argv, rom.id, emulatorById(emulator.id)?.env)
     const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
 
     if (exitError) {
@@ -123,10 +127,18 @@ export class Launcher {
   }
 
   /** Spawn and await the process. Resolves to an error string, or null on success. */
-  private run(argv: string[], romId: number): Promise<string | null> {
+  private run(
+    argv: string[],
+    romId: number,
+    env: Readonly<Record<string, string>> = {}
+  ): Promise<string | null> {
     return new Promise((resolvePromise) => {
       const [cmd, ...args] = argv
-      const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], detached: false })
+      const child = spawn(cmd, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+        env: { ...process.env, ...env }
+      })
 
       let stderr = ''
       child.stderr?.on('data', (chunk: Buffer) => {

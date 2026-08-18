@@ -49,6 +49,20 @@ export const eden: EmulatorDescriptor = {
     assetSuffix: '.AppImage',
     homepage: 'https://eden-emu.dev'
   },
+  /**
+   * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
+   * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,
+   * `SDL_VIDEO_DRIVER=x11`, `GDK_BACKEND=x11`, and it unsets WAYLAND_DISPLAY —
+   * which fails outright on a session with no X server, i.e. a plain Wayland
+   * desktop or the gamescope sessions RomMix targets.
+   *
+   * Set to 1 the hook does nothing at all: it does not select Wayland, it just
+   * stops overriding, leaving Qt and SDL to auto-detect. So on pure X11 this is
+   * a no-op. The one case it changes is a Wayland session that *also* has
+   * Xwayland, where Eden would otherwise have taken the xcb path upstream
+   * considers more stable — remove this if you prefer that.
+   */
+  env: { I_WANT_A_BROKEN_WAYLAND_UI: '1' },
   ownsLibrary: false,
   dirs: {
     saves: { base: 'data', path: 'eden/nand/user/save' },

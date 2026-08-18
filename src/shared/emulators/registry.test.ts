@@ -207,3 +207,14 @@ test('Eden declares a release source RomMix can install from', () => {
   assert.match(eden.releases.api, /^https:\/\/git\.eden-emu\.dev\//)
   assert.equal(eden.releases.assetSuffix, '.AppImage')
 })
+
+test('Eden declares the environment it needs to open a window at all', () => {
+  // Without this Eden refuses its Wayland backend, falls back to xcb, and dies
+  // on a session with no X server — which is every gamescope session.
+  assert.equal(eden.env?.I_WANT_A_BROKEN_WAYLAND_UI, '1')
+})
+
+test('an emulator with nothing to declare has no environment', () => {
+  assert.equal(retrodeck.env, undefined)
+  assert.equal(retroarch.env, undefined)
+})
