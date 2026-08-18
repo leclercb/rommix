@@ -13,6 +13,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
+    // Shared code is imported both by the bundler and by Node's TypeScript
+    // stripping in the tests, and the latter requires explicit .ts specifiers
+    // on relative imports. Vite resolves them fine.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
       "@renderer/*": ["./src/renderer/src/*"]

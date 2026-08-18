@@ -49,7 +49,7 @@ const bridge: RommixBridge = {
   system: {
     settings: () => ipcRenderer.invoke('system:settings'),
     updateSettings: (patch: Partial<Settings>) => ipcRenderer.invoke('system:updateSettings', patch),
-    runners: () => ipcRenderer.invoke('system:runners'),
+    emulators: () => ipcRenderer.invoke('system:emulators'),
     diagnostics: () => ipcRenderer.invoke('system:diagnostics'),
     // Synchronous on purpose: it only builds a URL string, and <img src> needs
     // it during render.

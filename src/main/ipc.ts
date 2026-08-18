@@ -8,8 +8,8 @@ import type {
   Settings
 } from '@shared/types'
 import type { RommixApp } from './app'
+import { canSpawnHost, inFlatpak, isWritable } from './host'
 import { RommError, normaliseBaseUrl } from './romm'
-import { canSpawnHost, inFlatpak, isWritable } from './runners'
 
 /**
  * IPC surface. Every handler is wrapped so a thrown error crosses the bridge as
@@ -88,7 +88,7 @@ export function registerIpc(rommix: RommixApp): void {
 
       const result = await status()
       if (!result.connected) throw new RommError(result.error ?? 'Could not sign in')
-      await rommix.refreshRunners()
+      await rommix.refreshEmulators()
       return result
     } catch (cause) {
       // Leave the app as we found it rather than half-connected.
@@ -127,8 +127,8 @@ export function registerIpc(rommix: RommixApp): void {
   handle('downloads:list', () => downloads.items)
 
   handle('downloads:start', async (romId: number): Promise<DownloadItem> => {
-    // Refresh the runner probe so a RetroDECK installed since startup is seen.
-    if (!rommix.activeRunner()) await rommix.refreshRunners()
+    // Probe first so an emulator installed since startup is seen.
+    await rommix.ensureEmulators()
     const rom = await client.rom(romId)
     return downloads.enqueue(rom)
   })
@@ -145,10 +145,10 @@ export function registerIpc(rommix: RommixApp): void {
       throw new RommError('That ROM is not downloaded yet')
     }
 
-    if (!rommix.activeRunner()) await rommix.refreshRunners()
-    const runner = rommix.activeRunner()
-    if (!runner) {
-      throw new RommError('Neither RetroDECK nor RetroArch is installed')
+    await rommix.ensureEmulators()
+    const emulator = rommix.activeEmulator(installed.system)
+    if (!emulator) {
+      throw new RommError(`No installed emulator can run "${installed.system}"`)
     }
 
     const rom = await client.rom(romId)
@@ -159,7 +159,7 @@ export function registerIpc(rommix: RommixApp): void {
         rom,
         romPath: installed.path,
         system: installed.system,
-        runner
+        emulator
       })
     } finally {
       rommix.send('game:state', { running: false, romId: null })
@@ -174,31 +174,33 @@ export function registerIpc(rommix: RommixApp): void {
 
   handle('system:updateSettings', async (patch: Partial<Settings>) => {
     const next = store.updateSettings(patch)
-    // Path or runner changes invalidate the probe.
-    await rommix.refreshRunners()
+    // Path or emulator changes invalidate the probe.
+    await rommix.refreshEmulators()
     return next
   })
 
-  handle('system:runners', () => rommix.refreshRunners())
+  handle('system:emulators', () => rommix.refreshEmulators())
 
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
-    const runners = await rommix.refreshRunners()
-    const active = rommix.activeRunner()
+    const emulators = await rommix.refreshEmulators()
+    const active = rommix.activeEmulator()
     const spawn = await canSpawnHost()
     const notes: string[] = []
 
     if (inFlatpak() && !spawn) {
       notes.push(
         'flatpak-spawn cannot reach the host. Rommix needs --talk-name=org.freedesktop.Flatpak ' +
-          'to start RetroDECK; grant it with Flatseal.'
+          'to start an emulator; grant it with Flatseal.'
       )
     }
-    if (!runners.some((r) => r.available)) {
+    if (!emulators.some((emulator) => emulator.available)) {
       notes.push('No emulator found. Install RetroDECK (net.retrodeck.retrodeck) from Flathub.')
-    }
-    const retrodeck = runners.find((r) => r.kind === 'retrodeck')
-    if (retrodeck && !retrodeck.paths.roms) {
-      notes.push('RetroDECK has not been run yet, so its ROM folder does not exist.')
+    } else {
+      // Each descriptor already phrases its own problem; a half-usable install
+      // is worth naming even when something else is available.
+      for (const emulator of emulators) {
+        if (emulator.install && emulator.unavailableReason) notes.push(emulator.unavailableReason)
+      }
     }
 
     const romsWritable = await isWritable(active?.paths.roms ?? null)
@@ -212,8 +214,8 @@ export function registerIpc(rommix: RommixApp): void {
     return {
       inFlatpak: inFlatpak(),
       canSpawnHost: spawn,
-      runners,
-      activeRunner: active?.kind ?? null,
+      emulators,
+      activeEmulator: active?.id ?? null,
       romsWritable,
       notes
     }

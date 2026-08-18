@@ -232,29 +232,29 @@ export interface ConnectionStatus {
   error: string | null
 }
 
-/** Which emulator front-end Rommix hands the ROM to. */
-export type RunnerKind = 'retrodeck' | 'retroarch'
+/**
+ * Emulators are described by the registry in `@shared/emulators`, not by a
+ * union here; these are re-exported so the rest of the app has one import for
+ * "Rommix's types".
+ */
+export type {
+  EmulationPaths,
+  EmulatorDescriptor,
+  EmulatorId,
+  EmulatorRole,
+  EmulatorState,
+  ResolvedInstall,
+  SaveLayout
+} from './emulators/types.ts'
 
-export interface RunnerInfo {
-  kind: RunnerKind
-  /** Flatpak application id. */
-  appId: string
-  available: boolean
-  /** Absolute paths discovered for this runner. */
-  paths: EmulationPaths
-}
-
-export interface EmulationPaths {
-  home: string | null
-  roms: string | null
-  saves: string | null
-  states: string | null
-  bios: string | null
-}
+import type { EmulatorId, EmulationPaths, EmulatorState } from './emulators/types.ts'
 
 export interface Settings {
-  /** Preferred runner; Rommix falls back to whichever is installed. */
-  preferredRunner: RunnerKind
+  /**
+   * Emulator Rommix prefers; it falls back to another installed one that can
+   * run the system in question.
+   */
+  preferredEmulator: EmulatorId
   /** Override the auto-discovered ROM/save/state roots. */
   pathOverrides: Partial<EmulationPaths>
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
@@ -298,7 +298,7 @@ export interface DownloadItem {
 
 export interface LaunchResult {
   ok: boolean
-  runner: RunnerKind | null
+  emulator: EmulatorId | null
   command: string
   error: string | null
   /** Saves/states uploaded to RomM after the session ended. */
@@ -311,8 +311,8 @@ export interface LaunchResult {
 export interface DiagnosticsReport {
   inFlatpak: boolean
   canSpawnHost: boolean
-  runners: RunnerInfo[]
-  activeRunner: RunnerKind | null
+  emulators: EmulatorState[]
+  activeEmulator: EmulatorId | null
   romsWritable: boolean
   notes: string[]
 }

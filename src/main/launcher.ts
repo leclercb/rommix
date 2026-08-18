@@ -1,31 +1,24 @@
 import { spawn } from 'node:child_process'
-import { coreForSystem } from '@shared/systems'
-import type { LaunchResult, RommRom, RunnerInfo } from '@shared/types'
+import { emulatorById } from '@shared/emulators'
+import type { EmulatorState, LaunchResult, RommRom } from '@shared/types'
+import { execPrefix } from './host'
 import type { RommClient } from './romm'
-import { RETROARCH_APP_ID, RETRODECK_APP_ID, hostCommand } from './runners'
 import type { SaveSync } from './saves'
 
 /**
- * Launches a downloaded ROM in RetroDECK or RetroArch and waits for it to exit.
+ * Launches a downloaded ROM and waits for it to exit.
  *
- * RetroDECK exposes a `run_game` entry point on its CLI:
- *
- *     flatpak run net.retrodeck.retrodeck [-e emulator] [-s system] <game>
- *
- * It resolves the emulator from its bundled es_systems.xml, honouring any
- * <altemulator> the user set in ES-DE, so passing the system and letting
- * RetroDECK choose is both simpler and more faithful to the user's config than
- * picking a core ourselves.
- *
- * RetroArch has no such resolution, so there we map the system to a libretro
- * core explicitly.
+ * How to start a given emulator is the descriptor's business: this only
+ * resolves the install into an argv prefix and hands it over. Everything
+ * around the spawn — pulling saves down first, diffing the save directory
+ * afterwards, reporting the session — is the same whichever emulator ran.
  */
 
 export interface LaunchOptions {
   rom: RommRom
   romPath: string
   system: string
-  runner: RunnerInfo
+  emulator: EmulatorState
 }
 
 export class Launcher {
@@ -45,24 +38,12 @@ export class Launcher {
     return this.current?.romId ?? null
   }
 
-  /** Build the argv for a runner, or null when we cannot work out how. */
+  /** Build the argv for an emulator, or null when it cannot run this system. */
   buildCommand(options: LaunchOptions): string[] | null {
-    const { runner, system, romPath } = options
-
-    if (runner.kind === 'retrodeck') {
-      return hostCommand(['flatpak', 'run', RETRODECK_APP_ID, '-s', system, romPath])
-    }
-
-    const core = coreForSystem(system)
-    if (!core) return null
-    return hostCommand([
-      'flatpak',
-      'run',
-      RETROARCH_APP_ID,
-      '-L',
-      `${core}_libretro.so`,
-      romPath
-    ])
+    const { emulator, system, romPath } = options
+    const descriptor = emulatorById(emulator.id)
+    if (!descriptor || !emulator.install) return null
+    return descriptor.launch({ exec: execPrefix(emulator.install), system, romPath })
   }
 
   /**
@@ -72,11 +53,11 @@ export class Launcher {
    * lets us diff the save directory by modification time.
    */
   async launch(options: LaunchOptions): Promise<LaunchResult> {
-    const { rom, runner, system } = options
+    const { rom, emulator, system } = options
 
     const failure = (error: string, command = ''): LaunchResult => ({
       ok: false,
-      runner: runner.kind,
+      emulator: emulator.id,
       command,
       error,
       uploadedSaves: 0,
@@ -89,8 +70,8 @@ export class Launcher {
     const argv = this.buildCommand(options)
     if (!argv) {
       return failure(
-        `No libretro core is mapped for "${system}". Use RetroDECK for this system, ` +
-          `or add a core mapping in Settings.`
+        `${emulator.name} cannot run "${system}". Pick a different emulator in Settings, ` +
+          `or install RetroDECK, which resolves the emulator per system itself.`
       )
     }
     const command = argv.join(' ')
@@ -99,7 +80,7 @@ export class Launcher {
     // reported but does not block play — the local save is still valid.
     let pullError: string | null = null
     try {
-      await this.saveSync.pull(rom, runner, system)
+      await this.saveSync.pull(rom, emulator, system)
     } catch (cause) {
       pullError = (cause as Error).message
     }
@@ -120,7 +101,7 @@ export class Launcher {
     let uploadedStates = 0
     let pushError: string | null = null
     try {
-      const pushed = await this.saveSync.push(rom, runner, system, since)
+      const pushed = await this.saveSync.push(rom, emulator, system, since)
       uploadedSaves = pushed.saves
       uploadedStates = pushed.states
     } catch (cause) {
@@ -132,7 +113,7 @@ export class Launcher {
     const warnings = [pullError, pushError].filter(Boolean)
     return {
       ok: true,
-      runner: runner.kind,
+      emulator: emulator.id,
       command,
       error: warnings.length ? `Save sync warning: ${warnings.join('; ')}` : null,
       uploadedSaves,
@@ -162,9 +143,8 @@ export class Launcher {
 
       child.on('close', (code) => {
         this.current = null
-        // RetroDECK and RetroArch both exit 0 on a clean quit. A non-zero code
-        // with no output usually means the user killed it, which is not an error
-        // worth showing.
+        // Emulators exit 0 on a clean quit. A non-zero code with no output
+        // usually means the user killed it, which is not an error worth showing.
         if (code === 0 || code === null) return resolvePromise(null)
         const detail = stderr.trim().split('\n').slice(-3).join(' ').trim()
         resolvePromise(detail ? `Emulator exited with code ${code}: ${detail}` : null)
@@ -175,10 +155,5 @@ export class Launcher {
   /** Ask the running game to quit. */
   stop(): void {
     this.current?.kill()
-  }
-
-  /** Which flatpak would we invoke, for the diagnostics panel. */
-  static describeRunner(runner: RunnerInfo): string {
-    return runner.kind === 'retrodeck' ? RETRODECK_APP_ID : RETROARCH_APP_ID
   }
 }

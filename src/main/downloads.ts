@@ -5,12 +5,12 @@ import { dirname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
 import { resolveSystem } from '@shared/systems'
-import type { DownloadItem, InstalledRom, RommRom, RunnerInfo } from '@shared/types'
+import type { DownloadItem, EmulatorState, InstalledRom, RommRom } from '@shared/types'
 import { RommClient, RommError } from './romm'
 import type { Store } from './store'
 
 /**
- * Downloads ROMs from RomM into the runner's ROM tree.
+ * Downloads ROMs from RomM into the emulator's ROM tree.
  *
  * Layout is `<roms_path>/<es-de system>/<file>`, which is exactly what
  * RetroDECK's `run_game` expects: it infers the system by matching the
@@ -107,7 +107,7 @@ export class DownloadManager extends EventEmitter {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
-    private readonly getRunner: () => RunnerInfo | null
+    private readonly getEmulator: (system?: string) => EmulatorState | null
   ) {
     super()
   }
@@ -121,16 +121,9 @@ export class DownloadManager extends EventEmitter {
    * needs to be unpacked into a directory of its own.
    */
   private plan(rom: RommRom): { dir: string; path: string; system: string; asDirectory: boolean } {
-    const runner = this.getRunner()
-    if (!runner) {
-      throw new RommError('No emulator runner available — install RetroDECK or RetroArch')
-    }
-    if (!runner.paths.roms) {
-      throw new RommError(
-        'The ROM folder is not configured. Run RetroDECK once, or set the path in Settings.'
-      )
-    }
-
+    // The system is worked out first: it decides which emulators are even
+    // candidates, so asking for one before knowing the system could pick an
+    // emulator that cannot run this ROM.
     const system = resolveSystem(
       rom.platform_slug,
       rom.platform_fs_slug,
@@ -143,10 +136,23 @@ export class DownloadManager extends EventEmitter {
       )
     }
 
+    const emulator = this.getEmulator(system)
+    if (!emulator) {
+      throw new RommError(
+        `No installed emulator can run "${system}". Install RetroDECK, which covers most ` +
+          `systems, or an emulator for this one.`
+      )
+    }
+    if (!emulator.paths.roms) {
+      throw new RommError(
+        `${emulator.name} has no ROM folder configured. Run it once, or set the path in Settings.`
+      )
+    }
+
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
     // zip and are unpacked into their own directory.
     const asDirectory = rom.has_multiple_files
-    const dir = join(runner.paths.roms, system)
+    const dir = join(emulator.paths.roms, system)
     const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, rom.fs_name)
     return { dir, path, system, asDirectory }
   }

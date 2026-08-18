@@ -37,7 +37,7 @@ const EMPTY_CREDENTIALS: StoredCredentials = {
 
 function defaultSettings(): Settings {
   return {
-    preferredRunner: 'retrodeck',
+    preferredEmulator: 'retrodeck',
     pathOverrides: {},
     systemOverrides: {},
     syncSavesDown: true,
@@ -46,6 +46,21 @@ function defaultSettings(): Settings {
     deviceId: randomUUID(),
     deviceName: `Rommix @ ${hostname()}`
   }
+}
+
+/**
+ * Carry settings written by an older Rommix forward.
+ *
+ * `preferredRunner` held one of two hardcoded runner names before emulators
+ * became a registry; the ids are unchanged, so the value only has to move to
+ * its new key.
+ */
+function migrateSettings(settings: Settings): Settings {
+  const legacy = (settings as Settings & { preferredRunner?: string }).preferredRunner
+  if (!legacy) return settings
+
+  const { preferredRunner: _dropped, ...rest } = settings as Settings & { preferredRunner?: string }
+  return { ...rest, preferredEmulator: legacy }
 }
 
 /** Atomic JSON write, so a crash mid-write cannot truncate the file. */
@@ -86,7 +101,7 @@ export class Store {
       settings: defaultSettings(),
       server: null
     })
-    this.settingsCache = { ...defaultSettings(), ...raw.settings }
+    this.settingsCache = migrateSettings({ ...defaultSettings(), ...raw.settings })
     this.serverCache = raw.server ?? null
     this.credentialsCache = this.loadCredentials()
     this.installedCache = new Map(

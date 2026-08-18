@@ -10,7 +10,7 @@ import type {
   RommRom,
   RommRomPage,
   RomQuery,
-  RunnerInfo,
+  EmulatorState,
   Settings,
   AuthMode
 } from './types'
@@ -66,7 +66,7 @@ export interface RommixBridge {
   system: {
     settings(): Promise<Settings>
     updateSettings(patch: Partial<Settings>): Promise<Settings>
-    runners(): Promise<RunnerInfo[]>
+    emulators(): Promise<EmulatorState[]>
     diagnostics(): Promise<DiagnosticsReport>
     /** Turn a RomM asset path into a URL the renderer can put in an <img>. */
     imageUrl(path: string | null): string | null

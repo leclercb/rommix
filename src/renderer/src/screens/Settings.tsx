@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useState } from 'react'
-import type { DiagnosticsReport, RunnerKind } from '@shared/types'
+import { EMULATORS } from '@shared/emulators'
+import type { DiagnosticsReport, EmulatorId } from '@shared/types'
 import { FocusButton, Hints, SegmentedControl, Spinner, TextField } from '../components'
 import { useApp } from '../state'
 
@@ -68,21 +69,18 @@ export function SettingsScreen(): JSX.Element {
 
       <h2 className="section-title">Emulator</h2>
       <label className="field__label">Where should Rommix send games?</label>
-      <SegmentedControl<RunnerKind>
-        value={settings.preferredRunner}
+      <SegmentedControl<EmulatorId>
+        value={settings.preferredEmulator}
         onChange={(value) => {
-          void saveSettings({ preferredRunner: value }).then(async () =>
+          void saveSettings({ preferredEmulator: value }).then(async () =>
             setDiagnostics(await window.rommix.system.diagnostics())
           )
         }}
-        options={[
-          { value: 'retrodeck', label: 'RetroDECK' },
-          { value: 'retroarch', label: 'RetroArch' }
-        ]}
+        options={EMULATORS.map((emulator) => ({ value: emulator.id, label: emulator.name }))}
       />
       <p className="faint" style={{ fontSize: 14, marginTop: -8 }}>
-        RetroDECK picks the right emulator per system from its own configuration. RetroArch is used
-        as a fallback and only covers systems Rommix has a core mapping for.
+        RetroDECK picks the right emulator per system from its own configuration. Rommix falls back
+        to another installed emulator when the preferred one cannot run a system.
       </p>
 
       <h2 className="section-title">Save sync</h2>
@@ -105,7 +103,10 @@ export function SettingsScreen(): JSX.Element {
           label="ROM folder override"
           value={romsOverride}
           onChange={setRomsOverride}
-          placeholder={diagnostics?.runners.find((r) => r.kind === settings.preferredRunner)?.paths.roms ?? '/home/you/retrodeck/roms'}
+          placeholder={
+            diagnostics?.emulators.find((e) => e.id === settings.preferredEmulator)?.paths.roms ??
+            '/home/you/retrodeck/roms'
+          }
           hint="Leave empty to use the folder Rommix discovers from RetroDECK's own configuration."
         />
         <div className="btn-row">
@@ -123,24 +124,25 @@ export function SettingsScreen(): JSX.Element {
             <dd>{diagnostics.inFlatpak ? 'yes' : 'no'}</dd>
             <dt>Can start host apps</dt>
             <dd>{diagnostics.canSpawnHost ? 'yes' : 'no'}</dd>
-            <dt>Active runner</dt>
-            <dd>{diagnostics.activeRunner ?? 'none found'}</dd>
+            <dt>Active emulator</dt>
+            <dd>{diagnostics.activeEmulator ?? 'none found'}</dd>
             <dt>ROM folder writable</dt>
             <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
           </dl>
 
-          {diagnostics.runners.map((runner) => (
-            <dl className="kv" key={runner.kind}>
-              <dt>{runner.kind}</dt>
+          {diagnostics.emulators.map((emulator) => (
+            <dl className="kv" key={emulator.id}>
+              <dt>{emulator.name}</dt>
               <dd>
-                {runner.available ? 'available' : 'not available'} · {runner.appId}
+                {emulator.available ? 'available' : 'not available'}
+                {emulator.install ? ` · ${emulator.install.ref}` : ''}
               </dd>
               <dt>ROMs</dt>
-              <dd>{runner.paths.roms ?? '—'}</dd>
+              <dd>{emulator.paths.roms ?? '—'}</dd>
               <dt>Saves</dt>
-              <dd>{runner.paths.saves ?? '—'}</dd>
+              <dd>{emulator.paths.saves ?? '—'}</dd>
               <dt>States</dt>
-              <dd>{runner.paths.states ?? '—'}</dd>
+              <dd>{emulator.paths.states ?? '—'}</dd>
             </dl>
           ))}
 

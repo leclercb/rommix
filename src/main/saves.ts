@@ -1,6 +1,6 @@
 import { copyFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
-import type { RommRom, RunnerInfo } from '@shared/types'
+import type { EmulatorState, RommRom } from '@shared/types'
 import type { RommClient } from './romm'
 import type { Store } from './store'
 
@@ -11,8 +11,12 @@ import type { Store } from './store'
  * `<states_path>/<system>/…`. Libretro cores write `<rom name>.srm` next to
  * that; standalone emulators nest one directory deeper under their own name.
  * Rather than encode every emulator's convention, Rommix walks a couple of
- * levels down and matches on the ROM's file stem, which is what every emulator
- * in the tree derives its save name from.
+ * levels down and matches on the ROM's file stem.
+ *
+ * That only works for emulators that name saves after the ROM, which is what
+ * the descriptor's `saveLayout` records. An emulator whose games share one
+ * memory card has no per-game save to sync at all, so it is skipped rather
+ * than uploading another game's card under this game's id.
  *
  * Conflict policy is deliberately conservative: a remote save only overwrites
  * a local one when it is strictly newer, and the local file is copied aside
@@ -58,6 +62,15 @@ async function walk(dir: string, depth = 0): Promise<string[]> {
 /** Normalise for comparison: lowercase, drop punctuation the emulators vary on. */
 function normaliseStem(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/**
+ * Does this emulator produce saves that belong to one game, and are named
+ * after it? `shared-device` emulators keep one memory card for every game, so
+ * there is nothing here that can honestly be attributed to a single ROM.
+ */
+function canSyncPerGame(emulator: EmulatorState): boolean {
+  return emulator.saveLayout === 'per-game-file' || emulator.saveLayout === 'delegated'
 }
 
 export class SaveSync {
@@ -119,22 +132,23 @@ export class SaveSync {
    * Pull newer saves and states from RomM before the game starts.
    * Returns how many files were written locally.
    */
-  async pull(rom: RommRom, runner: RunnerInfo, system: string): Promise<number> {
+  async pull(rom: RommRom, emulator: EmulatorState, system: string): Promise<number> {
     if (!this.store.settings.syncSavesDown) return 0
+    if (!canSyncPerGame(emulator)) return 0
 
     let written = 0
-    written += await this.pullKind(rom, runner, system, 'save')
-    written += await this.pullKind(rom, runner, system, 'state')
+    written += await this.pullKind(rom, emulator, system, 'save')
+    written += await this.pullKind(rom, emulator, system, 'state')
     return written
   }
 
   private async pullKind(
     rom: RommRom,
-    runner: RunnerInfo,
+    emulator: EmulatorState,
     system: string,
     kind: 'save' | 'state'
   ): Promise<number> {
-    const root = kind === 'save' ? runner.paths.saves : runner.paths.states
+    const root = kind === 'save' ? emulator.paths.saves : emulator.paths.states
     if (!root) return 0
 
     const remote =
@@ -176,19 +190,25 @@ export class SaveSync {
    */
   async push(
     rom: RommRom,
-    runner: RunnerInfo,
+    emulator: EmulatorState,
     system: string,
     since: number
   ): Promise<{ saves: number; states: number }> {
     if (!this.store.settings.syncSavesUp) return { saves: 0, states: 0 }
+    if (!canSyncPerGame(emulator)) return { saves: 0, states: 0 }
 
-    const saves = await this.findLocal(runner.paths.saves, system, rom, 'save', since)
-    const states = await this.findLocal(runner.paths.states, system, rom, 'state', since)
+    const saves = await this.findLocal(emulator.paths.saves, system, rom, 'save', since)
+    const states = await this.findLocal(emulator.paths.states, system, rom, 'state', since)
 
     let uploadedSaves = 0
     for (const asset of saves) {
       try {
-        await this.client.uploadSave(rom.id, asset.path, asset.fileName, asset.emulator ?? runner.kind)
+        await this.client.uploadSave(
+          rom.id,
+          asset.path,
+          asset.fileName,
+          asset.emulator ?? emulator.id
+        )
         uploadedSaves += 1
       } catch {
         // Keep going; a partial sync beats aborting on the first failure.
@@ -202,7 +222,7 @@ export class SaveSync {
           rom.id,
           asset.path,
           asset.fileName,
-          asset.emulator ?? runner.kind
+          asset.emulator ?? emulator.id
         )
         uploadedStates += 1
       } catch {

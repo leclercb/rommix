@@ -1,12 +1,13 @@
 import { BrowserWindow, protocol, shell } from 'electron'
 import { join } from 'node:path'
+import { chooseEmulator } from '@shared/emulators'
 import { DownloadManager } from './downloads'
+import { detectEmulators } from './emulators'
 import { Launcher } from './launcher'
 import { RommClient } from './romm'
-import { chooseRunner, detectRunners } from './runners'
 import { SaveSync } from './saves'
 import { Store } from './store'
-import type { RunnerInfo } from '@shared/types'
+import type { EmulatorState } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
 
@@ -25,28 +26,38 @@ export class RommixApp {
   readonly launcher = new Launcher(this.client, this.saveSync)
   readonly downloads: DownloadManager
 
-  /** Cached runner probe; refreshed on demand rather than on every call. */
-  private runnerCache: RunnerInfo[] | null = null
+  /** Cached emulator probe; refreshed on demand rather than on every call. */
+  private emulatorCache: EmulatorState[] | null = null
   private window: BrowserWindow | null = null
 
   constructor() {
-    this.downloads = new DownloadManager(this.store, this.client, () => this.activeRunner())
+    this.downloads = new DownloadManager(this.store, this.client, (system) =>
+      this.activeEmulator(system)
+    )
     this.downloads.on('update', (items) => this.send('downloads:update', items))
   }
 
-  async refreshRunners(): Promise<RunnerInfo[]> {
-    this.runnerCache = await detectRunners(this.store.settings)
-    return this.runnerCache
+  async refreshEmulators(): Promise<EmulatorState[]> {
+    this.emulatorCache = await detectEmulators(this.store.settings)
+    return this.emulatorCache
   }
 
-  /** Synchronous view of the last probe, for the download manager's hot path. */
-  activeRunner(): RunnerInfo | null {
-    if (!this.runnerCache) return null
-    return chooseRunner(this.runnerCache, this.store.settings.preferredRunner)
+  /** The probe, running it first if it has never run. */
+  async ensureEmulators(): Promise<EmulatorState[]> {
+    return this.emulatorCache ?? this.refreshEmulators()
   }
 
-  get runners(): RunnerInfo[] {
-    return this.runnerCache ?? []
+  /**
+   * Synchronous view of the last probe, for the download manager's hot path.
+   * `system` narrows it to emulators that can actually run that system.
+   */
+  activeEmulator(system?: string): EmulatorState | null {
+    if (!this.emulatorCache) return null
+    return chooseEmulator(this.emulatorCache, this.store.settings.preferredEmulator, system)
+  }
+
+  get emulators(): EmulatorState[] {
+    return this.emulatorCache ?? []
   }
 
   send(channel: string, payload: unknown): void {

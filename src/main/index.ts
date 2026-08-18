@@ -35,7 +35,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(async () => {
     rommix.registerImageProtocol()
     rommix.store.pruneInstalled()
-    await rommix.refreshRunners()
+    await rommix.refreshEmulators()
     registerIpc(rommix)
     rommix.createWindow()
 

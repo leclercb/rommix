@@ -73,6 +73,26 @@ The RomM platform slug is translated to an ES-DE system directory by
 guess** and tells you to pick a folder — installing to the wrong directory
 fails silently at launch time, which is far worse than an upfront error.
 
+### Emulators
+
+Emulators are entries in a registry (`src/shared/emulators/`) rather than a
+union type in the code. Each is a descriptor: how it might be installed, which
+ES-DE systems it runs, where it keeps its folders, how its saves are laid out,
+and one function that builds the argv to start a game. It is pure data, so it
+is unit-tested without touching the filesystem; probing the machine — is it
+installed, where did it actually put its config — is `src/main/emulators.ts`.
+
+The split exists because a single "which emulator" setting was deciding four
+things with different natural keys: ROMs belong to a *platform*, a process to a
+*platform + emulator* pair, and BIOS layout to the emulator alone.
+
+RetroDECK is a `frontend`, and deliberately opaque: it declares `'delegated'`
+systems and is launched with `-s <system>`, so it resolves the emulator from
+its own `es_systems.xml` and honours the user's `<altemulator>`. Enumerating
+what it bundles would duplicate configuration Rommix does not own. Standalone
+emulators declare the systems they run, and Rommix will not fall back to one
+that cannot run the system in hand.
+
 ### Save sync
 
 Before launch, saves newer on the server are pulled down. After the emulator
@@ -175,8 +195,8 @@ mapping in `settings.systemOverrides` (RomM platform slug → ES-DE folder name)
 
 ```
 src/
-  shared/     types mirroring the RomM 5.1.0 API, platform mapping (+ tests)
-  main/       store, RomM client, runner discovery, downloads, save sync, launcher
+  shared/     RomM 5.1.0 API types, platform mapping, emulator registry (+ tests)
+  main/       store, RomM client, emulator probing, downloads, save sync, launcher
   preload/    the contextBridge surface
   renderer/   React UI — focus engine, components, screens
 flatpak/      manifest, desktop entry, metainfo, icon
