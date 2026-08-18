@@ -331,6 +331,45 @@ export function QrCode({
   )
 }
 
+/**
+ * Short platform codes, so a badge reads as the console rather than as a
+ * folder name. Only the ones whose ES-DE id is not already a good label.
+ */
+const PLATFORM_CODES: Readonly<Record<string, string>> = {
+  genesis: 'MD', megadrive: 'MD', mastersystem: 'SMS', gamegear: 'GG',
+  megacd: 'SCD', segacd: 'SCD', sega32x: '32X', saturn: 'SAT', dreamcast: 'DC',
+  psx: 'PS1', ps2: 'PS2', ps3: 'PS3', psp: 'PSP', psvita: 'VITA',
+  gc: 'GC', wii: 'WII', wiiu: 'WIIU', switch: 'NSW', n64: 'N64', nds: 'NDS',
+  n3ds: '3DS', gb: 'GB', gbc: 'GBC', gba: 'GBA', nes: 'NES', snes: 'SNES',
+  famicom: 'FC', sfc: 'SFC', virtualboy: 'VB',
+  pcengine: 'PCE', pcenginecd: 'PCE', neogeo: 'NEO', arcade: 'ARC', mame: 'MAME',
+  atari2600: '2600', atari5200: '5200', atari7800: '7800', atarilynx: 'LNX',
+  amiga: 'AMI', c64: 'C64', dos: 'DOS', scummvm: 'SVM', '3do': '3DO'
+}
+
+/**
+ * A platform marker: a short code on a colour derived from the platform id, so
+ * every platform gets a stable, distinct chip without shipping logo artwork or
+ * fetching anything.
+ */
+export function PlatformBadge({ system }: { system: string }): JSX.Element {
+  const code = PLATFORM_CODES[system] ?? system.slice(0, 4).toUpperCase()
+  let hash = 0
+  for (let i = 0; i < system.length; i += 1) hash = (hash * 31 + system.charCodeAt(i)) % 360
+  return (
+    <span
+      className="platform-badge"
+      style={{
+        background: `hsl(${hash} 62% 22%)`,
+        color: `hsl(${hash} 85% 76%)`,
+        borderColor: `hsl(${hash} 60% 38%)`
+      }}
+    >
+      {code}
+    </span>
+  )
+}
+
 /** Human-readable byte size. */
 export function formatBytes(bytes: number): string {
   if (!bytes) return '—'

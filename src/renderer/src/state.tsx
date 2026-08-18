@@ -31,6 +31,19 @@ export interface Toast {
   id: number
   message: string
   tone: 'ok' | 'error' | 'warn'
+  /**
+   * What the notification is about, when it is about a game. Every toast
+   * concerning one shows the same shape — cover, title, then what happened —
+   * so "Download started" and "Game uninstalled" are not two different designs.
+   */
+  title?: string
+  coverPath?: string | null
+}
+
+/** The game a notification concerns, if any. */
+export interface ToastSubject {
+  title: string
+  coverPath?: string | null
 }
 
 interface AppState {
@@ -51,7 +64,7 @@ interface AppState {
   goBack: () => void
 
   toasts: Toast[]
-  notify: (message: string, tone?: Toast['tone']) => void
+  notify: (message: string, tone?: Toast['tone'], subject?: ToastSubject) => void
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -69,11 +82,17 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const route = history[history.length - 1]
 
-  const notify = useCallback((message: string, tone: Toast['tone'] = 'ok'): void => {
+  const notify = useCallback(
+    (message: string, tone: Toast['tone'] = 'ok', subject?: ToastSubject): void => {
     const id = ++toastId
-    setToasts((current) => [...current, { id, message, tone }])
+    setToasts((current) => [
+      ...current,
+      { id, message, tone, title: subject?.title, coverPath: subject?.coverPath }
+    ])
     setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 5200)
-  }, [])
+    },
+    []
+  )
 
   const refreshStatus = useCallback(async (): Promise<ConnectionStatus> => {
     const next = await window.rommix.server.status()
@@ -128,11 +147,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
         seenStates.current.set(item.romId, item.state)
         if (previous === item.state) continue
 
+        const subject = { title: item.name, coverPath: item.coverPath }
         if (item.state === 'done') {
           finished = true
-          notify(`${item.name} downloaded`)
+          notify('Download complete', 'ok', subject)
         } else if (item.state === 'error' && item.error) {
-          notify(`${item.name}: ${item.error}`, 'error')
+          notify(item.error, 'error', subject)
+        } else if (item.state === 'cancelled') {
+          notify('Download cancelled', 'warn', subject)
         }
       }
 
@@ -152,11 +174,15 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   useEffect(() => {
     return window.rommix.library.onAdopted((entries) => {
       const count = entries.length
-      notify(
-        count === 1
-          ? `${entries[0].fileName} was already on disk — added to your library`
-          : `${count} games were already on disk — added to your library`
-      )
+      if (count === 1) {
+        const entry = entries[0]
+        notify('Already on disk — added to your library', 'ok', {
+          title: entry.name || entry.fileName,
+          coverPath: entry.coverPath
+        })
+      } else {
+        notify(`${count} games were already on disk — added to your library`)
+      }
     })
   }, [notify])
 

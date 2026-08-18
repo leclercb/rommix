@@ -263,18 +263,6 @@ export interface Settings {
    * find it. AppImages in particular live wherever the user put them.
    */
   emulatorPaths: Record<EmulatorId, string>
-  /**
-   * Where ROMs are written, overriding the folder discovered from whichever
-   * emulator would run them.
-   *
-   * One root for the whole library, not one per emulator. Every emulator
-   * RomMix drives is handed an absolute path at launch, so a ROM does not have
-   * to live inside the tree of the emulator that opens it — and once a
-   * platform can be pointed at any emulator, a per-emulator ROM folder would
-   * mean the same game landing in a different place depending on a setting
-   * that has nothing to do with storage.
-   */
-  libraryRoot: string | null
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
   systemOverrides: Record<string, string>
   /** Pull newer saves down from RomM before launching. */
@@ -300,7 +288,20 @@ export interface InstalledRom {
    * before RomMix recorded this are resolved from disk at launch time.
    */
   launchPath: string
+  /**
+   * The game's name as RomM knows it. Recorded at install time because the
+   * Downloads screen has only this index to work from — it never fetches the
+   * library — and a filename is a poor substitute for a title.
+   */
+  name: string
+  /** RomM cover path, for the same reason. Null when the game has no artwork. */
+  coverPath: string | null
+  /** Every file that makes up the game; one entry for an ordinary single ROM. */
+  files: string[]
+  /** ES-DE system id — the folder name, and RomMix's internal platform key. */
   system: string
+  /** RomM's display name for the platform, e.g. "Sega Mega Drive". */
+  platformName: string
   fileName: string
   sizeBytes: number
   installedAt: string
@@ -313,7 +314,11 @@ export type DownloadState = 'queued' | 'downloading' | 'extracting' | 'done' | '
 export interface DownloadItem {
   romId: number
   name: string
+  /** RomM cover path, so the queue and its notifications can show the game. */
+  coverPath: string | null
   system: string
+  /** RomM's display name for the platform, e.g. "Sega Mega Drive". */
+  platformName: string
   state: DownloadState
   receivedBytes: number
   totalBytes: number
@@ -374,12 +379,7 @@ export interface DiagnosticsReport {
   inFlatpak: boolean
   canSpawnHost: boolean
   emulators: EmulatorState[]
-  /**
-   * Where downloads actually land. Once the emulator is chosen per platform
-   * there is no single "active" one to report, but there is still exactly one
-   * library folder, and whether it is writable is the thing that breaks.
-   */
-  libraryRoot: string | null
+  /** True when every installed emulator's ROM folder can be written to. */
   romsWritable: boolean
   notes: string[]
 }

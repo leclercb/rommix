@@ -12,6 +12,7 @@ import type {
 } from '@shared/emulators'
 import type { Settings } from '@shared/types'
 import { managedEmulatorDir } from './releases'
+import { rootPaths } from './root'
 import {
   binaryPath,
   findAppImage,
@@ -85,11 +86,12 @@ async function resolveInstall(
  */
 function baseDirs(install: ResolvedInstall): Record<DirBase, string> {
   const home = realHome()
+  const rommix = rootPaths().root
   if (install.kind === 'flatpak') {
     const app = join(home, '.var', 'app', install.ref)
-    return { home, config: join(app, 'config'), data: join(app, 'data') }
+    return { home, rommix, config: join(app, 'config'), data: join(app, 'data') }
   }
-  return { home, config: xdgConfigHome(), data: xdgDataHome() }
+  return { home, rommix, config: xdgConfigHome(), data: xdgDataHome() }
 }
 
 /** Resolve a descriptor's declared path templates against a found install. */

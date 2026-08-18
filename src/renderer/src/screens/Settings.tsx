@@ -39,17 +39,12 @@ import { useApp } from '../state'
 export function SettingsScreen(): JSX.Element {
   const { status, settings, saveSettings, navigate, notify } = useApp()
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
-  const [romsOverride, setRomsOverride] = useState('')
   const [root, setRoot] = useState<RootLocation | null>(null)
   const [rootDraft, setRootDraft] = useState('')
 
   useEffect(() => {
     void window.rommix.system.diagnostics().then(setDiagnostics)
   }, [])
-
-  useEffect(() => {
-    if (settings) setRomsOverride(settings.libraryRoot ?? '')
-  }, [settings])
 
   useEffect(() => {
     void window.rommix.system.root().then((value) => {
@@ -87,13 +82,6 @@ export function SettingsScreen(): JSX.Element {
     } catch (cause) {
       notify((cause as Error).message, 'error')
     }
-  }
-
-  const applyRomsOverride = async (): Promise<void> => {
-    const value = romsOverride.trim()
-    await saveSettings({ libraryRoot: value === '' ? null : value })
-    setDiagnostics(await window.rommix.system.diagnostics())
-    notify(value ? 'ROM library folder saved' : 'ROM library folder cleared')
   }
 
   return (
@@ -185,26 +173,6 @@ export function SettingsScreen(): JSX.Element {
         </div>
       </div>
 
-      <h2 className="section-title">ROM library</h2>
-      <p className="faint" style={{ fontSize: 14 }}>
-        One folder holds every downloaded game, whichever emulator opens it — emulators are given
-        the full path at launch, so a ROM does not have to live inside the tree of the one that
-        runs it. Left empty, RomMix uses the folder discovered from the emulator handling that
-        platform, which for RetroDECK is the location set in its own configuration.
-      </p>
-      <div className="form">
-        <TextField
-          label="ROM library folder"
-          value={romsOverride}
-          onChange={setRomsOverride}
-          placeholder="Follow each platform's emulator"
-          hint="Leave empty and each game goes to the folder its own emulator uses — see Platforms above. Set an absolute path to keep the whole library in one place instead."
-        />
-        <div className="btn-row">
-          <FocusButton onSelect={() => void applyRomsOverride()}>Save folder</FocusButton>
-        </div>
-      </div>
-
       <h2 className="section-title">Pre-flight check</h2>
       {!diagnostics ? (
         <Spinner />
@@ -220,9 +188,7 @@ export function SettingsScreen(): JSX.Element {
               {diagnostics.emulators.filter((e) => e.available).length} of{' '}
               {diagnostics.emulators.length}
             </dd>
-            <dt>ROM library folder</dt>
-            <dd>{diagnostics.libraryRoot ?? 'none — no emulator has one yet'}</dd>
-            <dt>Library folder writable</dt>
+            <dt>ROM folders writable</dt>
             <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
           </dl>
 

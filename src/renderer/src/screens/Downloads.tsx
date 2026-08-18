@@ -1,5 +1,5 @@
 import type { DownloadItem, InstalledRom } from '@shared/types'
-import { FocusButton, Hints, formatBytes } from '../components'
+import { CoverArt, FocusButton, Hints, PlatformBadge, formatBytes } from '../components'
 import { useFocusable } from '../input/focus'
 import { useApp } from '../state'
 import { useMemo, type JSX, type Ref } from 'react'
@@ -46,11 +46,14 @@ export function DownloadsScreen(): JSX.Element {
     )
   }, [installed])
 
-  const remove = async (romId: number): Promise<void> => {
+  const remove = async (entry: InstalledRom): Promise<void> => {
     try {
-      await window.rommix.downloads.uninstall(romId)
+      await window.rommix.downloads.uninstall(entry.romId)
       await refreshInstalled()
-      notify('Game uninstalled')
+      notify('Uninstalled', 'ok', {
+        title: entry.name || entry.fileName,
+        coverPath: entry.coverPath
+      })
     } catch (cause) {
       notify((cause as Error).message, 'error')
     }
@@ -100,19 +103,18 @@ export function DownloadsScreen(): JSX.Element {
       ) : (
         byPlatform.map(([system, entries]) => (
           <section key={system}>
-            <h3 className="section-title" style={{ fontSize: 17 }}>
-              {system} · {entries.length} game{entries.length === 1 ? '' : 's'} ·{' '}
+            <h3 className="section-title installed__group" style={{ fontSize: 17 }}>
+              <PlatformBadge system={system} />
+              {entries[0].platformName || system} · {entries.length} game
+              {entries.length === 1 ? '' : 's'} ·{' '}
               {formatBytes(entries.reduce((sum, entry) => sum + entry.sizeBytes, 0))}
             </h3>
             {entries.map((entry) => (
               <InstalledRow
                 key={entry.romId}
-                name={entry.fileName}
-                system={entry.system}
-                size={entry.sizeBytes}
-                path={entry.path}
+                entry={entry}
                 onSelect={() => navigate({ name: 'detail', romId: entry.romId })}
-                onRemove={() => void remove(entry.romId)}
+                onRemove={() => void remove(entry)}
               />
             ))}
           </section>
@@ -141,14 +143,17 @@ function ProgressRow({
 
   return (
     <div ref={ref as Ref<HTMLDivElement>} className="download" {...props}>
+      <div className="download__art">
+        <CoverArt path={item.coverPath} name={item.name} />
+      </div>
       <span className="download__name">{item.name}</span>
       <span className="download__state">
-        {STATE_LABELS[item.state]}
+        {item.platformName || item.system} · {STATE_LABELS[item.state]}
         {item.state === 'downloading'
           ? ` · ${formatBytes(item.receivedBytes)} / ${formatBytes(item.totalBytes)}`
           : ''}
       </span>
-      <div className="download__bar">
+      <div className="download__bar" style={{ gridColumn: '2 / -1' }}>
         <div
           className="download__fill"
           style={{
@@ -162,37 +167,56 @@ function ProgressRow({
   )
 }
 
+/**
+ * One installed game.
+ *
+ * Shows the game's name rather than its filename — the two were previously the
+ * same string printed twice, once as a title and once inside the path — with
+ * the cover for recognition and every file the game is made of underneath, so
+ * a multi-disc set is visibly more than one file.
+ */
 function InstalledRow({
-  name,
-  system,
-  size,
-  path,
+  entry,
   onSelect,
   onRemove
 }: {
-  name: string
-  system: string
-  size: number
-  path: string
+  entry: InstalledRom
   onSelect: () => void
   onRemove: () => void
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect })
+  // Entries written before these fields existed still have to render.
+  const title = entry.name || entry.fileName
+  const files = entry.files?.length ? entry.files : [entry.fileName]
 
   return (
-    <div ref={ref as Ref<HTMLDivElement>} className="download" {...props}>
-      <span className="download__name">{name}</span>
-      <span className="download__state">
-        {system} · {formatBytes(size)}
-      </span>
-      <span className="download__state faint" style={{ gridColumn: '1 / -1' }}>
-        {path}
-      </span>
-      <div style={{ gridColumn: '1 / -1', marginTop: 8 }}>
+    <div ref={ref as Ref<HTMLDivElement>} className="installed" {...props}>
+      <div className="installed__art">
+        <CoverArt path={entry.coverPath ?? null} name={title} />
+      </div>
+
+      <div className="installed__body">
+        <div className="installed__title">{title}</div>
+        <div className="installed__meta">
+          <PlatformBadge system={entry.system} />
+          <span>{entry.platformName || entry.system}</span>
+          <span>·</span>
+          <span>{formatBytes(entry.sizeBytes)}</span>
+          {files.length > 1 ? <span>· {files.length} files</span> : null}
+        </div>
+        <ul className="installed__files">
+          {files.map((file) => (
+            <li key={file}>{file}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="installed__actions">
         <FocusButton variant="danger" onSelect={onRemove}>
-          Remove
+          Uninstall
         </FocusButton>
       </div>
     </div>
   )
 }
+

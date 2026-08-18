@@ -39,7 +39,6 @@ const EMPTY_CREDENTIALS: StoredCredentials = {
 
 function defaultSettings(): Settings {
   return {
-    libraryRoot: null,
     systemEmulators: {},
     emulatorPaths: {},
     systemOverrides: {},

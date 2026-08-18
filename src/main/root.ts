@@ -79,6 +79,10 @@ export function ensureRoot(root = resolveRoot()): string {
   const paths = rootPaths(root)
   mkdirSync(paths.config, { recursive: true })
   mkdirSync(paths.emulators, { recursive: true })
+  // Created up front, not on first download: this is the folder emulators with
+  // no library of their own are pointed at, and the user has to be able to add
+  // it to Eden's Game Directories before anything has been downloaded into it.
+  mkdirSync(paths.roms, { recursive: true })
   return root
 }
 

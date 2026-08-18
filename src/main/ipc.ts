@@ -163,7 +163,9 @@ export function registerIpc(rommix: RomMixApp): void {
       return {
         romId,
         name: rom.name ?? rom.fs_name,
+        coverPath: rom.path_cover_small ?? rom.path_cover_large,
         system: existing.system,
+        platformName: rom.platform_display_name,
         state: 'done',
         receivedBytes: existing.sizeBytes,
         totalBytes: existing.sizeBytes,
@@ -261,7 +263,6 @@ export function registerIpc(rommix: RomMixApp): void {
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
     const emulators = await rommix.refreshEmulators()
     const spawn = await canSpawnHost()
-    const libraryRoot = rommix.libraryRoot()
     const notes: string[] = []
 
     if (inFlatpak() && !spawn) {
@@ -280,19 +281,31 @@ export function registerIpc(rommix: RomMixApp): void {
       }
     }
 
-    const romsWritable = await isWritable(libraryRoot)
-    if (libraryRoot && !romsWritable) {
+    // Each emulator keeps its games in its own tree, so writability is checked
+    // per emulator — one unwritable folder is a real failure even when the
+    // others are fine, and naming it is the difference between a fixable
+    // message and "download failed".
+    const writable = await Promise.all(
+      emulators
+        .filter((emulator) => emulator.available && emulator.paths.roms)
+        .map(async (emulator) => ({
+          name: emulator.name,
+          path: emulator.paths.roms as string,
+          ok: await isWritable(emulator.paths.roms)
+        }))
+    )
+    for (const entry of writable.filter((e) => !e.ok)) {
       notes.push(
-        `The ROM library folder ${libraryRoot} is not writable. Grant RomMix access to it ` +
+        `${entry.name}'s ROM folder ${entry.path} is not writable. Grant RomMix access to it ` +
           '(--filesystem=home, or the SD card path) with Flatseal.'
       )
     }
+    const romsWritable = writable.every((entry) => entry.ok)
 
     return {
       inFlatpak: inFlatpak(),
       canSpawnHost: spawn,
       emulators,
-      libraryRoot,
       romsWritable,
       notes
     }

@@ -374,6 +374,90 @@ input {
   text-overflow: ellipsis;
 }
 
+/* An installed game: cover, what it is, and what it is made of. */
+.installed {
+  display: grid;
+  grid-template-columns: 68px 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 10px;
+  transition: var(--transition);
+}
+
+.installed[data-focused='true'] {
+  box-shadow: var(--focus-ring);
+  border-color: var(--accent);
+}
+
+.installed__art {
+  width: 68px;
+}
+
+.installed__body {
+  min-width: 0;
+}
+
+.installed__title {
+  font-size: 18px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.installed__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.installed__files {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.installed__files li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.installed__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.installed__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.6px;
+}
+
 /* A setting: what it does on the left, its control on the right. */
 .setting {
   display: flex;
@@ -748,10 +832,16 @@ input {
    Downloads
    -------------------------------------------------------------------------- */
 
+/* The artwork spans every row of the grid beside it. */
+.download__art {
+  grid-row: 1 / -1;
+  width: 52px;
+}
+
 .download {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 18px;
+  grid-template-columns: 52px 1fr auto;
+  gap: 6px 16px;
   align-items: center;
   padding: 16px 20px;
   border-radius: var(--radius);
@@ -905,4 +995,49 @@ input {
 .kv dd {
   margin: 0;
   word-break: break-all;
+}
+
+/* --------------------------------------------------------------------------
+   Notifications
+   -------------------------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  top: var(--safe-y);
+  right: var(--safe-x);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 60;
+  max-width: 460px;
+  pointer-events: none;
+}
+
+/* Every toast is the same shape: optional cover, then title over message. A
+   toast about the app simply has no cover and no title. */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.toast__art {
+  width: 42px;
+  flex: 0 0 42px;
+}
+
+.toast__body {
+  min-width: 0;
+}
+
+.toast__title {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast__message {
+  font-size: 14px;
+  opacity: 0.85;
 }

@@ -35,7 +35,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       const item = await window.rommix.downloads.start(romId)
       // Already on disk: the main process adopts it instead of queueing, so
       // saying "download started" would be a plain lie.
-      notify(item.state === 'done' ? 'Already downloaded' : 'Download started')
+      notify(item.state === 'done' ? 'Already downloaded' : 'Download started', 'ok', {
+        title: item.name,
+        coverPath: item.coverPath
+      })
     } catch (cause) {
       notify((cause as Error).message, 'error')
     } finally {
@@ -47,15 +50,20 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     setBusy(true)
     try {
       const result = await window.rommix.game.launch(romId)
+      const subject = {
+        title: rom?.name ?? rom?.fs_name ?? 'Game',
+        coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
+      }
       if (!result.ok) {
-        notify(result.error ?? 'The game could not be started', 'error')
+        notify(result.error ?? 'The game could not be started', 'error', subject)
       } else {
         const synced = result.uploadedSaves + result.uploadedStates
         notify(
           synced > 0
             ? `Session ended — ${synced} save file${synced === 1 ? '' : 's'} sent to RomM`
             : 'Session ended',
-          result.error ? 'warn' : 'ok'
+          result.error ? 'warn' : 'ok',
+          subject
         )
         if (result.error) notify(result.error, 'warn')
       }
@@ -72,7 +80,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     try {
       await window.rommix.downloads.uninstall(romId)
       await refreshInstalled()
-      notify(`${entry?.fileName ?? 'Game'} uninstalled`)
+      notify('Uninstalled', 'ok', {
+        title: rom?.name ?? entry?.fileName ?? 'Game',
+        coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
+      })
     } catch (cause) {
       notify((cause as Error).message, 'error')
     } finally {

@@ -65,6 +65,11 @@ export const eden: EmulatorDescriptor = {
   env: { I_WANT_A_BROKEN_WAYLAND_UI: '1' },
   ownsLibrary: false,
   dirs: {
+    // Eden ships no ROM folder at all: `Paths\romsPath` is empty and its game
+    // list is the virtual SDMC/NAND entries plus directories the user adds.
+    // RomMix's own folder is therefore the honest answer, and it is one the
+    // user can add under Eden's Game Directories to see them there too.
+    roms: { base: 'rommix', path: 'roms' },
     saves: { base: 'data', path: 'eden/nand/user/save' },
     // Yuzu-lineage emulators have no separate save-state tree; states live
     // with the rest of the profile data.

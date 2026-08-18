@@ -73,9 +73,10 @@ export interface ResolvedInstall {
 /**
  * Base directory a path template hangs off. `config` and `data` follow the
  * install kind: a flatpak keeps them under ~/.var/app/<app id>/, a native
- * install under the XDG roots.
+ * install under the XDG roots. `rommix` is RomMix's own folder, for emulators
+ * that have nowhere of their own to keep ROMs.
  */
-export type DirBase = 'home' | 'config' | 'data'
+export type DirBase = 'home' | 'config' | 'data' | 'rommix'
 
 export interface DirSpec {
   base: DirBase
@@ -134,7 +135,15 @@ export interface EmulatorDescriptor {
    * has been run at least once and that layout exists.
    */
   readonly ownsLibrary: boolean
-  /** Path templates, resolved against whichever install was found. */
+  /**
+   * Path templates, resolved against whichever install was found.
+   *
+   * `roms` is where this emulator's games are written, and every emulator
+   * declares one — the same rule saves follow. It is deliberately not a single
+   * shared library: a game placed in the tree its emulator already scans is
+   * still there when that emulator is started on its own, which a central
+   * RomMix-only folder would quietly prevent.
+   */
   readonly dirs: Partial<Record<keyof EmulationPaths, DirSpec>>
   readonly saveLayout: SaveLayout
   /** Set when RomMix can fetch and install this emulator itself. */

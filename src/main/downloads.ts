@@ -193,8 +193,7 @@ export class DownloadManager extends EventEmitter {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
-    private readonly getEmulator: (system?: string) => EmulatorState | null,
-    private readonly getLibraryRoot: () => string
+    private readonly getEmulator: (system?: string) => EmulatorState | null
   ) {
     super()
   }
@@ -230,10 +229,13 @@ export class DownloadManager extends EventEmitter {
           `systems, or an emulator for this one.`
       )
     }
-    // The same root the Settings pre-flight reports. Resolving it per emulator
-    // here instead would send a Switch ROM somewhere different from a Mega
-    // Drive one while the UI claimed a single library folder.
-    const root = this.getLibraryRoot()
+    // The emulator's own ROM folder, so a game stays visible to that emulator
+    // when it is started outside RomMix. Every descriptor declares one, so this
+    // is only null when the emulator was never probed.
+    const root = emulator.paths.roms
+    if (!root) {
+      throw new RommError(`RomMix does not know where ${emulator.name} keeps its games`)
+    }
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
     // zip and are unpacked into their own directory.
@@ -253,7 +255,9 @@ export class DownloadManager extends EventEmitter {
     const item: DownloadItem = {
       romId: rom.id,
       name: rom.name ?? rom.fs_name,
+      coverPath: rom.path_cover_small ?? rom.path_cover_large,
       system,
+      platformName: rom.platform_display_name,
       state: 'queued',
       receivedBytes: 0,
       totalBytes: rom.fs_size_bytes,
@@ -348,7 +352,7 @@ export class DownloadManager extends EventEmitter {
         }
       }
 
-      this.recordInstalled(rom, system, installed)
+      await this.recordInstalled(rom, system, installed)
       item.targetPath = installed.path
 
       item.state = 'done'
@@ -365,12 +369,22 @@ export class DownloadManager extends EventEmitter {
     }
   }
 
-  private recordInstalled(rom: RommRom, system: string, installed: InstallResult): InstalledRom {
+  private async recordInstalled(
+    rom: RommRom,
+    system: string,
+    installed: InstallResult
+  ): Promise<InstalledRom> {
     const entry: InstalledRom = {
       romId: rom.id,
       path: installed.path,
       launchPath: installed.launchPath,
+      name: rom.name ?? rom.fs_name,
+      coverPath: rom.path_cover_small ?? rom.path_cover_large,
+      files: installed.isDirectory
+        ? (await readdir(installed.path).catch(() => [])).sort()
+        : [basename(installed.path)],
       system,
+      platformName: rom.platform_display_name,
       fileName: basename(installed.path),
       sizeBytes: installed.sizeBytes,
       installedAt: new Date().toISOString(),
@@ -396,8 +410,16 @@ export class DownloadManager extends EventEmitter {
    */
   async adopt(roms: readonly RommRom[]): Promise<InstalledRom[]> {
     const adopted: InstalledRom[] = []
+    let backfilled: InstalledRom | false = false
     for (const rom of roms) {
-      if (this.store.getInstalled(rom.id)) continue
+      const known = this.store.getInstalled(rom.id)
+      if (known) {
+        // Already indexed, but possibly by a version that recorded less than
+        // today's does. This is the only moment the ROM's metadata is in hand,
+        // so it is also the only chance to fill the gaps.
+        backfilled = (await this.backfill(known, rom)) ?? backfilled
+        continue
+      }
 
       let target: { dir: string; system: string }
       try {
@@ -414,7 +436,7 @@ export class DownloadManager extends EventEmitter {
       const fileInfo = await stat(asFile).catch(() => null)
       if (fileInfo?.isFile()) {
         adopted.push(
-          this.recordInstalled(rom, target.system, {
+          await this.recordInstalled(rom, target.system, {
             path: asFile,
             launchPath: asFile,
             sizeBytes: fileInfo.size,
@@ -427,7 +449,7 @@ export class DownloadManager extends EventEmitter {
       const dirInfo = await stat(asDirectory).catch(() => null)
       if (dirInfo?.isDirectory()) {
         adopted.push(
-          this.recordInstalled(rom, target.system, {
+          await this.recordInstalled(rom, target.system, {
             path: asDirectory,
             launchPath: (await pickLaunchFile(asDirectory)) ?? asDirectory,
             sizeBytes: await directorySize(asDirectory).catch(() => 0),
@@ -440,7 +462,42 @@ export class DownloadManager extends EventEmitter {
     // Announced as a group: a library page can adopt dozens at once, and one
     // notification per game would bury the screen.
     if (adopted.length > 0) this.emit('adopted', adopted)
+    // Backfilling changes what the Downloads screen shows without adopting
+    // anything, so it needs its own nudge.
+    if (backfilled) this.emit('installed', backfilled)
     return adopted
+  }
+
+  /**
+   * Fill in fields an older index never recorded, returning whether it changed.
+   *
+   * `adopt` skips ROMs it already knows, so without this an entry written
+   * before a field existed would keep its gaps forever — which is why a game
+   * installed by an earlier build still showed its filename where a title
+   * belongs, and no cover at all. Only absent values are written: nothing here
+   * second-guesses a path or an install date that is already correct.
+   */
+  private async backfill(entry: InstalledRom, rom: RommRom): Promise<InstalledRom | null> {
+    const needs =
+      entry.name == null ||
+      entry.platformName == null ||
+      entry.coverPath === undefined ||
+      entry.files == null
+    if (!needs) return null
+
+    const updated: InstalledRom = {
+      ...entry,
+      name: entry.name ?? rom.name ?? rom.fs_name,
+      platformName: entry.platformName ?? rom.platform_display_name,
+      coverPath: entry.coverPath ?? rom.path_cover_small ?? rom.path_cover_large,
+      files:
+        entry.files ??
+        (entry.isDirectory
+          ? (await readdir(entry.path).catch(() => [entry.fileName])).sort()
+          : [entry.fileName])
+    }
+    this.store.addInstalled(updated)
+    return updated
   }
 
   /**

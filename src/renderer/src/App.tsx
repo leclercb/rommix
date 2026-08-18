@@ -1,7 +1,7 @@
 import type { JSX, Ref } from 'react'
-import { Overlay } from './components'
+import { CoverArt, Overlay } from './components'
 import { useAction, useFocusable } from './input/focus'
-import { useApp, type Route } from './state'
+import { useApp, type Route, type Toast } from './state'
 import { ConnectScreen } from './screens/Connect'
 import { DetailScreen } from './screens/Detail'
 import { DownloadsScreen } from './screens/Downloads'
@@ -136,28 +136,37 @@ function RunningOverlay(): JSX.Element {
   )
 }
 
-function Toasts({ toasts }: { toasts: { id: number; message: string; tone: string }[] }): JSX.Element {
+/**
+ * Notifications, all one shape.
+ *
+ * A toast about a game leads with its cover and title and then says what
+ * happened; one about the app is just the message. That uniformity is the
+ * point — before this, "Download started" and "Game uninstalled" each invented
+ * their own wording and neither said which game.
+ */
+function Toasts({ toasts }: { toasts: Toast[] }): JSX.Element {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 'var(--safe-y)',
-        right: 'var(--safe-x)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        zIndex: 60,
-        maxWidth: 460,
-        pointerEvents: 'none'
-      }}
-    >
+    <div className="toasts">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`notice ${toast.tone === 'error' ? 'notice--error' : toast.tone === 'warn' ? 'notice--warn' : 'notice--ok'}`}
-          style={{ margin: 0 }}
+          className={`notice toast ${
+            toast.tone === 'error'
+              ? 'notice--error'
+              : toast.tone === 'warn'
+                ? 'notice--warn'
+                : 'notice--ok'
+          }`}
         >
-          {toast.message}
+          {toast.title ? (
+            <div className="toast__art">
+              <CoverArt path={toast.coverPath ?? null} name={toast.title} />
+            </div>
+          ) : null}
+          <div className="toast__body">
+            {toast.title ? <div className="toast__title">{toast.title}</div> : null}
+            <div className="toast__message">{toast.message}</div>
+          </div>
         </div>
       ))}
     </div>
