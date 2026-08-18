@@ -1,7 +1,7 @@
 {
   "name": "rommix",
   "version": "0.1.0",
-  "description": "Big Picture style RomM launcher for Linux desktop, gamescope and Steam, with RetroDECK/RetroArch integration",
+  "description": "Big Picture style RomM launcher for Linux desktop, gamescope and Steam, with RetroDECK, RetroArch and Eden integration",
   "license": "MIT",
   "author": "Benjamin Leclerc",
   "main": "./out/main/index.js",

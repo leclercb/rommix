@@ -12,14 +12,15 @@
     <p>
       RomMix is a controller-first front end for a self-hosted RomM server. It
       browses your library the way a console dashboard does, downloads games
-      into RetroDECK's ROM folder, and launches them in RetroDECK or RetroArch.
+      into your emulator's ROM folder, and launches them.
     </p>
     <p>Features:</p>
     <ul>
       <li>Browse and search your whole RomM library with cover art</li>
       <li>Sign in by pairing the device, so no password is typed on a TV</li>
-      <li>Download games straight into the correct RetroDECK system folder</li>
-      <li>Launch into RetroDECK, which picks the emulator for each system</li>
+      <li>Download games straight into the right system folder</li>
+      <li>Launch into RetroDECK, RetroArch or Eden, chosen per platform</li>
+      <li>Install emulators and BIOS files without leaving the app</li>
       <li>Sync save files and save states back to RomM when you quit</li>
       <li>Designed for gamescope, handhelds and Steam Big Picture</li>
     </ul>

@@ -2,7 +2,7 @@
 Type=Application
 Name=RomMix
 GenericName=RomM Game Launcher
-Comment=Browse, download and play your RomM library through RetroDECK
+Comment=Browse, download and play your RomM library
 Exec=rommix
 Icon=be.bl_it.RomMix
 Terminal=false
