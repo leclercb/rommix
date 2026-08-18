@@ -19,10 +19,11 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
+      "@config/*": ["./src/config/*"],
       "@renderer/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src/**/*", "src/shared/**/*", "src/preload/index.d.ts"],
+  "include": ["src/renderer/src/**/*", "src/shared/**/*", "src/config/**/*", "src/preload/index.d.ts"],
   // Tests are Node-side and are typechecked by tsconfig.node.json.
   "exclude": ["src/**/*.test.ts"]
 }

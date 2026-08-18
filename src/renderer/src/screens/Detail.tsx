@@ -1,7 +1,19 @@
-import { type JSX, useEffect, useState } from 'react'
-import type { InstalledRom, RommRom } from '@shared/types'
-import { CoverArt, FocusButton, Hints, Overlay, Spinner, formatBytes } from '../components'
+import { type JSX, useCallback, useEffect, useState } from 'react'
+import { resolveSystem } from '@config/systems'
+import type { InstalledRom, RemoteAsset, RommRom } from '@shared/types'
+import {
+  CoverArt,
+  FocusButton,
+  Hints,
+  Overlay,
+  Spinner,
+  PlatformIcon,
+  Tabs,
+  formatBytes
+} from '../components'
 import { useApp } from '../state'
+
+type DetailTab = 'about' | 'saves' | 'files' | 'screenshots'
 
 /**
  * A single game: artwork, metadata, and the actions that matter — download it,
@@ -15,14 +27,30 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingRemoval, setConfirmingRemoval] = useState(false)
+  const [tab, setTab] = useState<DetailTab>('about')
+  const [assets, setAssets] = useState<RemoteAsset[] | null>(null)
 
   useEffect(() => {
     setRom(null)
+    setTab('about')
     void window.rommix.library
       .rom(romId)
       .then(setRom)
       .catch((cause: Error) => setError(cause.message))
   }, [romId])
+
+  /**
+   * What RomM holds for this game, refetched after every pull or push so the
+   * list is never one action out of date.
+   */
+  const loadAssets = useCallback(async (): Promise<void> => {
+    setAssets(await window.rommix.saves.list(romId).catch(() => []))
+  }, [romId])
+
+  useEffect(() => {
+    setAssets(null)
+    void loadAssets()
+  }, [loadAssets])
 
   const entry: InstalledRom | undefined = installed.find((item) => item.romId === romId)
   const download = downloads.find((item) => item.romId === romId)
@@ -74,6 +102,49 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     }
   }
 
+  /**
+   * Move saves by hand, in either direction.
+   *
+   * The automatic sync happens around a launch, which leaves two real gaps
+   * this fills: a save made on another device is not wanted *now* unless the
+   * game is about to be played here, and a save made before RomMix was
+   * installed is never picked up at all, because the post-session push only
+   * looks at what the session wrote.
+   */
+  const syncSaves = async (direction: 'pull' | 'push'): Promise<void> => {
+    setBusy(true)
+    try {
+      const result =
+        direction === 'pull'
+          ? await window.rommix.saves.pull(romId)
+          : await window.rommix.saves.push(romId)
+      const subject = {
+        title: rom?.name ?? rom?.fs_name ?? 'Game',
+        coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
+      }
+
+      if (result.skippedReason) {
+        notify(result.skippedReason, 'warn', subject)
+      } else {
+        const moved = result.saves + result.states
+        notify(
+          moved === 0
+            ? direction === 'pull'
+              ? 'Nothing newer on RomM'
+              : 'No local saves to send'
+            : `${moved} file${moved === 1 ? '' : 's'} ${direction === 'pull' ? 'downloaded' : 'sent to RomM'}`,
+          'ok',
+          subject
+        )
+      }
+      await loadAssets()
+    } catch (cause) {
+      notify((cause as Error).message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const uninstall = async (): Promise<void> => {
     setConfirmingRemoval(false)
     setBusy(true)
@@ -113,6 +184,9 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   }
 
   const title = rom.name ?? rom.fs_name
+  // The installed entry knows the system for certain; for a game that is not
+  // downloaded it is worked out from the platform, exactly as a download would.
+  const system = entry?.system ?? resolveSystem(rom.platform_slug, rom.platform_fs_slug, settings?.systemOverrides)
   const year = rom.metadatum.first_release_date
     ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
     : null
@@ -129,7 +203,15 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <div>
           <h1 className="hero__title">{title}</h1>
           <div className="hero__meta">
-            <span className="chip">{rom.platform_display_name}</span>
+            <span className="chip chip--icon">
+              <PlatformIcon
+                slug={rom.platform_slug}
+                system={system}
+                size={20}
+                label={rom.platform_display_name}
+              />
+              {rom.platform_display_name}
+            </span>
             {year ? <span className="chip">{year}</span> : null}
             <span className="chip">{formatBytes(rom.fs_size_bytes)}</span>
             {entry ? <span className="chip chip--on">Downloaded</span> : null}
@@ -157,6 +239,19 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             Download
           </FocusButton>
         )}
+
+        {/* Only for a game that is here: there is no local save directory to
+            read from or write into until the ROM has been downloaded. */}
+        {entry ? (
+          <>
+            <FocusButton onSelect={() => void syncSaves('pull')} disabled={busy || running}>
+              Pull saves
+            </FocusButton>
+            <FocusButton onSelect={() => void syncSaves('push')} disabled={busy || running}>
+              Push saves
+            </FocusButton>
+          </>
+        ) : null}
 
         {entry ? (
           <FocusButton
@@ -196,39 +291,28 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--error">{download.error}</div>
       ) : null}
 
-      <h2 className="section-title">Details</h2>
-      <dl className="kv">
-        <dt>File</dt>
-        <dd>{rom.fs_name}</dd>
-        <dt>Size</dt>
-        <dd>{formatBytes(rom.fs_size_bytes)}</dd>
-        {rom.metadatum.companies.length > 0 ? (
-          <>
-            <dt>Company</dt>
-            <dd>{rom.metadatum.companies.join(', ')}</dd>
-          </>
-        ) : null}
-        {rom.regions.length > 0 ? (
-          <>
-            <dt>Region</dt>
-            <dd>{rom.regions.join(', ')}</dd>
-          </>
-        ) : null}
-        {rom.rom_user.last_played ? (
-          <>
-            <dt>Last played</dt>
-            <dd>{new Date(rom.rom_user.last_played).toLocaleString()}</dd>
-          </>
-        ) : null}
-        {entry ? (
-          <>
-            <dt>Installed to</dt>
-            <dd>{entry.path}</dd>
-            <dt>System folder</dt>
-            <dd>{entry.system}</dd>
-          </>
-        ) : null}
-      </dl>
+      {/* Tabs rather than one long column: saves, files and screenshots are
+          each a list that can run to dozens of rows, and stacking them put the
+          thing you came for several screens of scrolling down. */}
+      <Tabs<DetailTab>
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'about', label: 'About' },
+          { id: 'saves', label: 'Saves', badge: assets?.length },
+          { id: 'files', label: 'Files', badge: rom.files.length || undefined },
+          {
+            id: 'screenshots',
+            label: 'Screenshots',
+            badge: rom.merged_screenshots?.length || undefined
+          }
+        ]}
+      />
+
+      {tab === 'about' ? <About rom={rom} entry={entry} /> : null}
+      {tab === 'saves' ? <SavesTab assets={assets} entry={entry} /> : null}
+      {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
+      {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
 
       {running ? (
         <div className="notice notice--warn">
@@ -256,9 +340,163 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       <Hints
         items={[
           { key: 'A', label: entry ? 'Play' : 'Download' },
+          { key: 'LB', label: 'Previous tab' },
+          { key: 'RB', label: 'Next tab' },
           { key: 'B', label: 'Back' }
         ]}
       />
+    </div>
+  )
+}
+
+function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
+  return (
+    <dl className="kv">
+      <dt>File</dt>
+      <dd>{rom.fs_name}</dd>
+      <dt>Size</dt>
+      <dd>{formatBytes(rom.fs_size_bytes)}</dd>
+      {rom.metadatum.companies.length > 0 ? (
+        <>
+          <dt>Company</dt>
+          <dd>{rom.metadatum.companies.join(', ')}</dd>
+        </>
+      ) : null}
+      {rom.regions.length > 0 ? (
+        <>
+          <dt>Region</dt>
+          <dd>{rom.regions.join(', ')}</dd>
+        </>
+      ) : null}
+      {rom.rom_user.last_played ? (
+        <>
+          <dt>Last played</dt>
+          <dd>{new Date(rom.rom_user.last_played).toLocaleString()}</dd>
+        </>
+      ) : null}
+      {entry ? (
+        <>
+          <dt>Installed to</dt>
+          <dd>{entry.path}</dd>
+          <dt>System folder</dt>
+          <dd>{entry.system}</dd>
+          {/* Which emulator's library holds this copy. It is the reason a game
+              can be on disk and still offered as a download: pointing the
+              platform elsewhere does not move the file. */}
+          <dt>Downloaded for</dt>
+          <dd>{entry.emulatorId}</dd>
+        </>
+      ) : null}
+    </dl>
+  )
+}
+
+/**
+ * Saves and states held by RomM.
+ *
+ * Both kinds in one list rather than two: they answer the same question — what
+ * of mine is on the server, and how recent is it — and a save and its state
+ * from the same session belong next to each other.
+ */
+function SavesTab({
+  assets,
+  entry
+}: {
+  assets: RemoteAsset[] | null
+  entry?: InstalledRom
+}): JSX.Element {
+  if (!assets) return <Spinner />
+  if (assets.length === 0) {
+    return (
+      <div className="empty">
+        RomM has no saves for this game yet.
+        {entry ? ' Press Push saves to send what is on this device.' : ''}
+      </div>
+    )
+  }
+
+  return (
+    <ul className="asset-list">
+      {assets.map((asset) => (
+        <li key={`${asset.kind}-${asset.id}`}>
+          <span className="asset__kind" data-kind={asset.kind}>
+            {asset.kind === 'save' ? 'Save' : 'State'}
+          </span>
+          <span className="asset__name">{asset.fileName}</span>
+          <span className="asset__meta">
+            {formatBytes(asset.sizeBytes)}
+            {asset.emulator ? ` · ${asset.emulator}` : ''} ·{' '}
+            {new Date(asset.updatedAt).toLocaleString()}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * The files the game is made of, on the server and on this device.
+ *
+ * Both, because they are not always the same: RomM zips a multi-file game for
+ * transport and RomMix unpacks it, so a two-file cue+bin on the server is two
+ * files in a directory here — and a game whose local copy has lost a track is
+ * a thing you can only see by comparing the two.
+ */
+function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
+  const local = entry?.files?.length ? entry.files : entry ? [entry.fileName] : []
+
+  return (
+    <>
+      <h3 className="section-title" style={{ fontSize: 17 }}>
+        On the server
+      </h3>
+      {rom.files.length === 0 ? (
+        <div className="empty">RomM lists no files for this game.</div>
+      ) : (
+        <ul className="asset-list">
+          {rom.files.map((file) => (
+            <li key={file.id}>
+              <span className="asset__name">{file.file_name}</span>
+              <span className="asset__meta">{formatBytes(file.file_size_bytes)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h3 className="section-title" style={{ fontSize: 17 }}>
+        On this device
+      </h3>
+      {local.length === 0 ? (
+        <div className="empty">Not downloaded.</div>
+      ) : (
+        <ul className="asset-list">
+          {local.map((file) => (
+            <li key={file}>
+              <span className="asset__name">{file}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
+function ScreenshotsTab({ rom }: { rom: RommRom }): JSX.Element {
+  const shots = rom.merged_screenshots ?? []
+  if (shots.length === 0) {
+    return <div className="empty">RomM has no screenshots for this game.</div>
+  }
+  return (
+    <div className="shots">
+      {shots.map((path) => (
+        <img
+          key={path}
+          className="shot"
+          src={window.rommix.system.imageUrl(path) ?? undefined}
+          alt=""
+          loading="lazy"
+        />
+      ))}
     </div>
   )
 }

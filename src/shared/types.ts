@@ -197,6 +197,28 @@ export interface RommState {
   updated_at: string
 }
 
+/**
+ * GET /api/firmware (`FirmwareSchema`) — the BIOS files held by the server.
+ *
+ * Note the absence of a platform id: RomM stores one on the row but does not
+ * put it in the response, so which platform a file belongs to is only knowable
+ * from the `?platform_id=` used to ask. That is why RomMix queries firmware per
+ * platform rather than fetching the lot and grouping it.
+ */
+export interface RommFirmware {
+  id: number
+  file_name: string
+  file_name_no_ext: string
+  file_extension: string
+  file_size_bytes: number
+  /** True once RomM has matched the file against its known-good hashes. */
+  is_verified: boolean
+  md5_hash: string
+  missing_from_fs: boolean
+  created_at: string
+  updated_at: string
+}
+
 /** Query parameters RomMix passes to GET /api/roms. */
 export interface RomQuery {
   search_term?: string
@@ -233,7 +255,7 @@ export interface ConnectionStatus {
 }
 
 /**
- * Emulators are described by the registry in `@shared/emulators`, not by a
+ * Emulators are described by the registry in `@config/emulators`, not by a
  * union here; these are re-exported so the rest of the app has one import for
  * "RomMix's types".
  */
@@ -245,9 +267,9 @@ export type {
   EmulatorState,
   ResolvedInstall,
   SaveLayout
-} from './emulators/types.ts'
+} from '../config/emulators/types.ts'
 
-import type { EmulatorId, EmulatorState } from './emulators/types.ts'
+import type { EmulatorId, EmulatorState } from '../config/emulators/types.ts'
 
 export interface Settings {
   /**
@@ -284,8 +306,7 @@ export interface InstalledRom {
   /**
    * The file to hand an emulator. Equal to `path` for a single file; for a
    * multi-file game it is the disc descriptor or playlist inside the
-   * directory, because emulators cannot be given a directory. Entries written
-   * before RomMix recorded this are resolved from disk at launch time.
+   * directory, because emulators cannot be given a directory.
    */
   launchPath: string
   /**
@@ -307,6 +328,17 @@ export interface InstalledRom {
   installedAt: string
   /** Set when the ROM was installed as an extracted directory. */
   isDirectory: boolean
+  /**
+   * The emulator whose library this copy was written into.
+   *
+   * Each emulator keeps its games in its own tree, so a ROM downloaded for
+   * RetroDECK is simply not present for Eden. Recording which emulator was
+   * current at install time is what lets RomMix stop claiming a game is
+   * downloaded after the platform has been pointed at a different emulator —
+   * the file is still on disk, but not where the emulator now in charge looks.
+   *
+   */
+  emulatorId: EmulatorId
 }
 
 export type DownloadState = 'queued' | 'downloading' | 'extracting' | 'done' | 'error' | 'cancelled'
@@ -335,6 +367,82 @@ export interface LaunchResult {
   uploadedSaves: number
   uploadedStates: number
   playSeconds: number
+}
+
+/** What a "sync downloaded games" pass changed. */
+export interface LibrarySyncResult {
+  /** ROMs on the server that were checked against the disk. */
+  checked: number
+  /** Entries dropped because the file they pointed at is gone. */
+  removed: number
+  /** ROMs found sitting on disk that the index did not know about. */
+  adopted: number
+}
+
+/** A save or save state held by RomM, as the detail screen lists them. */
+export interface RemoteAsset {
+  id: number
+  kind: 'save' | 'state'
+  fileName: string
+  sizeBytes: number
+  /** The emulator RomM recorded as having written it, when it knows. */
+  emulator: string | null
+  updatedAt: string
+}
+
+/** Result of an explicit save pull or push from the detail screen. */
+export interface SaveSyncResult {
+  saves: number
+  states: number
+  /** Set when the emulator's save layout is not one RomMix can sync per game. */
+  skippedReason: string | null
+}
+
+/** One BIOS file for a platform, and whether it is in place. */
+export interface BiosItem {
+  fileName: string
+  /** What the file is for, from the BIOS table; null for an unrecognised extra. */
+  note: string | null
+  required: boolean
+  /** Present in the emulator's BIOS folder already. */
+  installed: boolean
+  /** RomM firmware id, or null when the server does not hold this file. */
+  firmwareId: number | null
+  sizeBytes: number
+  /** RomM verified the file against its known-good hashes. */
+  verified: boolean
+}
+
+/** A platform's BIOS situation: where files go, what is there, what is missing. */
+export interface BiosPlatform {
+  platformId: number
+  /** RomM's own slug, which is also how its platform icons are named. */
+  platformSlug: string
+  platformName: string
+  /** ES-DE system, or null when the platform has no mapping. */
+  system: string | null
+  /** The emulator whose BIOS folder RomMix would install into. */
+  emulatorId: EmulatorId | null
+  emulatorName: string | null
+  /** Absolute BIOS folder, or null when there is no usable emulator. */
+  biosDir: string | null
+  items: BiosItem[]
+  /** Why nothing can be installed for this platform, phrased for the screen. */
+  blockedReason: string | null
+  /** Set when the platform needs a console dump rather than files to copy. */
+  dumpOnly: string | null
+}
+
+export interface BiosReport {
+  platforms: BiosPlatform[]
+}
+
+/** What a "sync all BIOS" pass installed. */
+export interface BiosSyncResult {
+  installed: number
+  failed: number
+  /** Files RomM does not hold, so nothing could be fetched for them. */
+  unavailable: number
 }
 
 /** A downloadable file attached to an emulator release. */

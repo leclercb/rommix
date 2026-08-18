@@ -5,8 +5,8 @@ import {
   emulatorById,
   emulatorsForSystem,
   systemCount
-} from '@shared/emulators'
-import { resolveSystem } from '@shared/systems'
+} from '@config/emulators'
+import { resolveSystem, systemLabel } from '@config/systems'
 import type {
   DiagnosticsReport,
   EmulatorAsset,
@@ -23,6 +23,7 @@ import {
   Overlay,
   SegmentedControl,
   Spinner,
+  PlatformIcon,
   TextField,
   formatBytes
 } from '../components'
@@ -109,6 +110,7 @@ export function SettingsScreen(): JSX.Element {
       </p>
       <EmulatorList
         diagnostics={diagnostics}
+        notify={notify}
         onInstalled={() => {
           void window.rommix.system.diagnostics().then(setDiagnostics)
         }}
@@ -248,14 +250,36 @@ function Status({ state }: { state: EmulatorState | undefined }): JSX.Element {
 /** The installed emulators, with what each covers. */
 function EmulatorList({
   diagnostics,
+  notify,
   onInstalled
 }: {
   diagnostics: DiagnosticsReport | null
+  notify: ReturnType<typeof useApp>['notify']
   onInstalled: () => void
 }): JSX.Element {
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
   const [flatpakBusy, setFlatpakBusy] = useState<EmulatorId | null>(null)
   const [flatpakLine, setFlatpakLine] = useState<string | null>(null)
+
+  /**
+   * Start an emulator with no game.
+   *
+   * Some of what RomMix needs can only be done by the emulator itself:
+   * RetroDECK does not create its folder layout until it has been run once —
+   * which the pre-flight check reports and previously left the user to fix on
+   * the desktop — and cores, game directories and BIOS setup are all its own
+   * screens. The probe is re-run afterwards, since running it once is often
+   * exactly what makes it usable.
+   */
+  const run = async (id: EmulatorId, name: string): Promise<void> => {
+    try {
+      await window.rommix.system.runEmulator(id)
+      notify(`${name} started`)
+      onInstalled()
+    } catch (cause) {
+      notify((cause as Error).message, 'error')
+    }
+  }
 
   useEffect(
     () =>
@@ -311,6 +335,18 @@ function EmulatorList({
               ) : null}
             </div>
             <div className="emulator__actions">
+              {/* Offered whenever the program is *present*, not only when it is
+                  usable: an emulator that has never been run is unavailable
+                  precisely because it has never been run, and this is the
+                  button that fixes it. */}
+              {state?.install ? (
+                <FocusButton
+                  variant="ghost"
+                  onSelect={() => void run(descriptor.id, descriptor.name)}
+                >
+                  Run
+                </FocusButton>
+              ) : null}
               {descriptor.releases ? (
                 <FocusButton variant="ghost" onSelect={() => setInstalling(descriptor.id)}>
                   {state?.available ? 'Change version' : 'Download'}
@@ -520,6 +556,12 @@ function PlatformList({
 
         return (
           <div className="emulator" key={platform.id}>
+            <PlatformIcon
+              slug={platform.slug}
+              system={system}
+              size={30}
+              label={platform.display_name}
+            />
             <div className="emulator__body">
               <div className="emulator__name">
                 {platform.display_name}
@@ -532,7 +574,8 @@ function PlatformList({
                 )}
               </div>
               <div className="emulator__meta">
-                {system} · {platform.rom_count} game{platform.rom_count === 1 ? '' : 's'}
+                {systemLabel(system)} · {platform.rom_count} game
+                {platform.rom_count === 1 ? '' : 's'}
               </div>
             </div>
             <div className="emulator__actions">

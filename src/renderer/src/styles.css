@@ -367,8 +367,15 @@ input {
 }
 
 .card__meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 13px;
   color: var(--text-faint);
+  min-width: 0;
+}
+
+.card__meta span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1040,4 +1047,208 @@ input {
 .toast__message {
   font-size: 14px;
   opacity: 0.85;
+}
+
+/* --------------------------------------------------------------------------
+   Platform icons
+   -------------------------------------------------------------------------- */
+
+/* The console logos are monochrome SVGs on a dark UI, so they need lifting off
+   the background rather than colouring: at 22px a flat white glyph reads as a
+   smudge, and a faint plate gives it an edge. */
+.system-icon {
+  flex: 0 0 auto;
+  object-fit: contain;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* --------------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 26px 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 650;
+  font-size: 16px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tab[data-active='true'] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tab[data-focused='true'] {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-radius: 10px 10px 0 0;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tab__badge {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+/* --------------------------------------------------------------------------
+   Saves and file lists
+   -------------------------------------------------------------------------- */
+
+.asset-list {
+  list-style: none;
+  margin: 12px 0 24px;
+  padding: 0;
+}
+
+.asset-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.asset__kind {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgb(90 200 250 / 14%);
+  color: var(--accent);
+}
+
+.asset__kind[data-kind='state'] {
+  background: rgb(255 200 87 / 14%);
+  color: var(--warning);
+}
+
+.asset__name {
+  flex: 1 1 240px;
+  word-break: break-all;
+}
+
+.asset__meta {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* Screenshots: a plain responsive grid. Fixed row height so shots of differing
+   aspect ratios do not make the grid ragged. */
+.shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin: 16px 0 24px;
+}
+
+.shot {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+/* A chip carrying an icon beside its text. */
+.chip--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   BIOS
+   -------------------------------------------------------------------------- */
+
+.bios {
+  margin-bottom: 26px;
+}
+
+.bios__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bios__where {
+  font-size: 13px;
+  color: var(--text-faint);
+  word-break: break-all;
+  margin-bottom: 10px;
+}
+
+.bios__item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.bios__body {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.bios__name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-weight: 650;
+  word-break: break-all;
+}
+
+.bios__meta {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.bios__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Contexts where the icon sits inline with its platform's name. `.installed__meta`
+   is already a flex row and needs nothing. */
+.download__state,
+.segmented__option--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }

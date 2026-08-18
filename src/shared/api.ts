@@ -1,9 +1,13 @@
 import type {
+  BiosReport,
+  BiosSyncResult,
   ConnectionStatus,
   DiagnosticsReport,
   DownloadItem,
   InstalledRom,
   LaunchResult,
+  LibrarySyncResult,
+  RemoteAsset,
   RommCollection,
   RommDeviceAuthInit,
   RommPlatform,
@@ -14,6 +18,7 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease,
   RootLocation,
+  SaveSyncResult,
   Settings,
   AuthMode
 } from './types'
@@ -34,6 +39,18 @@ export interface GameState {
   romId: number | null
 }
 
+/** Emitted while a long "check everything" pass is running. */
+export interface SyncProgress {
+  checked: number
+  total: number
+}
+
+/** Emitted while BIOS files are being fetched. */
+export interface BiosProgress {
+  done: number
+  total: number
+}
+
 /**
  * The surface exposed to the renderer on `window.rommix`.
  * Every method crosses the context bridge and is therefore asynchronous.
@@ -52,10 +69,32 @@ export interface RomMixBridge {
     roms(query: RomQuery): Promise<RommRomPage>
     rom(id: number): Promise<RommRom>
     installed(): Promise<InstalledRom[]>
+    /**
+     * Check every ROM on the server against the disk: forget what has been
+     * deleted, adopt what is there. Slow by design, so it is a button.
+     */
+    sync(): Promise<LibrarySyncResult>
+    onSyncProgress(listener: (progress: SyncProgress) => void): () => void
     /** The installed list changed — a download finished, or a ROM was adopted. */
     onInstalledChanged(listener: (installed: InstalledRom[]) => void): () => void
     /** ROMs found already on disk rather than downloaded. */
     onAdopted(listener: (entries: InstalledRom[]) => void): () => void
+  }
+  saves: {
+    /** Saves and states RomM holds for a ROM. */
+    list(romId: number): Promise<RemoteAsset[]>
+    /** Fetch newer remote saves now, ignoring the automatic-sync preference. */
+    pull(romId: number): Promise<SaveSyncResult>
+    /** Send every local save for this game to RomM, not only this session's. */
+    push(romId: number): Promise<SaveSyncResult>
+  }
+  bios: {
+    /** Per platform: what is needed, what the server holds, what is in place. */
+    list(): Promise<BiosReport>
+    install(firmwareId: number): Promise<string>
+    /** Install every BIOS file the server holds that is not already in place. */
+    syncAll(): Promise<BiosSyncResult>
+    onProgress(listener: (progress: BiosProgress) => void): () => void
   }
   downloads: {
     list(): Promise<DownloadItem[]>
@@ -79,6 +118,8 @@ export interface RomMixBridge {
     installEmulator(id: string, asset: EmulatorAsset): Promise<string>
     /** Install an emulator that ships as a flatpak, from Flathub. */
     installEmulatorFlatpak(id: string): Promise<void>
+    /** Start an emulator on its own, so it can be set up. Returns the command. */
+    runEmulator(id: string): Promise<string>
     onInstallProgress(listener: (progress: EmulatorInstallProgress) => void): () => void
     diagnostics(): Promise<DiagnosticsReport>
     root(): Promise<RootLocation>

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { EMULATORS } from '@shared/emulators'
-import { RETRODECK_APP_ID } from '@shared/emulators/retrodeck.ts'
+import { EMULATORS } from '@config/emulators'
+import { RETRODECK_APP_ID } from '@config/emulators/retrodeck.ts'
 import type {
   DirBase,
   DirSpec,
@@ -9,7 +9,7 @@ import type {
   EmulatorDescriptor,
   EmulatorState,
   ResolvedInstall
-} from '@shared/emulators'
+} from '@config/emulators'
 import type { Settings } from '@shared/types'
 import { managedEmulatorDir } from './releases'
 import { rootPaths } from './root'

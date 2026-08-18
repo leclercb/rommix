@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ConnectPayload, GameState, RomMixBridge } from '@shared/api'
+import type { BiosProgress, ConnectPayload, GameState, RomMixBridge, SyncProgress } from '@shared/api'
 import type {
   DownloadItem,
   InstalledRom,
@@ -38,10 +38,25 @@ const bridge: RomMixBridge = {
     roms: (query: RomQuery) => ipcRenderer.invoke('library:roms', query),
     rom: (id: number) => ipcRenderer.invoke('library:rom', id),
     installed: () => ipcRenderer.invoke('library:installed'),
+    sync: () => ipcRenderer.invoke('library:sync'),
+    onSyncProgress: (listener: (progress: SyncProgress) => void) =>
+      subscribe<SyncProgress>('library:syncProgress', listener),
     onInstalledChanged: (listener: (installed: InstalledRom[]) => void) =>
       subscribe<InstalledRom[]>('library:installed', listener),
     onAdopted: (listener: (entries: InstalledRom[]) => void) =>
       subscribe<InstalledRom[]>('library:adopted', listener)
+  },
+  saves: {
+    list: (romId: number) => ipcRenderer.invoke('saves:list', romId),
+    pull: (romId: number) => ipcRenderer.invoke('saves:pull', romId),
+    push: (romId: number) => ipcRenderer.invoke('saves:push', romId)
+  },
+  bios: {
+    list: () => ipcRenderer.invoke('bios:list'),
+    install: (firmwareId: number) => ipcRenderer.invoke('bios:install', firmwareId),
+    syncAll: () => ipcRenderer.invoke('bios:syncAll'),
+    onProgress: (listener: (progress: BiosProgress) => void) =>
+      subscribe<BiosProgress>('bios:progress', listener)
   },
   downloads: {
     list: () => ipcRenderer.invoke('downloads:list'),
@@ -64,6 +79,7 @@ const bridge: RomMixBridge = {
     installEmulator: (id: string, asset: EmulatorAsset) =>
       ipcRenderer.invoke('emulators:install', id, asset),
     installEmulatorFlatpak: (id: string) => ipcRenderer.invoke('emulators:installFlatpak', id),
+    runEmulator: (id: string) => ipcRenderer.invoke('emulators:run', id),
     onInstallProgress: (listener: (progress: EmulatorInstallProgress) => void) =>
       subscribe<EmulatorInstallProgress>('emulators:progress', listener),
     diagnostics: () => ipcRenderer.invoke('system:diagnostics'),

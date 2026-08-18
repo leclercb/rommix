@@ -4,7 +4,7 @@ import { access, constants, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import type { ResolvedInstall } from '@shared/emulators'
+import type { ResolvedInstall } from '@config/emulators'
 
 /**
  * Talking to the machine RomMix is installed on, from either side of a flatpak

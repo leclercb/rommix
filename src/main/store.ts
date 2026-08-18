@@ -12,10 +12,11 @@ import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
  * points Electron's userData at — so all of this sits beside the emulators
  * RomMix installed rather than in a hidden per-app directory. Three files:
  *
- *   settings.json   user preferences + the configured server (no secrets)
- *   credentials.bin the RomM tokens, encrypted with safeStorage when available
- *   installed.json  a cache of which ROMs are on disk, not the authority on it;
- *                   `DownloadManager.adopt` reconciles it against the files
+ *   settings.json        user preferences + the configured server (no secrets)
+ *   credentials.bin      the RomM tokens, encrypted with safeStorage when available
+ *   downloaded_roms.json a cache of which ROMs are on disk, not the authority on
+ *                        it; `DownloadManager.adopt` reconciles it against the
+ *                        files
  */
 
 interface StoredCredentials {
@@ -47,43 +48,6 @@ function defaultSettings(): Settings {
     confirmUninstall: true,
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`
-  }
-}
-
-interface LegacySettings {
-  /** Before emulators were a registry. */
-  preferredRunner?: string
-  /** Before per-system choice replaced a single global preference. */
-  preferredEmulator?: string
-  /** Before per-system choice replaced a global order. */
-  emulatorPriority?: string[]
-}
-
-/**
- * Carry settings written by an older RomMix forward.
- *
- * All three legacy keys expressed a *global* preference, which the per-system
- * map deliberately has no equivalent for: the whole point is that one emulator
- * is not the right answer for every platform. They are dropped rather than
- * translated — the defaults derived from the registry are a better answer than
- * anything that could be reconstructed from them, and any real deviation is
- * one choice per platform in Settings.
- */
-function migrateSettings(settings: Settings): Settings {
-  const { preferredRunner, preferredEmulator, emulatorPriority, ...rest } = settings as Settings &
-    LegacySettings
-  void preferredRunner
-  void preferredEmulator
-  void emulatorPriority
-
-  return {
-    ...rest,
-    // The device name is what RomM lists this client as, and it is stored, so
-    // the rename to RomMix would otherwise only reach installs that had never
-    // run. Only the old default is rewritten — a name the user chose is theirs.
-    deviceName: rest.deviceName.startsWith('Rommix @')
-      ? rest.deviceName.replace(/^Rommix @/, 'RomMix @')
-      : rest.deviceName
   }
 }
 
@@ -119,13 +83,13 @@ export class Store {
     mkdirSync(this.dir, { recursive: true })
     this.settingsPath = join(this.dir, 'settings.json')
     this.credentialsPath = join(this.dir, 'credentials.bin')
-    this.installedPath = join(this.dir, 'installed.json')
+    this.installedPath = join(this.dir, 'downloaded_roms.json')
 
     const raw = readJson<{ settings: Settings; server: ServerConfig | null }>(this.settingsPath, {
       settings: defaultSettings(),
       server: null
     })
-    this.settingsCache = migrateSettings({ ...defaultSettings(), ...raw.settings })
+    this.settingsCache = { ...defaultSettings(), ...raw.settings }
     this.serverCache = raw.server ?? null
     this.credentialsCache = this.loadCredentials()
     this.installedCache = new Map(

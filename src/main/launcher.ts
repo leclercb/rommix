@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { emulatorById } from '@shared/emulators'
+import { emulatorById } from '@config/emulators'
 import type { EmulatorState, LaunchResult, RommRom } from '@shared/types'
 import { execPrefix } from './host'
 import type { RommClient } from './romm'
@@ -167,5 +167,33 @@ export class Launcher {
   /** Ask the running game to quit. */
   stop(): void {
     this.current?.kill()
+  }
+
+  /**
+   * Start an emulator with no game, from the button beside it in Settings.
+   *
+   * Detached and unwaited, unlike a launch: this is for the setup work that
+   * only the emulator itself can do — running RetroDECK once so it creates its
+   * folders, adding a ROM directory in Eden, installing cores in RetroArch —
+   * and RomMix has no business blocking, syncing saves, or claiming a game is
+   * running while that happens. `unref` means quitting RomMix does not take
+   * the emulator with it.
+   */
+  runEmulator(emulator: EmulatorState): string {
+    const descriptor = emulatorById(emulator.id)
+    if (!descriptor || !emulator.install) {
+      throw new Error(`${emulator.name} is not installed`)
+    }
+
+    const argv = execPrefix(emulator.install, descriptor.env)
+    const [cmd, ...args] = argv
+    const child = spawn(cmd, args, {
+      stdio: 'ignore',
+      detached: true,
+      env: { ...process.env, ...(descriptor.env ?? {}) }
+    })
+    child.on('error', () => undefined)
+    child.unref()
+    return argv.join(' ')
   }
 }

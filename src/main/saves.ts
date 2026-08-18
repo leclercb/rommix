@@ -1,6 +1,6 @@
 import { copyFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
-import type { EmulatorState, RommRom } from '@shared/types'
+import type { EmulatorState, RemoteAsset, RommRom, SaveSyncResult } from '@shared/types'
 import type { RommClient } from './romm'
 import type { Store } from './store'
 
@@ -147,6 +147,83 @@ export class SaveSync {
     return written
   }
 
+  /** Everything RomM holds for a ROM, saves and states together. */
+  async remoteAssets(romId: number): Promise<RemoteAsset[]> {
+    const [saves, states] = await Promise.all([
+      this.client.saves(romId),
+      this.client.states(romId)
+    ])
+
+    const assets: RemoteAsset[] = [
+      ...saves.map((save): RemoteAsset => ({
+        id: save.id,
+        kind: 'save',
+        fileName: save.file_name,
+        sizeBytes: save.file_size_bytes,
+        emulator: save.emulator,
+        updatedAt: save.updated_at
+      })),
+      ...states.map((state): RemoteAsset => ({
+        id: state.id,
+        kind: 'state',
+        fileName: state.file_name,
+        sizeBytes: state.file_size_bytes,
+        emulator: state.emulator,
+        updatedAt: state.updated_at
+      }))
+    ]
+
+    // Newest first: the reason to look at this list is almost always "did my
+    // last session get uploaded".
+    return assets.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+
+  /**
+   * Pull on demand, from the button on the detail screen.
+   *
+   * The `syncSavesDown` preference is deliberately ignored: it governs what
+   * happens automatically around a launch, and someone who has just pressed
+   * "Pull saves" has said what they want more plainly than a setting can. The
+   * newer-wins rule and the `.rommix-bak` copy still apply, so this can never
+   * lose a local save.
+   */
+  async pullNow(rom: RommRom, emulator: EmulatorState, system: string): Promise<SaveSyncResult> {
+    const skippedReason = this.unsyncableReason(emulator)
+    if (skippedReason) return { saves: 0, states: 0, skippedReason }
+
+    return {
+      saves: await this.pullKind(rom, emulator, system, 'save'),
+      states: await this.pullKind(rom, emulator, system, 'state'),
+      skippedReason: null
+    }
+  }
+
+  /**
+   * Push on demand.
+   *
+   * `since` is 0 rather than a launch time: an explicit push means "send what
+   * is on this machine", including saves written before RomMix was installed,
+   * which the post-session push deliberately excludes.
+   */
+  async pushNow(rom: RommRom, emulator: EmulatorState, system: string): Promise<SaveSyncResult> {
+    const skippedReason = this.unsyncableReason(emulator)
+    if (skippedReason) return { saves: 0, states: 0, skippedReason }
+
+    const pushed = await this.upload(rom, emulator, system, 0)
+    return { ...pushed, skippedReason: null }
+  }
+
+  /** Why this emulator's saves cannot be attributed to one game, if they cannot. */
+  private unsyncableReason(emulator: EmulatorState): string | null {
+    if (canSyncPerGame(emulator)) return null
+    if (emulator.saveLayout === 'shared-device') {
+      return `${emulator.name} keeps one memory card for every game, so there is no save file ` +
+        'that belongs to this one.'
+    }
+    return `${emulator.name} stores saves by title id rather than by filename, which RomMix ` +
+      'cannot match to a ROM.'
+  }
+
   private async pullKind(
     rom: RommRom,
     emulator: EmulatorState,
@@ -201,7 +278,16 @@ export class SaveSync {
   ): Promise<{ saves: number; states: number }> {
     if (!this.store.settings.syncSavesUp) return { saves: 0, states: 0 }
     if (!canSyncPerGame(emulator)) return { saves: 0, states: 0 }
+    return this.upload(rom, emulator, system, since)
+  }
 
+  /** The upload itself, with the "should we" decisions already made. */
+  private async upload(
+    rom: RommRom,
+    emulator: EmulatorState,
+    system: string,
+    since: number
+  ): Promise<{ saves: number; states: number }> {
     const saves = await this.findLocal(emulator.paths.saves, system, rom, 'save', since)
     const states = await this.findLocal(emulator.paths.states, system, rom, 'state', since)
 

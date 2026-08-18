@@ -7,6 +7,7 @@ import type {
   RommCollection,
   RommDeviceAuthInit,
   RommDeviceAuthToken,
+  RommFirmware,
   RommPlatform,
   RommRom,
   RommRomPage,
@@ -358,6 +359,28 @@ export class RommClient {
       await rm(partial, { force: true }).catch(() => undefined)
       throw cause
     }
+  }
+
+  // -- firmware (BIOS) ------------------------------------------------------
+
+  /**
+   * GET /api/firmware — the BIOS files uploaded to RomM, for one platform or
+   * all of them.
+   *
+   * RomM is the only source RomMix will fetch a BIOS from. They are neither
+   * freely distributable nor safe to guess at, so "install the BIOS" means
+   * "copy the one you put on your own server into the emulator that needs it".
+   */
+  firmware(platformId?: number): Promise<RommFirmware[]> {
+    const query = platformId != null ? `?platform_id=${platformId}` : ''
+    return this.json<RommFirmware[]>(`/api/firmware${query}`)
+  }
+
+  async downloadFirmware(item: RommFirmware, destination: string): Promise<void> {
+    await this.downloadAsset(
+      `/api/firmware/${item.id}/content/${encodeURIComponent(item.file_name)}`,
+      destination
+    )
   }
 
   // -- saves and states -----------------------------------------------------

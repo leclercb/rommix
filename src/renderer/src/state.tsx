@@ -25,6 +25,7 @@ export type Route =
   | { name: 'library'; platformId?: number }
   | { name: 'detail'; romId: number }
   | { name: 'downloads' }
+  | { name: 'bios' }
   | { name: 'settings' }
 
 export interface Toast {

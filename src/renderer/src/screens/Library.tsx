@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import type { RommPlatform, RommRom } from '@shared/types'
-import { GameCard, Hints, Spinner, TextField } from '../components'
+import { GameCard, Hints, PlatformIcon, Spinner, TextField } from '../components'
 import { useAction, useFocusable } from '../input/focus'
 import { useApp } from '../state'
 
@@ -137,6 +137,7 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
           <PlatformChip
             key={platform.id}
             label={`${platform.display_name} (${platform.rom_count})`}
+            icon={<PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />}
             active={platform.id === selectedPlatform}
             onSelect={() => setSelectedPlatform(platform.id)}
           />
@@ -185,10 +186,12 @@ export function LibraryScreen({ platformId }: { platformId?: number }): JSX.Elem
 
 function PlatformChip({
   label,
+  icon,
   active,
   onSelect
 }: {
   label: string
+  icon?: JSX.Element
   active: boolean
   onSelect: () => void
 }): JSX.Element {
@@ -196,10 +199,11 @@ function PlatformChip({
   return (
     <button
       ref={ref as Ref<HTMLButtonElement>}
-      className="segmented__option"
+      className="segmented__option segmented__option--icon"
       data-active={active}
       {...props}
     >
+      {icon}
       {label}
     </button>
   )

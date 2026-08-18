@@ -5,8 +5,14 @@ import { basename, dirname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
 import { chooseLaunchFile } from '@shared/gamefiles'
-import { resolveSystem } from '@shared/systems'
-import type { DownloadItem, EmulatorState, InstalledRom, RommRom } from '@shared/types'
+import { resolveSystem } from '@config/systems'
+import type {
+  DownloadItem,
+  EmulatorState,
+  InstalledRom,
+  LibrarySyncResult,
+  RommRom
+} from '@shared/types'
 import { RommClient, RommError } from './romm'
 import type { Store } from './store'
 
@@ -203,10 +209,47 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * Is this entry a copy the emulator now in charge of its platform cannot see?
+   *
+   * Each emulator keeps its games in its own tree, so pointing a platform at a
+   * different emulator does not move anything — the file stays where it was,
+   * in a folder the new emulator never looks at. Continuing to show the game
+   * as downloaded would leave the user with a Play button that launches an
+   * emulator against a ROM outside its library, or nothing to press to get a
+   * copy where it now belongs.
+   *
+   * A *missing* emulator is not a changed one: with nothing installed for the
+   * platform there is no new answer, so the entry is left alone rather than
+   * making an unplugged Steam Deck look like it lost its library.
+   */
+  isStale(entry: InstalledRom): boolean {
+    const current = this.getEmulator(entry.system)
+    if (!current) return false
+    return current.id !== entry.emulatorId
+  }
+
+  /** The index entry for a ROM, unless it belongs to a different emulator. */
+  installedNow(romId: number): InstalledRom | undefined {
+    const entry = this.store.getInstalled(romId)
+    return entry && !this.isStale(entry) ? entry : undefined
+  }
+
+  /** Everything on disk for the emulators currently in charge. */
+  get installed(): InstalledRom[] {
+    return this.store.installed.filter((entry) => !this.isStale(entry))
+  }
+
+  /**
    * Work out where a ROM should land. Returns the target path plus whether it
    * needs to be unpacked into a directory of its own.
    */
-  private plan(rom: RommRom): { dir: string; path: string; system: string; asDirectory: boolean } {
+  private plan(rom: RommRom): {
+    dir: string
+    path: string
+    system: string
+    emulatorId: string
+    asDirectory: boolean
+  } {
     // The system is worked out first: it decides which emulators are even
     // candidates, so asking for one before knowing the system could pick an
     // emulator that cannot run this ROM.
@@ -242,7 +285,7 @@ export class DownloadManager extends EventEmitter {
     const asDirectory = rom.has_multiple_files
     const dir = join(root, system)
     const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, rom.fs_name)
-    return { dir, path, system, asDirectory }
+    return { dir, path, system, emulatorId: emulator.id, asDirectory }
   }
 
   enqueue(rom: RommRom): DownloadItem {
@@ -321,7 +364,7 @@ export class DownloadManager extends EventEmitter {
     item.state = 'downloading'
     this.emitUpdate()
 
-    const { dir, path, system, asDirectory } = this.plan(rom)
+    const { dir, path, system, emulatorId, asDirectory } = this.plan(rom)
     // Multi-file games download to a temporary archive next to their target.
     const downloadTo = asDirectory ? `${path}.zip` : path
 
@@ -352,7 +395,7 @@ export class DownloadManager extends EventEmitter {
         }
       }
 
-      await this.recordInstalled(rom, system, installed)
+      await this.recordInstalled(rom, system, emulatorId, installed)
       item.targetPath = installed.path
 
       item.state = 'done'
@@ -372,10 +415,12 @@ export class DownloadManager extends EventEmitter {
   private async recordInstalled(
     rom: RommRom,
     system: string,
+    emulatorId: string,
     installed: InstallResult
   ): Promise<InstalledRom> {
     const entry: InstalledRom = {
       romId: rom.id,
+      emulatorId,
       path: installed.path,
       launchPath: installed.launchPath,
       name: rom.name ?? rom.fs_name,
@@ -398,7 +443,7 @@ export class DownloadManager extends EventEmitter {
   /**
    * Adopt ROMs that are already on disk but missing from the index.
    *
-   * `installed.json` records what RomMix downloaded; it is not the truth about
+   * The index records what RomMix downloaded; it is not the truth about
    * the disk, and the two drift apart easily — the index moved with RomMix's
    * folder while the ROMs stayed in the emulator's library, a backup was
    * restored, or the files were put there by something else. Making the user
@@ -410,18 +455,15 @@ export class DownloadManager extends EventEmitter {
    */
   async adopt(roms: readonly RommRom[]): Promise<InstalledRom[]> {
     const adopted: InstalledRom[] = []
-    let backfilled: InstalledRom | false = false
     for (const rom of roms) {
+      // A stale entry — the platform now runs on a different emulator — is
+      // treated as unknown, so the new emulator's own library is searched. If
+      // a copy is there it is adopted; if not, the old entry stays put and
+      // comes back the moment the platform is pointed back.
       const known = this.store.getInstalled(rom.id)
-      if (known) {
-        // Already indexed, but possibly by a version that recorded less than
-        // today's does. This is the only moment the ROM's metadata is in hand,
-        // so it is also the only chance to fill the gaps.
-        backfilled = (await this.backfill(known, rom)) ?? backfilled
-        continue
-      }
+      if (known && !this.isStale(known)) continue
 
-      let target: { dir: string; system: string }
+      let target: { dir: string; system: string; emulatorId: string }
       try {
         target = this.plan(rom)
       } catch {
@@ -436,7 +478,7 @@ export class DownloadManager extends EventEmitter {
       const fileInfo = await stat(asFile).catch(() => null)
       if (fileInfo?.isFile()) {
         adopted.push(
-          await this.recordInstalled(rom, target.system, {
+          await this.recordInstalled(rom, target.system, target.emulatorId, {
             path: asFile,
             launchPath: asFile,
             sizeBytes: fileInfo.size,
@@ -449,7 +491,7 @@ export class DownloadManager extends EventEmitter {
       const dirInfo = await stat(asDirectory).catch(() => null)
       if (dirInfo?.isDirectory()) {
         adopted.push(
-          await this.recordInstalled(rom, target.system, {
+          await this.recordInstalled(rom, target.system, target.emulatorId, {
             path: asDirectory,
             launchPath: (await pickLaunchFile(asDirectory)) ?? asDirectory,
             sizeBytes: await directorySize(asDirectory).catch(() => 0),
@@ -462,53 +504,55 @@ export class DownloadManager extends EventEmitter {
     // Announced as a group: a library page can adopt dozens at once, and one
     // notification per game would bury the screen.
     if (adopted.length > 0) this.emit('adopted', adopted)
-    // Backfilling changes what the Downloads screen shows without adopting
-    // anything, so it needs its own nudge.
-    if (backfilled) this.emit('installed', backfilled)
     return adopted
   }
 
   /**
-   * Fill in fields an older index never recorded, returning whether it changed.
+   * Reconcile the whole index against the disk, on demand.
    *
-   * `adopt` skips ROMs it already knows, so without this an entry written
-   * before a field existed would keep its gaps forever — which is why a game
-   * installed by an earlier build still showed its filename where a title
-   * belongs, and no cover at all. Only absent values are written: nothing here
-   * second-guesses a path or an install date that is already correct.
+   * `adopt` only ever looks at the ROMs a screen happens to have loaded, which
+   * is right for browsing — two stats per game, and only for what is visible —
+   * but it means a library page never visited stays wrong indefinitely. Games
+   * deleted with a file manager keep a Play button, and ROMs copied in by hand
+   * are still offered as downloads.
+   *
+   * This walks the entire server library once, so the answer afterwards is
+   * complete rather than "complete for what you happened to scroll past".
+   * Paged rather than fetched whole: a large library is tens of thousands of
+   * ROMs, and this way the progress callback has something to report.
    */
-  private async backfill(entry: InstalledRom, rom: RommRom): Promise<InstalledRom | null> {
-    const needs =
-      entry.name == null ||
-      entry.platformName == null ||
-      entry.coverPath === undefined ||
-      entry.files == null
-    if (!needs) return null
+  async sync(onProgress?: (checked: number, total: number) => void): Promise<LibrarySyncResult> {
+    // Drop what is gone first, so a game deleted from disk and then re-copied
+    // elsewhere is re-adopted in the same pass rather than the next one.
+    const removed = this.store.pruneInstalled()
 
-    const updated: InstalledRom = {
-      ...entry,
-      name: entry.name ?? rom.name ?? rom.fs_name,
-      platformName: entry.platformName ?? rom.platform_display_name,
-      coverPath: entry.coverPath ?? rom.path_cover_small ?? rom.path_cover_large,
-      files:
-        entry.files ??
-        (entry.isDirectory
-          ? (await readdir(entry.path).catch(() => [entry.fileName])).sort()
-          : [entry.fileName])
-    }
-    this.store.addInstalled(updated)
-    return updated
+    const PAGE = 200
+    let checked = 0
+    let adopted = 0
+    let total = 0
+
+    do {
+      const page = await this.client.roms({ limit: PAGE, offset: checked })
+      total = page.total
+      if (page.items.length === 0) break
+      adopted += (await this.adopt(page.items)).length
+      checked += page.items.length
+      onProgress?.(checked, total)
+    } while (checked < total)
+
+    if (removed > 0) this.emit('installed', null)
+    return { checked, removed, adopted }
   }
 
   /**
    * The file to hand an emulator for an installed ROM.
    *
-   * Entries recorded before RomMix tracked a launch target — and any whose
-   * recorded file has since gone — are resolved from disk instead, so an
-   * existing install does not have to be downloaded again to become playable.
+   * An entry whose recorded file has since gone is resolved from disk instead,
+   * so a game whose directory was reorganised does not have to be downloaded
+   * again to become playable.
    */
   async launchTarget(entry: InstalledRom): Promise<string> {
-    if (entry.launchPath && existsSync(entry.launchPath)) return entry.launchPath
+    if (existsSync(entry.launchPath)) return entry.launchPath
     if (!entry.isDirectory) return entry.path
     return (await pickLaunchFile(entry.path)) ?? entry.path
   }

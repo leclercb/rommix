@@ -1,14 +1,21 @@
 import { app, ipcMain } from 'electron'
 import type { ConnectPayload } from '@shared/api'
-import { emulatorById } from '@shared/emulators'
+import { emulatorById } from '@config/emulators'
 import type {
+  BiosReport,
+  BiosSyncResult,
   ConnectionStatus,
   DiagnosticsReport,
   DownloadItem,
   EmulatorAsset,
   EmulatorRelease,
+  EmulatorState,
   LaunchResult,
+  LibrarySyncResult,
+  RemoteAsset,
+  RommRom,
   RootLocation,
+  SaveSyncResult,
   Settings
 } from '@shared/types'
 import type { RomMixApp } from './app'
@@ -39,7 +46,32 @@ function handle<Args extends unknown[], Result>(
 }
 
 export function registerIpc(rommix: RomMixApp): void {
-  const { store, client, downloads, launcher } = rommix
+  const { store, client, downloads, launcher, bios, saveSync } = rommix
+
+  /**
+   * The ROM plus everything needed to sync its saves.
+   *
+   * Both save buttons on the detail screen need the same four things, and each
+   * of the three ways this can fail — not downloaded, no emulator, emulator
+   * changed — has its own message.
+   */
+  const saveContext = async (
+    romId: number
+  ): Promise<{ rom: RommRom; emulator: EmulatorState; system: string }> => {
+    // Before `installedNow`, not after: whether an entry belongs to the
+    // emulator currently in charge is a question about the probe, and an
+    // unprobed RomMix would answer "yes" to all of them.
+    await rommix.ensureEmulators()
+    const installed = downloads.installedNow(romId)
+    if (!installed) {
+      throw new RommError('That ROM is not downloaded for the emulator this platform uses')
+    }
+    const emulator = rommix.activeEmulator(installed.system)
+    if (!emulator) {
+      throw new RommError(`No installed emulator can run "${installed.system}"`)
+    }
+    return { rom: await client.rom(romId), emulator, system: installed.system }
+  }
 
   /** Current connection state, including who we are signed in as. */
   const status = async (): Promise<ConnectionStatus> => {
@@ -144,7 +176,27 @@ export function registerIpc(rommix: RomMixApp): void {
     await downloads.adopt([rom])
     return rom
   })
-  handle('library:installed', () => store.installed)
+  handle('library:installed', async () => {
+    // The probe decides which entries belong to the emulator now in charge, so
+    // answering before it has run would report every stale copy as present —
+    // which is exactly what this call is asked first, on startup.
+    await rommix.ensureEmulators()
+    return downloads.installed
+  })
+
+  /**
+   * Check the whole library against the disk, rather than only the ROMs a
+   * screen has loaded. Reports progress because a large library takes a while
+   * and a frozen button is indistinguishable from a broken one.
+   */
+  handle('library:sync', async (): Promise<LibrarySyncResult> => {
+    await rommix.ensureEmulators()
+    const result = await downloads.sync((checked, total) =>
+      rommix.send('library:syncProgress', { checked, total })
+    )
+    rommix.send('library:installed', downloads.installed)
+    return result
+  })
 
   // -- downloads ------------------------------------------------------------
 
@@ -158,7 +210,10 @@ export function registerIpc(rommix: RomMixApp): void {
     // Check the disk before queueing anything. Without this, a game RomMix has
     // simply not noticed yet gets downloaded again over the copy already there.
     await downloads.adopt([rom])
-    const existing = store.getInstalled(romId)
+    // Deliberately the emulator-aware view: a copy downloaded for an emulator
+    // this platform no longer uses is not one the user can play, so it must
+    // not short-circuit the download that would put a copy where it now goes.
+    const existing = downloads.installedNow(romId)
     if (existing) {
       return {
         romId,
@@ -184,12 +239,18 @@ export function registerIpc(rommix: RomMixApp): void {
   // -- launching ------------------------------------------------------------
 
   handle('game:launch', async (romId: number): Promise<LaunchResult> => {
-    const installed = store.getInstalled(romId)
+    await rommix.ensureEmulators()
+
+    const installed = downloads.installedNow(romId)
     if (!installed) {
-      throw new RommError('That ROM is not downloaded yet')
+      throw new RommError(
+        store.getInstalled(romId)
+          ? 'This copy was downloaded for a different emulator. Download it again for the one ' +
+            'this platform now uses.'
+          : 'That ROM is not downloaded yet'
+      )
     }
 
-    await rommix.ensureEmulators()
     const emulator = rommix.activeEmulator(installed.system)
     if (!emulator) {
       throw new RommError(`No installed emulator can run "${installed.system}"`)
@@ -214,6 +275,38 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('game:stop', () => launcher.stop())
 
+  // -- saves ----------------------------------------------------------------
+
+  /** Everything RomM holds for this ROM, so the detail screen can list it. */
+  handle('saves:list', (romId: number): Promise<RemoteAsset[]> => saveSync.remoteAssets(romId))
+
+  handle('saves:pull', async (romId: number): Promise<SaveSyncResult> => {
+    const { rom, emulator, system } = await saveContext(romId)
+    return saveSync.pullNow(rom, emulator, system)
+  })
+
+  handle('saves:push', async (romId: number): Promise<SaveSyncResult> => {
+    const { rom, emulator, system } = await saveContext(romId)
+    return saveSync.pushNow(rom, emulator, system)
+  })
+
+  // -- BIOS -----------------------------------------------------------------
+
+  handle('bios:list', async (): Promise<BiosReport> => {
+    await rommix.ensureEmulators()
+    return bios.report()
+  })
+
+  handle('bios:install', async (firmwareId: number): Promise<string> => {
+    await rommix.ensureEmulators()
+    return bios.install(firmwareId)
+  })
+
+  handle('bios:syncAll', async (): Promise<BiosSyncResult> => {
+    await rommix.ensureEmulators()
+    return bios.syncAll((done, total) => rommix.send('bios:progress', { done, total }))
+  })
+
   // -- system ---------------------------------------------------------------
 
   handle('system:settings', () => store.settings)
@@ -222,7 +315,26 @@ export function registerIpc(rommix: RomMixApp): void {
     const next = store.updateSettings(patch)
     // Path or emulator changes invalidate the probe.
     await rommix.refreshEmulators()
+    // Repointing a platform at another emulator changes which downloads count
+    // as present, so the renderer's copy of the list is stale the moment this
+    // returns.
+    rommix.send('library:installed', downloads.installed)
     return next
+  })
+
+  /**
+   * Start an emulator on its own, with no game.
+   *
+   * The way out of "RetroDECK has not been run yet, so its folders do not
+   * exist": the pre-flight check names the problem, and the fix is one button
+   * beside it rather than a trip to the desktop.
+   */
+  handle('emulators:run', async (id: string): Promise<string> => {
+    const states = await rommix.ensureEmulators()
+    const state = states.find((emulator) => emulator.id === id)
+    if (!state) throw new RommError(`RomMix does not know an emulator called ${id}`)
+    if (!state.install) throw new RommError(`${state.name} is not installed`)
+    return launcher.runEmulator(state)
   })
 
   /** Releases RomMix could install for this emulator, newest first. */

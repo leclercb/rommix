@@ -20,8 +20,9 @@
     // No baseUrl: `paths` resolves relative to this file, and baseUrl is
     // deprecated as of TypeScript 7.
     "paths": {
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@config/*": ["./src/config/*"]
     }
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "electron.vite.config.ts"]
+  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/config/**/*", "electron.vite.config.ts"]
 }

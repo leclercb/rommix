@@ -3,7 +3,7 @@ import { chmod, mkdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { isInstallableAsset, type ReleaseSource } from '@shared/emulators'
+import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@shared/types'
 import { rootPaths } from './root'
 

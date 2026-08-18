@@ -1,6 +1,40 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ESDE_SYSTEMS, ROMM_SLUG_TO_ESDE, coreForSystem, resolveSystem } from './systems.ts'
+import { BIOS_REQUIREMENTS } from './bios.ts'
+import {
+  ESDE_SYSTEMS,
+  ROMM_SLUG_TO_ESDE,
+  SYSTEMS,
+  coreForSystem,
+  resolveSystem,
+  systemInfo
+} from './systems.ts'
+
+test('every system carries a label, a short code and an icon', () => {
+  // The UI has no second source for any of these: a blank here is a blank on
+  // screen, and a missing icon is the tag-shaped placeholder this table exists
+  // to replace.
+  const incomplete = Object.values(SYSTEMS).filter(
+    (info) => !info.label || !info.short || !info.icon
+  )
+  assert.deepEqual(incomplete, [])
+})
+
+test('short codes stay short enough for a badge', () => {
+  const tooLong = Object.values(SYSTEMS).filter((info) => info.short.length > 5)
+  assert.deepEqual(tooLong, [])
+})
+
+test('an unknown system degrades to its own name rather than to a blank', () => {
+  const info = systemInfo('not-a-system')
+  assert.equal(info.label, 'not-a-system')
+  assert.equal(info.icon, 'default')
+})
+
+test('every system with BIOS requirements is a system RomMix knows', () => {
+  const unknown = Object.keys(BIOS_REQUIREMENTS).filter((system) => !ESDE_SYSTEMS.has(system))
+  assert.deepEqual(unknown, [])
+})
 
 test('every mapped target is a real ES-DE system directory', () => {
   // A typo here would install ROMs into a folder RetroDECK never scans, which

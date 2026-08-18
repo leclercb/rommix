@@ -1,6 +1,7 @@
 import { BrowserWindow, protocol, shell } from 'electron'
 import { join } from 'node:path'
-import { resolveEmulator } from '@shared/emulators'
+import { resolveEmulator } from '@config/emulators'
+import { BiosManager } from './bios'
 import { DownloadManager } from './downloads'
 import { detectEmulators } from './emulators'
 import { Launcher } from './launcher'
@@ -26,6 +27,7 @@ export class RomMixApp {
   readonly saveSync = new SaveSync(this.store, this.client)
   readonly launcher = new Launcher(this.client, this.saveSync)
   readonly downloads: DownloadManager
+  readonly bios: BiosManager
 
   /** Cached emulator probe; refreshed on demand rather than on every call. */
   private emulatorCache: EmulatorState[] | null = null
@@ -35,10 +37,11 @@ export class RomMixApp {
     this.downloads = new DownloadManager(this.store, this.client, (system) =>
       this.activeEmulator(system)
     )
+    this.bios = new BiosManager(this.store, this.client, (system) => this.activeEmulator(system))
     this.downloads.on('update', (items) => this.send('downloads:update', items))
     // The renderer keeps its own copy of the installed list; without these it
     // would still believe a game is missing right after RomMix adopted it.
-    this.downloads.on('installed', () => this.send('library:installed', this.store.installed))
+    this.downloads.on('installed', () => this.send('library:installed', this.downloads.installed))
     this.downloads.on('adopted', (entries) => this.send('library:adopted', entries))
   }
 

@@ -62,8 +62,8 @@ straight to disk. Cover art is the one exception: it is served through a custom
 ### Where files go
 
 Everything RomMix owns lives in one folder, `~/rommix` by default and
-relocatable from Settings: `config/` (settings, credentials, the installed
-index) and `emulators/` (anything RomMix downloaded). Because the setting
+relocatable from Settings: `config/` (settings, credentials, the index of
+downloaded ROMs) and `emulators/` (anything RomMix downloaded). Because the setting
 saying where the root is would otherwise live inside the root, it is resolved
 from `ROMMIX_HOME`, then a one-line pointer at `~/.config/rommix/root`, then
 the default.
@@ -90,11 +90,23 @@ The RomM platform slug is translated to an ES-DE system directory by
 guess** and tells you to pick a folder — installing to the wrong directory
 fails silently at launch time, which is far worse than an upfront error.
 
-`installed.json` records what was downloaded, but it is a cache rather than the
-authority: as library pages load, RomMix checks whether each ROM is already
-sitting where it would have installed it and adopts what it finds. Moving the
-RomMix folder, restoring a backup or copying ROMs in by hand therefore does not
-make a full library look empty.
+`config/downloaded_roms.json` records what was downloaded, but it is a cache
+rather than the authority: as library pages load, RomMix checks whether each ROM
+is already sitting where it would have installed it and adopts what it finds.
+Moving the RomMix folder, restoring a backup or copying ROMs in by hand therefore
+does not make a full library look empty. That reconciliation only covers the
+games a screen has loaded, so **Downloads → Sync with disk** walks the whole
+library once: it forgets what has been deleted and adopts what is there.
+
+Each entry also records **which emulator it was downloaded for**. Emulators keep
+their games in their own trees, so pointing a platform at a different emulator
+does not move anything — the file stays in a folder the new emulator never looks
+at. RomMix therefore stops reporting those copies as downloaded and offers the
+game again, rather than showing a Play button that hands an emulator a ROM
+outside its library. Nothing is deleted: point the platform back and the games
+are there again, and re-downloading leaves the original copy where it was for
+whichever emulator still uses that tree. An emulator that is merely *missing* is
+not a changed one, so an unplugged SD card does not make a library look empty.
 
 ### Emulators
 
@@ -132,6 +144,18 @@ it: the descriptor carries a release endpoint, and Settings offers the builds
 that endpoint actually published, filtered to assets that can run. AppImages
 are executed directly — wrapping them in `appimage-run` breaks the newer ones,
 whose payload is DwarFS rather than squashfs.
+
+### BIOS
+
+BIOS files come from the RomM server and nowhere else. They are neither
+distributable nor guessable, so **BIOS** lists what each platform needs
+(`src/config/bios.ts`), what your server actually holds
+(`GET /api/firmware`), and whether the emulator currently running that platform
+already has the file — then copies the ones that are missing into that
+emulator's BIOS folder. A file the server does not hold is reported as something
+to upload, not as something RomMix could go and find. Platforms that need a
+console dump rather than a file — Switch keys, PS3 firmware — say so instead of
+listing files that will never appear.
 
 ### Save sync
 
@@ -197,7 +221,8 @@ needs no extra configuration.
 | B | Back |
 | Y | Jump to search |
 | X / Start | Menu |
-| Keyboard | Arrows, Enter, Escape, `/` for search |
+| LB / RB | Previous / next tab, on a game's page |
+| Keyboard | Arrows, Enter, Escape, Tab for tabs, `/` for search |
 
 ---
 
@@ -251,14 +276,29 @@ squashfs payload and fails on the DwarFS ones newer builds use.
 
 ```
 src/
-  shared/     RomM 5.1.0 API types, platform mapping, emulator registry (+ tests)
+  config/     data, no behaviour: the platform table (label, short code, icon,
+              libretro core), the RomM slug mapping, the emulator registry and
+              the BIOS requirements (+ tests)
+  shared/     RomM 5.1.0 API types, the IPC contract, launch-file heuristics
   main/       root layout, store, RomM client, emulator probing and install,
-              downloads, save sync, launcher
+              downloads, BIOS, save sync, launcher
   preload/    the contextBridge surface
   renderer/   React UI — focus engine, components, screens
 flatpak/      manifest, desktop entry, metainfo, icon
 scripts/      build-flatpak.sh
 ```
+
+`config/` is separated from the rest on purpose. Everything in it is a fact
+about consoles and emulators rather than about this program — which platform a
+slug means, what a system is called, which core runs it, what its BIOS is — so
+it is the part most often edited, is pure data plus a few lookups, and is unit
+tested without touching the filesystem or the network. Nothing in `config/`
+imports from `main/` or `renderer/`.
+
+Platform icons are not bundled. RomM serves the Systematic console-icon set at
+`/assets/platforms/systematic/<icon>.svg`, and `SystemIcon` fetches it through
+the same authenticated protocol as cover art, falling back to RomM's brand icon
+and then to a coloured short code when the server is older or unreachable.
 
 The API types in `src/shared/types.ts` were derived from a RomM 5.1.0 instance's
 `/openapi.json` rather than from documentation, so the field names match what

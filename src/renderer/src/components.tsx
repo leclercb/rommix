@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
-import { useFocusable } from './input/focus'
+import { systemInfo } from '@config/systems'
+import { useAction, useFocusable } from './input/focus'
 import type { RommRom } from '@shared/types'
 
 /** Shared presentational pieces for the 10-foot UI. */
@@ -186,7 +187,12 @@ export function GameCard({
         {installed ? <span className="card__installed" title="Downloaded" /> : null}
       </div>
       <div className="card__title">{title}</div>
-      {showPlatform ? <div className="card__meta">{rom.platform_display_name}</div> : null}
+      {showPlatform ? (
+        <div className="card__meta">
+          <PlatformIcon slug={rom.platform_slug} size={16} label={rom.platform_display_name} />
+          <span>{rom.platform_display_name}</span>
+        </div>
+      ) : null}
     </button>
   )
 }
@@ -332,28 +338,132 @@ export function QrCode({
 }
 
 /**
- * Short platform codes, so a badge reads as the console rather than as a
- * folder name. Only the ones whose ES-DE id is not already a good label.
+ * The console's own logo, from RomM's platform icon set.
+ *
+ * RomM ships the Systematic console-icon set and serves it at a stable path,
+ * so the icon comes over the same authenticated protocol as cover art rather
+ * than being bundled: a couple of hundred logos would otherwise have to ship
+ * with the app and be kept in step with a platform list that keeps growing.
+ *
+ * Two fallbacks, in order, because neither failure is hypothetical. An older
+ * RomM has the brand icons but not the Systematic set, and an unreachable
+ * server has neither — while the Downloads screen, which is the densest user
+ * of this component, is exactly the screen that still works offline. The last
+ * resort is the short code on a colour derived from the system name: distinct
+ * per platform, and legible at a distance.
  */
-const PLATFORM_CODES: Readonly<Record<string, string>> = {
-  genesis: 'MD', megadrive: 'MD', mastersystem: 'SMS', gamegear: 'GG',
-  megacd: 'SCD', segacd: 'SCD', sega32x: '32X', saturn: 'SAT', dreamcast: 'DC',
-  psx: 'PS1', ps2: 'PS2', ps3: 'PS3', psp: 'PSP', psvita: 'VITA',
-  gc: 'GC', wii: 'WII', wiiu: 'WIIU', switch: 'NSW', n64: 'N64', nds: 'NDS',
-  n3ds: '3DS', gb: 'GB', gbc: 'GBC', gba: 'GBA', nes: 'NES', snes: 'SNES',
-  famicom: 'FC', sfc: 'SFC', virtualboy: 'VB',
-  pcengine: 'PCE', pcenginecd: 'PCE', neogeo: 'NEO', arcade: 'ARC', mame: 'MAME',
-  atari2600: '2600', atari5200: '5200', atari7800: '7800', atarilynx: 'LNX',
-  amiga: 'AMI', c64: 'C64', dos: 'DOS', scummvm: 'SVM', '3do': '3DO'
+export function SystemIcon({
+  system,
+  size = 34
+}: {
+  system: string
+  size?: number
+}): JSX.Element {
+  const info = systemInfo(system)
+  return <IconImage candidates={[info.icon]} system={system} label={info.label} size={size} />
 }
 
 /**
- * A platform marker: a short code on a colour derived from the platform id, so
- * every platform gets a stable, distinct chip without shipping logo artwork or
- * fetching anything.
+ * The same icon, for the places that hold a RomM platform rather than an ES-DE
+ * system.
+ *
+ * Worth distinguishing because RomM names its icons by *its own* platform slug,
+ * so when that slug is in hand it is the direct answer — no mapping to be wrong
+ * about, and it still produces an icon for a platform RomMix has no ES-DE
+ * mapping for at all, which is exactly the platform the BIOS screen most needs
+ * to identify.
+ */
+export function PlatformIcon({
+  slug,
+  system,
+  size = 34,
+  label
+}: {
+  slug: string
+  /** ES-DE system, when known: its curated icon is the second candidate. */
+  system?: string | null
+  size?: number
+  label?: string
+}): JSX.Element {
+  const info = system ? systemInfo(system) : null
+  return (
+    <IconImage
+      candidates={[slug, info?.icon]}
+      system={system ?? slug}
+      label={label ?? info?.label ?? slug}
+      size={size}
+    />
+  )
+}
+
+/**
+ * Icons that resolved are remembered for the session.
+ *
+ * Without this every cover in a 60-card grid re-runs the same cascade of
+ * 404s for its platform. Only successes are cached: a miss is usually "not
+ * connected yet", and caching that would leave the library showing short codes
+ * until the app was restarted.
+ */
+const resolvedIcons = new Map<string, string>()
+
+function IconImage({
+  candidates,
+  system,
+  label,
+  size
+}: {
+  candidates: (string | undefined)[]
+  system: string
+  label: string
+  size: number
+}): JSX.Element {
+  const sources = useMemo(() => {
+    const names = [...new Set(candidates.filter((name): name is string => Boolean(name)))]
+    return names
+      // The Systematic set first, so a screen of platforms is one visual family
+      // rather than a mix of monochrome glyphs and coloured brand logos.
+      .flatMap((name) => [
+        `/assets/platforms/systematic/${name}.svg`,
+        `/assets/platforms/${name}.svg`
+      ])
+      .map((path) => window.rommix.system.imageUrl(path))
+      .filter((url): url is string => url !== null)
+  }, [candidates.join('|')])
+
+  const cacheKey = sources.join('|')
+  const cached = resolvedIcons.get(cacheKey)
+  const [attempt, setAttempt] = useState(0)
+
+  // A different platform in the same slot has to start from the first source.
+  useEffect(() => setAttempt(0), [cacheKey])
+
+  if (cached) {
+    return <img className="system-icon" style={{ width: size, height: size }} src={cached} alt={label} title={label} loading="lazy" />
+  }
+  if (attempt >= sources.length) return <PlatformBadge system={system} />
+
+  return (
+    <img
+      className="system-icon"
+      style={{ width: size, height: size }}
+      src={sources[attempt]}
+      alt={label}
+      title={label}
+      loading="lazy"
+      onLoad={() => resolvedIcons.set(cacheKey, sources[attempt])}
+      onError={() => setAttempt((current) => current + 1)}
+    />
+  )
+}
+
+/**
+ * A platform marker: the system's short code on a colour derived from its
+ * name, so every platform gets a stable, distinct chip with nothing fetched.
+ * Used on its own where an icon would be too big, and as `SystemIcon`'s
+ * fallback when no artwork can be reached.
  */
 export function PlatformBadge({ system }: { system: string }): JSX.Element {
-  const code = PLATFORM_CODES[system] ?? system.slice(0, 4).toUpperCase()
+  const { short } = systemInfo(system)
   let hash = 0
   for (let i = 0; i < system.length; i += 1) hash = (hash * 31 + system.charCodeAt(i)) % 360
   return (
@@ -365,8 +475,74 @@ export function PlatformBadge({ system }: { system: string }): JSX.Element {
         borderColor: `hsl(${hash} 60% 38%)`
       }}
     >
-      {code}
+      {short}
     </span>
+  )
+}
+
+/**
+ * A tab strip.
+ *
+ * Bound to LB/RB (and shift-Tab/Tab) as well as being focusable, because a tab
+ * strip that can only be reached by walking focus up to it is a tab strip
+ * nobody uses on a controller — the shoulder buttons are where a console UI
+ * puts this, and the hint bar says so.
+ */
+export function Tabs<T extends string>({
+  tabs,
+  active,
+  onChange
+}: {
+  tabs: { id: T; label: string; badge?: number }[]
+  active: T
+  onChange: (id: T) => void
+}): JSX.Element {
+  const step = (delta: number): void => {
+    const index = tabs.findIndex((tab) => tab.id === active)
+    if (index < 0) return
+    onChange(tabs[(index + delta + tabs.length) % tabs.length].id)
+  }
+
+  useAction('tabLeft', () => step(-1))
+  useAction('tabRight', () => step(1))
+
+  return (
+    <div className="tabs">
+      {tabs.map((tab) => (
+        <TabButton
+          key={tab.id}
+          label={tab.label}
+          badge={tab.badge}
+          active={tab.id === active}
+          onSelect={() => onChange(tab.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function TabButton({
+  label,
+  badge,
+  active,
+  onSelect
+}: {
+  label: string
+  badge?: number
+  active: boolean
+  onSelect: () => void
+}): JSX.Element {
+  const { ref, props } = useFocusable({ onSelect })
+  return (
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      className="tab"
+      data-active={active}
+      {...props}
+    >
+      {label}
+      {badge != null ? <span className="tab__badge">{badge}</span> : null}
+    </button>
   )
 }
 

@@ -2,6 +2,7 @@ import type { JSX, Ref } from 'react'
 import { CoverArt, Overlay } from './components'
 import { useAction, useFocusable } from './input/focus'
 import { useApp, type Route, type Toast } from './state'
+import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
 import { DetailScreen } from './screens/Detail'
 import { DownloadsScreen } from './screens/Downloads'
@@ -52,6 +53,12 @@ export function App(): JSX.Element {
           badge={activeDownloads > 0 ? activeDownloads : undefined}
         />
         <RailItem
+          icon="▤"
+          label="BIOS"
+          route={{ name: 'bios' }}
+          active={route.name === 'bios'}
+        />
+        <RailItem
           icon="⚙"
           label="Settings"
           route={{ name: 'settings' }}
@@ -89,6 +96,8 @@ function Screen({ route }: { route: Route }): JSX.Element {
       return <DetailScreen romId={route.romId} />
     case 'downloads':
       return <DownloadsScreen />
+    case 'bios':
+      return <BiosScreen />
     case 'settings':
       return <SettingsScreen />
     case 'connect':

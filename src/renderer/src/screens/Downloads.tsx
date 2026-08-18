@@ -1,8 +1,8 @@
 import type { DownloadItem, InstalledRom } from '@shared/types'
-import { CoverArt, FocusButton, Hints, PlatformBadge, formatBytes } from '../components'
+import { CoverArt, FocusButton, Hints, Overlay, Spinner, SystemIcon, formatBytes } from '../components'
 import { useFocusable } from '../input/focus'
 import { useApp } from '../state'
-import { useMemo, type JSX, type Ref } from 'react'
+import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
 const STATE_LABELS: Record<DownloadItem['state'], string> = {
   queued: 'Waiting',
@@ -16,6 +16,41 @@ const STATE_LABELS: Record<DownloadItem['state'], string> = {
 /** Transfer queue plus everything currently on local disk. */
 export function DownloadsScreen(): JSX.Element {
   const { downloads, installed, navigate, notify, refreshInstalled } = useApp()
+  const [syncing, setSyncing] = useState(false)
+  const [progress, setProgress] = useState<{ checked: number; total: number } | null>(null)
+
+  useEffect(() => window.rommix.library.onSyncProgress(setProgress), [])
+
+  /**
+   * Check the list against the disk.
+   *
+   * RomMix reconciles as you browse, which only ever covers the games a screen
+   * has loaded — so a ROM deleted with a file manager keeps its Play button
+   * until you happen to open that library page again, and a ROM copied in by
+   * hand is offered as a download. This walks the whole library once and
+   * settles both.
+   */
+  const sync = async (): Promise<void> => {
+    setSyncing(true)
+    setProgress(null)
+    try {
+      const result = await window.rommix.library.sync()
+      await refreshInstalled()
+      const parts: string[] = []
+      if (result.adopted > 0) parts.push(`${result.adopted} found on disk`)
+      if (result.removed > 0) parts.push(`${result.removed} no longer there`)
+      notify(
+        parts.length > 0
+          ? parts.join(' · ')
+          : `${result.checked} game${result.checked === 1 ? '' : 's'} checked — nothing changed`
+      )
+    } catch (cause) {
+      notify((cause as Error).message, 'error')
+    } finally {
+      setSyncing(false)
+      setProgress(null)
+    }
+  }
 
   const active = downloads.filter(
     (item) => item.state === 'queued' || item.state === 'downloading' || item.state === 'extracting'
@@ -51,7 +86,7 @@ export function DownloadsScreen(): JSX.Element {
       await window.rommix.downloads.uninstall(entry.romId)
       await refreshInstalled()
       notify('Uninstalled', 'ok', {
-        title: entry.name || entry.fileName,
+        title: entry.name,
         coverPath: entry.coverPath
       })
     } catch (cause) {
@@ -65,6 +100,26 @@ export function DownloadsScreen(): JSX.Element {
       <p className="page-subtitle">
         {installed.length} game{installed.length === 1 ? '' : 's'} on disk · {formatBytes(totalOnDisk)}
       </p>
+
+      <div className="btn-row">
+        <FocusButton onSelect={() => void sync()} disabled={syncing}>
+          {syncing ? 'Checking…' : 'Sync with disk'}
+        </FocusButton>
+      </div>
+
+      {syncing ? (
+        <Overlay title="Checking your library">
+          <p className="muted">
+            {progress
+              ? `${progress.checked} of ${progress.total} games checked`
+              : 'Asking RomM what you have…'}
+          </p>
+          <p className="faint" style={{ fontSize: 13 }}>
+            Every game on the server is compared against the folder it would be installed in.
+          </p>
+          <Spinner />
+        </Overlay>
+      ) : null}
 
       {active.length > 0 ? (
         <>
@@ -104,8 +159,8 @@ export function DownloadsScreen(): JSX.Element {
         byPlatform.map(([system, entries]) => (
           <section key={system}>
             <h3 className="section-title installed__group" style={{ fontSize: 17 }}>
-              <PlatformBadge system={system} />
-              {entries[0].platformName || system} · {entries.length} game
+              <SystemIcon system={system} size={30} />
+              {entries[0].platformName} · {entries.length} game
               {entries.length === 1 ? '' : 's'} ·{' '}
               {formatBytes(entries.reduce((sum, entry) => sum + entry.sizeBytes, 0))}
             </h3>
@@ -148,7 +203,8 @@ function ProgressRow({
       </div>
       <span className="download__name">{item.name}</span>
       <span className="download__state">
-        {item.platformName || item.system} · {STATE_LABELS[item.state]}
+        <SystemIcon system={item.system} size={18} />
+        {item.platformName} · {STATE_LABELS[item.state]}
         {item.state === 'downloading'
           ? ` · ${formatBytes(item.receivedBytes)} / ${formatBytes(item.totalBytes)}`
           : ''}
@@ -185,9 +241,8 @@ function InstalledRow({
   onRemove: () => void
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect })
-  // Entries written before these fields existed still have to render.
-  const title = entry.name || entry.fileName
-  const files = entry.files?.length ? entry.files : [entry.fileName]
+  const title = entry.name
+  const files = entry.files
 
   return (
     <div ref={ref as Ref<HTMLDivElement>} className="installed" {...props}>
@@ -198,8 +253,8 @@ function InstalledRow({
       <div className="installed__body">
         <div className="installed__title">{title}</div>
         <div className="installed__meta">
-          <PlatformBadge system={entry.system} />
-          <span>{entry.platformName || entry.system}</span>
+          <SystemIcon system={entry.system} size={22} />
+          <span>{entry.platformName}</span>
           <span>·</span>
           <span>{formatBytes(entry.sizeBytes)}</span>
           {files.length > 1 ? <span>· {files.length} files</span> : null}

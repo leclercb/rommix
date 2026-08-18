@@ -1,6 +1,6 @@
 import { type JSX, type Ref, useCallback, useEffect, useRef, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
-import { CoverArt, GameRow, Hints, Spinner } from '../components'
+import { CoverArt, GameRow, Hints, PlatformIcon, Spinner } from '../components'
 import { useFocusable } from '../input/focus'
 import { useApp } from '../state'
 
@@ -191,7 +191,10 @@ function Hero({
         <div className="hero__reason">{reason}</div>
         <h1 className="hero__title">{title}</h1>
         <div className="hero__meta">
-          <span className="chip">{rom.platform_display_name}</span>
+          <span className="chip chip--icon">
+            <PlatformIcon slug={rom.platform_slug} size={20} label={rom.platform_display_name} />
+            {rom.platform_display_name}
+          </span>
           {year ? <span className="chip">{year}</span> : null}
           {rom.metadatum.genres.slice(0, 3).map((genre) => (
             <span className="chip" key={genre}>
