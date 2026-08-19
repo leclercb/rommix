@@ -297,12 +297,29 @@ export interface Settings {
   systemLaunchers: Record<string, string>
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
   systemOverrides: Record<string, string>
+  /**
+   * Emulator ids, most preferred first.
+   *
+   * The order decides which emulator runs a platform when that platform has no
+   * choice of its own: the first one in this list that is installed and covers
+   * it. Empty means the registry's own order, and any emulator missing from the
+   * list keeps its registry position behind those named here — so a list
+   * written before an emulator existed does not hide it.
+   */
+  emulatorPriority: EmulatorId[]
   /** Pull newer saves down from RomM before launching. */
   syncSavesDown: boolean
   /** Push saves/states back to RomM after the game exits. */
   syncSavesUp: boolean
   /** Ask for confirmation before deleting a downloaded game. */
   confirmUninstall: boolean
+  /**
+   * Notices the user has said they do not want again, by key.
+   *
+   * Kept as a list of opaque keys rather than a flag per notice so that adding
+   * one later needs no migration: an unknown key simply means "not dismissed".
+   */
+  dismissedNotices: string[]
   /** Stable identifier reported to RomM as this device. */
   deviceId: string
   deviceName: string
@@ -376,6 +393,8 @@ export interface LaunchChoice {
   system: string
   emulatorId: EmulatorId
   emulatorName: string
+  /** Setup this emulator needs done by hand. See `EmulatorDescriptor.setupNotes`. */
+  setupNotes: string[]
   options: { id: string; label: string; note?: string }[]
   /** The recorded choice, or null if the user has not been asked yet. */
   chosen: string | null
@@ -435,8 +454,16 @@ export interface BiosItem {
   /** What the file is for, from the BIOS table; null for an unrecognised extra. */
   note: string | null
   required: boolean
-  /** Present in the emulator's BIOS folder already. */
+  /** Present where it belongs already. */
   installed: boolean
+  /**
+   * The folder this file goes in, absolute, or null when there is nowhere to
+   * put it. Not always the platform's `biosDir`: an emulator that cannot take
+   * a file directly has it staged in RomMix's own `bios/<system>` instead.
+   */
+  dir: string | null
+  /** True when `dir` is RomMix's staging folder rather than the emulator's. */
+  staged: boolean
   /** RomM firmware id, or null when the server does not hold this file. */
   firmwareId: number | null
   sizeBytes: number
@@ -457,6 +484,8 @@ export interface BiosPlatform {
   emulatorName: string | null
   /** Absolute BIOS folder, or null when there is no usable emulator. */
   biosDir: string | null
+  /** Set when some of this platform's files had to be staged: what to do about them. */
+  stagingNote: string | null
   items: BiosItem[]
   /** Why nothing can be installed for this platform, phrased for the screen. */
   blockedReason: string | null

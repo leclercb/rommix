@@ -272,6 +272,11 @@ function PlatformBios({
         <div className="notice notice--warn">{platform.blockedReason}</div>
       ) : null}
       {platform.dumpOnly ? <div className="notice notice--warn">{platform.dumpOnly}</div> : null}
+      {/* Files RomMix can fetch but not install: it says where it put them and
+          what the user has to do with them. */}
+      {platform.stagingNote ? (
+        <div className="notice notice--warn">{platform.stagingNote}</div>
+      ) : null}
 
       {platform.items.map((item) => (
         <div className="bios__item" key={item.fileName}>
@@ -295,6 +300,14 @@ function PlatformBios({
               {item.note ?? 'Uploaded to RomM for this platform'}
               {item.sizeBytes > 0 ? ` · ${formatBytes(item.sizeBytes)}` : ''}
             </div>
+            {/* Named per file rather than once per platform: on a row where
+                some files go to the emulator and the rest are staged, one
+                folder at the top would be wrong for half of them. */}
+            {item.dir ? (
+              <div className="bios__path" data-staged={item.staged}>
+                {item.dir}/{item.fileName}
+              </div>
+            ) : null}
           </div>
           <div className="bios__actions">
             {item.firmwareId == null ? (

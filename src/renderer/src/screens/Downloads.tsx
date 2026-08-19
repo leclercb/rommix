@@ -225,7 +225,8 @@ export function DownloadsScreen(): JSX.Element {
                 <ProgressRow
                   key={item.romId}
                   item={item}
-                  onSelect={() => void window.rommix.downloads.cancel(item.romId)}
+                  onSelect={() => navigate({ name: 'detail', romId: item.romId })}
+                  onCancel={() => void window.rommix.downloads.cancel(item.romId)}
                 />
               ))}
             </>
@@ -259,7 +260,7 @@ export function DownloadsScreen(): JSX.Element {
               onSelect={() => setGrouped((current) => !current)}
               disabled={installed.length === 0}
             >
-              {grouped ? 'Grouped by system' : 'One flat list'}
+              Group by system: {grouped ? 'Yes' : 'No'}
             </FocusButton>
             <FocusButton onSelect={() => void sync()} disabled={syncing}>
               {syncing ? 'Checking…' : 'Sync with disk'}
@@ -330,6 +331,9 @@ export function DownloadsScreen(): JSX.Element {
       <Hints
         items={[
           { key: 'A', label: tab === 'device' && grouped ? 'Open · Expand' : 'Open' },
+          // Row actions are reached sideways, which is worth saying: walking
+          // down a list never passes through them.
+          { key: '→', label: 'Row actions' },
           { key: 'LB', label: 'Previous tab' },
           { key: 'RB', label: 'Next tab' },
           { key: 'B', label: 'Back' }
@@ -364,7 +368,10 @@ function PlatformGroup({
   onOpenGame: (entry: InstalledRom) => void
   onRemove: (entry: InstalledRom) => void
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect: onToggle })
+  const { ref, props } = useFocusable({
+    onSelect: onToggle,
+    actionLabel: open ? 'Collapse' : 'Expand'
+  })
   const size = entries.reduce((sum, entry) => sum + entry.sizeBytes, 0)
 
   return (
@@ -397,18 +404,33 @@ function PlatformGroup({
   )
 }
 
+/**
+ * One transfer.
+ *
+ * Selecting the row opens the game, the same as everywhere else in the app.
+ * Cancelling is a labelled button of its own: it used to be what the row itself
+ * did, so pressing A on a download in progress — the obvious thing to do to a
+ * thing you are watching — threw away the transfer with nothing on screen
+ * saying that it would.
+ */
 function ProgressRow({
   item,
-  onSelect
+  onSelect,
+  onCancel
 }: {
   item: DownloadItem
   onSelect: () => void
+  onCancel?: () => void
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect })
+  const { ref, props } = useFocusable({ onSelect, actionLabel: 'Open' })
   const percent = item.totalBytes > 0 ? Math.round((item.receivedBytes / item.totalBytes) * 100) : 0
 
   return (
-    <div ref={ref as Ref<HTMLDivElement>} className="download" {...props}>
+    <div
+      ref={ref as Ref<HTMLDivElement>}
+      className={`download ${onCancel ? 'download--action' : ''}`}
+      {...props}
+    >
       <div className="download__art">
         <CoverArt path={item.coverPath} name={item.name} />
       </div>
@@ -420,6 +442,13 @@ function ProgressRow({
           ? ` · ${formatBytes(item.receivedBytes)} / ${formatBytes(item.totalBytes)}`
           : ''}
       </span>
+      {onCancel ? (
+        <div className="download__actions">
+          <FocusButton variant="danger" onSelect={onCancel}>
+            Cancel
+          </FocusButton>
+        </div>
+      ) : null}
       <div className="download__bar" style={{ gridColumn: '2 / -1' }}>
         <div
           className="download__fill"
@@ -448,7 +477,7 @@ function InstalledRow({
   onSelect: () => void
   onRemove: () => void
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect })
+  const { ref, props } = useFocusable({ onSelect, actionLabel: 'Open' })
   const title = entry.name
   const files = entry.files
 

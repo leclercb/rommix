@@ -1,7 +1,9 @@
 import { mkdir, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { biosFor } from '@config/bios'
+import { emulatorById } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
+import { rootPaths } from './root'
 import type {
   BiosItem,
   BiosPlatform,
@@ -32,6 +34,19 @@ import type { Store } from './store'
 /** Filenames compare case-insensitively; emulators and uploads disagree on case. */
 function key(name: string): string {
   return name.toLowerCase()
+}
+
+/**
+ * Can this file go straight into the emulator's own BIOS folder?
+ *
+ * A descriptor that says nothing takes everything, which is what a BIOS folder
+ * normally is. `biosAccepts` marks the exception — Eden takes its keys and
+ * nothing else — and everything it does not name is staged instead.
+ */
+function acceptedByEmulator(emulator: EmulatorState | null, fileName: string): boolean {
+  const accepts = emulator ? emulatorById(emulator.id)?.biosAccepts : undefined
+  if (!accepts) return true
+  return accepts.some((suffix) => key(fileName).endsWith(key(suffix)))
 }
 
 /**
@@ -139,14 +154,14 @@ export class BiosManager {
     }
 
     const rows: BiosPlatform[] = []
+    // Per file, not per platform: a Switch row sends its keys to Eden and its
+    // firmware to RomMix's own folder, and only the row knows which is which.
     const dirFor = new Map<number, string>()
     for (const platform of platforms) {
       const row = await this.describe(platform, byPlatform.get(platform.id) ?? [], listing)
       rows.push(row)
-      if (row.biosDir) {
-        for (const item of row.items) {
-          if (item.firmwareId != null) dirFor.set(item.firmwareId, row.biosDir)
-        }
+      for (const item of row.items) {
+        if (item.firmwareId != null && item.dir) dirFor.set(item.firmwareId, item.dir)
       }
     }
 
@@ -187,18 +202,38 @@ export class BiosManager {
     const biosDir = emulator?.paths.bios ?? null
     const requirement = system ? biosFor(system) : null
 
-    const present = biosDir ? await listing(biosDir) : new Set<string>()
+    /**
+     * Where one file belongs, and whether that is the emulator's own folder.
+     *
+     * Asked per file rather than per platform: a Switch row holds both keys,
+     * which go straight into Eden, and firmware, which cannot.
+     */
+    const placement = (
+      fileName: string
+    ): { dir: string | null; staged: boolean } => {
+      if (acceptedByEmulator(emulator, fileName)) return { dir: biosDir, staged: false }
+      return { dir: system ? this.stagingDir(system) : null, staged: true }
+    }
+
+    /** Present already — checked in the folder this file actually goes to. */
+    const isInstalled = async (fileName: string, dir: string | null): Promise<boolean> => {
+      if (!dir) return false
+      return (await listing(dir)).has(key(fileName))
+    }
 
     // Start from what the system is known to need, so a file the server does
     // not hold is still named — "PlayStation is missing scph5501.bin" is
     // actionable in a way that an empty list is not.
     const items = new Map<string, BiosItem>()
     for (const file of requirement?.files ?? []) {
+      const { dir, staged } = placement(file.name)
       items.set(key(file.name), {
         fileName: file.name,
         note: file.note,
         required: file.required,
-        installed: present.has(key(file.name)),
+        installed: await isInstalled(file.name, dir),
+        dir,
+        staged,
         firmwareId: null,
         sizeBytes: 0,
         verified: false
@@ -209,11 +244,14 @@ export class BiosManager {
     // for the rows above and adds files RomMix has no expectations about.
     for (const item of firmware) {
       const existing = items.get(key(item.file_name))
+      const { dir, staged } = placement(item.file_name)
       items.set(key(item.file_name), {
         fileName: item.file_name,
         note: existing?.note ?? null,
         required: existing?.required ?? false,
-        installed: present.has(key(item.file_name)),
+        installed: await isInstalled(item.file_name, dir),
+        dir,
+        staged,
         firmwareId: item.id,
         sizeBytes: item.file_size_bytes,
         verified: item.is_verified
@@ -229,6 +267,8 @@ export class BiosManager {
           ? `RomMix does not know where ${emulator.name} keeps its BIOS files.`
           : null
 
+    const rows = [...items.values()].sort((a, b) => a.fileName.localeCompare(b.fileName))
+
     return {
       platformId: platform.id,
       platformSlug: platform.slug,
@@ -237,10 +277,26 @@ export class BiosManager {
       emulatorId: emulator?.id ?? null,
       emulatorName: emulator?.name ?? null,
       biosDir,
-      items: [...items.values()].sort((a, b) => a.fileName.localeCompare(b.fileName)),
+      // Only worth saying when something on this row actually was staged.
+      stagingNote: rows.some((row) => row.staged)
+        ? ((emulator ? emulatorById(emulator.id)?.biosStagingNote : null) ?? null)
+        : null,
+      items: rows,
       blockedReason,
       dumpOnly: requirement?.dumpOnly ?? null
     }
+  }
+
+  /**
+   * RomMix's own BIOS folder for a system.
+   *
+   * Where firmware goes that RomMix can fetch but not install — beside the
+   * roms folder in the RomMix root, so it moves with everything else when the
+   * root is repointed, and is somewhere the user can find and point an
+   * emulator's own installer at.
+   */
+  private stagingDir(system: string): string {
+    return join(rootPaths().root, 'bios', system)
   }
 
   /** Copy one firmware file from RomM into the emulator that needs it. */
@@ -319,6 +375,9 @@ export class BiosManager {
 
     await mkdir(dir, { recursive: true })
     const destination = join(dir, firmware.file_name)
+    // Copied exactly as the server holds it, archive or not: Eden's firmware
+    // installer takes a zip as readily as a folder, and unpacking one here
+    // would only turn a file RomMix can account for into several it cannot.
     await this.client.downloadFirmware(firmware, destination)
     return destination
   }

@@ -46,9 +46,11 @@ function defaultSettings(): Settings {
     emulatorPaths: {},
     systemLaunchers: {},
     systemOverrides: {},
+    emulatorPriority: [],
     syncSavesDown: true,
     syncSavesUp: true,
     confirmUninstall: true,
+    dismissedNotices: [],
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`
   }

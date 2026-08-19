@@ -65,6 +65,17 @@ interface FocusContextValue {
   onAction(action: Action, handler: () => void, layer: number): () => void
   /** What the last input came from, for anything that has to name a button. */
   inputKind: InputKind
+  /**
+   * What pressing A would do right now, named by whatever holds focus.
+   *
+   * The hint bar is written per screen, so on its own it can only describe one
+   * of the things A does there — "Play" stays on screen while focus sits on
+   * Pull saves. This is the focused element's own answer, which is the only one
+   * that is true at the moment it is read.
+   */
+  focusedAction: string | null
+  /** Called by the focused element to say what it does. */
+  reportAction(label: string | null): void
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
@@ -234,6 +245,32 @@ interface Measure {
  */
 function measure(from: Rect, to: Rect, direction: Direction, anchor: number): Measure | null {
   const vertical = direction === 'down' || direction === 'up'
+
+  /**
+   * One of these sits inside the other: a row that is itself selectable, and
+   * the Cancel or Uninstall button drawn within it.
+   *
+   * Edge-to-edge measurement cannot see these at all — a button inside a row
+   * has a negative gap in all four directions, so it is rejected as "not that
+   * way" from every side and simply cannot be reached. They are related by
+   * containment rather than by distance, so the comparison is between centres.
+   *
+   * Deliberately sideways only. Letting Down step into a row's own buttons
+   * would put one or two extra stops inside every row of a list that can run to
+   * thousands, when the point of walking down is to pass them. Right reaches
+   * the actions, Left comes back out, Down carries on to the next row.
+   */
+  const inside = (outer: Rect, inner: Rect): boolean =>
+    inner.left >= outer.left &&
+    inner.right <= outer.right &&
+    inner.top >= outer.top &&
+    inner.bottom <= outer.bottom
+
+  if (inside(from, to) || inside(to, from)) {
+    if (vertical) return null
+    const towards = direction === 'right' ? to.cx > from.cx : to.cx < from.cx
+    return towards ? { gap: 0, cross: 0 } : null
+  }
 
   const gap =
     direction === 'down'
@@ -482,6 +519,12 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const [inputKind, setInputKind] = useState<InputKind>(() =>
     gamepadPresent() ? 'gamepad' : 'keyboard'
   )
+  const [focusedAction, setFocusedAction] = useState<string | null>(null)
+  // Reported by the focused element rather than read off the registry, so a
+  // label that changes while focused — "Play" becoming "Running…" — keeps up.
+  const reportAction = useCallback((label: string | null): void => {
+    setFocusedAction((current) => (current === label ? current : label))
+  }, [])
   // Set on every input, so it must not re-render unless the answer changed.
   const noteInput = useCallback((kind: InputKind): void => {
     setInputKind((current) => (current === kind ? current : kind))
@@ -506,8 +549,28 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   useKeyboard(move, fireAction, activate, noteInput)
 
   const value = useMemo<FocusContextValue>(
-    () => ({ register, focusedId, setFocus, move, activate, onAction, inputKind }),
-    [register, focusedId, setFocus, move, activate, onAction, inputKind]
+    () => ({
+      register,
+      focusedId,
+      setFocus,
+      move,
+      activate,
+      onAction,
+      inputKind,
+      focusedAction,
+      reportAction
+    }),
+    [
+      register,
+      focusedId,
+      setFocus,
+      move,
+      activate,
+      onAction,
+      inputKind,
+      focusedAction,
+      reportAction
+    ]
   )
 
   return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
@@ -581,9 +644,11 @@ export function useFocusable(options: {
   enabled?: boolean
   /** Focus this element as soon as it mounts. */
   autoFocus?: boolean
+  /** What selecting this does, for the hint bar. */
+  actionLabel?: string
 }): UseFocusableResult {
-  const { onSelect, enabled = true, autoFocus = false } = options
-  const { register, focusedId, setFocus } = useFocusContext()
+  const { onSelect, enabled = true, autoFocus = false, actionLabel } = options
+  const { register, focusedId, setFocus, reportAction } = useFocusContext()
   const layer = useContext(LayerContext)
   const zone = useContext(ZoneContext)
   const ref = useRef<HTMLElement | null>(null)
@@ -603,6 +668,13 @@ export function useFocusable(options: {
   useEffect(() => {
     if (autoFocus && enabled) setFocus(id)
   }, [autoFocus, enabled, id, setFocus])
+
+  // Only while focused: an element that has just lost focus must not overwrite
+  // what the one that took it has already said.
+  const focused = focusedId === id
+  useEffect(() => {
+    if (focused) reportAction(actionLabel ?? null)
+  }, [focused, actionLabel, reportAction])
 
   return {
     ref,

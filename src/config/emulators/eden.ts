@@ -72,5 +72,37 @@ export const eden: EmulatorDescriptor = {
   },
   saveLayout: 'per-game-dir',
   saveTree: 'flat',
+  /**
+   * Eden's game list is the directories it has been given, read one level
+   * deep. A game unpacked into a folder of its own would never appear in it,
+   * so a multi-file title is put loose beside everything else — which is also
+   * how updates and DLC have to sit for its NAND installer to find them.
+   */
+  flatLibrary: true,
+  /**
+   * Only the key files belong in `keys/`. A firmware dump is hundreds of NCAs
+   * that Eden has to register into its own NAND — dropping them into the tree
+   * leaves a NAND that looks populated and is not — so those are staged in
+   * RomMix's `bios/switch` for the user to install from.
+   */
+  biosAccepts: ['.keys'],
+  biosStagingNote:
+    'Firmware cannot be put in place by RomMix: Eden has to register it into its own NAND. ' +
+    'RomMix has downloaded it to the folder below — install it from Eden with ' +
+    'Tools → Install Firmware, pointing it at that folder.',
+  /**
+   * Both of these are consequences of the descriptor above, and both look like
+   * RomMix failing when they are not done.
+   *
+   * Eden ships no ROM folder, so `dirs.roms` points into RomMix's own — a
+   * directory Eden knows nothing about until it is added under Game
+   * Directories. And updates and DLC are installed into the NAND through Eden's
+   * own installer rather than being files beside the game, so a downloaded
+   * update sitting in the ROM folder does nothing at all.
+   */
+  setupNotes: [
+    'Add RomMix\'s ROM folder to Eden under File → Game Directories, or your downloads will not appear in Eden\'s own game list.',
+    'Game updates and DLC have to be installed into Eden\'s NAND from File → Install Files to NAND. A patch downloaded next to the game is not applied on its own.'
+  ],
   launch: ({ exec, romPath }) => [...exec, romPath]
 }

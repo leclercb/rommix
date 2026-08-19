@@ -294,6 +294,7 @@ export function registerIpc(rommix: RomMixApp): void {
       system: installed.system,
       emulatorId: emulator.id,
       emulatorName: emulator.name,
+      setupNotes: [...(descriptor?.setupNotes ?? [])],
       options: options.map((option) => ({ ...option })),
       // A recorded choice that no longer exists is reported as unanswered, so
       // the user is asked again rather than being launched into something else.
@@ -376,16 +377,26 @@ export function registerIpc(rommix: RomMixApp): void {
     // Only a hand-written executable path changes what probing the machine
     // would find. Re-running it for a save-sync toggle would mean a `flatpak
     // info` and a PATH search per emulator every time a switch is flipped.
-    if ('emulatorPaths' in patch) await rommix.refreshEmulators()
+    // Both change which emulator answers for a platform: one by moving where
+    // they are, the other by moving which comes first.
+    if ('emulatorPaths' in patch || 'emulatorPriority' in patch) {
+      await rommix.refreshEmulators()
+    }
 
     // Repointing a platform at another emulator — or remapping one to a
     // different folder — changes which downloads count as present, so the
     // renderer's copy of the list is stale the moment this returns.
     if (
       'emulatorPaths' in patch ||
+      'emulatorPriority' in patch ||
       'systemEmulators' in patch ||
       'systemOverrides' in patch
     ) {
+      // Reordering counts: the emulator now in charge of a platform keeps its
+      // games in its own tree, so a copy downloaded for the previous one is in
+      // a folder the new one never reads. `downloads.installed` already hides
+      // those; without this the renderer goes on showing its last answer and
+      // the games look downloaded when they are, for this emulator, not there.
       rommix.send('library:installed', downloads.installed)
     }
     return next

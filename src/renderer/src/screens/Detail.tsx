@@ -20,8 +20,16 @@ type DetailTab = 'about' | 'saves' | 'files' | 'screenshots'
  * play it, remove it.
  */
 export function DetailScreen({ romId }: { romId: number }): JSX.Element {
-  const { installed, downloads, runningRomId, goBack, notify, refreshInstalled, settings } =
-    useApp()
+  const {
+    installed,
+    downloads,
+    runningRomId,
+    goBack,
+    notify,
+    refreshInstalled,
+    saveSettings,
+    settings
+  } = useApp()
 
   const [rom, setRom] = useState<RommRom | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -58,20 +66,43 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const active = download?.state === 'downloading' || download?.state === 'queued' || download?.state === 'extracting'
   const running = runningRomId === romId
 
-  // Only to decide whether "Run with…" is worth showing. The launch path asks
-  // again rather than trusting this, since the emulator for a platform can be
-  // changed from Settings while this screen is open.
+  // Only to decide whether "Run with…" is worth showing, and what this
+  // emulator still needs done by hand. The launch path asks again rather than
+  // trusting either, since the emulator for a platform can be changed from
+  // Settings while this screen is open.
   const [variants, setVariants] = useState<LaunchChoice['options']>([])
+  const [setup, setSetup] = useState<{ emulatorId: string; notes: string[] } | null>(null)
   useEffect(() => {
     if (!entry) {
       setVariants([])
+      setSetup(null)
       return
     }
     void window.rommix.game
       .variants(romId)
-      .then((choice) => setVariants(choice.options))
-      .catch(() => setVariants([]))
+      .then((choice) => {
+        setVariants(choice.options)
+        setSetup({ emulatorId: choice.emulatorId, notes: choice.setupNotes })
+      })
+      .catch(() => {
+        setVariants([])
+        setSetup(null)
+      })
   }, [romId, entry?.emulatorId, entry?.system])
+
+  /**
+   * Dismissed per emulator, not per game: the steps are about setting the
+   * emulator up once, so being told again on the next Switch game would be the
+   * same nagging the button exists to stop.
+   */
+  const noticeKey = setup ? `setup:${setup.emulatorId}` : null
+  const dismissed = !noticeKey || (settings?.dismissedNotices ?? []).includes(noticeKey)
+  const dismissSetup = async (): Promise<void> => {
+    if (!noticeKey || dismissed) return
+    await saveSettings({
+      dismissedNotices: [...(settings?.dismissedNotices ?? []), noticeKey]
+    })
+  }
 
   const startDownload = async (): Promise<void> => {
     setBusy(true)
@@ -342,7 +373,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       </div>
 
       {active ? (
-        <div className="download">
+        <div className="download download--bare">
           <span className="download__name">
             {download?.state === 'extracting' ? 'Extracting…' : 'Downloading…'}
           </span>
@@ -357,6 +388,26 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
       {download?.state === 'error' && download.error ? (
         <div className="notice notice--error">{download.error}</div>
+      ) : null}
+
+      {/* What the emulator still needs done by hand. Here rather than in
+          Settings because this is the screen where the game is about to be
+          played, and every one of these steps looks like RomMix failing when it
+          has not been done — the download is there and named, but the
+          emulator's own list is empty, or the game starts unpatched. */}
+      {setup && setup.notes.length > 0 && !dismissed ? (
+        <div className="notice notice--warn">
+          <ul className="notice__list">
+            {setup.notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+          <div className="btn-row">
+            <FocusButton variant="ghost" onSelect={() => void dismissSetup()}>
+              Don't show this again
+            </FocusButton>
+          </div>
+        </div>
       ) : null}
 
       {/* Tabs rather than one long column: saves, files and screenshots are

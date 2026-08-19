@@ -42,20 +42,45 @@ export function supportsSystem(emulator: EmulatorDescriptor, system: string): bo
   return emulator.systems.includes(system)
 }
 
-export function emulatorsForSystem(system: string): EmulatorDescriptor[] {
-  return EMULATORS.filter((emulator) => supportsSystem(emulator, system))
+/**
+ * Every emulator, most preferred first.
+ *
+ * `priority` is the user's own order from Settings. Anything it does not name
+ * keeps its registry position *behind* those it does, so a list written when
+ * RomMix shipped three emulators does not hide the fourth — it lands at the
+ * end, which is where an unranked thing belongs, rather than vanishing.
+ */
+export function orderedEmulators(
+  priority: readonly EmulatorId[] = []
+): readonly EmulatorDescriptor[] {
+  if (priority.length === 0) return EMULATORS
+  const rank = (emulator: EmulatorDescriptor): number => {
+    const index = priority.indexOf(emulator.id)
+    return index === -1 ? priority.length + EMULATORS.indexOf(emulator) : index
+  }
+  return [...EMULATORS].sort((a, b) => rank(a) - rank(b))
+}
+
+export function emulatorsForSystem(
+  system: string,
+  priority: readonly EmulatorId[] = []
+): EmulatorDescriptor[] {
+  return orderedEmulators(priority).filter((emulator) => supportsSystem(emulator, system))
 }
 
 /**
  * The emulator RomMix uses for a system when the user has not chosen one.
  *
- * Registry order is the "standard configuration" answer. This is deliberately
- * a *static* result — it does not consider what happens to be installed — so
- * the default shown in Settings is a stable fact about the system rather than
+ * The first in preference order that covers the system. Deliberately a *static*
+ * result — it does not consider what happens to be installed — so the default
+ * shown in Settings is a stable fact about the arrangement rather than
  * something that moves as emulators come and go.
  */
-export function defaultEmulatorFor(system: string): EmulatorId | null {
-  return EMULATORS.find((emulator) => supportsSystem(emulator, system))?.id ?? null
+export function defaultEmulatorFor(
+  system: string,
+  priority: readonly EmulatorId[] = []
+): EmulatorId | null {
+  return emulatorsForSystem(system, priority)[0]?.id ?? null
 }
 
 /**

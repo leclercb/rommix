@@ -1,7 +1,6 @@
 import { type JSX, useEffect, useState } from 'react'
 import {
-  EMULATORS,
-  defaultEmulatorFor,
+  orderedEmulators,
   emulatorById,
   emulatorsForSystem,
   systemCount
@@ -106,7 +105,10 @@ export function SettingsScreen(): JSX.Element {
 
       <h2 className="section-title">Emulators</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        What RomMix found on this machine, and how many platforms each one covers.
+        What RomMix found on this machine, and how many platforms each one covers. The order is
+        the preference: a platform with no choice of its own is run by the first emulator here
+        that is installed and covers it, so moving one up makes it the default for everything it
+        can run. Platforms you have chosen for individually below are unaffected.
       </p>
       <EmulatorList
         diagnostics={diagnostics}
@@ -264,9 +266,28 @@ function EmulatorList({
   notify: ReturnType<typeof useApp>['notify']
   onInstalled: () => void
 }): JSX.Element {
+  const { settings, saveSettings, refreshInstalled } = useApp()
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
   const [flatpakBusy, setFlatpakBusy] = useState<EmulatorId | null>(null)
   const [flatpakLine, setFlatpakLine] = useState<string | null>(null)
+
+  // The order shown is the order used. Held as a full list rather than as the
+  // moved entry alone, so what is saved is exactly what is on screen.
+  const order = orderedEmulators(settings?.emulatorPriority ?? [])
+
+  const move = async (id: EmulatorId, delta: number): Promise<void> => {
+    const ids = order.map((emulator) => emulator.id)
+    const from = ids.indexOf(id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= ids.length) return
+    ;[ids[from], ids[to]] = [ids[to], ids[from]]
+    await saveSettings({ emulatorPriority: ids })
+    // The probe has re-run in the main process by the time this returns, and
+    // both of these are drawn from it: which emulator is in charge of each
+    // platform, and which downloads that emulator can actually see.
+    onInstalled()
+    await refreshInstalled()
+  }
 
   /**
    * Start an emulator with no game.
@@ -309,7 +330,7 @@ function EmulatorList({
 
   return (
     <div>
-      {EMULATORS.map((descriptor) => {
+      {order.map((descriptor, index) => {
         const state = diagnostics?.emulators.find((emulator) => emulator.id === descriptor.id)
         const covers = systemCount(descriptor)
 
@@ -376,6 +397,24 @@ function EmulatorList({
                   {flatpakBusy === descriptor.id ? 'Installing…' : 'Install'}
                 </FocusButton>
               ) : null}
+              {/* Last, so the buttons that do something to this emulator come
+                  first and the pair that only moves it sits where a list's
+                  handles belong. Rank, not decoration: moving one up makes it
+                  the emulator that answers for every platform both cover. */}
+              <FocusButton
+                variant="ghost"
+                disabled={index === 0}
+                onSelect={() => void move(descriptor.id, -1)}
+              >
+                ▲
+              </FocusButton>
+              <FocusButton
+                variant="ghost"
+                disabled={index === order.length - 1}
+                onSelect={() => void move(descriptor.id, 1)}
+              >
+                ▼
+              </FocusButton>
             </div>
           </div>
         )
@@ -526,6 +565,10 @@ function PlatformList({
   overrides: Record<string, string>
   onChoose: (next: Record<string, EmulatorId>) => void
 }): JSX.Element {
+  // The same order the Emulators list is showing, so "Default" here names the
+  // emulator that would actually run the platform.
+  const { settings } = useApp()
+  const priority = settings?.emulatorPriority ?? []
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
 
   useEffect(() => {
@@ -549,8 +592,21 @@ function PlatformList({
   return (
     <div>
       {rows.map(({ platform, system }) => {
-        const candidates = emulatorsForSystem(system)
-        const fallback = defaultEmulatorFor(system)
+        const candidates = emulatorsForSystem(system, priority)
+        /**
+         * The default is the first *installed* emulator that covers the
+         * platform, which is what the launcher will pick too.
+         *
+         * Naming one that is not installed describes an arrangement that
+         * cannot happen: RomMix would fall through to the next available
+         * emulator and put the games in a different folder than this row
+         * claims. With none of them installed there is no default to name, and
+         * the row says so instead of pointing at an emulator that is not there.
+         */
+        const installed = new Set(
+          (diagnostics?.emulators ?? []).filter((e) => e.available).map((e) => e.id)
+        )
+        const fallback = candidates.find((c) => installed.has(c.id))?.id ?? null
         const current = chosen[system]
         const effective = current ?? fallback
         const state = diagnostics?.emulators.find((emulator) => emulator.id === effective)
@@ -582,7 +638,7 @@ function PlatformList({
                   <Status state={state} />
                 ) : (
                   <span className="status" data-state="warn">
-                    No emulator
+                    {candidates.length === 0 ? 'No emulator covers this' : 'None installed'}
                   </span>
                 )}
               </div>
@@ -598,7 +654,7 @@ function PlatformList({
                 onSelect={advance}
               >
                 {effective ? (emulatorById(effective)?.name ?? effective) : 'None'}
-                {current == null ? ' (default)' : ''}
+                {current == null && effective ? ' (default)' : ''}
               </FocusButton>
             </div>
           </div>

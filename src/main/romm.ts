@@ -316,6 +316,12 @@ export class RommClient {
     params.set('order_dir', query.order_dir ?? 'asc')
     params.set('limit', String(query.limit ?? 60))
     params.set('offset', String(query.offset ?? 0))
+    // Always: `files` is what tells RomMix the real name of a ROM the server
+    // holds as a folder, and which files a multi-file game is made of. Without
+    // it a listing can only offer the folder's name, which matches nothing on
+    // disk — so every such game looks un-downloaded however many times the
+    // library is reconciled.
+    params.set('with_files', 'true')
     return this.json<RommRomPage>(`/api/roms?${params.toString()}`)
   }
 

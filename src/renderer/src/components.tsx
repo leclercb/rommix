@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
-import { FocusLayer, useAction, useFocusable, useKeyLabel } from './input/focus'
+import { FocusLayer, useAction, useFocusable, useFocusContext, useKeyLabel } from './input/focus'
 import type { InstalledRom, RommRom } from '@shared/types'
 
 /** Shared presentational pieces for the 10-foot UI. */
@@ -56,7 +56,12 @@ export function FocusButton({
   const { ref, props } = useFocusable({
     onSelect: disabled ? undefined : onSelect,
     enabled: !disabled,
-    autoFocus
+    autoFocus,
+    // A button's own text is what pressing A does, so the hint bar needs
+    // nothing declared at the call site. Anything richer than a string — a
+    // label built from several pieces — says nothing and leaves the screen's
+    // own hint standing.
+    actionLabel: typeof children === 'string' ? children : undefined
   })
 
   return (
@@ -97,7 +102,8 @@ export function TextField({
 }): JSX.Element {
   const { ref, props } = useFocusable({
     onSelect: () => (ref.current as HTMLInputElement | null)?.focus(),
-    autoFocus
+    autoFocus,
+    actionLabel: 'Type'
   })
 
   return (
@@ -219,7 +225,7 @@ export function GameCard({
   onSelect: () => void
   showPlatform?: boolean
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect })
+  const { ref, props } = useFocusable({ onSelect, actionLabel: 'Open' })
 
   return (
     <button ref={ref as Ref<HTMLButtonElement>} className="card" {...props}>
@@ -314,12 +320,18 @@ export function GameRow({
  */
 export function Hints({ items }: { items: { key: string; label: string }[] }): JSX.Element {
   const keyLabel = useKeyLabel()
+  const { focusedAction } = useFocusContext()
+
   return (
     <div className="hints">
       {items.map((item) => (
         <span key={item.key + item.label}>
           <span className="hint__key">{keyLabel(item.key)}</span>
-          {item.label}
+          {/* A is whatever is focused, when it has said what it does: the
+              screen's own label describes one action out of several and is
+              wrong the moment focus moves off it. Every other key is a screen
+              or app binding, and means the same wherever focus happens to be. */}
+          {item.key === 'A' && focusedAction ? focusedAction : item.label}
         </span>
       ))}
     </div>

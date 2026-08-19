@@ -133,7 +133,7 @@ function RailItem({
   badge?: number
 }): JSX.Element {
   const { navigate } = useApp()
-  const { ref, props } = useFocusable({ onSelect: () => navigate(route) })
+  const { ref, props } = useFocusable({ onSelect: () => navigate(route), actionLabel: label })
 
   return (
     <div ref={ref as Ref<HTMLDivElement>} className="rail__item" data-active={active} {...props}>

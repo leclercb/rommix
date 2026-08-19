@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { EMULATORS } from '@config/emulators'
+import { orderedEmulators } from '@config/emulators'
 import type {
   DirBase,
   DirSpec,
@@ -277,5 +277,11 @@ async function probe(
 
 /** Probe every registered emulator and report what is usable right now. */
 export function detectEmulators(settings: Settings): Promise<EmulatorState[]> {
-  return Promise.all(EMULATORS.map((descriptor) => probe(descriptor, settings)))
+  // Probed in the user's order, because that order *is* the answer to "which
+  // emulator runs this": `resolveEmulator` takes the first available one that
+  // covers the system, so sorting here is what makes reordering in Settings
+  // change anything at all.
+  return Promise.all(
+    orderedEmulators(settings.emulatorPriority).map((descriptor) => probe(descriptor, settings))
+  )
 }

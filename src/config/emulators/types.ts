@@ -275,6 +275,52 @@ export interface EmulatorDescriptor {
    */
   readonly env?: Readonly<Record<string, string>>
   /**
+   * True when this emulator's game list reads one directory and does not
+   * descend into it.
+   *
+   * A multi-file game is normally unpacked into a folder of its own, which
+   * keeps a disc set together and is what ES-DE and RetroDECK expect. Eden
+   * scans its game directories flat, so a game in a subfolder is simply not
+   * there as far as it is concerned — the same failure as the missing
+   * extension, and just as invisible from RomMix, which would go on reporting
+   * the game as downloaded and playable.
+   *
+   * Such an emulator gets every file loose in the system folder instead.
+   */
+  readonly flatLibrary?: boolean
+  /**
+   * Which firmware files this emulator's own BIOS folder will take, matched on
+   * the end of the file name.
+   *
+   * Absent means "all of them", which is true of every emulator whose BIOS is
+   * a set of files dropped in a directory. Eden is the other kind: its keys go
+   * in `keys/`, but a firmware dump is a few hundred NCA files that have to be
+   * *registered* into the NAND by Eden itself, and copying them into the tree
+   * by hand produces a NAND the emulator does not believe in.
+   *
+   * Anything not accepted here is put in RomMix's own `bios/<system>` folder
+   * instead, where the user can point the emulator's installer at it. The file
+   * is still fetched from RomM and still has a definite home — RomMix simply
+   * stops short of the step only the emulator can perform.
+   */
+  readonly biosAccepts?: readonly string[]
+  /**
+   * What to tell the user about files that had to be staged rather than
+   * installed. Shown on the BIOS screen beside the folder they went to.
+   */
+  readonly biosStagingNote?: string
+  /**
+   * Steps the user has to perform inside the emulator itself, which RomMix can
+   * neither do nor verify from outside.
+   *
+   * Not documentation for its own sake: each one is a thing that, left undone,
+   * makes RomMix look broken — the game is downloaded and RomMix says so, but
+   * the emulator's own list is empty, or the game starts unpatched. Saying so
+   * once, where the game is, is the difference between a setup step and a bug
+   * report.
+   */
+  readonly setupNotes?: readonly string[]
+  /**
    * The ways this emulator can run a system. Absent, or one entry, means there
    * is nothing to ask about.
    */

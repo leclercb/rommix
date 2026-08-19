@@ -6,7 +6,7 @@ import { basename, dirname, extname, join, normalize, resolve, sep } from 'node:
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
 import { chooseLaunchFile } from '@shared/gamefiles'
-import { emulatorsForSystem } from '@config/emulators'
+import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import type {
   DownloadItem,
@@ -131,6 +131,24 @@ interface InstallResult {
   launchPath: string
   sizeBytes: number
   isDirectory: boolean
+  /**
+   * Every file the install consists of, when it is loose files in the system
+   * folder rather than one file or one directory. Recorded so uninstalling
+   * removes the whole game and not only the file that happens to launch it.
+   */
+  files?: string[]
+}
+
+/** Every file below a directory, however deep, as absolute paths. */
+async function filesUnder(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+  const found: string[] = []
+  for (const entry of entries) {
+    const child = join(dir, entry.name)
+    if (entry.isDirectory()) found.push(...(await filesUnder(child)))
+    else if (entry.isFile()) found.push(child)
+  }
+  return found
 }
 
 /**
@@ -147,7 +165,8 @@ async function unpack(
   archivePath: string,
   systemDir: string,
   targetPath: string,
-  asDirectory: boolean
+  asDirectory: boolean,
+  flat = false
 ): Promise<InstallResult> {
   const dirTarget = asDirectory ? targetPath : join(systemDir, rom.fs_name_no_ext)
   // A lone ROM is staged aside first, because where it ends up depends on what
@@ -171,6 +190,39 @@ async function unpack(
         isDirectory: false
       }
     }
+    if (flat) {
+      /**
+       * Several files, for an emulator that does not look inside folders.
+       *
+       * They go loose into the system folder, keeping only their own names —
+       * the archive's directory tree is discarded, since a path is exactly
+       * what this emulator cannot follow. Same-named files from two branches
+       * collapse onto one another, which is the same thing unpacking an
+       * archive over itself has always done.
+       */
+      const moved: string[] = []
+      for (const file of await filesUnder(staging)) {
+        const target = join(systemDir, basename(file))
+        await rm(target, { force: true })
+        await rename(file, target)
+        moved.push(basename(target))
+      }
+      await rm(staging, { recursive: true, force: true })
+
+      const sized = await Promise.all(
+        moved.map(async (name) => ({ name, sizeBytes: (await stat(join(systemDir, name))).size }))
+      )
+      const chosen = chooseLaunchFile(sized) ?? moved[0]
+      const launchPath = join(systemDir, chosen)
+      return {
+        path: launchPath,
+        launchPath,
+        sizeBytes: sized.reduce((sum, file) => sum + file.sizeBytes, 0),
+        isDirectory: false,
+        files: moved
+      }
+    }
+
     // Several files after all, so it is a real multi-file game: promote the
     // staging directory to the name the game should have.
     await rm(dirTarget, { recursive: true, force: true })
@@ -186,7 +238,7 @@ async function unpack(
 }
 
 /**
- * A system folder indexed by entry name with the extension dropped, lowercased.
+ * Index a system folder, by exact name and by name with the extension dropped.
  *
  * Only files have an extension dropped. A directory's name is the whole name —
  * `Final Fantasy VII (Disc 1.1)` is not a folder called `Final Fantasy VII
@@ -197,18 +249,52 @@ async function unpack(
  * same name: a multi-file game and a stray loose file can share a stem, and the
  * directory is the one that holds the game.
  */
-async function entriesByStem(dir: string): Promise<Map<string, Dirent>> {
+async function listDir(dir: string): Promise<DirListing> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const byStem = new Map<string, Dirent>()
+  const byName = new Map<string, Dirent>()
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     if (!entry.isFile() && !entry.isDirectory()) continue
+    byName.set(entry.name.toLowerCase(), entry)
+
     const stem = entry.isDirectory()
       ? entry.name.toLowerCase()
       : entry.name.slice(0, entry.name.length - extname(entry.name).length).toLowerCase()
     const held = byStem.get(stem)
     if (!held || (entry.isDirectory() && !held.isDirectory())) byStem.set(stem, entry)
   }
-  return byStem
+  return { byStem, byName }
+}
+
+/**
+ * A system folder indexed two ways: by exact name, for the files a multi-file
+ * game is made of, and by stem, for the single file whose extension changed.
+ */
+interface DirListing {
+  byStem: Map<string, Dirent>
+  byName: Map<string, Dirent>
+}
+
+/**
+ * What a single-file download should be called on disk.
+ *
+ * Normally `fs_name`, which is the file's own name on the server. But a ROM
+ * that RomM holds as a *folder* containing one file reports the folder's name
+ * there, extension and all missing — a Switch title arrives as `F-ZERO 99`
+ * rather than `F-ZERO 99.nsp`. The bytes are right and RomMix can still launch
+ * it, since an emulator handed a path reads the file's header; but the
+ * emulator's own library never finds it, because scanners match on extension.
+ * A game that is downloaded, playable from RomMix, and absent from the
+ * emulator's game list is the most confusing state RomMix can leave behind.
+ *
+ * The name of the file inside the folder is the honest answer, and RomM sends
+ * it on the detailed ROM. Falling back to `fs_name` covers the paged listing,
+ * which does not include files unless asked.
+ */
+function installName(rom: RommRom): string {
+  if (rom.fs_extension) return rom.fs_name
+  const files = rom.files ?? []
+  return files.length === 1 ? files[0].file_name : rom.fs_name
 }
 
 /** The one file an archive unpacked to, or null when it held more than one. */
@@ -278,6 +364,7 @@ export class DownloadManager extends EventEmitter {
     system: string
     emulatorId: string
     asDirectory: boolean
+    flat: boolean
   } {
     // The system is worked out first: it decides which emulators are even
     // candidates, so asking for one before knowing the system could pick an
@@ -315,11 +402,14 @@ export class DownloadManager extends EventEmitter {
     }
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
-    // zip and are unpacked into their own directory.
-    const asDirectory = rom.has_multiple_files
+    // zip and are unpacked into their own directory — unless the emulator
+    // reads its library flat, in which case a folder is a place its game list
+    // will never look and the files go loose into the system folder instead.
+    const flat = emulatorById(emulator.id)?.flatLibrary === true
+    const asDirectory = rom.has_multiple_files && !flat
     const dir = join(root, system)
-    const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, rom.fs_name)
-    return { dir, path, system, emulatorId: emulator.id, asDirectory }
+    const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, installName(rom))
+    return { dir, path, system, emulatorId: emulator.id, asDirectory, flat }
   }
 
   enqueue(rom: RommRom): DownloadItem {
@@ -417,7 +507,7 @@ export class DownloadManager extends EventEmitter {
     let downloadTo: string | null = null
 
     try {
-      const { dir, path, system, emulatorId, asDirectory } = this.plan(rom)
+      const { dir, path, system, emulatorId, asDirectory, flat } = this.plan(rom)
       // Multi-file games download to a temporary archive next to their target.
       downloadTo = asDirectory ? `${path}.zip` : path
 
@@ -437,7 +527,7 @@ export class DownloadManager extends EventEmitter {
       if (asDirectory || (await isZip(downloadTo))) {
         item.state = 'extracting'
         this.emitUpdate()
-        installed = await unpack(rom, downloadTo, dir, path, asDirectory)
+        installed = await unpack(rom, downloadTo, dir, path, asDirectory, flat)
       } else {
         installed = {
           path,
@@ -479,7 +569,7 @@ export class DownloadManager extends EventEmitter {
       coverPath: rom.path_cover_small ?? rom.path_cover_large,
       files: installed.isDirectory
         ? (await readdir(installed.path).catch(() => [])).sort()
-        : [basename(installed.path)],
+        : (installed.files ?? [basename(installed.path)]),
       system,
       platformName: rom.platform_display_name,
       fileName: basename(installed.path),
@@ -511,11 +601,11 @@ export class DownloadManager extends EventEmitter {
     const adopted: InstalledRom[] = []
     // One listing per system folder, shared across the whole batch: a library
     // page is 200 ROMs and most of them land in a handful of folders.
-    const listings = new Map<string, Map<string, Dirent>>()
-    const listing = async (dir: string): Promise<Map<string, Dirent>> => {
+    const listings = new Map<string, DirListing>()
+    const listing = async (dir: string): Promise<DirListing> => {
       const cached = listings.get(dir)
       if (cached) return cached
-      const found = await entriesByStem(dir)
+      const found = await listDir(dir)
       listings.set(dir, found)
       return found
     }
@@ -528,7 +618,7 @@ export class DownloadManager extends EventEmitter {
       const known = this.store.getInstalled(rom.id)
       if (known && !this.isStale(known)) continue
 
-      let target: { dir: string; system: string; emulatorId: string }
+      let target: { dir: string; system: string; emulatorId: string; flat: boolean }
       try {
         target = this.plan(rom)
       } catch {
@@ -549,14 +639,60 @@ export class DownloadManager extends EventEmitter {
         )
       }
 
-      // The two shapes an install can take, matching what `unpack` produces.
-      const asFile = join(target.dir, rom.fs_name)
+      /**
+       * A game installed loose, for an emulator that reads its library flat.
+       *
+       * There is no one path to stat: the game is several files sharing the
+       * system folder with every other game, under the names they have on the
+       * server rather than anything derived from `fs_name`. Every one of them
+       * has to be there before this counts as the game — a half-copied set
+       * adopted as complete is a Play button that fails at load.
+       */
+      if (target.flat && rom.files.length > 1) {
+        const present = await listing(target.dir)
+        const wanted = rom.files.map((file) => file.file_name)
+        const found = wanted.filter((name) => present.byName.has(name.toLowerCase()))
+
+        if (found.length === wanted.length) {
+          const sized = await Promise.all(
+            found.map(async (name) => ({
+              name,
+              sizeBytes: (await stat(join(target.dir, name)).catch(() => null))?.size ?? 0
+            }))
+          )
+          const launch = join(target.dir, chooseLaunchFile(sized) ?? found[0])
+          adopted.push(
+            await this.recordInstalled(rom, target.system, target.emulatorId, {
+              path: launch,
+              launchPath: launch,
+              sizeBytes: sized.reduce((sum, file) => sum + file.sizeBytes, 0),
+              isDirectory: false,
+              files: found
+            })
+          )
+          continue
+        }
+      }
+
+      // The shapes an install can take, matching what `plan` and `unpack`
+      // produce. Both names are tried for a file: `installName` is what a fresh
+      // download is called, `fs_name` what one from before that rule was.
+      const asFile = join(target.dir, installName(rom))
+      const asNamedOnServer = join(target.dir, rom.fs_name)
       const asDirectory = join(target.dir, rom.fs_name_no_ext)
 
       const fileInfo = await stat(asFile).catch(() => null)
       if (fileInfo?.isFile()) {
         await record(asFile, false)
         continue
+      }
+
+      if (asNamedOnServer !== asFile) {
+        const legacy = await stat(asNamedOnServer).catch(() => null)
+        if (legacy?.isFile()) {
+          await record(asNamedOnServer, false)
+          continue
+        }
       }
 
       const dirInfo = await stat(asDirectory).catch(() => null)
@@ -580,7 +716,7 @@ export class DownloadManager extends EventEmitter {
        * failed — so a folder holding both `Game.bin` and `Game.md` as separate
        * library entries still resolves each to its own file.
        */
-      const sibling = (await listing(target.dir)).get(rom.fs_name_no_ext.toLowerCase())
+      const sibling = (await listing(target.dir)).byStem.get(rom.fs_name_no_ext.toLowerCase())
       if (sibling) await record(join(target.dir, sibling.name), sibling.isDirectory())
     }
 
@@ -640,11 +776,24 @@ export class DownloadManager extends EventEmitter {
     return (await pickLaunchFile(entry.path)) ?? entry.path
   }
 
-  /** Delete a ROM from disk and drop it from the index. */
+  /**
+   * Delete a ROM from disk and drop it from the index.
+   *
+   * A game installed loose — several files in the system folder, for an
+   * emulator that reads its library flat — is every one of those files, not
+   * just the one that launches it. Removing only `path` would leave the rest
+   * behind as unattributable clutter in a folder shared with every other game.
+   */
   async uninstall(romId: number): Promise<void> {
     const entry = this.store.getInstalled(romId)
     if (!entry) return
-    await rm(entry.path, { recursive: true, force: true })
+
+    if (!entry.isDirectory && entry.files.length > 1) {
+      const dir = dirname(entry.path)
+      for (const file of entry.files) await rm(join(dir, file), { force: true })
+    } else {
+      await rm(entry.path, { recursive: true, force: true })
+    }
     this.store.removeInstalled(romId)
   }
 }

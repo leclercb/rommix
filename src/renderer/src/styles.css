@@ -874,6 +874,22 @@ input {
   line-height: 1.5;
 }
 
+/* Several things to do, each its own line. Indented to the text rather than
+   hanging off the padding, so the markers sit inside the notice. */
+.notice__list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.notice__list li + li {
+  margin-top: 6px;
+}
+
+/* A notice that ends in a button should not leave it flush against the edge. */
+.notice .btn-row {
+  margin: 12px 0 0;
+}
+
 .notice--error {
   background: rgba(255, 107, 107, 0.11);
   border-color: rgba(255, 107, 107, 0.4);
@@ -949,6 +965,26 @@ input {
 .download[data-focused='true'] {
   border-color: var(--accent);
   box-shadow: var(--focus-ring);
+}
+
+/* A transfer that can still be cancelled carries a button, which needs a column
+   of its own — added only where there is one, so a finished row does not end in
+   an empty track and the gap that comes with it. */
+.download--action {
+  grid-template-columns: 52px 1fr auto auto;
+}
+
+.download__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* The same row without the cover: the detail screen already shows the game
+   above, so it has no `__art` to fill the first column — and without dropping
+   that column the label is squeezed into 52px and spills over the size beside
+   it. */
+.download--bare {
+  grid-template-columns: 1fr auto;
 }
 
 .download__name {
@@ -1300,6 +1336,20 @@ input {
    status, so the two things that read as labels stay together. */
 .bios__install-all {
   margin-left: auto;
+}
+
+/* The exact file, so "where did that go?" never needs asking. Wraps rather
+   than truncates: half a path is worse than a long one. */
+.bios__path {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
+
+/* Staged files are the ones the user still has to act on. */
+.bios__path[data-staged='true'] {
+  color: var(--warning);
 }
 
 .bios__where {
