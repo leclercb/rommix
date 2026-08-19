@@ -24,6 +24,13 @@ protocol.registerSchemesAsPrivileged([
  * Ozone at the native platform keeps us on Wayland under gamescope — where the
  * X11 fallback causes scaling and controller-focus quirks — while still working
  * in a normal desktop session.
+ *
+ * `ozone-platform-hint` is set here for completeness only. Chromium chooses its
+ * backend during early start-up, before any of this runs, so a packaged build
+ * that relies on this line alone takes X11 and exits on a Wayland-only session.
+ * What actually decides it is `ELECTRON_OZONE_PLATFORM_HINT`, set by the
+ * launcher — the flatpak manifest, or nixpkgs' own Electron wrapper in
+ * development, which is why this was invisible until the first flatpak run.
  */
 function applyDisplayFlags(): void {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
@@ -31,12 +38,14 @@ function applyDisplayFlags(): void {
   app.commandLine.appendSwitch('enable-smooth-scrolling')
 }
 
+// Before the single-instance lock, which starts enough of the browser process
+// that later switches are read too late to matter.
+applyDisplayFlags()
+
 // Only one instance may own the ROM tree and the download queue.
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  applyDisplayFlags()
-
   const rommix = new RomMixApp()
 
   void app.whenReady().then(async () => {

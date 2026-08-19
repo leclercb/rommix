@@ -23,6 +23,14 @@ finish-args:
   - --share=network
   - --socket=wayland
   - --socket=fallback-x11
+
+  # Chromium picks its Ozone backend during early start-up, before any of our
+  # JavaScript runs, so `app.commandLine.appendSwitch` in the main process comes
+  # too late to be believed. Without this it takes X11, finds no server on a
+  # Wayland-only session, and exits with "The platform failed to initialize"
+  # despite the Wayland socket being right there. The environment variable is
+  # the one Electron documents for exactly this.
+  - --env=ELECTRON_OZONE_PLATFORM_HINT=auto
   - --socket=pulseaudio
   - --device=dri
 
@@ -80,6 +88,8 @@ modules:
       - type: script
         dest-filename: rommix.sh
         commands:
-          # --ozone-platform-hint=auto is also set in code; passing it here too
-          # keeps behaviour identical when launched from a .desktop file.
-          - exec zypak-wrapper /app/rommix/rommix "$@"
+          # The hint is passed here as well as through ELECTRON_OZONE_PLATFORM_HINT
+          # so that a launcher which drops the environment still starts on
+          # Wayland. Both are harmless together, and `auto` falls back to X11
+          # wherever that is what the session offers.
+          - exec zypak-wrapper /app/rommix/rommix --ozone-platform-hint=auto "$@"
