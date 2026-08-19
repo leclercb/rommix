@@ -104,26 +104,45 @@ input {
   min-width: 268px;
 }
 
+/*
+ * The masthead: mark and wordmark on one centred line, in a panel of their own.
+ *
+ * Stacked and left-aligned they read as two loose elements that happen to sit
+ * above the menu. Set side by side inside a panel they read as one thing — the
+ * app's identity — and its lower edge gives the menu a place to begin, which is
+ * what the bare margin was failing to do.
+ *
+ * The panel is lit from the top-left, where the mark is, so the block has a
+ * direction rather than being a flat rectangle drawn around two children.
+ */
 .rail__brand {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 22px;
-  /* Matches .rail__item's horizontal padding so the mark and wordmark line up
-     with the menu labels below them. */
-  padding-left: 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  margin-bottom: 20px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(70% 130% at 16% 0%, rgba(90, 200, 250, 0.16), transparent 68%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
 }
 
 .rail__logo {
-  width: 48px;
-  height: 48px;
+  width: 38px;
+  height: 38px;
+  /* The mark is the only saturated thing in the rail; the glow ties it to the
+     accent wash behind it instead of leaving it pasted onto the panel. */
+  filter: drop-shadow(0 3px 10px rgba(90, 200, 250, 0.3));
 }
 
 .rail__wordmark {
-  font-size: 25px;
+  font-size: 23px;
   font-weight: 750;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
+  /* Its own line box would push the wordmark off the mark's centre line. */
+  line-height: 1;
 }
 
 .rail__wordmark span {
@@ -1027,6 +1046,13 @@ input {
   flex: 0 0 42px;
 }
 
+/* A console icon is square and sits in a slot cut for a portrait cover. */
+.toast__art[data-kind='platform'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .toast__body {
   min-width: 0;
 }
@@ -1047,16 +1073,12 @@ input {
    Platform icons
    -------------------------------------------------------------------------- */
 
-/* The console logos are monochrome SVGs on a dark UI, so they need lifting off
-   the background rather than colouring: at 22px a flat white glyph reads as a
-   smudge, and a faint plate gives it an edge. */
+/* The console logos are monochrome SVGs, so they carry on a dark UI unaided.
+   The artwork alone: the plate they used to sit on competed with the icon it
+   was framing, and at card size there was more frame than console. */
 .system-icon {
   flex: 0 0 auto;
   object-fit: contain;
-  padding: 3px;
-  border-radius: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
 }
 
 /* --------------------------------------------------------------------------
@@ -1190,6 +1212,12 @@ input {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Pushed to the end of the heading row, away from the console's name and
+   status, so the two things that read as labels stay together. */
+.bios__install-all {
+  margin-left: auto;
 }
 
 .bios__where {

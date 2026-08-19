@@ -30,7 +30,10 @@ import type { Store } from './store'
  * typing a password on a controller, which is the path the TV UI prefers.
  */
 
-/** Scopes RomMix needs: browse the library, sync saves, record play state. */
+/**
+ * Scopes RomMix needs: browse the library, sync saves, record play state, and
+ * read the BIOS files the server holds.
+ */
 export const REQUIRED_SCOPES = [
   'me.read',
   'roms.read',
@@ -41,7 +44,8 @@ export const REQUIRED_SCOPES = [
   'assets.read',
   'assets.write',
   'devices.read',
-  'devices.write'
+  'devices.write',
+  'firmware.read'
 ]
 
 export class RommError extends Error {

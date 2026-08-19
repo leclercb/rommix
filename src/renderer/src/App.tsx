@@ -1,5 +1,5 @@
 import type { JSX, Ref } from 'react'
-import { CoverArt, FocusButton, Logo, Overlay } from './components'
+import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon } from './components'
 import { useAction, useFocusable } from './input/focus'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
@@ -183,8 +183,17 @@ function Toasts({ toasts }: { toasts: Toast[] }): JSX.Element {
           }`}
         >
           {toast.title ? (
-            <div className="toast__art">
-              <CoverArt path={toast.coverPath ?? null} name={toast.title} />
+            <div className="toast__art" data-kind={toast.platform ? 'platform' : 'game'}>
+              {toast.platform ? (
+                <PlatformIcon
+                  slug={toast.platform.slug}
+                  system={toast.platform.system}
+                  size={40}
+                  label={toast.title}
+                />
+              ) : (
+                <CoverArt path={toast.coverPath ?? null} name={toast.title} />
+              )}
             </div>
           ) : null}
           <div className="toast__body">

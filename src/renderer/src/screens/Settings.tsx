@@ -80,8 +80,8 @@ export function SettingsScreen(): JSX.Element {
       await window.rommix.system.setRoot(value)
       notify('RomMix folder moved — restarting')
       await window.rommix.system.restart()
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally on `app:error`.
     }
   }
 
@@ -282,8 +282,8 @@ function EmulatorList({
       await window.rommix.system.runEmulator(id)
       notify(`${name} started`)
       onInstalled()
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally on `app:error`.
     }
   }
 

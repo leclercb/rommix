@@ -233,7 +233,7 @@ export function GameCard({
           <PlatformIcon
             slug={tile.platformSlug}
             system={tile.system}
-            size={16}
+            size={26}
             label={tile.platformName}
           />
           <span>{tile.platformName}</span>

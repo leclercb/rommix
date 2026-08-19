@@ -99,16 +99,32 @@ export class BiosManager {
     const platforms = await this.client.platforms()
 
     const byPlatform = new Map<number, RommFirmware[]>()
+    const failures: string[] = []
     const BATCH = 6
     for (let i = 0; i < platforms.length; i += BATCH) {
       await Promise.all(
         platforms.slice(i, i + BATCH).map(async (platform) => {
-          // A platform whose firmware cannot be read still gets a row: what it
-          // needs is worth showing even when the server will not say what it
-          // has.
-          byPlatform.set(platform.id, await this.client.firmware(platform.id).catch(() => []))
+          try {
+            byPlatform.set(platform.id, await this.client.firmware(platform.id))
+          } catch (cause) {
+            byPlatform.set(platform.id, [])
+            failures.push((cause as Error).message)
+          }
         })
       )
+    }
+
+    // A refused firmware call must not be reported as an empty one. Swallowing
+    // it produces the most misleading screen RomMix can draw: every file listed
+    // as missing and absent from the server, when the truth is that the server
+    // was never asked successfully — which is what a token paired without the
+    // `firmware.read` scope does to this screen.
+    //
+    // One failure fails the scan rather than marking that row, because there is
+    // only one firmware endpoint: whatever refused it for one platform is going
+    // to refuse it for the rest.
+    if (failures.length > 0) {
+      throw new RommError(`Cannot read the BIOS files on the server: ${failures[0]}`)
     }
 
     // One listing per BIOS folder, not per platform: several platforms share
@@ -234,16 +250,28 @@ export class BiosManager {
   }
 
   /**
-   * Install everything the server holds that is not already in place.
+   * Install everything the server holds that is not already in place, for one
+   * platform or for all of them.
    *
    * Failures are counted rather than thrown: one platform whose emulator is
    * missing should not stop the other thirty from being set up, and the count
    * is what the screen reports.
    */
-  async syncAll(onProgress?: (done: number, total: number) => void): Promise<BiosSyncResult> {
+  async syncAll(
+    platformId?: number | null,
+    onProgress?: (done: number, total: number) => void
+  ): Promise<BiosSyncResult> {
     const { report, firmwareById, dirFor } = await this.scan()
 
-    const pending = report.platforms.flatMap((row) => row.items.filter((item) => !item.installed))
+    // Scoped by platform id rather than by the caller handing over a row: the
+    // rows it is holding came from an earlier scan, and what is installed can
+    // have changed since it drew them.
+    const rows =
+      platformId == null
+        ? report.platforms
+        : report.platforms.filter((row) => row.platformId === platformId)
+
+    const pending = rows.flatMap((row) => row.items.filter((item) => !item.installed))
     const fetchable = pending.filter((item) => item.firmwareId != null)
 
     let installed = 0

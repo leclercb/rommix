@@ -39,12 +39,25 @@ export interface Toast {
    */
   title?: string
   coverPath?: string | null
+  platform?: ToastPlatform
 }
 
-/** The game a notification concerns, if any. */
+/** The game or platform a notification concerns, if any. */
 export interface ToastSubject {
   title: string
   coverPath?: string | null
+  /**
+   * A platform rather than a game. Its icon takes the place a cover would
+   * occupy, so "scph5501.bin installed" arrives with the console it belongs to
+   * shown the same way the rest of the app shows it.
+   */
+  platform?: ToastPlatform
+}
+
+/** What `PlatformIcon` needs to draw a console. */
+export interface ToastPlatform {
+  slug: string
+  system: string | null
 }
 
 interface AppState {
@@ -88,7 +101,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     const id = ++toastId
     setToasts((current) => [
       ...current,
-      { id, message, tone, title: subject?.title, coverPath: subject?.coverPath }
+      {
+        id,
+        message,
+        tone,
+        title: subject?.title,
+        coverPath: subject?.coverPath,
+        platform: subject?.platform
+      }
     ])
     setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 5200)
     },
@@ -167,6 +187,21 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   useEffect(() => {
     return window.rommix.game.onState((state) => setRunningRomId(state.running ? state.romId : null))
   }, [])
+
+  // Anything that failed in the main process, whoever asked for it.
+  //
+  // Repeats are dropped for a few seconds: one broken server answers every call
+  // a screen makes on the way in with the same message, and three identical
+  // toasts say nothing the first one did not.
+  const lastError = useRef<{ message: string; at: number } | null>(null)
+  useEffect(() => {
+    return window.rommix.system.onError((message) => {
+      const previous = lastError.current
+      if (previous && previous.message === message && Date.now() - previous.at < 5000) return
+      lastError.current = { message, at: Date.now() }
+      notify(message, 'error')
+    })
+  }, [notify])
 
   // The main process reconciles the library against the disk as pages load, so
   // the installed list changes without anything here having asked for it.

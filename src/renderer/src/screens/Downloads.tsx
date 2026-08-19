@@ -45,8 +45,8 @@ export function DownloadsScreen(): JSX.Element {
           ? parts.join(' · ')
           : `${result.checked} game${result.checked === 1 ? '' : 's'} checked — nothing changed`
       )
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally on `app:error`; the spinner still has to stop.
     } finally {
       setSyncing(false)
       setProgress(null)
@@ -91,8 +91,8 @@ export function DownloadsScreen(): JSX.Element {
         title: entry.name,
         coverPath: entry.coverPath
       })
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally; this only keeps "Uninstalled" from being claimed.
     }
   }
 

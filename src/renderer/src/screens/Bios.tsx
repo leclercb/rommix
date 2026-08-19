@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { BiosPlatform, BiosReport } from '@shared/types'
 import { FocusButton, Hints, Overlay, PlatformIcon, Spinner, formatBytes } from '../components'
-import { useApp } from '../state'
+import { useApp, type ToastSubject } from '../state'
 
 /**
  * BIOS files, per platform.
@@ -38,31 +38,53 @@ export function BiosScreen(): JSX.Element {
 
   useEffect(() => window.rommix.bios.onProgress(setProgress), [])
 
-  const install = async (firmwareId: number, fileName: string): Promise<void> => {
+  /**
+   * Which console a notification is about, in the shape the toast wants.
+   *
+   * A BIOS file name says nothing on its own — `scph5501.bin` and `bios7.bin`
+   * are equally opaque unless you already know them — so every notification
+   * from this screen names the system and shows its icon.
+   */
+  const subject = (platform: BiosPlatform): ToastSubject => ({
+    title: platform.platformName,
+    platform: { slug: platform.platformSlug, system: platform.system }
+  })
+
+  const install = async (
+    firmwareId: number,
+    fileName: string,
+    platform: BiosPlatform
+  ): Promise<void> => {
     setBusy(fileName)
     try {
       await window.rommix.bios.install(firmwareId)
-      notify(`${fileName} installed`)
+      notify(`${fileName} installed`, 'ok', subject(platform))
       await load()
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Announced by the main process on `app:error`; this only stops the
+      // "installed" notification from firing on a failure.
     } finally {
       setBusy(null)
     }
   }
 
-  const syncAll = async (): Promise<void> => {
-    setBusy('all')
+  /** Install everything outstanding, for one platform or for all of them. */
+  const syncAll = async (platform?: BiosPlatform): Promise<void> => {
+    setBusy(platform ? `platform:${platform.platformId}` : 'all')
     setProgress(null)
     try {
-      const result = await window.rommix.bios.syncAll()
+      const result = await window.rommix.bios.syncAll(platform?.platformId)
       const parts = [`${result.installed} installed`]
       if (result.failed > 0) parts.push(`${result.failed} failed`)
       if (result.unavailable > 0) parts.push(`${result.unavailable} not on the server`)
-      notify(parts.join(' · '), result.failed > 0 ? 'warn' : 'ok')
+      notify(
+        parts.join(' · '),
+        result.failed > 0 ? 'warn' : 'ok',
+        platform ? subject(platform) : undefined
+      )
       await load()
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally; the overlay still has to come down.
     } finally {
       setBusy(null)
       setProgress(null)
@@ -123,7 +145,7 @@ export function BiosScreen(): JSX.Element {
           disabled={busy !== null || fetchable === 0}
           autoFocus
         >
-          {fetchable === 0 ? 'Nothing to install' : `Install all ${fetchable}`}
+          {fetchable === 0 ? 'Nothing to install' : 'Install all'}
         </FocusButton>
         <FocusButton onSelect={() => void load()} disabled={busy !== null}>
           Re-check
@@ -139,11 +161,12 @@ export function BiosScreen(): JSX.Element {
             platform={platform}
             busy={busy}
             onInstall={install}
+            onInstallAll={syncAll}
           />
         ))
       )}
 
-      {busy === 'all' ? (
+      {busy === 'all' || busy?.startsWith('platform:') ? (
         <Overlay title="Installing BIOS files">
           <p className="muted">
             {progress ? `${progress.done} of ${progress.total}` : 'Working out what is missing…'}
@@ -165,11 +188,13 @@ export function BiosScreen(): JSX.Element {
 function PlatformBios({
   platform,
   busy,
-  onInstall
+  onInstall,
+  onInstallAll
 }: {
   platform: BiosPlatform
   busy: string | null
-  onInstall: (firmwareId: number, fileName: string) => void
+  onInstall: (firmwareId: number, fileName: string, platform: BiosPlatform) => void
+  onInstallAll: (platform: BiosPlatform) => void
 }): JSX.Element | null {
   // A platform with nothing needed, nothing on the server and no problem to
   // report has nothing to say. Showing it anyway would bury the handful that
@@ -177,6 +202,36 @@ function PlatformBios({
   if (platform.items.length === 0 && !platform.dumpOnly && !platform.blockedReason) return null
 
   const outstanding = platform.items.filter((item) => !item.installed).length
+
+  /**
+   * What this row can honestly claim.
+   *
+   * "Ready" is a statement about a check that happened and passed, not about an
+   * empty list of complaints — and three things produce an empty list without
+   * anything having been checked. A platform RomMix has no folder for was never
+   * looked at. A `dumpOnly` platform needs keys or a NAND image whose names
+   * RomMix cannot know, so it cannot tell a set-up console from an empty
+   * folder. And a platform with no known requirement and nothing on the server
+   * has no files to have an opinion about.
+   *
+   * All three are "unknown", and each has its reason spelled out in the notice
+   * directly below this heading. Calling them ready is the one answer that
+   * stops the user looking — which is exactly the wrong outcome for a console
+   * whose BIOS is, in fact, not installed.
+   */
+  const status: { label: string; state: 'ok' | 'warn' | 'off' } =
+    platform.biosDir === null
+      ? { label: 'Unknown', state: 'off' }
+      : outstanding > 0
+        ? { label: `${outstanding} missing`, state: 'warn' }
+        : platform.dumpOnly || platform.items.length === 0
+          ? { label: 'Unknown', state: 'off' }
+          : { label: 'Ready', state: 'ok' }
+  // What this console alone can be given now: the button is about this section,
+  // so a file the server does not hold must not be counted into it.
+  const fetchable = platform.items.filter(
+    (item) => !item.installed && item.firmwareId != null
+  ).length
 
   return (
     <section className="bios">
@@ -188,9 +243,23 @@ function PlatformBios({
           label={platform.platformName}
         />
         {platform.platformName}
-        <span className="status" data-state={outstanding === 0 ? 'ok' : 'warn'}>
-          {outstanding === 0 ? 'Ready' : `${outstanding} missing`}
+        <span className="status" data-state={status.state}>
+          {status.label}
         </span>
+        {/* Only where it can do something: a console that is ready, or whose
+            missing files are not on the server, would offer a button that
+            installs nothing. */}
+        {fetchable > 0 ? (
+          <span className="bios__install-all">
+            <FocusButton
+              variant="ghost"
+              onSelect={() => onInstallAll(platform)}
+              disabled={busy !== null || platform.biosDir === null}
+            >
+              Install all
+            </FocusButton>
+          </span>
+        ) : null}
       </h2>
 
       <div className="bios__where">
@@ -234,7 +303,7 @@ function PlatformBios({
               <FocusButton
                 variant="ghost"
                 disabled={busy !== null || platform.biosDir === null}
-                onSelect={() => onInstall(item.firmwareId as number, item.fileName)}
+                onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
               >
                 {busy === item.fileName
                   ? 'Installing…'

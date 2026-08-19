@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { createWriteStream, existsSync } from 'node:fs'
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
-import { basename, dirname, join, normalize, resolve, sep } from 'node:path'
+import type { Dirent } from 'node:fs'
+import { basename, dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
 import { chooseLaunchFile } from '@shared/gamefiles'
@@ -182,6 +183,32 @@ async function unpack(
     sizeBytes: await directorySize(dirTarget),
     isDirectory: true
   }
+}
+
+/**
+ * A system folder indexed by entry name with the extension dropped, lowercased.
+ *
+ * Only files have an extension dropped. A directory's name is the whole name —
+ * `Final Fantasy VII (Disc 1.1)` is not a folder called `Final Fantasy VII
+ * (Disc 1` — and games really are punctuated like that.
+ *
+ * Sorted before indexing so the answer does not depend on the order the
+ * filesystem happens to hand entries back, and a directory beats a file of the
+ * same name: a multi-file game and a stray loose file can share a stem, and the
+ * directory is the one that holds the game.
+ */
+async function entriesByStem(dir: string): Promise<Map<string, Dirent>> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+  const byStem = new Map<string, Dirent>()
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isFile() && !entry.isDirectory()) continue
+    const stem = entry.isDirectory()
+      ? entry.name.toLowerCase()
+      : entry.name.slice(0, entry.name.length - extname(entry.name).length).toLowerCase()
+    const held = byStem.get(stem)
+    if (!held || (entry.isDirectory() && !held.isDirectory())) byStem.set(stem, entry)
+  }
+  return byStem
 }
 
 /** The one file an archive unpacked to, or null when it held more than one. */
@@ -476,10 +503,23 @@ export class DownloadManager extends EventEmitter {
    * wrong answer, so each ROM the UI asks about is checked against the place
    * it would have been installed to.
    *
-   * Two stats per unknown ROM, and only for what is actually on screen.
+   * Two stats per unknown ROM, and only for what is actually on screen — plus
+   * at most one listing per system folder, for the ROMs whose installed name is
+   * not their name on the server.
    */
   async adopt(roms: readonly RommRom[]): Promise<InstalledRom[]> {
     const adopted: InstalledRom[] = []
+    // One listing per system folder, shared across the whole batch: a library
+    // page is 200 ROMs and most of them land in a handful of folders.
+    const listings = new Map<string, Map<string, Dirent>>()
+    const listing = async (dir: string): Promise<Map<string, Dirent>> => {
+      const cached = listings.get(dir)
+      if (cached) return cached
+      const found = await entriesByStem(dir)
+      listings.set(dir, found)
+      return found
+    }
+
     for (const rom of roms) {
       // A stale entry — the platform now runs on a different emulator — is
       // treated as unknown, so the new emulator's own library is searched. If
@@ -496,34 +536,52 @@ export class DownloadManager extends EventEmitter {
         continue
       }
 
+      const record = async (path: string, isDirectory: boolean): Promise<void> => {
+        adopted.push(
+          await this.recordInstalled(rom, target.system, target.emulatorId, {
+            path,
+            launchPath: isDirectory ? ((await pickLaunchFile(path)) ?? path) : path,
+            sizeBytes: isDirectory
+              ? await directorySize(path).catch(() => 0)
+              : ((await stat(path).catch(() => null))?.size ?? 0),
+            isDirectory
+          })
+        )
+      }
+
       // The two shapes an install can take, matching what `unpack` produces.
       const asFile = join(target.dir, rom.fs_name)
       const asDirectory = join(target.dir, rom.fs_name_no_ext)
 
       const fileInfo = await stat(asFile).catch(() => null)
       if (fileInfo?.isFile()) {
-        adopted.push(
-          await this.recordInstalled(rom, target.system, target.emulatorId, {
-            path: asFile,
-            launchPath: asFile,
-            sizeBytes: fileInfo.size,
-            isDirectory: false
-          })
-        )
+        await record(asFile, false)
         continue
       }
 
       const dirInfo = await stat(asDirectory).catch(() => null)
       if (dirInfo?.isDirectory()) {
-        adopted.push(
-          await this.recordInstalled(rom, target.system, target.emulatorId, {
-            path: asDirectory,
-            launchPath: (await pickLaunchFile(asDirectory)) ?? asDirectory,
-            sizeBytes: await directorySize(asDirectory).catch(() => 0),
-            isDirectory: true
-          })
-        )
+        await record(asDirectory, true)
+        continue
       }
+
+      /**
+       * Last resort: the same game under a different extension.
+       *
+       * A ROM the server holds zipped is installed unpacked, so what is on disk
+       * is the name from inside the archive and never `fs_name` — which would
+       * make every zipped ROM in the library invisible here, and adoption is
+       * exactly what has to work for those. The same lookup covers a file the
+       * user renamed by hand, which on Sega hardware is routine: a cartridge
+       * dumped as `.bin` has to become `.md` before an emulator will take it.
+       *
+       * Matched on the name with the extension dropped, which is the part RomM
+       * and the disk still agree on, and only after both exact answers have
+       * failed — so a folder holding both `Game.bin` and `Game.md` as separate
+       * library entries still resolves each to its own file.
+       */
+      const sibling = (await listing(target.dir)).get(rom.fs_name_no_ext.toLowerCase())
+      if (sibling) await record(join(target.dir, sibling.name), sibling.isDirectory())
     }
 
     // Announced as a group: a library page can adopt dozens at once, and one

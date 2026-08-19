@@ -83,8 +83,9 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         title: item.name,
         coverPath: item.coverPath
       })
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally on `app:error`; this only keeps the screen from
+      // claiming a download that never started.
     } finally {
       setBusy(false)
     }
@@ -108,8 +109,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         return
       }
       await play(choice.chosen ?? undefined)
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally.
     } finally {
       setBusy(false)
     }
@@ -137,8 +138,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         )
         if (result.error) notify(result.error, 'warn')
       }
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally.
     } finally {
       setBusy(false)
     }
@@ -180,8 +181,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         )
       }
       await loadAssets()
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally.
     } finally {
       setBusy(false)
     }
@@ -191,8 +192,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const openChooser = async (): Promise<void> => {
     try {
       setChoosing(await window.rommix.game.variants(romId))
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally.
     }
   }
 
@@ -206,8 +207,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         title: rom?.name ?? entry?.fileName ?? 'Game',
         coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
       })
-    } catch (cause) {
-      notify((cause as Error).message, 'error')
+    } catch {
+      // Reported centrally; this only keeps "Uninstalled" from being claimed.
     } finally {
       setBusy(false)
     }

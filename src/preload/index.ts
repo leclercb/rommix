@@ -54,7 +54,7 @@ const bridge: RomMixBridge = {
   bios: {
     list: () => ipcRenderer.invoke('bios:list'),
     install: (firmwareId: number) => ipcRenderer.invoke('bios:install', firmwareId),
-    syncAll: () => ipcRenderer.invoke('bios:syncAll'),
+    syncAll: (platformId?: number | null) => ipcRenderer.invoke('bios:syncAll', platformId ?? null),
     onProgress: (listener: (progress: BiosProgress) => void) =>
       subscribe<BiosProgress>('bios:progress', listener)
   },
@@ -93,7 +93,8 @@ const bridge: RomMixBridge = {
     imageUrl: (path: string | null) =>
       path ? `rommix-img://asset/?p=${encodeURIComponent(path)}` : null,
     toggleFullscreen: () => ipcRenderer.invoke('system:toggleFullscreen'),
-    quit: () => ipcRenderer.invoke('system:quit')
+    quit: () => ipcRenderer.invoke('system:quit'),
+    onError: (listener: (message: string) => void) => subscribe<string>('app:error', listener)
   }
 }
 

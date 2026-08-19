@@ -93,8 +93,11 @@ export interface RomMixBridge {
     /** Per platform: what is needed, what the server holds, what is in place. */
     list(): Promise<BiosReport>
     install(firmwareId: number): Promise<string>
-    /** Install every BIOS file the server holds that is not already in place. */
-    syncAll(): Promise<BiosSyncResult>
+    /**
+     * Install every BIOS file the server holds that is not already in place —
+     * for one platform, or for the whole library when no platform is named.
+     */
+    syncAll(platformId?: number | null): Promise<BiosSyncResult>
     onProgress(listener: (progress: BiosProgress) => void): () => void
   }
   downloads: {
@@ -137,5 +140,12 @@ export interface RomMixBridge {
     imageUrl(path: string | null): string | null
     toggleFullscreen(): Promise<boolean>
     quit(): Promise<void>
+    /**
+     * Every failed call across this bridge, reported centrally.
+     *
+     * The renderer turns these into notifications, so a call that fails is
+     * always visible even when the code that made it only wanted the value.
+     */
+    onError(listener: (message: string) => void): () => void
   }
 }

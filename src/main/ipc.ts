@@ -30,25 +30,36 @@ import { RommError, normaliseBaseUrl } from './romm'
  * IPC surface. Every handler is wrapped so a thrown error crosses the bridge as
  * a readable message rather than Electron's default
  * "Error invoking remote method" wrapper, which hides the cause.
+ *
+ * The same wrapper announces the failure on `app:error`, so *every* call that
+ * fails is reported to the user whether or not the screen that made it thought
+ * to catch it. A screen that wants to say something better still can — it just
+ * no longer has to, and a call made on a screen's behalf (a refresh, a probe,
+ * something started by a keypress two screens ago) can no longer fail in
+ * silence and leave the UI quietly showing nothing.
  */
 
-function handle<Args extends unknown[], Result>(
-  channel: string,
-  fn: (...args: Args) => Promise<Result> | Result
-): void {
-  ipcMain.handle(channel, async (_event, ...args) => {
-    try {
-      return await fn(...(args as Args))
-    } catch (cause) {
-      const message =
-        cause instanceof RommError ? cause.message : ((cause as Error).message ?? String(cause))
-      throw new Error(message)
-    }
-  })
+function handler(report: (message: string) => void) {
+  return function handle<Args extends unknown[], Result>(
+    channel: string,
+    fn: (...args: Args) => Promise<Result> | Result
+  ): void {
+    ipcMain.handle(channel, async (_event, ...args) => {
+      try {
+        return await fn(...(args as Args))
+      } catch (cause) {
+        const message =
+          cause instanceof RommError ? cause.message : ((cause as Error).message ?? String(cause))
+        report(message)
+        throw new Error(message)
+      }
+    })
+  }
 }
 
 export function registerIpc(rommix: RomMixApp): void {
   const { store, client, downloads, launcher, bios, saveSync } = rommix
+  const handle = handler((message) => rommix.send('app:error', message))
 
   /**
    * The ROM plus everything needed to sync its saves.
@@ -350,9 +361,9 @@ export function registerIpc(rommix: RomMixApp): void {
     return bios.install(firmwareId)
   })
 
-  handle('bios:syncAll', async (): Promise<BiosSyncResult> => {
+  handle('bios:syncAll', async (platformId?: number | null): Promise<BiosSyncResult> => {
     await rommix.ensureEmulators()
-    return bios.syncAll((done, total) => rommix.send('bios:progress', { done, total }))
+    return bios.syncAll(platformId, (done, total) => rommix.send('bios:progress', { done, total }))
   })
 
   // -- system ---------------------------------------------------------------
