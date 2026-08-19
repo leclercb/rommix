@@ -98,7 +98,7 @@ export function SettingsScreen(): JSX.Element {
         <dd>{status?.serverVersion ?? 'unknown'}</dd>
       </dl>
       <div className="btn-row">
-        <FocusButton variant="danger" onSelect={() => void disconnect()} autoFocus>
+        <FocusButton icon="disconnect" variant="danger" onSelect={() => void disconnect()} autoFocus>
           Disconnect
         </FocusButton>
       </div>
@@ -177,6 +177,7 @@ export function SettingsScreen(): JSX.Element {
         />
         <div className="btn-row">
           <FocusButton
+            icon="folder"
             disabled={root?.fromEnvironment || rootDraft.trim() === root?.current}
             onSelect={() => void moveRoot()}
           >
@@ -216,6 +217,7 @@ export function SettingsScreen(): JSX.Element {
 
           <div className="btn-row">
             <FocusButton
+              icon="refresh"
               onSelect={() => {
                 void window.rommix.system.diagnostics().then(setDiagnostics)
               }}
@@ -228,10 +230,10 @@ export function SettingsScreen(): JSX.Element {
 
       <h2 className="section-title">Application</h2>
       <div className="btn-row">
-        <FocusButton onSelect={() => void window.rommix.system.toggleFullscreen()}>
+        <FocusButton icon="fullscreen" onSelect={() => void window.rommix.system.toggleFullscreen()}>
           Toggle fullscreen
         </FocusButton>
-        <FocusButton variant="danger" onSelect={() => void window.rommix.system.quit()}>
+        <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
           Quit RomMix
         </FocusButton>
       </div>
@@ -375,6 +377,7 @@ function EmulatorList({
                   button that fixes it. */}
               {state?.install ? (
                 <FocusButton
+                  icon="play"
                   variant="ghost"
                   onSelect={() => void run(descriptor.id, descriptor.name)}
                 >
@@ -382,7 +385,7 @@ function EmulatorList({
                 </FocusButton>
               ) : null}
               {descriptor.releases ? (
-                <FocusButton variant="ghost" onSelect={() => setInstalling(descriptor.id)}>
+                <FocusButton icon="download" variant="ghost" onSelect={() => setInstalling(descriptor.id)}>
                   {state?.available ? 'Change version' : 'Download'}
                 </FocusButton>
               ) : null}
@@ -390,6 +393,7 @@ function EmulatorList({
                   Flathub; one that is present needs no button. */}
               {!state?.install && descriptor.install.some((i) => i.kind === 'flatpak') ? (
                 <FocusButton
+                  icon="install"
                   variant="ghost"
                   disabled={flatpakBusy !== null}
                   onSelect={() => void installFromFlathub(descriptor.id)}
@@ -402,19 +406,19 @@ function EmulatorList({
                   handles belong. Rank, not decoration: moving one up makes it
                   the emulator that answers for every platform both cover. */}
               <FocusButton
+                icon="moveUp"
+                actionLabel="Move up"
                 variant="ghost"
                 disabled={index === 0}
                 onSelect={() => void move(descriptor.id, -1)}
-              >
-                ▲
-              </FocusButton>
+              />
               <FocusButton
+                icon="moveDown"
+                actionLabel="Move down"
                 variant="ghost"
                 disabled={index === order.length - 1}
                 onSelect={() => void move(descriptor.id, 1)}
-              >
-                ▼
-              </FocusButton>
+              />
             </div>
           </div>
         )
@@ -535,7 +539,7 @@ function InstallPicker({
       </p>
 
       <div className="btn-row">
-        <FocusButton onSelect={onClose} autoFocus>
+        <FocusButton icon="cancel" onSelect={onClose} autoFocus>
           Cancel
         </FocusButton>
       </div>
@@ -649,6 +653,7 @@ function PlatformList({
             </div>
             <div className="emulator__actions">
               <FocusButton
+                icon="emulator"
                 variant="ghost"
                 disabled={candidates.length === 0}
                 onSelect={advance}

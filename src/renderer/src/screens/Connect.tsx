@@ -115,11 +115,11 @@ export function ConnectScreen(): JSX.Element {
 
         <div className="btn-row">
           {mode === 'device' ? (
-            <FocusButton variant="primary" onSelect={() => void startPairing()} disabled={busy || !baseUrl}>
+            <FocusButton icon="connect" variant="primary" onSelect={() => void startPairing()} disabled={busy || !baseUrl}>
               {busy ? 'Contacting server…' : 'Start pairing'}
             </FocusButton>
           ) : (
-            <FocusButton variant="primary" onSelect={() => void connect()} disabled={busy || !baseUrl}>
+            <FocusButton icon="connect" variant="primary" onSelect={() => void connect()} disabled={busy || !baseUrl}>
               {busy ? 'Connecting…' : 'Connect'}
             </FocusButton>
           )}
@@ -241,7 +241,7 @@ function PairingOverlay({
       </dl>
 
       <div className="btn-row">
-        <FocusButton onSelect={onCancel} autoFocus>
+        <FocusButton icon="cancel" onSelect={onCancel} autoFocus>
           Cancel
         </FocusButton>
       </div>

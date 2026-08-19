@@ -430,6 +430,14 @@ export interface RemoteAsset {
   /** The emulator RomM recorded as having written it, when it knows. */
   emulator: string | null
   /**
+   * The matching file in the emulator's save tree, when this device has one.
+   *
+   * What makes "delete" mean it: a save removed from the server while a copy
+   * sits on disk is uploaded again by the next session's push, so the screen
+   * has to be able to say which assets that applies to.
+   */
+  localPath: string | null
+  /**
    * Whether this device uploaded it — null when RomM did not record an origin,
    * which is every state and anything uploaded through the web UI.
    *
@@ -489,8 +497,11 @@ export interface BiosPlatform {
   items: BiosItem[]
   /** Why nothing can be installed for this platform, phrased for the screen. */
   blockedReason: string | null
-  /** Set when the platform needs a console dump rather than files to copy. */
-  dumpOnly: string | null
+  /**
+   * How this platform's BIOS works, when there is more to it than the files
+   * listed. See `BiosRequirement.setupNote`.
+   */
+  setupNote: string | null
 }
 
 export interface BiosReport {

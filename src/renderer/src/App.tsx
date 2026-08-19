@@ -1,6 +1,7 @@
 import type { JSX, Ref } from 'react'
 import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon } from './components'
 import { FocusZone, useAction, useFocusable } from './input/focus'
+import { Icon, type IconName } from './icons'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
@@ -46,28 +47,28 @@ export function App(): JSX.Element {
               Rom<span>Mix</span>
             </div>
           </div>
-          <RailItem icon="⌂" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
+          <RailItem icon="home" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
           <RailItem
-            icon="▦"
+            icon="library"
             label="Library"
             route={{ name: 'library' }}
             active={route.name === 'library'}
           />
           <RailItem
-            icon="↓"
+            icon="downloads"
             label="Downloads"
             route={{ name: 'downloads' }}
             active={route.name === 'downloads'}
             badge={activeDownloads > 0 ? activeDownloads : undefined}
           />
           <RailItem
-            icon="▤"
+            icon="bios"
             label="BIOS"
             route={{ name: 'bios' }}
             active={route.name === 'bios'}
           />
           <RailItem
-            icon="⚙"
+            icon="settings"
             label="Settings"
             route={{ name: 'settings' }}
             active={route.name === 'settings'}
@@ -126,7 +127,7 @@ function RailItem({
   active,
   badge
 }: {
-  icon: string
+  icon: IconName
   label: string
   route: Route
   active: boolean
@@ -137,7 +138,9 @@ function RailItem({
 
   return (
     <div ref={ref as Ref<HTMLDivElement>} className="rail__item" data-active={active} {...props}>
-      <span className="rail__icon">{icon}</span>
+      <span className="rail__icon">
+        <Icon name={icon} size={20} />
+      </span>
       {label}
       {badge ? <span className="rail__badge">{badge}</span> : null}
     </div>
@@ -160,7 +163,7 @@ function RunningOverlay(): JSX.Element {
         automatically when it closes.
       </p>
       <div className="btn-row">
-        <FocusButton variant="danger" onSelect={() => void window.rommix.game.stop()} autoFocus>
+        <FocusButton icon="cancel" variant="danger" onSelect={() => void window.rommix.game.stop()} autoFocus>
           Close the emulator
         </FocusButton>
       </div>

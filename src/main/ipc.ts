@@ -2,6 +2,7 @@ import { app, ipcMain } from 'electron'
 import type { ConnectPayload } from '@shared/api'
 import { EMULATORS, emulatorById, launchVariants } from '@config/emulators'
 import type {
+  BiosPlatform,
   BiosReport,
   BiosSyncResult,
   ConnectionStatus,
@@ -338,7 +339,17 @@ export function registerIpc(rommix: RomMixApp): void {
   // -- saves ----------------------------------------------------------------
 
   /** Everything RomM holds for this ROM, so the detail screen can list it. */
-  handle('saves:list', (romId: number): Promise<RemoteAsset[]> => saveSync.remoteAssets(romId))
+  /**
+   * What RomM holds, marked with what this device has.
+   *
+   * The context is optional here where every other save call requires it: a
+   * game that is not downloaded still has saves worth looking at, it simply has
+   * none of them on this device.
+   */
+  handle('saves:list', async (romId: number): Promise<RemoteAsset[]> => {
+    const local = await saveContext(romId).catch(() => null)
+    return saveSync.remoteAssets(romId, local ?? undefined)
+  })
 
   handle('saves:pull', async (romId: number): Promise<SaveSyncResult> => {
     const { rom, emulator, system } = await saveContext(romId)
@@ -350,11 +361,29 @@ export function registerIpc(rommix: RomMixApp): void {
     return saveSync.pushNow(rom, emulator, system)
   })
 
+  /**
+   * Delete one save or state, from the server and from this device.
+   *
+   * Both: RomMix uploads what a session wrote, so a save removed only from the
+   * server comes back the next time the game is played, and the delete would
+   * appear to work and then undo itself.
+   */
+  handle('saves:delete', async (romId: number, kind: 'save' | 'state', id: number): Promise<void> => {
+    const local = await saveContext(romId).catch(() => null)
+    await saveSync.deleteAsset(romId, kind, id, local ?? undefined)
+  })
+
   // -- BIOS -----------------------------------------------------------------
 
   handle('bios:list', async (): Promise<BiosReport> => {
     await rommix.ensureEmulators()
     return bios.report()
+  })
+
+  /** One platform's BIOS situation, for the warning on a game's page. */
+  handle('bios:platform', async (platformId: number): Promise<BiosPlatform | null> => {
+    await rommix.ensureEmulators()
+    return bios.platformReport(platformId)
   })
 
   handle('bios:install', async (firmwareId: number): Promise<string> => {

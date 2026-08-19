@@ -3,6 +3,7 @@ import qrcode from 'qrcode-generator'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
 import { FocusLayer, useAction, useFocusable, useFocusContext, useKeyLabel } from './input/focus'
 import type { InstalledRom, RommRom } from '@shared/types'
+import { Icon, type IconName } from './icons'
 
 /** Shared presentational pieces for the 10-foot UI. */
 
@@ -45,13 +46,25 @@ export function FocusButton({
   onSelect,
   variant = 'default',
   disabled = false,
-  autoFocus = false
+  autoFocus = false,
+  icon,
+  actionLabel
 }: {
-  children: ReactNode
+  children?: ReactNode
   onSelect: () => void
   variant?: 'default' | 'primary' | 'danger' | 'ghost'
   disabled?: boolean
   autoFocus?: boolean
+  /** Drawn before the label — or alone, where the mark is unambiguous. */
+  icon?: IconName
+  /**
+   * What this does, for the hint bar and for assistive tech.
+   *
+   * Taken from the button's own text when that is a plain string. A button with
+   * no text has to say it here: an icon on its own leaves the hint bar with
+   * nothing to report and a screen reader with nothing to read.
+   */
+  actionLabel?: string
 }): JSX.Element {
   const { ref, props } = useFocusable({
     onSelect: disabled ? undefined : onSelect,
@@ -61,7 +74,7 @@ export function FocusButton({
     // nothing declared at the call site. Anything richer than a string — a
     // label built from several pieces — says nothing and leaves the screen's
     // own hint standing.
-    actionLabel: typeof children === 'string' ? children : undefined
+    actionLabel: actionLabel ?? (typeof children === 'string' ? children : undefined)
   })
 
   return (
@@ -69,8 +82,14 @@ export function FocusButton({
       ref={ref as Ref<HTMLButtonElement>}
       className={`btn ${variant === 'default' ? '' : `btn--${variant}`}`}
       data-disabled={disabled}
+      aria-label={actionLabel}
+      title={children === undefined ? actionLabel : undefined}
       {...props}
     >
+      {/* Beside the word wherever there is one: an icon alone is a guess on a
+          television three metres away. Where a button is icon-only by design,
+          `actionLabel` is what the hint bar reads back for it. */}
+      {icon ? <Icon name={icon} /> : null}
       {children}
     </button>
   )

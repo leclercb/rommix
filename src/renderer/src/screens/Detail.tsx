@@ -1,6 +1,12 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
-import type { InstalledRom, LaunchChoice, RemoteAsset, RommRom } from '@shared/types'
+import type {
+  BiosPlatform,
+  InstalledRom,
+  LaunchChoice,
+  RemoteAsset,
+  RommRom
+} from '@shared/types'
 import {
   CoverArt,
   FocusButton,
@@ -25,6 +31,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     downloads,
     runningRomId,
     goBack,
+    navigate,
     notify,
     refreshInstalled,
     saveSettings,
@@ -38,6 +45,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const [choosing, setChoosing] = useState<LaunchChoice | null>(null)
   const [tab, setTab] = useState<DetailTab>('about')
   const [assets, setAssets] = useState<RemoteAsset[] | null>(null)
+  const [deletingAsset, setDeletingAsset] = useState<RemoteAsset | null>(null)
+  const [bios, setBios] = useState<BiosPlatform | null>(null)
 
   useEffect(() => {
     setRom(null)
@@ -60,6 +69,22 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     setAssets(null)
     void loadAssets()
   }, [loadAssets])
+
+  /**
+   * The BIOS situation for this game's platform.
+   *
+   * Asked here rather than left to the BIOS screen because this is where the
+   * game is about to be started, and a missing BIOS is the most common reason
+   * one refuses to — with a failure that says nothing about BIOS at all.
+   */
+  useEffect(() => {
+    setBios(null)
+    if (!rom) return
+    void window.rommix.bios
+      .platform(rom.platform_id)
+      .then(setBios)
+      .catch(() => setBios(null))
+  }, [rom?.platform_id])
 
   const entry: InstalledRom | undefined = installed.find((item) => item.romId === romId)
   const download = downloads.find((item) => item.romId === romId)
@@ -219,6 +244,32 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     }
   }
 
+  /**
+   * Remove one save or state from the server.
+   *
+   * The server's copy only. The local file is what the emulator loads, and
+   * deleting that alongside would turn clearing out old backups into losing the
+   * save currently being played — so a game still on this device can simply be
+   * pushed back up afterwards.
+   */
+  const deleteAsset = async (asset: RemoteAsset): Promise<void> => {
+    setDeletingAsset(null)
+    setBusy(true)
+    try {
+      await window.rommix.saves.remove(romId, asset.kind, asset.id)
+      notify(
+        asset.localPath
+          ? `${asset.fileName} deleted from RomM and this device`
+          : `${asset.fileName} deleted from RomM`
+      )
+      await loadAssets()
+    } catch {
+      // Reported centrally.
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /** Re-open the picker for a platform that has already been answered. */
   const openChooser = async (): Promise<void> => {
     try {
@@ -250,7 +301,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       <div className="content">
         <div className="notice notice--error">{error}</div>
         <div className="btn-row">
-          <FocusButton onSelect={goBack} autoFocus>
+          <FocusButton icon="back" onSelect={goBack} autoFocus>
             Back
           </FocusButton>
         </div>
@@ -265,6 +316,38 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       </div>
     )
   }
+
+  /**
+   * What to say about this platform's BIOS, if anything.
+   *
+   * Two situations are worth interrupting for. A file RomMix knows the system
+   * requires and cannot find is a game that will very likely not start. A
+   * console whose BIOS is a dump RomMix cannot name — the Switch and its keys —
+   * with nothing whatsoever in place is the same thing, arrived at differently:
+   * there is no list to check against, but an empty folder is still an answer.
+   *
+   * Everything else stays quiet. An optional regional BIOS that is missing, a
+   * platform with no emulator, a server that would not answer — none of those
+   * is a reason to put a warning between the user and the Play button.
+   */
+  const biosWarning = ((): string | null => {
+    if (!bios || bios.blockedReason) return null
+
+    const missing = bios.items.filter((item) => item.required && !item.installed)
+    if (missing.length > 0) {
+      return `${bios.platformName} needs ${missing
+        .map((item) => item.fileName)
+        .join(', ')} to start most games, and ${
+        missing.length === 1 ? 'it is' : 'they are'
+      } not installed.`
+    }
+
+    const anythingInPlace = bios.items.some((item) => item.installed)
+    if (bios.setupNote && bios.items.length > 0 && !anythingInPlace) {
+      return `${bios.platformName} needs its BIOS set up before games will run.`
+    }
+    return null
+  })()
 
   const title = rom.name ?? rom.fs_name
   // The installed entry knows the system for certain; for a game that is not
@@ -311,6 +394,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       <div className="btn-row">
         {entry ? (
           <FocusButton
+            icon="play"
             variant="primary"
             onSelect={() => void startPlay()}
             disabled={busy || running}
@@ -319,11 +403,11 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             {running ? 'Running…' : 'Play'}
           </FocusButton>
         ) : active ? (
-          <FocusButton variant="danger" onSelect={() => void window.rommix.downloads.cancel(romId)} autoFocus>
+          <FocusButton icon="cancel" variant="danger" onSelect={() => void window.rommix.downloads.cancel(romId)} autoFocus>
             Cancel download ({progress}%)
           </FocusButton>
         ) : (
-          <FocusButton variant="primary" onSelect={() => void startDownload()} disabled={busy} autoFocus>
+          <FocusButton icon="download" variant="primary" onSelect={() => void startDownload()} disabled={busy} autoFocus>
             Download
           </FocusButton>
         )}
@@ -333,6 +417,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             where there is genuinely more than one answer. */}
         {entry && variants.length > 1 ? (
           <FocusButton
+            icon="emulator"
             onSelect={() => void openChooser()}
             disabled={busy || running}
           >
@@ -344,10 +429,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             read from or write into until the ROM has been downloaded. */}
         {entry ? (
           <>
-            <FocusButton onSelect={() => void syncSaves('pull')} disabled={busy || running}>
+            <FocusButton icon="pull" onSelect={() => void syncSaves('pull')} disabled={busy || running}>
               Pull saves
             </FocusButton>
-            <FocusButton onSelect={() => void syncSaves('push')} disabled={busy || running}>
+            <FocusButton icon="push" onSelect={() => void syncSaves('push')} disabled={busy || running}>
               Push saves
             </FocusButton>
           </>
@@ -355,6 +440,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
         {entry ? (
           <FocusButton
+            icon="uninstall"
             variant="danger"
             onSelect={() =>
               // Without the confirmation, one A press on a focused danger
@@ -367,7 +453,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
           </FocusButton>
         ) : null}
 
-        <FocusButton variant="ghost" onSelect={goBack}>
+        <FocusButton icon="back" variant="ghost" onSelect={goBack}>
           Back
         </FocusButton>
       </div>
@@ -390,6 +476,22 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--error">{download.error}</div>
       ) : null}
 
+      {/* A platform whose BIOS is not in place, said where the game is about to
+          be launched. Only what is genuinely wrong: a required file that is
+          missing, or a console whose BIOS RomMix cannot name and which has
+          nothing at all in place — an optional regional BIOS missing is not a
+          reason to warn anybody. */}
+      {biosWarning ? (
+        <div className="notice notice--warn">
+          {biosWarning}
+          <div className="btn-row">
+            <FocusButton icon="bios" variant="ghost" onSelect={() => navigate({ name: 'bios' })}>
+              Open BIOS
+            </FocusButton>
+          </div>
+        </div>
+      ) : null}
+
       {/* What the emulator still needs done by hand. Here rather than in
           Settings because this is the screen where the game is about to be
           played, and every one of these steps looks like RomMix failing when it
@@ -403,7 +505,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             ))}
           </ul>
           <div className="btn-row">
-            <FocusButton variant="ghost" onSelect={() => void dismissSetup()}>
+            <FocusButton icon="hide" variant="ghost" onSelect={() => void dismissSetup()}>
               Don't show this again
             </FocusButton>
           </div>
@@ -429,7 +531,9 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       />
 
       {tab === 'about' ? <About rom={rom} entry={entry} /> : null}
-      {tab === 'saves' ? <SavesTab assets={assets} entry={entry} /> : null}
+      {tab === 'saves' ? (
+        <SavesTab assets={assets} entry={entry} onDelete={setDeletingAsset} />
+      ) : null}
       {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
       {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
 
@@ -460,8 +564,30 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             ))}
           </div>
           <div className="btn-row">
-            <FocusButton variant="ghost" onSelect={() => setChoosing(null)}>
+            <FocusButton icon="cancel" variant="ghost" onSelect={() => setChoosing(null)}>
               Cancel
+            </FocusButton>
+          </div>
+        </Overlay>
+      ) : null}
+
+      {deletingAsset ? (
+        <Overlay title={`Delete this ${deletingAsset.kind} from RomM?`}>
+          <p className="muted">
+            {deletingAsset.fileName} will be removed from RomM
+            {deletingAsset.localPath
+              ? ` and from this device (${deletingAsset.localPath})`
+              : ''}
+            . {deletingAsset.localPath
+              ? 'Both, because a save left on disk is uploaded again the next time you play — deleting only the server copy would undo itself.'
+              : 'This device does not have a copy of it.'}
+          </p>
+          <div className="btn-row">
+            <FocusButton icon="keep" onSelect={() => setDeletingAsset(null)} autoFocus>
+              Keep it
+            </FocusButton>
+            <FocusButton icon="delete" variant="danger" onSelect={() => void deleteAsset(deletingAsset)}>
+              Delete from RomM
             </FocusButton>
           </div>
         </Overlay>
@@ -474,10 +600,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             on RomM are not touched, and you can download it again at any time.
           </p>
           <div className="btn-row">
-            <FocusButton onSelect={() => setConfirmingRemoval(false)} autoFocus>
+            <FocusButton icon="keep" onSelect={() => setConfirmingRemoval(false)} autoFocus>
               Keep it
             </FocusButton>
-            <FocusButton variant="danger" onSelect={() => void uninstall()}>
+            <FocusButton icon="uninstall" variant="danger" onSelect={() => void uninstall()}>
               Uninstall, freeing {formatBytes(entry.sizeBytes)}
             </FocusButton>
           </div>
@@ -547,10 +673,12 @@ function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Elem
  */
 function SavesTab({
   assets,
-  entry
+  entry,
+  onDelete
 }: {
   assets: RemoteAsset[] | null
   entry?: InstalledRom
+  onDelete: (asset: RemoteAsset) => void
 }): JSX.Element {
   if (!assets) return <Spinner />
   if (assets.length === 0) {
@@ -569,6 +697,13 @@ function SavesTab({
           <span className="asset__kind" data-kind={asset.kind}>
             {asset.kind === 'save' ? 'Save' : 'State'}
           </span>
+          {/* Whether this device has it too, which is what decides both halves
+              of a delete and whether a pull would bring anything down. */}
+          {asset.localPath ? (
+            <span className="status" data-state="ok">
+              On this device
+            </span>
+          ) : null}
           <span className="asset__name">{asset.fileName}</span>
           <span className="asset__meta">
             {formatBytes(asset.sizeBytes)}
@@ -578,6 +713,11 @@ function SavesTab({
             {asset.fromThisDevice === true ? ' · this device' : ''}
             {asset.fromThisDevice === false ? ' · another device' : ''} ·{' '}
             {new Date(asset.updatedAt).toLocaleString()}
+          </span>
+          <span className="asset__actions">
+            <FocusButton icon="delete" variant="danger" onSelect={() => onDelete(asset)}>
+              Delete
+            </FocusButton>
           </span>
         </li>
       ))}

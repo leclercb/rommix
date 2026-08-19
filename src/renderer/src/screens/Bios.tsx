@@ -97,7 +97,7 @@ export function BiosScreen(): JSX.Element {
         <h1 className="page-title">BIOS</h1>
         <div className="notice notice--error">{error}</div>
         <div className="btn-row">
-          <FocusButton onSelect={() => void load()} autoFocus>
+          <FocusButton icon="refresh" onSelect={() => void load()} autoFocus>
             Try again
           </FocusButton>
         </div>
@@ -140,6 +140,7 @@ export function BiosScreen(): JSX.Element {
 
       <div className="btn-row">
         <FocusButton
+          icon="install"
           variant="primary"
           onSelect={() => void syncAll()}
           disabled={busy !== null || fetchable === 0}
@@ -147,7 +148,7 @@ export function BiosScreen(): JSX.Element {
         >
           {fetchable === 0 ? 'Nothing to install' : 'Install all'}
         </FocusButton>
-        <FocusButton onSelect={() => void load()} disabled={busy !== null}>
+        <FocusButton icon="refresh" onSelect={() => void load()} disabled={busy !== null}>
           Re-check
         </FocusButton>
       </div>
@@ -199,7 +200,7 @@ function PlatformBios({
   // A platform with nothing needed, nothing on the server and no problem to
   // report has nothing to say. Showing it anyway would bury the handful that
   // matter under thirty rows of "fine".
-  if (platform.items.length === 0 && !platform.dumpOnly && !platform.blockedReason) return null
+  if (platform.items.length === 0 && !platform.setupNote && !platform.blockedReason) return null
 
   const outstanding = platform.items.filter((item) => !item.installed).length
 
@@ -209,9 +210,9 @@ function PlatformBios({
    * "Ready" is a statement about a check that happened and passed, not about an
    * empty list of complaints — and three things produce an empty list without
    * anything having been checked. A platform RomMix has no folder for was never
-   * looked at. A `dumpOnly` platform needs keys or a NAND image whose names
-   * RomMix cannot know, so it cannot tell a set-up console from an empty
-   * folder. And a platform with no known requirement and nothing on the server
+   * looked at. A platform carrying a `setupNote` needs something the file list
+   * cannot describe — keys, a NAND image — so RomMix cannot tell a set-up
+   * console from an empty folder. And a platform with no known requirement and nothing on the server
    * has no files to have an opinion about.
    *
    * All three are "unknown", and each has its reason spelled out in the notice
@@ -224,7 +225,7 @@ function PlatformBios({
       ? { label: 'Unknown', state: 'off' }
       : outstanding > 0
         ? { label: `${outstanding} missing`, state: 'warn' }
-        : platform.dumpOnly || platform.items.length === 0
+        : platform.setupNote || platform.items.length === 0
           ? { label: 'Unknown', state: 'off' }
           : { label: 'Ready', state: 'ok' }
   // What this console alone can be given now: the button is about this section,
@@ -252,6 +253,7 @@ function PlatformBios({
         {fetchable > 0 ? (
           <span className="bios__install-all">
             <FocusButton
+              icon="install"
               variant="ghost"
               onSelect={() => onInstallAll(platform)}
               disabled={busy !== null || platform.biosDir === null}
@@ -271,7 +273,7 @@ function PlatformBios({
       {platform.blockedReason ? (
         <div className="notice notice--warn">{platform.blockedReason}</div>
       ) : null}
-      {platform.dumpOnly ? <div className="notice notice--warn">{platform.dumpOnly}</div> : null}
+      {platform.setupNote ? <div className="notice notice--warn">{platform.setupNote}</div> : null}
       {/* Files RomMix can fetch but not install: it says where it put them and
           what the user has to do with them. */}
       {platform.stagingNote ? (
@@ -314,6 +316,7 @@ function PlatformBios({
               <span className="faint">Not on your server</span>
             ) : (
               <FocusButton
+                icon="install"
                 variant="ghost"
                 disabled={busy !== null || platform.biosDir === null}
                 onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}

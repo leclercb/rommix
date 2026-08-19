@@ -92,6 +92,40 @@ export class BiosManager {
   }
 
   /**
+   * One platform's row, for a screen that is about a single game.
+   *
+   * A full `scan` asks the server for firmware once per platform, which is far
+   * too much work to do every time a game is opened. This is the same
+   * description of one row at the cost of two calls.
+   *
+   * Returns null rather than throwing when the answer cannot be had — an
+   * unknown platform, or a server that will not talk about firmware. The BIOS
+   * screen is where a refused firmware call is reported; a game page that
+   * cannot check is a game page with nothing to warn about, and it must not
+   * fail to open over it.
+   */
+  async platformReport(platformId: number): Promise<BiosPlatform | null> {
+    try {
+      const platforms = await this.client.platforms()
+      const platform = platforms.find((row) => row.id === platformId)
+      if (!platform) return null
+
+      const firmware = await this.client.firmware(platformId)
+      const listings = new Map<string, Set<string>>()
+      const listing = async (dir: string): Promise<Set<string>> => {
+        const cached = listings.get(dir)
+        if (cached) return cached
+        const found = await existingFiles(dir)
+        listings.set(dir, found)
+        return found
+      }
+      return await this.describe(platform, firmware, listing)
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Everything the screen shows, plus the two things installing needs that a
    * serialisable report cannot carry: the firmware records themselves, and
    * where each one belongs.
@@ -283,7 +317,7 @@ export class BiosManager {
         : null,
       items: rows,
       blockedReason,
-      dumpOnly: requirement?.dumpOnly ?? null
+      setupNote: requirement?.setupNote ?? null
     }
   }
 

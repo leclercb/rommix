@@ -9,6 +9,7 @@ import {
   Tabs,
   formatBytes
 } from '../components'
+import { Icon } from '../icons'
 import { useFocusable } from '../input/focus'
 import { useApp } from '../state'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
@@ -243,7 +244,7 @@ export function DownloadsScreen(): JSX.Element {
                 />
               ))}
               <div className="btn-row">
-                <FocusButton onSelect={() => void window.rommix.downloads.clearFinished()}>
+                <FocusButton icon="clear" onSelect={() => void window.rommix.downloads.clearFinished()}>
                   Clear finished
                 </FocusButton>
               </div>
@@ -253,16 +254,17 @@ export function DownloadsScreen(): JSX.Element {
       ) : (
         <>
           <div className="btn-row">
-            <FocusButton onSelect={cycleSort} disabled={installed.length === 0}>
+            <FocusButton icon="sort" onSelect={cycleSort} disabled={installed.length === 0}>
               Sort: {SORTS.find((option) => option.id === sort)?.label}
             </FocusButton>
             <FocusButton
+              icon="group"
               onSelect={() => setGrouped((current) => !current)}
               disabled={installed.length === 0}
             >
               Group by system: {grouped ? 'Yes' : 'No'}
             </FocusButton>
-            <FocusButton onSelect={() => void sync()} disabled={syncing}>
+            <FocusButton icon="refresh" onSelect={() => void sync()} disabled={syncing}>
               {syncing ? 'Checking…' : 'Sync with disk'}
             </FocusButton>
           </div>
@@ -300,7 +302,7 @@ export function DownloadsScreen(): JSX.Element {
               ))}
               {flat.length > shown ? (
                 <div className="btn-row">
-                  <FocusButton onSelect={() => setShown((count) => count + FLAT_PAGE)}>
+                  <FocusButton icon="more" onSelect={() => setShown((count) => count + FLAT_PAGE)}>
                     Show {Math.min(FLAT_PAGE, flat.length - shown)} more of {flat.length}
                   </FocusButton>
                 </div>
@@ -318,10 +320,10 @@ export function DownloadsScreen(): JSX.Element {
             can download it again at any time.
           </p>
           <div className="btn-row">
-            <FocusButton onSelect={() => setConfirming(null)} autoFocus>
+            <FocusButton icon="keep" onSelect={() => setConfirming(null)} autoFocus>
               Keep it
             </FocusButton>
-            <FocusButton variant="danger" onSelect={() => void remove(confirming)}>
+            <FocusButton icon="uninstall" variant="danger" onSelect={() => void remove(confirming)}>
               Uninstall, freeing {formatBytes(confirming.sizeBytes)}
             </FocusButton>
           </div>
@@ -377,8 +379,8 @@ function PlatformGroup({
   return (
     <section className="group">
       <div ref={ref as Ref<HTMLDivElement>} className="group__header" data-open={open} {...props}>
-        <span className="group__chevron" aria-hidden="true">
-          {open ? '▾' : '▸'}
+        <span className="group__chevron">
+          <Icon name={open ? 'collapse' : 'expand'} size={16} />
         </span>
         <SystemIcon system={system} size={30} />
         <span className="group__name">{entries[0].platformName}</span>
@@ -444,7 +446,7 @@ function ProgressRow({
       </span>
       {onCancel ? (
         <div className="download__actions">
-          <FocusButton variant="danger" onSelect={onCancel}>
+          <FocusButton icon="cancel" variant="danger" onSelect={onCancel}>
             Cancel
           </FocusButton>
         </div>
@@ -504,7 +506,7 @@ function InstalledRow({
       </div>
 
       <div className="installed__actions">
-        <FocusButton variant="danger" onSelect={onRemove}>
+        <FocusButton icon="uninstall" variant="danger" onSelect={onRemove}>
           Uninstall
         </FocusButton>
       </div>

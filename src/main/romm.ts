@@ -407,6 +407,33 @@ export class RommClient {
     return this.json<RommState[]>(`/api/states?rom_id=${romId}`)
   }
 
+  /**
+   * POST /api/saves/delete — remove save files from the server.
+   *
+   * A POST taking a list rather than a DELETE per id: RomM's own shape, and the
+   * one that stays honest when a screen ever deletes several at once.
+   */
+  async deleteSaves(ids: readonly number[]): Promise<void> {
+    if (ids.length === 0) return
+    const res = await this.request('/api/saves/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saves: ids })
+    })
+    if (!res.ok) throw await this.toError(res)
+  }
+
+  /** POST /api/states/delete — the same, for save states. */
+  async deleteStates(ids: readonly number[]): Promise<void> {
+    if (ids.length === 0) return
+    const res = await this.request('/api/states/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ states: ids })
+    })
+    if (!res.ok) throw await this.toError(res)
+  }
+
   async downloadSave(id: number, destination: string): Promise<void> {
     await this.downloadAsset(`/api/saves/${id}/content`, destination)
   }

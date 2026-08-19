@@ -49,10 +49,13 @@ const bridge: RomMixBridge = {
   saves: {
     list: (romId: number) => ipcRenderer.invoke('saves:list', romId),
     pull: (romId: number) => ipcRenderer.invoke('saves:pull', romId),
-    push: (romId: number) => ipcRenderer.invoke('saves:push', romId)
+    push: (romId: number) => ipcRenderer.invoke('saves:push', romId),
+    remove: (romId: number, kind: 'save' | 'state', id: number) =>
+      ipcRenderer.invoke('saves:delete', romId, kind, id)
   },
   bios: {
     list: () => ipcRenderer.invoke('bios:list'),
+    platform: (platformId: number) => ipcRenderer.invoke('bios:platform', platformId),
     install: (firmwareId: number) => ipcRenderer.invoke('bios:install', firmwareId),
     syncAll: (platformId?: number | null) => ipcRenderer.invoke('bios:syncAll', platformId ?? null),
     onProgress: (listener: (progress: BiosProgress) => void) =>

@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, stat } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { EmulatorState, RemoteAsset, RommRom, SaveSyncResult } from '@shared/types'
@@ -209,12 +209,40 @@ export class SaveSync {
     return written
   }
 
-  /** Everything RomM holds for a ROM, saves and states together. */
-  async remoteAssets(romId: number): Promise<RemoteAsset[]> {
+  /**
+   * Everything RomM holds for a ROM, saves and states together, each marked
+   * with the local file it corresponds to.
+   *
+   * `local` is absent for a game that is not downloaded — there is no save tree
+   * to look in — and every asset is then simply not on this device.
+   */
+  async remoteAssets(
+    romId: number,
+    local?: { rom: RommRom; emulator: EmulatorState; system: string }
+  ): Promise<RemoteAsset[]> {
     const [saves, states] = await Promise.all([
       this.client.saves(romId),
       this.client.states(romId)
     ])
+
+    /**
+     * The file on this device that a remote asset is a copy of, by name.
+     *
+     * `findLocal` matches on the ROM's stem, which is how a save is recognised
+     * as belonging to this game at all; the exact file name then picks out
+     * which of them the server is talking about.
+     */
+    const localByName = new Map<string, string>()
+    if (local && canSyncPerGame(local.emulator)) {
+      for (const kind of ['save', 'state'] as const) {
+        const root =
+          kind === 'save' ? local.emulator.paths.saves : local.emulator.paths.states
+        const found = await this.findLocal(local.emulator, root, local.system, local.rom, kind)
+        for (const file of found) localByName.set(`${kind}:${file.fileName.toLowerCase()}`, file.path)
+      }
+    }
+    const localFor = (kind: 'save' | 'state', fileName: string): string | null =>
+      localByName.get(`${kind}:${fileName.toLowerCase()}`) ?? null
 
     // What this device calls itself on the server, so a save can say where it
     // came from. RomM's own id where the device was paired, the local one
@@ -228,6 +256,7 @@ export class SaveSync {
         fileName: save.file_name,
         sizeBytes: save.file_size_bytes,
         emulator: save.emulator,
+        localPath: localFor('save', save.file_name),
         fromThisDevice: save.origin_device_id ? save.origin_device_id === thisDevice : null,
         updatedAt: save.updated_at
       })),
@@ -237,6 +266,7 @@ export class SaveSync {
         fileName: state.file_name,
         sizeBytes: state.file_size_bytes,
         emulator: state.emulator,
+        localPath: localFor('state', state.file_name),
         // States carry no origin on the server, so there is nothing to claim.
         fromThisDevice: null,
         updatedAt: state.updated_at
@@ -281,6 +311,29 @@ export class SaveSync {
 
     const pushed = await this.upload(rom, emulator, system, 0)
     return { ...pushed, skippedReason: null }
+  }
+
+  /**
+   * Delete one asset from the server, and the copy on this device with it.
+   *
+   * Both, or neither is worth doing. RomMix pushes what a session wrote back to
+   * RomM, so a save deleted only on the server is uploaded again the next time
+   * the game is played — the delete would appear to work and then quietly undo
+   * itself. The local file goes first: if the server then refuses, the asset is
+   * still there to pull back, whereas the reverse order can lose both.
+   */
+  async deleteAsset(
+    romId: number,
+    kind: 'save' | 'state',
+    id: number,
+    local?: { rom: RommRom; emulator: EmulatorState; system: string }
+  ): Promise<void> {
+    const assets = await this.remoteAssets(romId, local)
+    const asset = assets.find((item) => item.kind === kind && item.id === id)
+
+    if (asset?.localPath) await rm(asset.localPath, { force: true })
+    if (kind === 'save') await this.client.deleteSaves([id])
+    else await this.client.deleteStates([id])
   }
 
   /** Why this emulator's saves cannot be attributed to one game, if they cannot. */

@@ -1,4 +1,5 @@
 import type {
+  BiosPlatform,
   BiosReport,
   BiosSyncResult,
   ConnectionStatus,
@@ -88,10 +89,14 @@ export interface RomMixBridge {
     pull(romId: number): Promise<SaveSyncResult>
     /** Send every local save for this game to RomM, not only this session's. */
     push(romId: number): Promise<SaveSyncResult>
+    /** Delete one asset, from the server and from this device. */
+    remove(romId: number, kind: 'save' | 'state', id: number): Promise<void>
   }
   bios: {
     /** Per platform: what is needed, what the server holds, what is in place. */
     list(): Promise<BiosReport>
+    /** One platform's row, cheap enough for a game page. Null when unknowable. */
+    platform(platformId: number): Promise<BiosPlatform | null>
     install(firmwareId: number): Promise<string>
     /**
      * Install every BIOS file the server holds that is not already in place —

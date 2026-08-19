@@ -9,10 +9,10 @@
  * have been uploaded.
  *
  * It is deliberately a short, curated list of the systems whose BIOS
- * requirements are both well known and satisfiable by copying a file. Systems
- * needing a full console dump rather than a file — PS3, Vita, Switch, Wii U —
- * are listed with `dumpOnly`, because telling someone a file is missing when
- * no file could ever be placed is worse than saying nothing.
+ * requirements are both well known and satisfiable by copying a file. Where a
+ * system needs more than that — a console dump, keys, firmware installed by the
+ * emulator itself — `setupNote` says so, because telling someone a file is
+ * missing when no file could ever be placed is worse than saying nothing.
  *
  * Keyed by ES-DE system name, like everything else RomMix keys by platform.
  */
@@ -32,11 +32,15 @@ export interface BiosFile {
 export interface BiosRequirement {
   files: readonly BiosFile[]
   /**
-   * Set when the system needs a console dump — keys, firmware, a NAND image —
-   * rather than files RomMix can copy into place. The screen explains this
-   * instead of listing files that will never appear.
+   * How this system's BIOS works, where the files above are not the whole
+   * story: a console dump, keys, firmware only the emulator can register.
+   *
+   * Shown as-is on the BIOS screen. Its presence also means the system's state
+   * cannot be judged from `files` alone — a platform with every listed file in
+   * place may still be unset up — which is why a row carrying one reports
+   * "Unknown" rather than "Ready".
    */
-  dumpOnly?: string
+  setupNote?: string
 }
 
 export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
@@ -49,12 +53,12 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   },
   ps2: {
     files: [],
-    dumpOnly:
+    setupNote:
       'PlayStation 2 needs a BIOS dumped from a real console. The filename varies by model, ' +
       'so anything uploaded to RomM for this platform is installed as-is.'
   },
-  ps3: { files: [], dumpOnly: 'PlayStation 3 needs its firmware installed by RPCS3 itself.' },
-  psvita: { files: [], dumpOnly: 'PlayStation Vita needs a firmware dump installed by Vita3K.' },
+  ps3: { files: [], setupNote: 'PlayStation 3 needs its firmware installed by RPCS3 itself.' },
+  psvita: { files: [], setupNote: 'PlayStation Vita needs a firmware dump installed by Vita3K.' },
   saturn: {
     files: [
       { name: 'sega_101.bin', note: 'Saturn BIOS — Japan', required: false },
@@ -100,15 +104,37 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   },
   n3ds: {
     files: [],
-    dumpOnly: 'The 3DS needs its shared fonts and AES keys dumped from a console.'
+    setupNote: 'The 3DS needs its shared fonts and AES keys dumped from a console.'
   },
   switch: {
-    files: [],
-    dumpOnly:
-      'The Switch needs prod.keys and a firmware dump from a console. RomMix copies whatever ' +
-      'is uploaded to RomM into the emulator key folder, but it cannot produce them.'
+    /**
+     * The keys are named here even though the Switch also carries a note,
+     * because
+     * they are the half of its setup that behaves like every other BIOS: two
+     * files, known names, which RomMix can both check for and copy into place.
+     * Listing them turns "it needs a dump from a console" into something the
+     * screens can be specific about — and lets a game's page say outright that
+     * nothing will start, rather than leaving the user to discover it.
+     *
+     * The firmware is the part that stays unnameable, which is what the note
+     * goes on describing.
+     */
+    files: [
+      {
+        name: 'prod.keys',
+        note: 'Console master keys — nothing decrypts without them',
+        required: true
+      },
+      {
+        name: 'title.keys',
+        note: 'Per-title keys, for installed games, updates and DLC',
+        required: true
+      }
+    ],
+    setupNote:
+      'The Switch needs prod.keys and a firmware dump from a console.'
   },
-  wiiu: { files: [], dumpOnly: 'Wii U needs keys and an OTP dump from a console.' },
+  wiiu: { files: [], setupNote: 'Wii U needs keys and an OTP dump from a console.' },
   '3do': {
     files: [{ name: 'panafz10.bin', note: '3DO BIOS — Panasonic FZ-10', required: true }]
   },

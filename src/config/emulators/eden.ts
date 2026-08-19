@@ -76,7 +76,8 @@ export const eden: EmulatorDescriptor = {
    * Eden's game list is the directories it has been given, read one level
    * deep. A game unpacked into a folder of its own would never appear in it,
    * so a multi-file title is put loose beside everything else — which is also
-   * how updates and DLC have to sit for its NAND installer to find them.
+   * what makes its updates and DLC apply, since Eden takes external content
+   * from the game directories rather than needing it installed to the NAND.
    */
   flatLibrary: true,
   /**
@@ -86,23 +87,21 @@ export const eden: EmulatorDescriptor = {
    * RomMix's `bios/switch` for the user to install from.
    */
   biosAccepts: ['.keys'],
-  biosStagingNote:
-    'Firmware cannot be put in place by RomMix: Eden has to register it into its own NAND. ' +
-    'RomMix has downloaded it to the folder below — install it from Eden with ' +
-    'Tools → Install Firmware, pointing it at that folder.',
+  biosStagingNote: 'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
   /**
-   * Both of these are consequences of the descriptor above, and both look like
-   * RomMix failing when they are not done.
+   * What is left for the user once RomMix has done what it can — kept to two
+   * lines, since the BIOS screen already explains for every Switch emulator
+   * that keys and firmware come from a console dump.
    *
-   * Eden ships no ROM folder, so `dirs.roms` points into RomMix's own — a
-   * directory Eden knows nothing about until it is added under Game
-   * Directories. And updates and DLC are installed into the NAND through Eden's
-   * own installer rather than being files beside the game, so a downloaded
-   * update sitting in the ROM folder does nothing at all.
+   * Eden ships no ROM folder, so `dirs.roms` points into RomMix's own, which
+   * Eden knows nothing about until it is added. Firmware then has to be
+   * registered into its NAND by Eden itself. Updates and DLC need no note at
+   * all: `flatLibrary` puts them beside the game, which is where Eden's *Use
+   * external content from game directories* already looks.
    */
   setupNotes: [
-    'Add RomMix\'s ROM folder to Eden under File → Game Directories, or your downloads will not appear in Eden\'s own game list.',
-    'Game updates and DLC have to be installed into Eden\'s NAND from File → Install Files to NAND. A patch downloaded next to the game is not applied on its own.'
+    'Add RomMix\'s ROM folder to Eden: File → Game Directories.',
+    'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.'
   ],
   launch: ({ exec, romPath }) => [...exec, romPath]
 }

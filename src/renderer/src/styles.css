@@ -68,6 +68,12 @@ button {
   cursor: pointer;
 }
 
+/* Icons are drawn in the colour of the text they sit beside, and never shrink
+   when a long label wraps. */
+svg {
+  flex: 0 0 auto;
+}
+
 input {
   font: inherit;
 }
@@ -173,10 +179,12 @@ input {
   transform: translateX(4px);
 }
 
+/* A fixed column so the labels line up whatever the icon's own width. */
 .rail__icon {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
-  text-align: center;
 }
 
 .rail__spacer {
@@ -297,6 +305,13 @@ input {
   border: 1px solid var(--border);
   font-weight: 650;
   transition: var(--transition);
+}
+
+/* An icon-only button is square rather than a wide pill with a mark adrift in
+   the middle of it. `:empty` catches exactly those: a button with a label has
+   text nodes, one with only an icon does not. */
+.btn:has(> svg:only-child) {
+  padding: 13px 15px;
 }
 
 .btn[data-focused='true'] {
@@ -526,9 +541,10 @@ input {
 }
 
 .group__chevron {
-  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  width: 16px;
   color: var(--text-faint);
-  font-size: 14px;
 }
 
 .group__name {
@@ -1255,7 +1271,7 @@ input {
 
 .asset-list li {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   flex-wrap: wrap;
   padding: 11px 16px;
@@ -1263,6 +1279,12 @@ input {
   background: var(--surface);
   border: 1px solid var(--border);
   margin-bottom: 8px;
+}
+
+/* Pushed to the end of the row, away from what the file is and when it was
+   written — the same place every other destructive button on a row sits. */
+.asset__actions {
+  margin-left: auto;
 }
 
 .asset__kind {
