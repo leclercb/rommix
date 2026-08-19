@@ -339,6 +339,13 @@ function EmulatorList({
               {state?.unavailableReason ? (
                 <div className="emulator__meta">{state.unavailableReason}</div>
               ) : null}
+              {/* An emulator RomMix cannot install itself would otherwise say
+                  "not installed" and offer nothing to do about it. */}
+              {!state?.install && descriptor.homepage ? (
+                <div className="emulator__meta">
+                  Set it up with its own installer: {descriptor.homepage}
+                </div>
+              ) : null}
             </div>
             <div className="emulator__actions">
               {/* Offered whenever the program is *present*, not only when it is

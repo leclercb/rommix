@@ -1,4 +1,4 @@
-import { ESDE_TO_LIBRETRO_CORE } from '../systems.ts'
+import { systemsWithCore } from '../systems.ts'
 import type { EmulatorDescriptor } from './types.ts'
 
 export const RETRODECK_APP_ID = 'net.retrodeck.retrodeck'
@@ -60,9 +60,7 @@ const RETRODECK_STANDALONE_SYSTEMS = [
  *
  * Its folders cannot be declared as `dirs` templates: the ROM root is
  * user-selectable (internal storage vs SD card), so it is read from
- * RetroDECK's own configuration. Where that configuration lives and what its
- * keys are called is `RETRODECK_CONFIG` below; the reading of it is
- * `src/main/emulators.ts`.
+ * RetroDECK's own configuration — see `layout` below.
  */
 export const retrodeck: EmulatorDescriptor = {
   id: 'retrodeck',
@@ -70,53 +68,49 @@ export const retrodeck: EmulatorDescriptor = {
   dispatch: 'self',
   install: [{ kind: 'flatpak', appId: RETRODECK_APP_ID }],
   systems: [
-    ...new Set([...Object.keys(ESDE_TO_LIBRETRO_CORE), ...RETRODECK_STANDALONE_SYSTEMS])
+    ...new Set([...systemsWithCore(), ...RETRODECK_STANDALONE_SYSTEMS])
   ],
   ownsLibrary: true,
   dirs: {},
+  /**
+   * `retrodeck.json`, inside RetroDECK's own flatpak tree — which is what the
+   * `config` base resolves to for a flatpak install.
+   *
+   * The older flat `retrodeck.cfg` is deliberately not read. RetroDECK converts
+   * it on startup and renames the original to `retrodeck.bak`, so a `.cfg` only
+   * survives on an install that has never been run since that release — and
+   * RomMix cannot use RetroDECK before it has been run anyway, because the
+   * folders it needs do not exist until then. Reading a file that is renamed
+   * away the moment it becomes reachable is a branch that cannot fire.
+   */
+  layout: {
+    sources: [
+      {
+        file: { base: 'config', path: 'retrodeck/retrodeck.json' },
+        format: 'json',
+        section: 'paths',
+        requires: 'roms',
+        keys: {
+          home: 'rd_home_path',
+          roms: 'roms_path',
+          saves: 'saves_path',
+          states: 'states_path',
+          bios: 'bios_path'
+        }
+      }
+    ],
+    fallback: {
+      base: 'home',
+      paths: {
+        home: 'retrodeck',
+        roms: 'retrodeck/roms',
+        saves: 'retrodeck/saves',
+        states: 'retrodeck/states',
+        bios: 'retrodeck/bios'
+      }
+    }
+  },
   saveLayout: 'delegated',
   saveTree: 'system-nested',
   launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath]
 }
-
-/**
- * Where RetroDECK records the folder layout the user chose, and what it calls
- * each path.
- *
- * Two formats: current builds keep everything in `retrodeck.json`, older ones
- * in a flat `key=value` `retrodeck.cfg`. Both are described because an install
- * may predate the migration. The legacy file records only the home directory
- * reliably, hence the subdirectory names to hang off it.
- */
-export const RETRODECK_CONFIG = {
-  /** Relative to the flatpak's per-app tree, `~/.var/app/<app id>/`. */
-  configDir: ['config', 'retrodeck'],
-  json: {
-    file: 'retrodeck.json',
-    keys: {
-      home: 'rd_home_path',
-      roms: 'roms_path',
-      saves: 'saves_path',
-      states: 'states_path',
-      bios: 'bios_path'
-    }
-  },
-  legacy: {
-    file: 'retrodeck.cfg',
-    homeKey: 'rdhome',
-    keys: {
-      roms: 'roms_folder',
-      saves: 'saves_folder',
-      states: 'states_folder',
-      bios: 'bios_folder'
-    }
-  },
-  /** Used only when neither file can be read, and only if it really exists. */
-  fallback: {
-    home: 'retrodeck',
-    roms: 'roms',
-    saves: 'saves',
-    states: 'states',
-    bios: 'bios'
-  }
-} as const

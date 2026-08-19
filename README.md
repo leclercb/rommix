@@ -24,8 +24,12 @@ and happy under gamescope or launched from Steam.
   | **RetroArch** | Everything with a libretro core | Flathub |
   | **Eden** | Nintendo Switch | Its own release page, as an AppImage |
 
-  RetroDECK is the one to start with: it covers the most platforms and picks the
-  right emulator for each system itself. You do not need all three.
+  **EmuDeck** is also supported, but RomMix does not install it — run EmuDeck's
+  own installer first and RomMix picks it up. See below.
+
+  RetroDECK is the one to start with if you have none of them: it covers the
+  most platforms and picks the right emulator for each system itself. You do not
+  need more than one.
 
 - **A controller** is recommended but not required — keyboard and mouse work.
 
@@ -121,6 +125,8 @@ A dot on a cover means the game is already downloaded.
 
 **Open a game** to download it, play it, look at what RomM holds for it, or
 remove it. Downloads run one at a time and continue while you keep browsing.
+Where the emulator offers more than one way to run that platform, RomMix asks
+which to use the first time and remembers it.
 
 **Downloads** shows the queue and everything currently on this device, grouped by
 platform. **Sync with disk** checks your whole library against the folders on
@@ -147,6 +153,28 @@ its games. Buttons here install RetroDECK or RetroArch from Flathub, download a
 build of Eden, or **Run** an emulator on its own — which is how you do the setup
 only the emulator itself can do: RetroDECK does not create its folders until it
 has been run once, RetroArch needs its cores, and Eden needs its keys.
+
+### EmuDeck
+
+If you already use [EmuDeck](https://www.emudeck.com), RomMix uses the setup it
+built rather than a second one of its own. Install EmuDeck first, with its own
+installer; RomMix then finds it and needs no configuration.
+
+RomMix reads your `Emulation` folder's location from EmuDeck's own settings, so
+a library on an SD card is found without being told. Games are downloaded into
+`Emulation/roms/<system>/`, BIOS files go to `Emulation/bios/`, and each game is
+launched through the matching script in `Emulation/tools/launchers/` — the same
+ones Steam ROM Manager uses. That means EmuDeck's configuration is what actually
+runs the game, including its cloud save sync, and RomMix never reaches past it.
+
+EmuDeck installs more than one emulator for some systems, and which is best
+depends on the game — Saturn has three cores of differing accuracy, and only
+some Switch games run on any given Switch emulator. Rather than pick for you,
+RomMix asks the first time you play something on that platform and remembers the
+answer. **Run with…** on a game's page changes it later.
+
+EmuDeck must have finished its own setup before RomMix can install anything: the
+`Emulation` folder and the launcher scripts are made by EmuDeck, not by RomMix.
 
 ### Platforms
 
@@ -287,9 +315,16 @@ npm run flatpak     # build and install the flatpak
 ```
 
 `src/config/` holds the parts most worth editing: the platform table, the RomM
-platform-slug mapping, the emulator registry and the BIOS requirements. It is
-plain data plus a few lookups, with tests, and adding a platform or an emulator
-should not need a change anywhere else.
+platform-slug mapping, the emulator registry, the BIOS requirements and the
+ROM-format tables. It is plain data plus a few lookups, with tests.
+
+**Adding a system, a BIOS requirement or an emulator is a change in `src/config/`
+and nowhere else.** No file outside it names an emulator. An emulator whose
+folders are fixed declares them as templates; one whose folders the user chose
+declares *where that choice is written down* — which file, in which format,
+under which keys — and the main process reads it without knowing whose it is.
+The same goes for how a system is launched, where its saves live and how they
+are arranged, and whether the emulator offers more than one way to run it.
 
 > **On Flathub.** The manifest packages a prebuilt application tree, which is
 > fine for a personal build but not accepted by Flathub, which requires a fully

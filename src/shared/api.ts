@@ -5,6 +5,7 @@ import type {
   DiagnosticsReport,
   DownloadItem,
   InstalledRom,
+  LaunchChoice,
   LaunchResult,
   LibrarySyncResult,
   RemoteAsset,
@@ -105,7 +106,13 @@ export interface RomMixBridge {
     onUpdate(listener: (items: DownloadItem[]) => void): () => void
   }
   game: {
-    launch(romId: number): Promise<LaunchResult>
+    /**
+     * The ways this game can be run, and whether the user has already chosen.
+     * Fewer than two options means there is nothing to ask about.
+     */
+    variants(romId: number): Promise<LaunchChoice>
+    /** `variant` is remembered for the platform once passed. */
+    launch(romId: number, variant?: string): Promise<LaunchResult>
     stop(): Promise<void>
     onState(listener: (state: GameState) => void): () => void
   }

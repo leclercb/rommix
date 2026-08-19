@@ -5,6 +5,7 @@ import { basename, dirname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
 import { chooseLaunchFile } from '@shared/gamefiles'
+import { emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import type {
   DownloadItem,
@@ -268,9 +269,14 @@ export class DownloadManager extends EventEmitter {
 
     const emulator = this.getEmulator(system)
     if (!emulator) {
+      // Named from the registry rather than written out, so this cannot go on
+      // recommending an emulator RomMix no longer ships a descriptor for.
+      const covers = emulatorsForSystem(system)
+        .map((descriptor) => descriptor.name)
+        .join(' or ')
       throw new RommError(
-        `No installed emulator can run "${system}". Install RetroDECK, which covers most ` +
-          `systems, or an emulator for this one.`
+        `No installed emulator can run "${system}".` +
+          (covers ? ` Install ${covers}, then try again.` : '')
       )
     }
     // The emulator's own ROM folder, so a game stays visible to that emulator

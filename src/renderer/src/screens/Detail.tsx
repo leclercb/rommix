@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
-import type { InstalledRom, RemoteAsset, RommRom } from '@shared/types'
+import type { InstalledRom, LaunchChoice, RemoteAsset, RommRom } from '@shared/types'
 import {
   CoverArt,
   FocusButton,
@@ -27,6 +27,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingRemoval, setConfirmingRemoval] = useState(false)
+  const [choosing, setChoosing] = useState<LaunchChoice | null>(null)
   const [tab, setTab] = useState<DetailTab>('about')
   const [assets, setAssets] = useState<RemoteAsset[] | null>(null)
 
@@ -57,6 +58,21 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const active = download?.state === 'downloading' || download?.state === 'queued' || download?.state === 'extracting'
   const running = runningRomId === romId
 
+  // Only to decide whether "Run with…" is worth showing. The launch path asks
+  // again rather than trusting this, since the emulator for a platform can be
+  // changed from Settings while this screen is open.
+  const [variants, setVariants] = useState<LaunchChoice['options']>([])
+  useEffect(() => {
+    if (!entry) {
+      setVariants([])
+      return
+    }
+    void window.rommix.game
+      .variants(romId)
+      .then((choice) => setVariants(choice.options))
+      .catch(() => setVariants([]))
+  }, [romId, entry?.emulatorId, entry?.system])
+
   const startDownload = async (): Promise<void> => {
     setBusy(true)
     try {
@@ -74,10 +90,36 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     }
   }
 
-  const play = async (): Promise<void> => {
+  /**
+   * Play, asking first when the emulator offers more than one way to run this
+   * system and the user has not already said which.
+   *
+   * EmuDeck ships three Saturn cores and four Switch emulators; picking one
+   * silently would be a guess, and the wrong guess is a game that will not
+   * start or a save written where the other emulator will not find it. The
+   * answer is remembered per platform, so this is asked once.
+   */
+  const startPlay = async (): Promise<void> => {
     setBusy(true)
     try {
-      const result = await window.rommix.game.launch(romId)
+      const choice = await window.rommix.game.variants(romId)
+      if (choice.options.length > 1 && !choice.chosen) {
+        setChoosing(choice)
+        return
+      }
+      await play(choice.chosen ?? undefined)
+    } catch (cause) {
+      notify((cause as Error).message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const play = async (variant?: string): Promise<void> => {
+    setChoosing(null)
+    setBusy(true)
+    try {
+      const result = await window.rommix.game.launch(romId, variant)
       const subject = {
         title: rom?.name ?? rom?.fs_name ?? 'Game',
         coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
@@ -142,6 +184,15 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       notify((cause as Error).message, 'error')
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** Re-open the picker for a platform that has already been answered. */
+  const openChooser = async (): Promise<void> => {
+    try {
+      setChoosing(await window.rommix.game.variants(romId))
+    } catch (cause) {
+      notify((cause as Error).message, 'error')
     }
   }
 
@@ -227,7 +278,12 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
       <div className="btn-row">
         {entry ? (
-          <FocusButton variant="primary" onSelect={() => void play()} disabled={busy || running} autoFocus>
+          <FocusButton
+            variant="primary"
+            onSelect={() => void startPlay()}
+            disabled={busy || running}
+            autoFocus
+          >
             {running ? 'Running…' : 'Play'}
           </FocusButton>
         ) : active ? (
@@ -239,6 +295,18 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             Download
           </FocusButton>
         )}
+
+        {/* The way back to a choice already made: without it, a platform
+            answered once could only be changed by editing settings. Shown only
+            where there is genuinely more than one answer. */}
+        {entry && variants.length > 1 ? (
+          <FocusButton
+            onSelect={() => void openChooser()}
+            disabled={busy || running}
+          >
+            Run with…
+          </FocusButton>
+        ) : null}
 
         {/* Only for a game that is here: there is no local save directory to
             read from or write into until the ROM has been downloaded. */}
@@ -317,6 +385,34 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--warn">
           The game is running. RomMix will sync your saves back to RomM when you quit the emulator.
         </div>
+      ) : null}
+
+      {choosing ? (
+        <Overlay title={`How should ${choosing.system} games run?`}>
+          <p className="muted">
+            {choosing.emulatorName} can run this platform in more than one way, and which is best
+            depends on the game. RomMix remembers your answer for {choosing.system} — change it
+            later with Run with…
+          </p>
+          <div className="btn-row">
+            {choosing.options.map((option) => (
+              <FocusButton
+                key={option.id}
+                variant={option.id === choosing.chosen ? 'primary' : 'default'}
+                onSelect={() => void play(option.id)}
+                autoFocus={option.id === (choosing.chosen ?? choosing.options[0].id)}
+              >
+                {option.label}
+                {option.note ? ` · ${option.note}` : ''}
+              </FocusButton>
+            ))}
+          </div>
+          <div className="btn-row">
+            <FocusButton variant="ghost" onSelect={() => setChoosing(null)}>
+              Cancel
+            </FocusButton>
+          </div>
+        </Overlay>
       ) : null}
 
       {confirmingRemoval && entry ? (

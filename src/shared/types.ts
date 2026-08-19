@@ -285,6 +285,14 @@ export interface Settings {
    * find it. AppImages in particular live wherever the user put them.
    */
   emulatorPaths: Record<EmulatorId, string>
+  /**
+   * `<emulator id>:<es-de system>` -> launch variant id.
+   *
+   * For emulators that offer more than one way to run a system — EmuDeck's
+   * three Saturn cores, its four Switch emulators. Recorded the first time the
+   * user is asked, so the question is not repeated before every game.
+   */
+  systemLaunchers: Record<string, string>
   /** RomM platform slug -> ES-DE system folder name. Overrides the built-in map. */
   systemOverrides: Record<string, string>
   /** Pull newer saves down from RomM before launching. */
@@ -356,6 +364,19 @@ export interface DownloadItem {
   totalBytes: number
   error: string | null
   targetPath: string
+}
+
+/**
+ * The ways the emulator for a game can run it, and which one is already
+ * settled. `options` has fewer than two entries when there is nothing to ask.
+ */
+export interface LaunchChoice {
+  system: string
+  emulatorId: EmulatorId
+  emulatorName: string
+  options: { id: string; label: string; note?: string }[]
+  /** The recorded choice, or null if the user has not been asked yet. */
+  chosen: string | null
 }
 
 export interface LaunchResult {

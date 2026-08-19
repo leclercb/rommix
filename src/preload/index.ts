@@ -68,7 +68,9 @@ const bridge: RomMixBridge = {
       subscribe<DownloadItem[]>('downloads:update', listener)
   },
   game: {
-    launch: (romId: number) => ipcRenderer.invoke('game:launch', romId),
+    variants: (romId: number) => ipcRenderer.invoke('game:variants', romId),
+    launch: (romId: number, variant?: string) =>
+      ipcRenderer.invoke('game:launch', romId, variant),
     stop: () => ipcRenderer.invoke('game:stop'),
     onState: (listener: (state: GameState) => void) => subscribe<GameState>('game:state', listener)
   },

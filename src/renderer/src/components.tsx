@@ -1,6 +1,6 @@
 import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
-import { systemInfo } from '@config/systems'
+import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
 import { FocusLayer, useAction, useFocusable } from './input/focus'
 import type { InstalledRom, RommRom } from '@shared/types'
 
@@ -531,12 +531,7 @@ function IconImage({
   const sources = useMemo(() => {
     const names = [...new Set(candidates.filter((name): name is string => Boolean(name)))]
     return names
-      // The Systematic set first, so a screen of platforms is one visual family
-      // rather than a mix of monochrome glyphs and coloured brand logos.
-      .flatMap((name) => [
-        `/assets/platforms/systematic/${name}.svg`,
-        `/assets/platforms/${name}.svg`
-      ])
+      .flatMap((name) => PLATFORM_ICON_PATHS.map((path) => path.replace('{name}', name)))
       .map((path) => window.rommix.system.imageUrl(path))
       .filter((url): url is string => url !== null)
   }, [candidates.join('|')])

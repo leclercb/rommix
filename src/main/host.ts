@@ -131,12 +131,21 @@ export async function findMatchingFile(
  * unpacks a squashfs payload, and an AppImage built with uruntime — as Eden's
  * is — carries DwarFS instead, so a perfectly good image fails to start. The
  * image's own runtime handles either format.
+ *
+ * A `scripts` install has no single program — the launcher to run depends on
+ * the system — so it gets the sandbox wrapping alone and the descriptor names
+ * the script itself.
  */
 export function execPrefix(
   install: ResolvedInstall,
   env: Readonly<Record<string, string>> = {}
 ): string[] {
-  const argv = install.kind === 'flatpak' ? ['flatpak', 'run', install.ref] : [install.ref]
+  const argv =
+    install.kind === 'flatpak'
+      ? ['flatpak', 'run', install.ref]
+      : install.kind === 'scripts'
+        ? []
+        : [install.ref]
   if (!inFlatpak()) return argv
 
   // flatpak-spawn starts a *fresh* process on the host and does not carry our

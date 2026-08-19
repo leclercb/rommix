@@ -1,12 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { EMULATORS, RETRODECK_APP_ID, RETRODECK_CONFIG } from '@config/emulators'
+import { EMULATORS } from '@config/emulators'
 import type {
   DirBase,
   DirSpec,
   EmulationPaths,
   EmulatorDescriptor,
   EmulatorState,
+  LayoutSource,
   ResolvedInstall
 } from '@config/emulators'
 import type { Settings } from '@shared/types'
@@ -26,9 +27,10 @@ import {
  * Probing the machine for the emulators in the registry.
  *
  * The registry says what an emulator *is*; this says whether it is here, and
- * where it put its folders. Most emulators can be described declaratively with
- * a `dirs` template, so this file only needs a special case for the ones that
- * store their layout in their own configuration.
+ * where it put its folders. Nothing in this file names an emulator: one whose
+ * folders are fixed declares a `dirs` template, and one whose folders the user
+ * chose declares where it writes that choice down (`layout`). Adding an
+ * emulator is therefore a file in `src/config/emulators/` and nothing here.
  */
 
 const NO_PATHS: EmulationPaths = { home: null, roms: null, saves: null, states: null, bios: null }
@@ -71,9 +73,18 @@ async function resolveInstall(
     } else if (spec.kind === 'binary') {
       const path = await binaryPath(spec.names)
       if (path) return { kind: 'binary', ref: path }
-    } else {
+    } else if (spec.kind === 'appimage') {
       const path = await findAppImage(spec.patterns)
       if (path) return { kind: 'appimage', ref: path }
+    } else {
+      // A set of launcher scripts, somewhere the emulator's own configuration
+      // points at. Discovery runs without an install, which is exactly the
+      // position it is in: the directory it finds *is* the install.
+      const { paths, extras } = discoverLayout(descriptor, null)
+      const root = extras[spec.dir.from] ?? paths[spec.dir.from as keyof EmulationPaths]
+      if (!root) continue
+      const dir = join(root, spec.dir.path)
+      if (existsSync(dir)) return { kind: 'scripts', ref: dir }
     }
   }
   return null
@@ -81,12 +92,13 @@ async function resolveInstall(
 
 /**
  * Where a `DirSpec` base lands for a given install. A flatpak keeps config and
- * data inside its own per-app tree; a native install uses the XDG roots.
+ * data inside its own per-app tree; a native install — or no install yet, while
+ * one is still being looked for — uses the XDG roots.
  */
-function baseDirs(install: ResolvedInstall): Record<DirBase, string> {
+function baseDirs(install: ResolvedInstall | null): Record<DirBase, string> {
   const home = realHome()
   const rommix = rootPaths().root
-  if (install.kind === 'flatpak') {
+  if (install?.kind === 'flatpak') {
     const app = join(home, '.var', 'app', install.ref)
     return { home, rommix, config: join(app, 'config'), data: join(app, 'data') }
   }
@@ -111,86 +123,120 @@ function declaredPaths(descriptor: EmulatorDescriptor, install: ResolvedInstall)
 }
 
 // ---------------------------------------------------------------------------
-// RetroDECK, which keeps its layout in its own config
+// Emulators that record their own layout
 // ---------------------------------------------------------------------------
 
-interface RetroDeckConfig {
-  paths?: Record<string, string>
-}
-
 /**
- * Discover RetroDECK's folder layout.
+ * Values out of one configuration file.
  *
- * The ROM root is user-selectable (internal storage vs SD card), so it has to
- * be read rather than assumed — hardcoding ~/retrodeck would silently put ROMs
- * where RetroDECK never looks. Which files to read and what the keys are called
- * is `RETRODECK_CONFIG`; this only does the reading, newest format first.
+ * Two formats cover what emulators actually write: `key=value` shell, and JSON
+ * with the paths under one property. Nothing here knows which emulator it is
+ * reading for — the descriptor said where the file is and what its keys are
+ * called, and this only does the reading.
  */
-function retroDeckPaths(): EmulationPaths {
-  const { configDir, json, legacy, fallback } = RETRODECK_CONFIG
-  const dir = join(realHome(), '.var', 'app', RETRODECK_APP_ID, ...configDir)
+function readConfigValues(path: string, source: LayoutSource): Map<string, string> {
+  const values = new Map<string, string>()
+  let text: string
+  try {
+    text = readFileSync(path, 'utf8')
+  } catch {
+    return values
+  }
 
-  const jsonPath = join(dir, json.file)
-  if (existsSync(jsonPath)) {
+  if (source.format === 'json') {
     try {
-      const config = JSON.parse(readFileSync(jsonPath, 'utf8')) as RetroDeckConfig
-      const paths = config.paths ?? {}
-      if (paths[json.keys.roms]) {
-        return {
-          home: paths[json.keys.home] ?? null,
-          roms: paths[json.keys.roms],
-          saves: paths[json.keys.saves] ?? null,
-          states: paths[json.keys.states] ?? null,
-          bios: paths[json.keys.bios] ?? null
-        }
+      const parsed = JSON.parse(text) as Record<string, unknown>
+      const section = source.section
+        ? (parsed[source.section] as Record<string, unknown> | undefined)
+        : parsed
+      for (const [key, value] of Object.entries(section ?? {})) {
+        if (typeof value === 'string' && value) values.set(key, value)
       }
     } catch {
-      // fall through to the legacy format
+      // Malformed: treated as absent, so the next source gets its turn.
     }
+    return values
   }
 
-  const legacyPath = join(dir, legacy.file)
-  if (existsSync(legacyPath)) {
-    try {
-      const values = new Map<string, string>()
-      for (const line of readFileSync(legacyPath, 'utf8').split('\n')) {
-        const match = /^([a-z_]+)=(.*)$/.exec(line.trim())
-        if (match) values.set(match[1], match[2])
-      }
-      const home = values.get(legacy.homeKey)
-      if (home) {
-        return {
-          home,
-          roms: values.get(legacy.keys.roms) ?? join(home, fallback.roms),
-          saves: values.get(legacy.keys.saves) ?? join(home, fallback.saves),
-          states: values.get(legacy.keys.states) ?? join(home, fallback.states),
-          bios: values.get(legacy.keys.bios) ?? join(home, fallback.bios)
-        }
-      }
-    } catch {
-      // fall through to the default layout
-    }
+  for (const line of text.split('\n')) {
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
+    if (!match) continue
+    // Quotes and a leading $HOME are both things these files carry.
+    const value = match[2].trim().replace(/^["']|["']$/g, '')
+    if (value) values.set(match[1], value.replace(/^\$HOME|^~/, realHome()))
   }
-
-  // Last resort: the default location, and only if it really exists —
-  // reporting "not configured" beats inventing a path.
-  const home = join(realHome(), fallback.home)
-  if (!existsSync(home)) return NO_PATHS
-  return {
-    home,
-    roms: join(home, fallback.roms),
-    saves: join(home, fallback.saves),
-    states: join(home, fallback.states),
-    bios: join(home, fallback.bios)
-  }
+  return values
 }
 
 /**
- * Emulators whose folders cannot be expressed as a template, because they are
- * chosen by the user and recorded in the emulator's own configuration.
+ * Work out an emulator's folders from its own configuration.
+ *
+ * `install` is null while resolving an install that is itself defined by these
+ * paths, which is fine: a descriptor in that position reads a file under the
+ * user's home rather than inside an application's own tree.
+ *
+ * Returns the standard paths plus any extras the descriptor asked for, which
+ * are how an install spec names a directory that is not one of ours.
  */
-const PATH_PROBES: Readonly<Record<string, () => EmulationPaths>> = {
-  retrodeck: retroDeckPaths
+function discoverLayout(
+  descriptor: EmulatorDescriptor,
+  install: ResolvedInstall | null
+): { paths: EmulationPaths; extras: Record<string, string> } {
+  const found = new Map<string, string>()
+  const layout = descriptor.layout
+  const bases = baseDirs(install)
+
+  for (const source of layout?.sources ?? []) {
+    const file = join(bases[source.file.base], source.file.path)
+    if (!existsSync(file)) continue
+
+    const values = readConfigValues(file, source)
+    const names: Record<string, string> = { ...source.keys, ...source.extras }
+    const fromFile = new Map<string, string>()
+    for (const [ours, theirs] of Object.entries(names)) {
+      const value = values.get(theirs)
+      if (value) fromFile.set(ours, value)
+    }
+    // A file that exists but does not carry the name that matters is an older
+    // or half-written one: skipped, so a later source still gets its turn.
+    if (!fromFile.has(source.requires)) continue
+
+    // Anything the file left out hangs off the home *it* gave, so a library on
+    // an SD card does not fall back to one in the home directory.
+    const home = fromFile.get('home')
+    if (home) {
+      for (const [ours, relative] of Object.entries(source.defaults ?? {})) {
+        if (!fromFile.has(ours)) fromFile.set(ours, join(home, relative))
+      }
+    }
+    for (const [key, value] of fromFile) found.set(key, value)
+    break
+  }
+
+  // Guessed locations are used only where they exist. A plausible-but-wrong
+  // path would turn "never set up" into a silent install into a dead folder.
+  for (const [ours, relative] of Object.entries(layout?.fallback?.paths ?? {})) {
+    if (found.has(ours)) continue
+    const candidate = join(bases[layout!.fallback!.base], relative)
+    if (existsSync(candidate)) found.set(ours, candidate)
+  }
+
+  const path = (key: keyof EmulationPaths): string | null => found.get(key) ?? null
+  const extras: Record<string, string> = {}
+  for (const [key, value] of found) {
+    if (!(key in NO_PATHS)) extras[key] = value
+  }
+
+  return {
+    paths: {
+      home: path('home'),
+      roms: path('roms'),
+      saves: path('saves'),
+      states: path('states'),
+      bios: path('bios')
+    },
+    extras
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -202,11 +248,10 @@ async function probe(
   settings: Settings
 ): Promise<EmulatorState> {
   const install = await resolveInstall(descriptor, settings)
-  const specialProbe = PATH_PROBES[descriptor.id]
   const paths = !install
     ? NO_PATHS
-    : specialProbe
-      ? specialProbe()
+    : descriptor.layout
+      ? discoverLayout(descriptor, install).paths
       : declaredPaths(descriptor, install)
 
   // An emulator that owns its library is only useful once that library exists;

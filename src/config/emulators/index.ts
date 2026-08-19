@@ -1,17 +1,23 @@
 import { eden } from './eden.ts'
+import { emudeck } from './emudeck.ts'
 import { retroarch } from './retroarch.ts'
 import { retrodeck } from './retrodeck.ts'
-import type { EmulatorDescriptor, EmulatorId, EmulatorState } from './types.ts'
+import type {
+  EmulatorDescriptor,
+  EmulatorId,
+  EmulatorState,
+  LaunchVariant
+} from './types.ts'
 
 /**
  * Every emulator RomMix knows how to drive.
  *
  * Order is meaningful: it is the default answer to "which emulator for this
- * system", so frontends come first — RetroDECK already encodes the user's own
- * per-system emulator setup, and a standalone emulator is what covers the
- * systems no frontend does.
+ * system", so the two that manage a whole emulation setup come first —
+ * RetroDECK and EmuDeck already encode the user's own per-system arrangement,
+ * and a standalone emulator is what covers the systems neither does.
  */
-export const EMULATORS: readonly EmulatorDescriptor[] = [retrodeck, retroarch, eden]
+export const EMULATORS: readonly EmulatorDescriptor[] = [retrodeck, emudeck, retroarch, eden]
 
 /**
  * Directories an AppImage is plausibly sitting in, relative to the user's home.
@@ -88,6 +94,20 @@ export function systemCount(emulator: EmulatorDescriptor): number {
 }
 
 /**
+ * The ways an emulator can run a system.
+ *
+ * Empty when there is nothing to choose between — which is most of them, and is
+ * why callers should treat "fewer than two" as "just launch it" rather than
+ * showing a dialog with one button in it.
+ */
+export function launchVariants(
+  emulator: EmulatorDescriptor,
+  system: string
+): readonly LaunchVariant[] {
+  return emulator.variants?.(system) ?? []
+}
+
+/**
  * Is this release asset something RomMix could actually run?
  *
  * An exact suffix, never a substring. Eden publishes an `.AppImage.zsync`
@@ -100,8 +120,9 @@ export function isInstallableAsset(assetName: string, suffix: string): boolean {
 }
 
 export { eden } from './eden.ts'
+export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck.ts'
 export { retroarch } from './retroarch.ts'
-export { retrodeck, RETRODECK_APP_ID, RETRODECK_CONFIG } from './retrodeck.ts'
+export { retrodeck, RETRODECK_APP_ID } from './retrodeck.ts'
 export { SAVE_CONVENTIONS } from './saves.ts'
 
 export type {
@@ -114,6 +135,9 @@ export type {
   EmulatorState,
   InstallSpec,
   LaunchContext,
+  LaunchVariant,
+  LayoutDiscovery,
+  LayoutSource,
   ReleaseSource,
   ResolvedInstall,
   SaveFileConventions,

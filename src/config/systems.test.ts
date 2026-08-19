@@ -2,12 +2,14 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { BIOS_REQUIREMENTS } from './bios.ts'
 import {
-  ESDE_SYSTEMS,
   ROMM_SLUG_TO_ESDE,
   SYSTEMS,
+  allSystems,
   coreForSystem,
+  isKnownSystem,
   resolveSystem,
-  systemInfo
+  systemInfo,
+  systemsWithCore
 } from './systems.ts'
 
 test('every system carries a label, a short code and an icon', () => {
@@ -32,7 +34,7 @@ test('an unknown system degrades to its own name rather than to a blank', () => 
 })
 
 test('every system with BIOS requirements is a system RomMix knows', () => {
-  const unknown = Object.keys(BIOS_REQUIREMENTS).filter((system) => !ESDE_SYSTEMS.has(system))
+  const unknown = Object.keys(BIOS_REQUIREMENTS).filter((system) => !isKnownSystem(system))
   assert.deepEqual(unknown, [])
 })
 
@@ -40,26 +42,35 @@ test('every mapped target is a real ES-DE system directory', () => {
   // A typo here would install ROMs into a folder RetroDECK never scans, which
   // fails silently at launch time rather than at install time.
   const unknown = Object.entries(ROMM_SLUG_TO_ESDE).filter(
-    ([, esde]) => !ESDE_SYSTEMS.has(esde)
+    ([, esde]) => !isKnownSystem(esde)
   )
   assert.deepEqual(unknown, [], `unmapped ES-DE targets: ${JSON.stringify(unknown)}`)
 })
 
-test('every libretro core mapping targets a real ES-DE system', () => {
-  const unknown = Object.keys(coreMappingKeys()).filter((system) => !ESDE_SYSTEMS.has(system))
-  assert.deepEqual(unknown, [])
+test('the systems with a core are exactly the ones that resolve to one', () => {
+  // `systemsWithCore` is what RetroArch declares it can run, and
+  // `coreForSystem` is what the launcher then asks for. Built from one column,
+  // so the only way they can disagree is a mistake in reading it.
+  assert.deepEqual(
+    systemsWithCore().sort(),
+    allSystems()
+      .filter((info) => coreForSystem(info.id))
+      .map((info) => info.id)
+      .sort()
+  )
+  for (const system of systemsWithCore()) assert.ok(isKnownSystem(system))
 })
 
-function coreMappingKeys(): Record<string, unknown> {
-  // Rebuild the key set through the public accessor so the test exercises the
-  // same lookup the launcher uses.
-  const keys: Record<string, unknown> = {}
-  for (const system of ESDE_SYSTEMS) {
-    const core = coreForSystem(system)
-    if (core) keys[system] = core
+test('the slug map is the slug column inverted, with nothing else in it', () => {
+  // Derived rather than written out, so a system cannot be reachable under a
+  // slug the table does not admit to.
+  for (const [slug, system] of Object.entries(ROMM_SLUG_TO_ESDE)) {
+    assert.ok(SYSTEMS[system].slugs.includes(slug), `${slug} -> ${system} is not on that row`)
   }
-  return keys
-}
+  const declared = allSystems().flatMap((info) => info.slugs)
+  assert.equal(declared.length, Object.keys(ROMM_SLUG_TO_ESDE).length)
+  assert.equal(new Set(declared).size, declared.length, 'a slug means two systems')
+})
 
 test('resolves common RomM platform slugs', () => {
   assert.equal(resolveSystem('snes', 'snes'), 'snes')

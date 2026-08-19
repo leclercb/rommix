@@ -1,0 +1,311 @@
+import type { EmulatorDescriptor, LaunchVariant } from './types.ts'
+
+/**
+ * EmuDeck.
+ *
+ * EmuDeck is not an emulator. It installs and configures a dozen of them —
+ * mostly as ordinary Flathub flatpaks — lays out an `Emulation/` folder, and
+ * sets up ES-DE. What it gives RomMix is that layout plus a set of launcher
+ * scripts in `Emulation/tools/launchers/`, one per emulator, each of which
+ * initialises the emulator the way EmuDeck configured it (save symlinks, cloud
+ * sync) and then forwards its arguments straight through:
+ *
+ *     #!/bin/bash
+ *     . "$HOME/.config/EmuDeck/backend/functions/all.sh"
+ *     emulatorInit "retroarch"
+ *     /usr/bin/flatpak run org.libretro.RetroArch $netplayCMD "${@}"
+ *     cloud_sync_uploadForced
+ *
+ * Because the arguments are forwarded verbatim, RomMix has to supply whatever
+ * the emulator underneath expects, which is why every entry below carries its
+ * own argument list rather than just a ROM path. Those lists, the script names
+ * and the libretro cores are taken from EmuDeck's own Steam ROM Manager
+ * parsers, which is how EmuDeck itself launches these games.
+ *
+ * Unlike RetroDECK there is no dispatcher to hand a system to, so RomMix names
+ * the script — and where EmuDeck ships more than one way to run a system, it
+ * offers the choice rather than picking. Nothing here is guessed: a system with
+ * no entry is one RomMix declines to run through EmuDeck.
+ */
+
+/** Stands in for the ROM path inside an argument, so `Z:%ROM%` works too. */
+export const ROM_PLACEHOLDER = '%ROM%'
+
+/** One way EmuDeck can run a system. */
+export interface EmuDeckLauncher extends LaunchVariant {
+  /** Script name under `Emulation/tools/launchers/`. */
+  script: string
+  /** Arguments, with `%ROM%` replaced by the game's path. */
+  args: readonly string[]
+}
+
+/** `retroarch.sh -L <core>_libretro.so <rom>`, EmuDeck's most common shape. */
+function core(id: string, label: string, name: string): EmuDeckLauncher {
+  return {
+    id,
+    label,
+    note: 'RetroArch',
+    script: 'retroarch.sh',
+    args: ['-L', `${name}_libretro.so`, ROM_PLACEHOLDER]
+  }
+}
+
+/** A standalone emulator, which EmuDeck gives its own launcher script. */
+function standalone(
+  id: string,
+  label: string,
+  script: string,
+  args: readonly string[] = [ROM_PLACEHOLDER]
+): EmuDeckLauncher {
+  return { id, label, note: 'Standalone', script, args }
+}
+
+/**
+ * How EmuDeck runs each system, best-known default first.
+ *
+ * The first entry is what EmuDeck's own default configuration uses. Where a
+ * second or third is listed, EmuDeck installs those too and the choice is a
+ * real one — Saturn accuracy versus speed, or which of the four Switch
+ * emulators a given game actually runs on — so RomMix asks instead of deciding.
+ */
+export const EMUDECK_LAUNCHERS: Readonly<Record<string, readonly EmuDeckLauncher[]>> = {
+  // -- Nintendo -------------------------------------------------------------
+  nes: [core('mesen', 'Mesen', 'mesen')],
+  famicom: [core('mesen', 'Mesen', 'mesen')],
+  fds: [core('mesen', 'Mesen', 'mesen')],
+  snes: [core('snes9x', 'Snes9x', 'snes9x')],
+  snesna: [core('snes9x', 'Snes9x', 'snes9x')],
+  sfc: [core('snes9x', 'Snes9x', 'snes9x')],
+  sgb: [core('mesen-s', 'Mesen-S', 'mesen-s')],
+  n64: [
+    core('mupen64plus_next', 'Mupen64Plus-Next', 'mupen64plus_next'),
+    standalone('rmg', "Rosalie's Mupen GUI", 'rosaliesmupengui.sh', [
+      '--fullscreen',
+      '--nogui',
+      '--quit-after-emulation',
+      ROM_PLACEHOLDER
+    ])
+  ],
+  gc: [standalone('dolphin', 'Dolphin', 'dolphin-emu.sh', ['-b', '-e', ROM_PLACEHOLDER])],
+  wii: [standalone('dolphin', 'Dolphin', 'dolphin-emu.sh', ['-b', '-e', ROM_PLACEHOLDER])],
+  wiiu: [standalone('cemu', 'Cemu', 'cemu.sh', ['-f', '-g', ROM_PLACEHOLDER])],
+  switch: [
+    standalone('eden', 'Eden', 'eden.sh', ['-f', '-g', ROM_PLACEHOLDER]),
+    standalone('citron', 'Citron', 'citron.sh', ['-f', '-g', ROM_PLACEHOLDER]),
+    standalone('ryujinx', 'Ryujinx', 'ryujinx.sh', ['--fullscreen', ROM_PLACEHOLDER]),
+    standalone('yuzu', 'Yuzu', 'yuzu.sh', ['-f', '-g', ROM_PLACEHOLDER])
+  ],
+  gb: [
+    core('gambatte', 'Gambatte', 'gambatte'),
+    standalone('mgba', 'mGBA', 'mgba.sh', ['-f', ROM_PLACEHOLDER])
+  ],
+  gbc: [
+    core('gambatte', 'Gambatte', 'gambatte'),
+    standalone('mgba', 'mGBA', 'mgba.sh', ['-f', ROM_PLACEHOLDER])
+  ],
+  gba: [
+    core('mgba', 'mGBA', 'mgba'),
+    standalone('mgba-standalone', 'mGBA', 'mgba.sh', ['-f', ROM_PLACEHOLDER])
+  ],
+  nds: [
+    core('melondsds', 'melonDS DS', 'melondsds'),
+    standalone('melonds', 'melonDS', 'melonds.sh', [ROM_PLACEHOLDER, '-f'])
+  ],
+  n3ds: [
+    standalone('azahar', 'Azahar', 'azahar.sh'),
+    standalone('lime3ds', 'Lime3DS', 'lime3ds.sh'),
+    standalone('citra', 'Citra', 'citra.sh')
+  ],
+  virtualboy: [core('mednafen_vb', 'Beetle VB', 'mednafen_vb')],
+
+  // -- Sega -----------------------------------------------------------------
+  mastersystem: [core('genesis_plus_gx', 'Genesis Plus GX', 'genesis_plus_gx')],
+  genesis: [core('genesis_plus_gx', 'Genesis Plus GX', 'genesis_plus_gx')],
+  megadrive: [core('genesis_plus_gx', 'Genesis Plus GX', 'genesis_plus_gx')],
+  segacd: [core('genesis_plus_gx', 'Genesis Plus GX', 'genesis_plus_gx')],
+  megacd: [core('genesis_plus_gx', 'Genesis Plus GX', 'genesis_plus_gx')],
+  gamegear: [core('genesis_plus_gx', 'Genesis Plus GX', 'genesis_plus_gx')],
+  sega32x: [core('picodrive', 'PicoDrive', 'picodrive')],
+  saturn: [
+    core('kronos', 'Kronos', 'kronos'),
+    core('mednafen_saturn', 'Beetle Saturn', 'mednafen_saturn'),
+    core('yabause', 'Yabause', 'yabause')
+  ],
+  dreamcast: [
+    core('flycast', 'Flycast', 'flycast'),
+    standalone('flycast-standalone', 'Flycast', 'flycast.sh')
+  ],
+  naomi: [
+    core('flycast', 'Flycast', 'flycast'),
+    standalone('flycast-standalone', 'Flycast', 'flycast.sh')
+  ],
+  naomi2: [standalone('flycast-standalone', 'Flycast', 'flycast.sh')],
+  atomiswave: [standalone('flycast-standalone', 'Flycast', 'flycast.sh')],
+
+  // -- Sony -----------------------------------------------------------------
+  psx: [
+    standalone('duckstation', 'DuckStation', 'duckstation.sh', [
+      '-batch',
+      '-fullscreen',
+      '-nogui',
+      ROM_PLACEHOLDER
+    ])
+  ],
+  ps2: [
+    standalone('pcsx2', 'PCSX2', 'pcsx2-qt.sh', [
+      '-batch',
+      '-fullscreen',
+      '-nogui',
+      ROM_PLACEHOLDER
+    ])
+  ],
+  ps3: [standalone('rpcs3', 'RPCS3', 'rpcs3.sh', ['--no-gui', ROM_PLACEHOLDER])],
+  psp: [standalone('ppsspp', 'PPSSPP', 'ppsspp.sh', ['-f', '-g', ROM_PLACEHOLDER])],
+
+  // -- Microsoft ------------------------------------------------------------
+  xbox: [
+    standalone('xemu', 'xemu', 'xemu-emu.sh', ['-full-screen', '-dvd_path', ROM_PLACEHOLDER])
+  ],
+  // Xenia runs under Proton, so the path it is given has to be a Windows one.
+  xbox360: [standalone('xenia', 'Xenia', 'xenia.sh', [`Z:${ROM_PLACEHOLDER}`])],
+  dos: [core('dosbox_pure', 'DOSBox Pure', 'dosbox_pure')],
+
+  // -- NEC ------------------------------------------------------------------
+  pcengine: [core('mednafen_pce', 'Beetle PCE', 'mednafen_pce')],
+  tg16: [core('mednafen_pce', 'Beetle PCE', 'mednafen_pce')],
+  pcenginecd: [core('mednafen_pce', 'Beetle PCE', 'mednafen_pce')],
+  'tg-cd': [core('mednafen_pce', 'Beetle PCE', 'mednafen_pce')],
+  pcfx: [core('mednafen_pcfx', 'Beetle PC-FX', 'mednafen_pcfx')],
+  pc98: [core('np2kai', 'NP2kai', 'np2kai')],
+
+  // -- SNK ------------------------------------------------------------------
+  neogeo: [core('fbneo', 'FinalBurn Neo', 'fbneo')],
+  neogeocd: [core('fbneo', 'FinalBurn Neo', 'fbneo')],
+  ngp: [core('mednafen_ngp', 'Beetle NeoPop', 'mednafen_ngp')],
+  ngpc: [core('mednafen_ngp', 'Beetle NeoPop', 'mednafen_ngp')],
+
+  // -- Atari ----------------------------------------------------------------
+  atari2600: [core('stella', 'Stella', 'stella')],
+  atarilynx: [core('mednafen_lynx', 'Beetle Lynx', 'mednafen_lynx')],
+  atarijaguar: [
+    core('virtualjaguar', 'Virtual Jaguar', 'virtualjaguar'),
+    standalone('bigpemu', 'BigPEmu', 'bigpemu.sh')
+  ],
+
+  // -- Computers ------------------------------------------------------------
+  amiga: [core('puae', 'PUAE', 'puae')],
+  amiga600: [core('puae', 'PUAE', 'puae')],
+  amiga1200: [core('puae', 'PUAE', 'puae')],
+  amigacd32: [core('puae', 'PUAE', 'puae')],
+  c64: [core('vice_x64', 'VICE x64', 'vice_x64')],
+  vic20: [core('vice_xvic', 'VICE xVIC', 'vice_xvic')],
+  plus4: [core('vice_xplus4', 'VICE xPlus4', 'vice_xplus4')],
+  amstradcpc: [core('cap32', 'Caprice32', 'cap32')],
+  zxspectrum: [core('fuse', 'Fuse', 'fuse')],
+  x68000: [core('px68k', 'PX68k', 'px68k')],
+
+  // -- Other ----------------------------------------------------------------
+  '3do': [core('opera', 'Opera', 'opera')],
+  intellivision: [core('freeintv', 'FreeIntv', 'freeintv')],
+  cdimono1: [core('same_cdi', 'SAME CDi', 'same_cdi')],
+  wonderswan: [core('mednafen_wswan', 'Beetle WonderSwan', 'mednafen_wswan')],
+  wonderswancolor: [core('mednafen_wswan', 'Beetle WonderSwan', 'mednafen_wswan')],
+
+  // -- Arcade ---------------------------------------------------------------
+  arcade: [core('fbneo', 'FinalBurn Neo', 'fbneo')],
+  fbneo: [core('fbneo', 'FinalBurn Neo', 'fbneo')],
+  mame: [core('mame2003_plus', 'MAME 2003-Plus', 'mame2003_plus')],
+  model3: [standalone('supermodel', 'Supermodel', 'supermodel.sh')],
+
+  // -- Engines and fantasy consoles -----------------------------------------
+  doom: [core('prboom', 'PrBoom', 'prboom')],
+  scummvm: [
+    standalone('scummvm', 'ScummVM', 'scummvm.sh', [
+      `--path=${ROM_PLACEHOLDER}`,
+      '--auto-detect'
+    ])
+  ],
+  easyrpg: [core('easyrpg', 'EasyRPG', 'easyrpg')],
+  pico8: [core('retro8', 'Retro8', 'retro8')],
+  tic80: [core('tic80', 'TIC-80', 'tic80')]
+}
+
+/** EmuDeck's frontend, for the Run button. Below the launchers directory. */
+const EMUDECK_FRONTEND = 'es-de/es-de.sh'
+
+/** The ways EmuDeck can run this system, EmuDeck's own default first. */
+export function emuDeckLaunchers(system: string): readonly EmuDeckLauncher[] {
+  return EMUDECK_LAUNCHERS[system] ?? []
+}
+
+export const emudeck: EmulatorDescriptor = {
+  id: 'emudeck',
+  name: 'EmuDeck',
+  dispatch: 'rommix',
+  // What "EmuDeck is installed" means: the launcher scripts are there. Not
+  // that the Emulation folder exists — that is created early in setup and left
+  // behind by an uninstall, whereas the launchers are what RomMix actually
+  // runs. Where they are comes from the tools directory `layout` reads.
+  install: [{ kind: 'scripts', dir: { from: 'tools', path: 'launchers' } }],
+  // RomMix cannot install EmuDeck: its installer sets up a dozen emulators and
+  // asks the user a page of questions about how they want them configured.
+  homepage: 'https://www.emudeck.com',
+  systems: Object.keys(EMUDECK_LAUNCHERS),
+  // EmuDeck builds the Emulation folder during its own setup, and until that
+  // has happened there is nowhere to install a ROM to.
+  ownsLibrary: true,
+  // Discovered from EmuDeck's settings rather than declared: every one of them
+  // is a path the user chose, and an SD card is the usual reason.
+  dirs: {},
+  layout: {
+    sources: [
+      {
+        // `key=value` shell, sourced by EmuDeck's own launcher scripts.
+        file: { base: 'home', path: 'emudeck/settings.sh' },
+        format: 'shell',
+        requires: 'home',
+        keys: {
+          home: 'emulationPath',
+          roms: 'romsPath',
+          saves: 'savesPath',
+          bios: 'biosPath'
+        },
+        // Where the launcher scripts live, which is also how EmuDeck is
+        // detected at all.
+        extras: { tools: 'toolsPath' },
+        defaults: { roms: 'roms', saves: 'saves', bios: 'bios', tools: 'tools' }
+      }
+    ],
+    fallback: {
+      base: 'home',
+      paths: {
+        home: 'Emulation',
+        roms: 'Emulation/roms',
+        saves: 'Emulation/saves',
+        bios: 'Emulation/bios',
+        tools: 'Emulation/tools'
+      }
+    }
+  },
+  // EmuDeck files saves per emulator under Emulation/saves, and symlinks each
+  // emulator's own directory into it, so what is there depends on which
+  // emulator ran the game rather than on the ES-DE system.
+  saveLayout: 'delegated',
+  saveTree: 'flat',
+  variants: emuDeckLaunchers,
+  open: ({ exec, installRef }) => [...exec, `${installRef}/${EMUDECK_FRONTEND}`],
+  launch: ({ exec, installRef, system, romPath, variant }) => {
+    const options = emuDeckLaunchers(system)
+    if (options.length === 0) return null
+    // An unknown variant is not silently downgraded to the default: it means a
+    // recorded choice no longer exists, and running a game on a different
+    // emulator than the one asked for is how a save ends up in the wrong place.
+    const chosen = variant ? options.find((option) => option.id === variant) : options[0]
+    if (!chosen) return null
+    return [
+      ...exec,
+      `${installRef}/${chosen.script}`,
+      ...chosen.args.map((arg) => arg.replace(ROM_PLACEHOLDER, romPath))
+    ]
+  }
+}

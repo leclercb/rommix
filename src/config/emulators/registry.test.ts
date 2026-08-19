@@ -1,18 +1,20 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ESDE_SYSTEMS } from '../systems.ts'
+import { isKnownSystem } from '../systems.ts'
 import {
   EMULATORS,
-  RETRODECK_CONFIG,
+  EMUDECK_LAUNCHERS,
   SAVE_CONVENTIONS,
   defaultEmulatorFor,
   emulatorById,
   emulatorsForSystem,
   isInstallableAsset,
+  launchVariants,
   resolveEmulator,
   supportsSystem
 } from './index.ts'
 import { eden } from './eden.ts'
+import { emudeck, ROM_PLACEHOLDER } from './emudeck.ts'
 import { retroarch } from './retroarch.ts'
 import { retrodeck } from './retrodeck.ts'
 import type { EmulatorState } from './types.ts'
@@ -43,7 +45,7 @@ test('every declared system is a real ES-DE system directory', () => {
   // Same reasoning as the platform map: a typo here would quietly make an
   // emulator look incapable of running a system it handles fine.
   for (const emulator of EMULATORS) {
-    const unknown = emulator.systems.filter((system) => !ESDE_SYSTEMS.has(system))
+    const unknown = emulator.systems.filter((system) => !isKnownSystem(system))
     assert.deepEqual(unknown, [], `${emulator.id} declares unknown systems`)
   }
 })
@@ -67,11 +69,11 @@ test('a standalone emulator supports only what it declares', () => {
 test('emulatorsForSystem narrows to the ones that can run it', () => {
   assert.deepEqual(
     emulatorsForSystem('switch').map((emulator) => emulator.id),
-    ['eden']
+    ['emudeck', 'eden']
   )
   assert.deepEqual(
     emulatorsForSystem('snes').map((emulator) => emulator.id),
-    ['retrodeck', 'retroarch']
+    ['retrodeck', 'emudeck', 'retroarch']
   )
 })
 
@@ -81,7 +83,9 @@ test('unknown ids resolve to null rather than throwing', () => {
 
 test('defaults follow registry order and do not depend on what is installed', () => {
   assert.equal(defaultEmulatorFor('snes'), 'retrodeck')
-  assert.equal(defaultEmulatorFor('switch'), 'eden')
+  // EmuDeck comes before Eden: it manages a whole setup, so where it covers a
+  // system it already encodes how the user wants that system run.
+  assert.equal(defaultEmulatorFor('switch'), 'emudeck')
   assert.equal(defaultEmulatorFor('not-a-system'), null)
 })
 
@@ -126,6 +130,7 @@ test('no installed emulator runs the system resolves to null', () => {
 test('RetroDECK is launched by system so it resolves the emulator itself', () => {
   const argv = retrodeck.launch({
     exec: ['flatpak', 'run', 'net.retrodeck.retrodeck'],
+    installRef: 'net.retrodeck.retrodeck',
     system: 'snes',
     romPath: '/roms/snes/game.sfc'
   })
@@ -142,6 +147,7 @@ test('RetroDECK is launched by system so it resolves the emulator itself', () =>
 test('RetroArch is launched with the core mapped for the system', () => {
   const argv = retroarch.launch({
     exec: ['/usr/bin/retroarch'],
+    installRef: '/usr/bin/retroarch',
     system: 'snes',
     romPath: '/roms/snes/game.sfc'
   })
@@ -156,6 +162,7 @@ test('RetroArch is launched with the core mapped for the system', () => {
 test('Eden takes the ROM path positionally, after the AppImage itself', () => {
   const argv = eden.launch({
     exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
+    installRef: '/home/u/rommix/emulators/eden/Eden.AppImage',
     system: 'switch',
     romPath: '/roms/switch/game.nsp'
   })
@@ -173,6 +180,7 @@ test('Eden declines the systems it does not run', () => {
 test('an emulator returns null rather than argv for a system it cannot run', () => {
   const argv = retroarch.launch({
     exec: ['/usr/bin/retroarch'],
+    installRef: '/usr/bin/retroarch',
     system: 'switch',
     romPath: '/roms/switch/game.nsp'
   })
@@ -238,11 +246,73 @@ test('a frontend nests saves per system and a standalone emulator does not', () 
   assert.equal(retroarch.saveTree, 'flat')
 })
 
-test('RetroDECK declares where its own configuration is, rather than main guessing', () => {
-  assert.equal(RETRODECK_CONFIG.json.file, 'retrodeck.json')
-  assert.equal(RETRODECK_CONFIG.json.keys.roms, 'roms_path')
-  assert.equal(RETRODECK_CONFIG.legacy.file, 'retrodeck.cfg')
-  assert.equal(RETRODECK_CONFIG.legacy.homeKey, 'rdhome')
+test('an emulator whose folders the user chose says where that choice is written', () => {
+  // The point of `layout`: the main process reads these files without knowing
+  // which emulator it is reading for, so a new one is a config file and
+  // nothing else.
+  const sources = retrodeck.layout?.sources ?? []
+  assert.equal(sources.length, 1)
+  assert.equal(sources[0].file.path, 'retrodeck/retrodeck.json')
+  assert.equal(sources[0].section, 'paths')
+  // Verified against RetroDECK's own default retrodeck.json.
+  assert.equal(sources[0].keys.home, 'rd_home_path')
+  assert.equal(sources[0].keys.roms, 'roms_path')
+  assert.equal(sources[0].keys.saves, 'saves_path')
+  assert.equal(sources[0].keys.states, 'states_path')
+  assert.equal(sources[0].keys.bios, 'bios_path')
+
+  const emuDeckSource = emudeck.layout?.sources[0]
+  assert.equal(emuDeckSource?.file.path, 'emudeck/settings.sh')
+  assert.equal(emuDeckSource?.keys.home, 'emulationPath')
+  assert.equal(emuDeckSource?.extras?.tools, 'toolsPath')
+})
+
+test('every layout source can be acted on without knowing the emulator', () => {
+  for (const emulator of EMULATORS) {
+    for (const source of emulator.layout?.sources ?? []) {
+      assert.ok(source.file.path, `${emulator.id}: a source with no file`)
+      assert.ok(
+        source.format === 'shell' || source.format === 'json',
+        `${emulator.id}: unreadable format`
+      )
+      // Without this the file cannot be judged usable, and a half-written or
+      // superseded one would be believed.
+      const names = { ...source.keys, ...source.extras }
+      assert.ok(
+        source.requires in names,
+        `${emulator.id}: requires "${source.requires}", which it never reads`
+      )
+      // Defaults hang off the home the file carried, so there has to be one.
+      if (source.defaults) {
+        assert.ok(source.keys.home, `${emulator.id}: defaults with no home to hang them off`)
+      }
+    }
+  }
+})
+
+test('an emulator declares either fixed folders or where its own are recorded', () => {
+  // Both would be ambiguous, neither leaves the probe nothing to go on.
+  for (const emulator of EMULATORS) {
+    const hasTemplates = Object.keys(emulator.dirs).length > 0
+    const hasLayout = emulator.layout != null
+    assert.ok(hasTemplates !== hasLayout, `${emulator.id} declares ${hasTemplates ? 'both' : 'neither'}`)
+  }
+})
+
+test('a scripts install names a directory the layout actually discovers', () => {
+  for (const emulator of EMULATORS) {
+    for (const spec of emulator.install) {
+      if (spec.kind !== 'scripts') continue
+      const names = (emulator.layout?.sources ?? []).flatMap((source) => [
+        ...Object.keys(source.keys),
+        ...Object.keys(source.extras ?? {})
+      ])
+      assert.ok(
+        names.includes(spec.dir.from),
+        `${emulator.id}: install points at "${spec.dir.from}", which nothing discovers`
+      )
+    }
+  }
 })
 
 test('save conventions cover the extensions emulators actually write', () => {
@@ -259,4 +329,159 @@ test('an emulator only declares a directory it really has', () => {
   assert.equal(eden.dirs.states, undefined)
   assert.ok(eden.dirs.saves)
   assert.ok(eden.dirs.bios)
+})
+
+// ---------------------------------------------------------------------------
+// EmuDeck
+// ---------------------------------------------------------------------------
+
+test('EmuDeck runs a game through the launcher script for that system', () => {
+  // The scripts forward their arguments verbatim to the emulator underneath,
+  // so RomMix has to supply Dolphin's own flags rather than just a path.
+  const argv = emudeck.launch({
+    exec: [],
+    installRef: '/home/deck/Emulation/tools/launchers',
+    system: 'gc',
+    romPath: '/home/deck/Emulation/roms/gc/game.rvz'
+  })
+  assert.deepEqual(argv, [
+    '/home/deck/Emulation/tools/launchers/dolphin-emu.sh',
+    '-b',
+    '-e',
+    '/home/deck/Emulation/roms/gc/game.rvz'
+  ])
+})
+
+test('EmuDeck passes RomMix nothing to guess for a libretro system', () => {
+  const argv = emudeck.launch({
+    exec: [],
+    installRef: '/e/tools/launchers',
+    system: 'snes',
+    romPath: '/e/roms/snes/game.sfc'
+  })
+  assert.deepEqual(argv, [
+    '/e/tools/launchers/retroarch.sh',
+    '-L',
+    'snes9x_libretro.so',
+    '/e/roms/snes/game.sfc'
+  ])
+})
+
+test('the ROM placeholder is substituted inside an argument, not only as one', () => {
+  // Xenia runs under Proton and has to be handed a Windows path; ScummVM takes
+  // its path as part of a --path= argument.
+  assert.deepEqual(
+    emudeck.launch({
+      exec: [],
+      installRef: '/e/tools/launchers',
+      system: 'xbox360',
+      romPath: '/e/roms/xbox360/game.iso'
+    }),
+    ['/e/tools/launchers/xenia.sh', 'Z:/e/roms/xbox360/game.iso']
+  )
+  assert.deepEqual(
+    emudeck.launch({
+      exec: [],
+      installRef: '/e/tools/launchers',
+      system: 'scummvm',
+      romPath: '/e/roms/scummvm/game'
+    }),
+    ['/e/tools/launchers/scummvm.sh', '--path=/e/roms/scummvm/game', '--auto-detect']
+  )
+})
+
+test('EmuDeck offers a choice where it ships more than one way to run a system', () => {
+  // The point of asking: three Saturn cores of differing accuracy, and four
+  // Switch emulators of which only some run any given game.
+  assert.ok(launchVariants(emudeck, 'saturn').length > 1)
+  assert.ok(launchVariants(emudeck, 'switch').length > 1)
+  // Nothing to ask about here, so nothing should be asked.
+  assert.equal(launchVariants(emudeck, 'gc').length, 1)
+  assert.equal(launchVariants(emudeck, 'not-a-system').length, 0)
+})
+
+test('emulators with a single way to run a system offer no choice at all', () => {
+  for (const system of ['snes', 'ps2']) {
+    assert.equal(launchVariants(retrodeck, system).length, 0)
+    assert.equal(launchVariants(retroarch, system).length, 0)
+  }
+})
+
+test('a chosen EmuDeck variant is the one that runs', () => {
+  const argv = emudeck.launch({
+    exec: [],
+    installRef: '/e/tools/launchers',
+    system: 'switch',
+    romPath: '/e/roms/switch/game.nsp',
+    variant: 'ryujinx'
+  })
+  assert.deepEqual(argv, [
+    '/e/tools/launchers/ryujinx.sh',
+    '--fullscreen',
+    '/e/roms/switch/game.nsp'
+  ])
+})
+
+test('a variant that no longer exists refuses rather than substituting', () => {
+  // A recorded choice can outlive the entry it named. Falling back to the
+  // default would start a different emulator than the one asked for, and write
+  // its saves somewhere the first one will not look.
+  const argv = emudeck.launch({
+    exec: [],
+    installRef: '/e/tools/launchers',
+    system: 'switch',
+    romPath: '/e/roms/switch/game.nsp',
+    variant: 'an-emulator-that-was-removed'
+  })
+  assert.equal(argv, null)
+})
+
+test('EmuDeck declines a system it has no launcher for', () => {
+  // Rather than sending it to whichever script happens to be first.
+  assert.equal(
+    emudeck.launch({
+      exec: [],
+      installRef: '/e/tools/launchers',
+      system: 'psvita',
+      romPath: '/e/roms/psvita/game'
+    }),
+    null
+  )
+})
+
+test('every EmuDeck launcher names a real script and consumes the ROM', () => {
+  for (const [system, options] of Object.entries(EMUDECK_LAUNCHERS)) {
+    assert.ok(options.length > 0, `${system} has no launcher`)
+    const ids = options.map((option) => option.id)
+    assert.equal(new Set(ids).size, ids.length, `${system} has duplicate variant ids`)
+    for (const option of options) {
+      assert.match(option.script, /\.sh$/, `${system}: ${option.id} is not a script`)
+      assert.ok(
+        option.args.some((arg) => arg.includes(ROM_PLACEHOLDER)),
+        `${system}: ${option.id} never uses the ROM path`
+      )
+    }
+  }
+})
+
+test('the sandbox wrapping survives when the descriptor names its own program', () => {
+  // Inside a flatpak `exec` is the flatpak-spawn prefix with no program in it,
+  // and the launcher script has to land after it rather than in front.
+  const argv = emudeck.launch({
+    exec: ['flatpak-spawn', '--host'],
+    installRef: '/e/tools/launchers',
+    system: 'psx',
+    romPath: '/e/roms/psx/game.chd'
+  })
+  assert.deepEqual(argv?.slice(0, 3), [
+    'flatpak-spawn',
+    '--host',
+    '/e/tools/launchers/duckstation.sh'
+  ])
+})
+
+test('EmuDeck opens its own frontend for the Run button', () => {
+  assert.deepEqual(emudeck.open?.({ exec: [], installRef: '/e/tools/launchers' }), [
+    '/e/tools/launchers/es-de/es-de.sh'
+  ])
 })

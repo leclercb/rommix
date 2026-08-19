@@ -1,6 +1,6 @@
 import { app, ipcMain } from 'electron'
 import type { ConnectPayload } from '@shared/api'
-import { EMULATORS, emulatorById } from '@config/emulators'
+import { EMULATORS, emulatorById, launchVariants } from '@config/emulators'
 import type {
   BiosReport,
   BiosSyncResult,
@@ -10,6 +10,8 @@ import type {
   EmulatorAsset,
   EmulatorRelease,
   EmulatorState,
+  InstalledRom,
+  LaunchChoice,
   LaunchResult,
   LibrarySyncResult,
   RemoteAsset,
@@ -238,7 +240,10 @@ export function registerIpc(rommix: RomMixApp): void {
 
   // -- launching ------------------------------------------------------------
 
-  handle('game:launch', async (romId: number): Promise<LaunchResult> => {
+  /** The downloaded copy plus the emulator that is going to run it. */
+  const launchContext = async (
+    romId: number
+  ): Promise<{ installed: InstalledRom; emulator: EmulatorState }> => {
     await rommix.ensureEmulators()
 
     const installed = downloads.installedNow(romId)
@@ -255,6 +260,48 @@ export function registerIpc(rommix: RomMixApp): void {
     if (!emulator) {
       throw new RommError(`No installed emulator can run "${installed.system}"`)
     }
+    return { installed, emulator }
+  }
+
+  /** Key under which a per-system launch choice is remembered. */
+  const launcherKey = (emulatorId: string, system: string): string => `${emulatorId}:${system}`
+
+  /**
+   * What this game can be run with.
+   *
+   * Asked before launching so the renderer can put the question up front rather
+   * than after a failure. An emulator with one way to run the system answers
+   * with a single option and nothing is asked.
+   */
+  handle('game:variants', async (romId: number): Promise<LaunchChoice> => {
+    const { installed, emulator } = await launchContext(romId)
+    const descriptor = emulatorById(emulator.id)
+    const options = descriptor ? launchVariants(descriptor, installed.system) : []
+    const recorded = store.settings.systemLaunchers[launcherKey(emulator.id, installed.system)]
+
+    return {
+      system: installed.system,
+      emulatorId: emulator.id,
+      emulatorName: emulator.name,
+      options: options.map((option) => ({ ...option })),
+      // A recorded choice that no longer exists is reported as unanswered, so
+      // the user is asked again rather than being launched into something else.
+      chosen: options.some((option) => option.id === recorded) ? recorded : null
+    }
+  })
+
+  handle('game:launch', async (romId: number, variant?: string): Promise<LaunchResult> => {
+    const { installed, emulator } = await launchContext(romId)
+
+    // Remembered so the question is asked once per system rather than before
+    // every game.
+    const key = launcherKey(emulator.id, installed.system)
+    const chosen = variant ?? store.settings.systemLaunchers[key]
+    if (variant && variant !== store.settings.systemLaunchers[key]) {
+      store.updateSettings({
+        systemLaunchers: { ...store.settings.systemLaunchers, [key]: variant }
+      })
+    }
 
     const rom = await client.rom(romId)
 
@@ -266,7 +313,8 @@ export function registerIpc(rommix: RomMixApp): void {
         // and an emulator can only be given a file.
         romPath: await downloads.launchTarget(installed),
         system: installed.system,
-        emulator
+        emulator,
+        variant: chosen
       })
     } finally {
       rommix.send('game:state', { running: false, romId: null })

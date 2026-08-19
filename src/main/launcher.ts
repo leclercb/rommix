@@ -19,6 +19,8 @@ interface LaunchOptions {
   romPath: string
   system: string
   emulator: EmulatorState
+  /** Which of the emulator's launch variants to use, when it offers several. */
+  variant?: string
 }
 
 export class Launcher {
@@ -40,13 +42,15 @@ export class Launcher {
 
   /** Build the argv for an emulator, or null when it cannot run this system. */
   buildCommand(options: LaunchOptions): string[] | null {
-    const { emulator, system, romPath } = options
+    const { emulator, system, romPath, variant } = options
     const descriptor = emulatorById(emulator.id)
     if (!descriptor || !emulator.install) return null
     return descriptor.launch({
       exec: execPrefix(emulator.install, descriptor.env),
+      installRef: emulator.install.ref,
       system,
-      romPath
+      romPath,
+      variant
     })
   }
 
@@ -210,7 +214,10 @@ export class Launcher {
       throw new Error(`${emulator.name} is not installed`)
     }
 
-    const argv = execPrefix(emulator.install, descriptor.env)
+    const prefix = execPrefix(emulator.install, descriptor.env)
+    const argv = descriptor.open
+      ? descriptor.open({ exec: prefix, installRef: emulator.install.ref })
+      : prefix
     const [cmd, ...args] = argv
     const child = spawn(cmd, args, {
       stdio: 'ignore',

@@ -44,6 +44,7 @@ function defaultSettings(): Settings {
   return {
     systemEmulators: {},
     emulatorPaths: {},
+    systemLaunchers: {},
     systemOverrides: {},
     syncSavesDown: true,
     syncSavesUp: true,

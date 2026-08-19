@@ -42,6 +42,13 @@ export type InstallSpec =
   | { kind: 'flatpak'; appId: string }
   | { kind: 'binary'; names: readonly string[] }
   | { kind: 'appimage'; patterns: readonly string[] }
+  /**
+   * A directory of launcher scripts rather than one program, which is what a
+   * configurator like EmuDeck leaves behind. Its location comes out of the
+   * emulator's own configuration, so it is named relative to something
+   * `layout` discovered: `from` is a path key or extra, `path` hangs off it.
+   */
+  | { kind: 'scripts'; dir: { from: string; path: string } }
 
 /**
  * Where an emulator's own releases can be listed, for emulators RomMix can
@@ -62,9 +69,12 @@ export interface ReleaseSource {
   homepage: string
 }
 
-/** An install that was actually found. `ref` is a flatpak app id or a path. */
+/**
+ * An install that was actually found. `ref` is a flatpak app id, the path of a
+ * program, or — for `scripts` — the directory the launchers live in.
+ */
 export interface ResolvedInstall {
-  kind: 'flatpak' | 'binary' | 'appimage'
+  kind: 'flatpak' | 'binary' | 'appimage' | 'scripts'
   ref: string
 }
 
@@ -88,6 +98,61 @@ export interface EmulationPaths {
   saves: string | null
   states: string | null
   bios: string | null
+}
+
+/**
+ * One configuration file an emulator records its folder layout in.
+ *
+ * Emulators that let the user choose where their library lives — RetroDECK's
+ * SD card, EmuDeck's Emulation folder — cannot have their paths written as
+ * templates, because the answer is on the user's disk rather than in this
+ * table. What *is* a fixed fact is where they write that answer down and what
+ * they call each key, so that is what a descriptor declares; reading the file
+ * is the main process's job and knows nothing about which emulator it is.
+ */
+export interface LayoutSource {
+  /** Where the file is, resolved like any other path template. */
+  file: DirSpec
+  /** `key=value` shell, as EmuDeck writes, or JSON, as RetroDECK does. */
+  format: 'shell' | 'json'
+  /** For JSON, the property holding the values, e.g. RetroDECK's `paths`. */
+  section?: string
+  /** Our path names -> what this file calls them. */
+  keys: Partial<Record<keyof EmulationPaths, string>>
+  /**
+   * Other values worth reading out, for things that are not one of our paths —
+   * EmuDeck's tools directory, which is where its launchers live.
+   */
+  extras?: Readonly<Record<string, string>>
+  /**
+   * The name that has to be present for this file to count as usable. An older
+   * format that happens to exist but says nothing is skipped rather than
+   * believed.
+   */
+  requires: string
+  /**
+   * Names this file may leave out, resolved below the `home` it does carry.
+   * A library on an SD card would otherwise fall back to one in the home
+   * directory.
+   */
+  defaults?: Readonly<Record<string, string>>
+}
+
+export interface LayoutDiscovery {
+  /** Tried in order; the first that carries its `requires` name wins. */
+  readonly sources: readonly LayoutSource[]
+  /**
+   * Where things are when no configuration file says.
+   *
+   * Applied only to paths that actually exist: a guessed location that happens
+   * to be right is useful, and one that is merely plausible is worse than
+   * admitting the layout is unknown — it turns "this has never been set up"
+   * into a silent install into a folder nothing reads.
+   */
+  readonly fallback?: {
+    base: DirBase
+    paths: Readonly<Record<string, string>>
+  }
 }
 
 /**
@@ -127,12 +192,36 @@ export interface SaveFileConventions {
   maxDepth: number
 }
 
+/**
+ * One of several ways an emulator can run a system.
+ *
+ * Some emulators offer a real choice for a platform — three Saturn cores of
+ * differing accuracy, four Switch emulators of which only some run a given
+ * game. Picking silently would be a guess, so a descriptor that has more than
+ * one option says so and RomMix asks before the first launch.
+ */
+export interface LaunchVariant {
+  /** Stable id, persisted in settings once the user has chosen. */
+  id: string
+  /** What to call it on screen, e.g. 'Kronos'. */
+  label: string
+  /** Short qualifier shown beside the label, e.g. 'RetroArch'. */
+  note?: string
+}
+
 export interface LaunchContext {
-  /** argv prefix that starts the program, already wrapped for the sandbox. */
+  /**
+   * argv prefix that starts the program, already wrapped for the sandbox. For
+   * a `scripts` install this is the wrapping alone, with no program in it.
+   */
   exec: readonly string[]
+  /** What the probe resolved: an app id, a program, or a launcher directory. */
+  installRef: string
   /** ES-DE system directory name, e.g. 'snes'. */
   system: string
   romPath: string
+  /** The chosen `LaunchVariant`, when the emulator offers more than one. */
+  variant?: string
 }
 
 export interface EmulatorDescriptor {
@@ -165,16 +254,37 @@ export interface EmulatorDescriptor {
    * RomMix-only folder would quietly prevent.
    */
   readonly dirs: Partial<Record<keyof EmulationPaths, DirSpec>>
+  /**
+   * Set instead of `dirs` when the emulator records its own layout because the
+   * user chose it. Templates cannot express a path that lives on the disk.
+   */
+  readonly layout?: LayoutDiscovery
   readonly saveLayout: SaveLayout
   /** Arrangement below `dirs.saves` and `dirs.states`. */
   readonly saveTree: SaveTree
   /** Set when RomMix can fetch and install this emulator itself. */
   readonly releases?: ReleaseSource
   /**
+   * Where to get it, for emulators RomMix cannot install — shown instead of a
+   * button, so "not installed" comes with an answer rather than a dead end.
+   */
+  readonly homepage?: string
+  /**
    * Environment the emulator needs in order to start, merged over RomMix's own.
    * For things the emulator will not do for itself — not for tuning.
    */
   readonly env?: Readonly<Record<string, string>>
+  /**
+   * The ways this emulator can run a system. Absent, or one entry, means there
+   * is nothing to ask about.
+   */
+  variants?(system: string): readonly LaunchVariant[]
+  /**
+   * argv to start the emulator on its own, for the Run button. Only needed
+   * where that is not simply `exec` — a launcher directory has no one program,
+   * so EmuDeck points this at its frontend.
+   */
+  open?(ctx: { exec: readonly string[]; installRef: string }): string[]
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
 }

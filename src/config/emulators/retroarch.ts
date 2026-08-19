@@ -1,4 +1,4 @@
-import { ESDE_TO_LIBRETRO_CORE, coreForSystem } from '../systems.ts'
+import { coreForSystem, systemsWithCore } from '../systems.ts'
 import type { EmulatorDescriptor } from './types.ts'
 
 const RETROARCH_APP_ID = 'org.libretro.RetroArch'
@@ -23,7 +23,7 @@ export const retroarch: EmulatorDescriptor = {
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
     { kind: 'binary', names: ['retroarch'] }
   ],
-  systems: Object.keys(ESDE_TO_LIBRETRO_CORE),
+  systems: systemsWithCore(),
   ownsLibrary: false,
   dirs: {
     roms: { base: 'rommix', path: 'roms' },
