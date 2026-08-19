@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
-import { FocusLayer, useAction, useFocusable } from './input/focus'
+import { FocusLayer, useAction, useFocusable, useKeyLabel } from './input/focus'
 import type { InstalledRom, RommRom } from '@shared/types'
 
 /** Shared presentational pieces for the 10-foot UI. */
@@ -306,13 +306,19 @@ export function GameRow({
   )
 }
 
-/** Console-style button hints pinned to the bottom of the screen. */
+/**
+ * Console-style button hints pinned to the bottom of the screen.
+ *
+ * Call sites name controller buttons; what is drawn is whatever the player is
+ * actually holding, so the bar stops telling a keyboard user to press A.
+ */
 export function Hints({ items }: { items: { key: string; label: string }[] }): JSX.Element {
+  const keyLabel = useKeyLabel()
   return (
     <div className="hints">
       {items.map((item) => (
         <span key={item.key + item.label}>
-          <span className="hint__key">{item.key}</span>
+          <span className="hint__key">{keyLabel(item.key)}</span>
           {item.label}
         </span>
       ))}

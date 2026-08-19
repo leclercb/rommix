@@ -190,6 +190,19 @@ input {
   line-height: 1.45;
 }
 
+/* Sits under the connection line, quieter than it: this is a signature, not
+   something the user has to read. */
+.rail__credit {
+  padding: 2px 16px 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  opacity: 0.75;
+}
+
+.rail__heart {
+  color: var(--danger);
+}
+
 .rail__badge {
   margin-left: auto;
   background: var(--accent);
@@ -205,6 +218,11 @@ input {
   overflow-x: hidden;
   padding: var(--safe-y) var(--safe-x) calc(var(--safe-y) + 40px);
   scrollbar-width: none;
+  /* Scrolling to a focused element aligns against this inset rather than the
+     hard edge, so the row you land on keeps a band of context above and below
+     it instead of sitting against the rim of the screen. The bottom inset is
+     the larger of the two because the hint bar floats over that edge. */
+  scroll-padding: 96px 0 128px;
 }
 
 .content::-webkit-scrollbar {
@@ -476,11 +494,58 @@ input {
   gap: 8px;
 }
 
-.installed__group {
+/* A platform, closed: the row that stands in for everything inside it. Sized
+   and lit like a menu item rather than a card, because that is what it is —
+   somewhere to go, not something to read. */
+.group {
+  margin-bottom: 10px;
+}
+
+.group__header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: var(--transition);
+}
+
+.group__header[data-focused='true'] {
+  box-shadow: var(--focus-ring);
+  border-color: var(--accent);
+}
+
+/* Open, the header is the lid of the list below it: square off the join so the
+   two read as one block rather than two stacked cards. */
+.group__header[data-open='true'] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-bottom: 10px;
+}
+
+.group__chevron {
+  width: 14px;
+  color: var(--text-faint);
+  font-size: 14px;
+}
+
+.group__name {
+  font-size: 18px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pushed to the far end: the counts are the answer the closed row exists to
+   give, and they line up down the column when several groups are stacked. */
+.group__meta {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .platform-badge {
@@ -975,8 +1040,11 @@ input {
   left: 0;
   right: 0;
   display: flex;
-  gap: 22px;
+  gap: 8px 22px;
   justify-content: flex-end;
+  /* Four hints of keyboard labels are far wider than four of `A`/`B`/`X`/`Y`,
+     so they wrap onto a second line on a narrow window rather than colliding. */
+  flex-wrap: wrap;
   padding: 10px var(--safe-x);
   background: linear-gradient(transparent, rgba(6, 8, 12, 0.92) 45%);
   font-size: 14px;
@@ -985,13 +1053,27 @@ input {
   z-index: 40;
 }
 
+/* Each hint keeps its chip and its label on one line, whatever they say. */
+.hints > span {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/*
+ * A pill rather than a fixed circle. The chip has to hold `A` and `Shift+Tab`
+ * alike now that it names keyboard keys as well as controller buttons, and a
+ * fixed 22px circle simply let the longer ones spill over the label next to it.
+ * `min-width` equal to the height keeps a single character perfectly round.
+ */
 .hint__key {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
+  min-width: 22px;
   height: 22px;
-  border-radius: 50%;
+  padding: 0 7px;
+  border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
   font-size: 12px;

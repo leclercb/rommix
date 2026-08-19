@@ -9,7 +9,7 @@ import {
   tileFromInstalled,
   tileFromRom
 } from '../components'
-import { useAction, useFocusable } from '../input/focus'
+import { useAction, useFocusable, useKeyLabel } from '../input/focus'
 import { useApp } from '../state'
 
 /**
@@ -214,6 +214,7 @@ function Hero({
   onSelect: () => void
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect, autoFocus: true })
+  const keyLabel = useKeyLabel()
   const title = rom.name ?? rom.fs_name
   const year = rom.metadatum.first_release_date
     ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
@@ -240,7 +241,7 @@ function Hero({
           ))}
         </div>
         {rom.summary ? <p className="hero__summary">{rom.summary}</p> : null}
-        <div className="hero__hint">Press A to open</div>
+        <div className="hero__hint">Press {keyLabel('A')} to open</div>
       </div>
     </div>
   )

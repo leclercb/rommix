@@ -521,7 +521,11 @@ function SavesTab({
           <span className="asset__name">{asset.fileName}</span>
           <span className="asset__meta">
             {formatBytes(asset.sizeBytes)}
-            {asset.emulator ? ` · ${asset.emulator}` : ''} ·{' '}
+            {asset.emulator ? ` · ${asset.emulator}` : ''}
+            {/* Where it came from, when the server recorded it: the useful
+                thing to know about a save you did not expect to see. */}
+            {asset.fromThisDevice === true ? ' · this device' : ''}
+            {asset.fromThisDevice === false ? ' · another device' : ''} ·{' '}
             {new Date(asset.updatedAt).toLocaleString()}
           </span>
         </li>

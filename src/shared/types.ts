@@ -178,6 +178,8 @@ export interface RommSave {
   download_path: string
   emulator: string | null
   slot: string | null
+  /** The RomM device that uploaded it, when the upload named one. */
+  origin_device_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -408,6 +410,14 @@ export interface RemoteAsset {
   sizeBytes: number
   /** The emulator RomM recorded as having written it, when it knows. */
   emulator: string | null
+  /**
+   * Whether this device uploaded it — null when RomM did not record an origin,
+   * which is every state and anything uploaded through the web UI.
+   *
+   * Shown rather than acted on. Which device wrote a save says nothing about
+   * whether it is the one worth keeping, and newest-wins remains the rule.
+   */
+  fromThisDevice: boolean | null
   updatedAt: string
 }
 

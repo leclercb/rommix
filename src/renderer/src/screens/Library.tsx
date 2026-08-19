@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import type { RommPlatform, RommRom } from '@shared/types'
 import { GameCard, Hints, PlatformIcon, Spinner, TextField, tileFromRom } from '../components'
-import { useAction, useFocusable } from '../input/focus'
+import { useAction, useFocusable, useKeyLabel } from '../input/focus'
 import { useApp } from '../state'
 
 const PAGE_SIZE = 60
@@ -17,6 +17,7 @@ const PAGE_SIZE = 60
  */
 export function LibraryScreen(): JSX.Element {
   const { installedIds, navigate } = useApp()
+  const keyLabel = useKeyLabel()
 
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
   const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
@@ -123,7 +124,7 @@ export function LibraryScreen(): JSX.Element {
           value={search}
           onChange={setSearch}
           placeholder="Game title…"
-          hint="Press Y to jump here, Escape to leave the field."
+          hint={`Press ${keyLabel('Y')} to jump here, Escape to leave the field.`}
         />
       </div>
 

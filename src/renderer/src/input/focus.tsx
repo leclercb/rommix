@@ -29,12 +29,30 @@ export type Direction = 'up' | 'down' | 'left' | 'right'
 /** Buttons the UI reacts to, named by intent rather than by index. */
 export type Action = 'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight'
 
+/**
+ * What the player is driving the UI with right now.
+ *
+ * Tracked because the hint bar has to name keys someone can actually press.
+ * "Press A" is a lie on a keyboard, where A is Enter, and "Press Enter" is a
+ * lie the moment a controller is picked up. Whichever device produced the last
+ * input is the one being held, so that is the one the hints speak for — and it
+ * switches back the instant the other is touched.
+ */
+export type InputKind = 'gamepad' | 'keyboard'
+
+/** Is a pad plugged in at all? Decides the first guess, before any input. */
+function gamepadPresent(): boolean {
+  return navigator.getGamepads().some((pad) => pad !== null)
+}
+
 interface FocusableEntry {
   id: string
   element: HTMLElement
   onSelect?: () => void
   /** Focusables in a lower layer are ignored while a higher layer exists (modals). */
   layer: number
+  /** Which region of the screen this belongs to. See `FocusZone`. */
+  zone: string
 }
 
 interface FocusContextValue {
@@ -45,6 +63,8 @@ interface FocusContextValue {
   activate(): void
   /** Subscribe to a non-directional action. Returns an unsubscribe function. */
   onAction(action: Action, handler: () => void, layer: number): () => void
+  /** What the last input came from, for anything that has to name a button. */
+  inputKind: InputKind
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
@@ -60,6 +80,28 @@ const FocusContext = createContext<FocusContextValue | null>(null)
  */
 const LayerContext = createContext(0)
 
+/**
+ * The region of the screen a subtree belongs to.
+ *
+ * Zones are what stop the navigation rail and the page from competing. Purely
+ * geometric navigation has no idea that the rail is a different *kind* of thing
+ * from the list beside it: stepping down the last item of a page finds a rail
+ * item below and to the left, takes it because nothing else is down there, and
+ * the user is suddenly in the menu without having asked to be. Which one wins
+ * depends on where the page happens to have ended — that is the unpredictability.
+ *
+ * So up and down stay inside the zone they started in, and left and right cross
+ * between zones. That is the same contract every console UI offers, and it is
+ * what makes the rail feel like somewhere you *go* rather than somewhere you
+ * fall into.
+ */
+const ZoneContext = createContext('root')
+
+/** Mark a subtree as one navigable region. */
+export function FocusZone({ id, children }: { id: string; children: ReactNode }): JSX.Element {
+  return <ZoneContext.Provider value={id}>{children}</ZoneContext.Provider>
+}
+
 interface Rect {
   cx: number
   cy: number
@@ -67,6 +109,83 @@ interface Rect {
   right: number
   top: number
   bottom: number
+}
+
+/**
+ * Close enough to an end of the page to go all the way there.
+ *
+ * `scrollIntoView` moves the least it can get away with, so walking up a page
+ * stops with the first row flush against the top edge and the page's own title
+ * still hidden above it — the page never appears to reach the top. Focus near
+ * either end therefore scrolls to that end instead of to the element, which is
+ * what "up" means to someone holding the stick.
+ */
+const SNAP_TO_EDGE_PX = 260
+
+/** The nearest ancestor that actually scrolls, if there is one. */
+function scrollParentOf(element: HTMLElement): HTMLElement | null {
+  let node = element.parentElement
+  while (node) {
+    const overflow = getComputedStyle(node).overflowY
+    if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight) {
+      return node
+    }
+    node = node.parentElement
+  }
+  return null
+}
+
+/**
+ * Bring a newly focused element into view, snapping to the ends of the page.
+ *
+ * Only the focused element is measured — the registry can hold a couple of
+ * thousand rows, and this runs on every press of a held direction.
+ */
+function revealElement(element: HTMLElement): void {
+  const scroller = scrollParentOf(element)
+  if (scroller) {
+    // Where the element sits inside the scrolled content, not the viewport.
+    const top = scroller.scrollTop + (element.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top)
+    const bottom = top + element.offsetHeight
+
+    if (top <= SNAP_TO_EDGE_PX) {
+      scroller.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (bottom >= scroller.scrollHeight - SNAP_TO_EDGE_PX) {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+      return
+    }
+  }
+  element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+}
+
+/**
+ * Scroll to the end of the page when there is nothing further to focus.
+ *
+ * A page is not only its buttons. Titles, the paragraph explaining what a
+ * screen is for, the note under the last row — none of it is focusable, so
+ * walking to the last item leaves the rest of the page unread and the next
+ * press does nothing at all. That press means "further down"; this gives it
+ * that meaning. It goes to the very end rather than by a screenful because
+ * there is nothing focusable in between that could be skipped past.
+ *
+ * Returns false when the page is already at that end, which leaves the press
+ * genuinely inert — the honest answer when there is nothing more to show.
+ */
+function scrollToEnd(element: HTMLElement, direction: 'up' | 'down'): boolean {
+  const scroller = scrollParentOf(element)
+  if (!scroller) return false
+
+  const room =
+    direction === 'up'
+      ? scroller.scrollTop
+      : scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
+  if (room <= 1) return false
+
+  scroller.scrollTo({ top: direction === 'up' ? 0 : scroller.scrollHeight, behavior: 'smooth' })
+  return true
 }
 
 function rectOf(element: HTMLElement): Rect {
@@ -82,35 +201,57 @@ function rectOf(element: HTMLElement): Rect {
 }
 
 /**
- * Score a candidate for a directional move. Lower is better.
+ * How much closer one candidate must be to count as genuinely nearer.
  *
- * The primary-axis distance dominates and the perpendicular offset is
- * penalised, so moving right prefers the nearest item on roughly the same row
- * before jumping to a closer item on another row. Candidates that do not lie in
- * the requested direction at all score Infinity.
+ * Everything within this of the closest candidate is treated as being the same
+ * distance away — one row of a grid, one line of a list — and is settled by
+ * column instead. Cards in a row rarely align to the pixel once their titles
+ * wrap, so the band has to be wider than that jitter and narrower than the gap
+ * between two rows.
  */
-function score(from: Rect, to: Rect, direction: Direction): number {
-  const dx = to.cx - from.cx
-  const dy = to.cy - from.cy
+const SAME_STEP_PX = 24
 
-  // Overlap on the cross axis means the items are visually aligned.
-  const horizontalOverlap = Math.min(from.right, to.right) - Math.max(from.left, to.left)
-  const verticalOverlap = Math.min(from.bottom, to.bottom) - Math.max(from.top, to.top)
+interface Measure {
+  /** Distance to travel, edge to edge. */
+  gap: number
+  /** How far out of the line of travel, 0 when the line passes through it. */
+  cross: number
+}
 
-  switch (direction) {
-    case 'right':
-      if (to.left < from.right - 1) return Infinity
-      return dx + (verticalOverlap > 0 ? 0 : Math.abs(dy) * 3)
-    case 'left':
-      if (to.right > from.left + 1) return Infinity
-      return -dx + (verticalOverlap > 0 ? 0 : Math.abs(dy) * 3)
-    case 'down':
-      if (to.top < from.bottom - 1) return Infinity
-      return dy + (horizontalOverlap > 0 ? 0 : Math.abs(dx) * 3)
-    case 'up':
-      if (to.bottom > from.top + 1) return Infinity
-      return -dy + (horizontalOverlap > 0 ? 0 : Math.abs(dx) * 3)
-  }
+/**
+ * Measure a candidate for a directional move, or null when it does not lie in
+ * that direction at all.
+ *
+ * Both terms are edge-to-edge rather than centre-to-centre. Centres make an
+ * element's *size* count as distance: a tall row directly below would lose to a
+ * short one further away but nearer the middle.
+ *
+ * The two are deliberately *not* combined into one number. Weighing distance
+ * against alignment lets a well-aligned element two rows down beat the row
+ * immediately below — which is how a press ends up skipping something the user
+ * can plainly see. Distance decides; alignment only settles candidates that are
+ * the same distance away.
+ */
+function measure(from: Rect, to: Rect, direction: Direction, anchor: number): Measure | null {
+  const vertical = direction === 'down' || direction === 'up'
+
+  const gap =
+    direction === 'down'
+      ? to.top - from.bottom
+      : direction === 'up'
+        ? from.top - to.bottom
+        : direction === 'right'
+          ? to.left - from.right
+          : from.left - to.right
+
+  // A one-pixel tolerance: adjacent rows often share a boundary exactly.
+  if (gap < -1) return null
+
+  const cross = vertical
+    ? Math.max(0, to.left - anchor, anchor - to.right)
+    : Math.max(0, to.top - anchor, anchor - to.bottom)
+
+  return { gap: Math.max(gap, 0), cross }
 }
 
 export function FocusProvider({ children }: { children: ReactNode }): JSX.Element {
@@ -123,6 +264,24 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   // Where focus was on each layer, so closing an overlay puts it back rather
   // than dropping the user at the top of the page behind it.
   const restorePoints = useRef(new Map<number, string>())
+  /**
+   * The column a vertical run is travelling down, in viewport pixels.
+   *
+   * Held for as long as the run lasts so that a wide button between two rows of
+   * cards does not become a funnel: without it, going down onto the button and
+   * back up returns to whatever card is nearest the button's centre rather than
+   * the one that was left. Cleared by any horizontal move, and by focus landing
+   * somewhere for a reason other than travel — a click, an autofocus, an
+   * overlay closing — because none of those continue a run.
+   */
+  const anchor = useRef<number | null>(null)
+  /**
+   * Where focus last was in each zone, so crossing back into one returns to
+   * what you were doing there rather than to whatever is level with you.
+   */
+  const zoneMemory = useRef(new Map<string, string>())
+  /** The zone focus is in, kept where a removed element cannot take it away. */
+  const lastZone = useRef('root')
 
   focusedRef.current = focusedId
 
@@ -133,13 +292,24 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     )
   }, [])
 
-  const setFocus = useCallback((id: string): void => {
+  /** Focus an element without disturbing a run in progress. */
+  const applyFocus = useCallback((id: string): void => {
     const entry = entries.current.get(id)
     if (!entry) return
     focusedRef.current = id
+    zoneMemory.current.set(entry.zone, id)
+    lastZone.current = entry.zone
     setFocusedId(id)
-    entry.element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+    revealElement(entry.element)
   }, [])
+
+  const setFocus = useCallback(
+    (id: string): void => {
+      anchor.current = null
+      applyFocus(id)
+    },
+    [applyFocus]
+  )
 
   /**
    * Recompute which layer owns the input, and make sure focus is on it.
@@ -166,8 +336,22 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       setFocus(restored)
       return
     }
-    const first = visibleEntries()[0] ?? [...entries.current.values()].find((e) => e.layer === top)
+    // Prefer the zone focus was already in — remembered separately, because by
+    // the time a screen has been replaced its focused element is gone from the
+    // registry and cannot be asked what zone it was in. Falling back to
+    // document order hands focus to the navigation rail every time a screen
+    // changes, the rail being the first thing in the document, which is exactly
+    // how opening a game used to leave the highlight sitting in the menu.
+    const visible = visibleEntries()
+    const first =
+      visible.find((entry) => entry.zone === lastZone.current) ??
+      visible[0] ??
+      [...entries.current.values()].find((e) => e.layer === top)
     focusedRef.current = first?.id ?? null
+    if (first) {
+      zoneMemory.current.set(first.zone, first.id)
+      lastZone.current = first.zone
+    }
     setFocusedId(first?.id ?? null)
   }, [setFocus, visibleEntries])
 
@@ -195,16 +379,74 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       }
 
       const from = rectOf(current.element)
-      let best: { id: string; value: number } | null = null
-      for (const candidate of candidates) {
-        if (candidate.id === current.id) continue
-        const value = score(from, rectOf(candidate.element), direction)
-        if (value === Infinity) continue
-        if (!best || value < best.value) best = { id: candidate.id, value }
+      const vertical = direction === 'down' || direction === 'up'
+      // A vertical run keeps the column it started in; anything else starts a
+      // new line of travel from where focus is now.
+      if (!vertical || anchor.current === null) {
+        anchor.current = vertical ? from.cx : from.cy
       }
-      if (best) setFocus(best.id)
+      const line = anchor.current
+
+      /**
+       * The nearest candidate in this direction; among those the same distance
+       * away, the one most nearly in line.
+       */
+      const pick = (pool: FocusableEntry[]): string | null => {
+        const measured: { id: string; at: Measure }[] = []
+        let nearest = Infinity
+
+        for (const candidate of pool) {
+          if (candidate.id === current.id) continue
+          const at = measure(from, rectOf(candidate.element), direction, line)
+          if (!at) continue
+          measured.push({ id: candidate.id, at })
+          nearest = Math.min(nearest, at.gap)
+        }
+        if (measured.length === 0) return null
+
+        // One step's worth of candidates — a single row, a single line — then
+        // the column decides between them.
+        const step = measured.filter((entry) => entry.at.gap <= nearest + SAME_STEP_PX)
+        step.sort((a, b) => a.at.cross - b.at.cross || a.at.gap - b.at.gap)
+        return step[0].id
+      }
+
+      // Within the zone first, always. Up and down stop at its edge rather than
+      // spilling into whatever else is on screen.
+      const inZone = candidates.filter((entry) => entry.zone === current.zone)
+      let target = pick(inZone)
+
+      // Nothing left to focus that way, but the page may still have something
+      // to show: the last press before the edge reveals the rest of it.
+      if (!target && vertical) {
+        scrollToEnd(current.element, direction)
+        return
+      }
+
+      if (!target && !vertical) {
+        // Sideways off the edge of a zone is the one way across. Where it lands
+        // is where you last were in that zone — the rail remembers which item
+        // you left it on, the page remembers the game you were looking at —
+        // falling back to whatever lies that way if you have never been there.
+        const outside = candidates.filter((entry) => entry.zone !== current.zone)
+        const crossing = pick(outside)
+        if (crossing) {
+          const zone = entries.current.get(crossing)?.zone
+          const remembered = zone ? zoneMemory.current.get(zone) : undefined
+          const usable =
+            remembered && outside.some((entry) => entry.id === remembered) ? remembered : crossing
+          target = usable
+        }
+      }
+
+      if (!target) return
+
+      applyFocus(target)
+      // A horizontal move re-anchors on where it landed, so the next vertical
+      // run travels down the new column rather than the one before it.
+      if (!vertical) anchor.current = null
     },
-    [setFocus, visibleEntries]
+    [applyFocus, setFocus, visibleEntries]
   )
 
   const activate = useCallback((): void => {
@@ -236,12 +478,36 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     target?.handler()
   }, [])
 
-  useGamepad(move, fireAction, activate)
-  useKeyboard(move, fireAction, activate)
+  // Starts as whatever is plugged in, then follows whatever is actually used.
+  const [inputKind, setInputKind] = useState<InputKind>(() =>
+    gamepadPresent() ? 'gamepad' : 'keyboard'
+  )
+  // Set on every input, so it must not re-render unless the answer changed.
+  const noteInput = useCallback((kind: InputKind): void => {
+    setInputKind((current) => (current === kind ? current : kind))
+  }, [])
+
+  // Plugging a pad in is itself a statement of intent, and unplugging one
+  // leaves a keyboard as the only thing left to press.
+  useEffect(() => {
+    const connected = (): void => noteInput('gamepad')
+    const disconnected = (): void => {
+      if (!gamepadPresent()) noteInput('keyboard')
+    }
+    window.addEventListener('gamepadconnected', connected)
+    window.addEventListener('gamepaddisconnected', disconnected)
+    return () => {
+      window.removeEventListener('gamepadconnected', connected)
+      window.removeEventListener('gamepaddisconnected', disconnected)
+    }
+  }, [noteInput])
+
+  useGamepad(move, fireAction, activate, noteInput)
+  useKeyboard(move, fireAction, activate, noteInput)
 
   const value = useMemo<FocusContextValue>(
-    () => ({ register, focusedId, setFocus, move, activate, onAction }),
-    [register, focusedId, setFocus, move, activate, onAction]
+    () => ({ register, focusedId, setFocus, move, activate, onAction, inputKind }),
+    [register, focusedId, setFocus, move, activate, onAction, inputKind]
   )
 
   return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
@@ -251,6 +517,34 @@ export function useFocusContext(): FocusContextValue {
   const ctx = useContext(FocusContext)
   if (!ctx) throw new Error('useFocusContext must be used inside a FocusProvider')
   return ctx
+}
+
+/** What a controller button is called on the keyboard that stands in for it. */
+const KEYBOARD_LABELS: Record<string, string> = {
+  A: 'Enter',
+  B: 'Esc',
+  X: 'M',
+  Y: '/',
+  LB: 'Shift+Tab',
+  RB: 'Tab',
+  START: 'M'
+}
+
+/**
+ * Name a button for whatever the player is holding.
+ *
+ * Everything in the UI asks for controller buttons, because that is the primary
+ * input and the one the layout is designed around. This translates at the point
+ * of display, so a keyboard user is told to press Enter and the same call sites
+ * keep saying `A`.
+ */
+export function useKeyLabel(): (key: string) => string {
+  const { inputKind } = useFocusContext()
+  return useCallback(
+    (key: string): string =>
+      inputKind === 'gamepad' ? key : (KEYBOARD_LABELS[key.toUpperCase()] ?? key),
+    [inputKind]
+  )
 }
 
 /**
@@ -291,6 +585,7 @@ export function useFocusable(options: {
   const { onSelect, enabled = true, autoFocus = false } = options
   const { register, focusedId, setFocus } = useFocusContext()
   const layer = useContext(LayerContext)
+  const zone = useContext(ZoneContext)
   const ref = useRef<HTMLElement | null>(null)
   const idRef = useRef<string>('')
   if (!idRef.current) idRef.current = `focusable-${nextId++}`
@@ -302,8 +597,8 @@ export function useFocusable(options: {
 
   useEffect(() => {
     if (!enabled || !ref.current) return
-    return register({ id, element: ref.current, onSelect: () => selectRef.current?.(), layer })
-  }, [enabled, id, register, layer])
+    return register({ id, element: ref.current, onSelect: () => selectRef.current?.(), layer, zone })
+  }, [enabled, id, register, layer, zone])
 
   useEffect(() => {
     if (autoFocus && enabled) setFocus(id)
@@ -361,21 +656,31 @@ const REPEAT_INTERVAL_MS = 90
 function useGamepad(
   move: (direction: Direction) => void,
   fireAction: (action: Action) => void,
-  activate: () => void
+  activate: () => void,
+  noteInput: (kind: InputKind) => void
 ): void {
   const moveRef = useRef(move)
   const actionRef = useRef(fireAction)
   const activateRef = useRef(activate)
+  const noteRef = useRef(noteInput)
   moveRef.current = move
   actionRef.current = fireAction
   activateRef.current = activate
+  noteRef.current = noteInput
 
   useEffect(() => {
     let frame = 0
     // Per-control state so a held stick repeats but a tap fires once.
     const held = new Map<string, { since: number; last: number }>()
 
-    const edge = (key: string, pressed: boolean, fire: () => void, repeats: boolean): void => {
+    const edge = (key: string, pressed: boolean, rawFire: () => void, repeats: boolean): void => {
+      // Reported here rather than at each call site: every path that reaches a
+      // fire is a button someone pressed, and the poll runs sixty times a
+      // second whether or not anything is held.
+      const fire = (): void => {
+        noteRef.current('gamepad')
+        rawFire()
+      }
       const now = performance.now()
       const state = held.get(key)
 
@@ -429,7 +734,8 @@ function useGamepad(
 function useKeyboard(
   move: (direction: Direction) => void,
   fireAction: (action: Action) => void,
-  activate: () => void
+  activate: () => void,
+  noteInput: (kind: InputKind) => void
 ): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -453,6 +759,8 @@ function useKeyboard(
           move('right')
           break
         case 'Enter':
+        // Everyone tries the space bar on a button, controller UI or not.
+        case ' ':
           activate()
           break
         case 'Escape':
@@ -471,10 +779,13 @@ function useKeyboard(
         default:
           return
       }
+      // Only past the switch: an unhandled key is someone typing somewhere
+      // else, not a statement that the keyboard is now driving the UI.
+      noteInput('keyboard')
       event.preventDefault()
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [move, fireAction, activate])
+  }, [move, fireAction, activate, noteInput])
 }

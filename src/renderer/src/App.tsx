@@ -1,6 +1,6 @@
 import type { JSX, Ref } from 'react'
 import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon } from './components'
-import { useAction, useFocusable } from './input/focus'
+import { FocusZone, useAction, useFocusable } from './input/focus'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
@@ -38,54 +38,61 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
-      <nav className="rail">
-        <div className="rail__brand">
-          <Logo className="rail__logo" />
-          <div className="rail__wordmark">
-            Rom<span>Mix</span>
+      <FocusZone id="rail">
+        <nav className="rail">
+          <div className="rail__brand">
+            <Logo className="rail__logo" />
+            <div className="rail__wordmark">
+              Rom<span>Mix</span>
+            </div>
           </div>
-        </div>
-        <RailItem icon="⌂" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
-        <RailItem
-          icon="▦"
-          label="Library"
-          route={{ name: 'library' }}
-          active={route.name === 'library'}
-        />
-        <RailItem
-          icon="↓"
-          label="Downloads"
-          route={{ name: 'downloads' }}
-          active={route.name === 'downloads'}
-          badge={activeDownloads > 0 ? activeDownloads : undefined}
-        />
-        <RailItem
-          icon="▤"
-          label="BIOS"
-          route={{ name: 'bios' }}
-          active={route.name === 'bios'}
-        />
-        <RailItem
-          icon="⚙"
-          label="Settings"
-          route={{ name: 'settings' }}
-          active={route.name === 'settings'}
-        />
-        <div className="rail__spacer" />
-        <div className="rail__status">
-          {status?.connected ? (
-            <>
-              {status.user?.username}
-              <br />
-              {hostOf(status.baseUrl)}
-            </>
-          ) : (
-            'Not connected'
-          )}
-        </div>
-      </nav>
+          <RailItem icon="⌂" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
+          <RailItem
+            icon="▦"
+            label="Library"
+            route={{ name: 'library' }}
+            active={route.name === 'library'}
+          />
+          <RailItem
+            icon="↓"
+            label="Downloads"
+            route={{ name: 'downloads' }}
+            active={route.name === 'downloads'}
+            badge={activeDownloads > 0 ? activeDownloads : undefined}
+          />
+          <RailItem
+            icon="▤"
+            label="BIOS"
+            route={{ name: 'bios' }}
+            active={route.name === 'bios'}
+          />
+          <RailItem
+            icon="⚙"
+            label="Settings"
+            route={{ name: 'settings' }}
+            active={route.name === 'settings'}
+          />
+          <div className="rail__spacer" />
+          <div className="rail__status">
+            {status?.connected ? (
+              <>
+                {status.user?.username}
+                <br />
+                {hostOf(status.baseUrl)}
+              </>
+            ) : (
+              'Not connected'
+            )}
+          </div>
+          <div className="rail__credit">
+            Developped with <span className="rail__heart">♥</span> by leclercb
+          </div>
+        </nav>
+      </FocusZone>
 
-      <Screen route={route} />
+      <FocusZone id="content">
+        <Screen route={route} />
+      </FocusZone>
 
       {runningRomId !== null ? <RunningOverlay /> : null}
       <Toasts toasts={toasts} />

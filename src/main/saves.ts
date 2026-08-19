@@ -33,6 +33,59 @@ import type { Store } from './store'
 const SAVE_EXTENSIONS = new Set(SAVE_CONVENTIONS.saveExtensions)
 const { statePattern: STATE_PATTERN, maxDepth: MAX_DEPTH } = SAVE_CONVENTIONS
 
+/**
+ * How many save states one pull brings down.
+ *
+ * Battery saves are one small file per game and all of them are worth having.
+ * States are neither: libretro alone keeps ten numbered slots plus an auto
+ * slot, each a full machine snapshot with a screenshot attached, and a game
+ * played across three devices can have thirty of them on the server. Pulling
+ * the lot before a launch spends minutes moving snapshots of moments nobody
+ * asked to return to.
+ *
+ * The newest few are what "carry on where I left off" actually means; the rest
+ * stay on the server and are still listed on the detail screen.
+ */
+const STATE_PULL_LIMIT = 5
+
+/**
+ * Is a remote asset one this emulator could load?
+ *
+ * A save is only meaningful to the emulator that wrote it — a RetroArch `.srm`
+ * dropped into Eden's folder is at best ignored and at worst loaded as
+ * garbage — so the `emulator` tag RomM records is the filter. Three answers
+ * count as ours:
+ *
+ * - no tag at all: provenance unknown, and refusing everything unlabelled
+ *   would ignore saves uploaded through RomM's own web UI. The newer-wins rule
+ *   and the `.rommix-bak` copy still stand behind it.
+ * - the tag is this emulator.
+ * - this emulator is a frontend that hands games to standalone emulators
+ *   (`delegated`), in which case a save tagged with one of those is exactly
+ *   what it will look for — and `assetDestination` files it where it looks.
+ */
+function acceptsAsset(emulator: EmulatorState, tag: string | null): boolean {
+  if (!tag) return true
+  if (tag.toLowerCase() === emulator.id.toLowerCase()) return true
+  return emulator.saveLayout === 'delegated'
+}
+
+/**
+ * Where a pulled asset goes, which is the mirror of how `findLocal` reads the
+ * tag back out: a frontend keeps each standalone emulator's saves in a
+ * subdirectory named after it, so a tagged asset belongs one level down.
+ */
+function assetDestination(
+  emulator: EmulatorState,
+  targetDir: string,
+  tag: string | null,
+  fileName: string
+): string {
+  const nested =
+    emulator.saveLayout === 'delegated' && tag && tag.toLowerCase() !== emulator.id.toLowerCase()
+  return nested ? join(targetDir, tag, fileName) : join(targetDir, fileName)
+}
+
 interface LocalAsset {
   path: string
   fileName: string
@@ -163,6 +216,11 @@ export class SaveSync {
       this.client.states(romId)
     ])
 
+    // What this device calls itself on the server, so a save can say where it
+    // came from. RomM's own id where the device was paired, the local one
+    // otherwise — the same pair `uploadSave` sends.
+    const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
+
     const assets: RemoteAsset[] = [
       ...saves.map((save): RemoteAsset => ({
         id: save.id,
@@ -170,6 +228,7 @@ export class SaveSync {
         fileName: save.file_name,
         sizeBytes: save.file_size_bytes,
         emulator: save.emulator,
+        fromThisDevice: save.origin_device_id ? save.origin_device_id === thisDevice : null,
         updatedAt: save.updated_at
       })),
       ...states.map((state): RemoteAsset => ({
@@ -178,6 +237,8 @@ export class SaveSync {
         fileName: state.file_name,
         sizeBytes: state.file_size_bytes,
         emulator: state.emulator,
+        // States carry no origin on the server, so there is nothing to claim.
+        fromThisDevice: null,
         updatedAt: state.updated_at
       }))
     ]
@@ -246,17 +307,28 @@ export class SaveSync {
       kind === 'save' ? await this.client.saves(rom.id) : await this.client.states(rom.id)
     if (remote.length === 0) return 0
 
+    // Only what this emulator could load, and for states only the newest few.
+    const usable = remote.filter((item) => acceptsAsset(emulator, item.emulator))
+    const wanted =
+      kind === 'state'
+        ? [...usable]
+            .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+            .slice(0, STATE_PULL_LIMIT)
+        : usable
+    if (wanted.length === 0) return 0
+
     const local = await this.findLocal(emulator, root, system, rom, kind)
     const targetDir = saveDirFor(emulator, root, system)
     let written = 0
 
-    for (const item of remote) {
+    for (const item of wanted) {
       const remoteTime = Date.parse(item.updated_at)
       const match = local.find((l) => l.fileName === item.file_name)
 
       if (match && match.mtimeMs >= remoteTime) continue
 
-      const destination = match?.path ?? join(targetDir, item.file_name)
+      const destination =
+        match?.path ?? assetDestination(emulator, targetDir, item.emulator, item.file_name)
       await mkdir(join(destination, '..'), { recursive: true })
 
       // Never clobber a local save without keeping a copy.
