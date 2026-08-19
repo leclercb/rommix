@@ -26,10 +26,21 @@ require flatpak
 # flatpak-builder ships two ways, and the flatpak one provides no binary on
 # PATH, so both have to be looked for: checking the command alone would reject a
 # perfectly good install and then advise performing exactly that install.
+#
+# Which installation the runtimes have to be in depends on which one it is. A
+# native flatpak-builder resolves a runtime from any installation, so system
+# copies are fine. The flatpak-packaged builder runs sandboxed and can only see
+# the *user* installation — with the runtimes installed system-wide it does not
+# find them, goes to install its own, and fails on a `flathub` remote that the
+# user installation does not have. Hence `--user` everywhere in that case.
 if command -v flatpak-builder >/dev/null 2>&1; then
   FLATPAK_BUILDER=(flatpak-builder)
+  SCOPE=()
+  SCOPE_LABEL=
 elif flatpak info org.flatpak.Builder >/dev/null 2>&1; then
   FLATPAK_BUILDER=(flatpak run org.flatpak.Builder)
+  SCOPE=(--user)
+  SCOPE_LABEL=" (user)"
 else
   echo "error: flatpak-builder is not installed." >&2
   echo "  Install it with: flatpak install -y flathub org.flatpak.Builder" >&2
@@ -38,15 +49,26 @@ else
 fi
 echo "==> Using ${FLATPAK_BUILDER[*]}"
 
+scope=(${SCOPE[@]+"${SCOPE[@]}"})
+
+# The remote has to exist in the same installation the runtimes go into:
+# `flatpak install --user flathub …` does not fall back to a system remote, and
+# reports the remote as having no refs rather than as being absent.
+if [ ${#scope[@]} -gt 0 ] && ! flatpak --user remotes | grep -q '^flathub'; then
+  echo "==> Adding the flathub remote to your user installation"
+  flatpak remote-add --user --if-not-exists \
+    flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+
 echo "==> Checking flatpak runtimes"
 for ref in \
   "org.freedesktop.Platform//24.08" \
   "org.freedesktop.Sdk//24.08" \
   "org.electronjs.Electron2.BaseApp//24.08"
 do
-  if ! flatpak info "$ref" >/dev/null 2>&1; then
-    echo "    installing $ref"
-    flatpak install -y --noninteractive flathub "$ref"
+  if ! flatpak info "${scope[@]+"${scope[@]}"}" "$ref" >/dev/null 2>&1; then
+    echo "    installing $ref$SCOPE_LABEL"
+    flatpak install "${scope[@]+"${scope[@]}"}" -y --noninteractive flathub "$ref"
   fi
 done
 
