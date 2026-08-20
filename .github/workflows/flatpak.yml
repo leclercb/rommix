@@ -1,0 +1,186 @@
+# Builds the flatpak on every push and pull request, and turns a `v*` tag into a
+# GitHub release with the bundle attached.
+#
+# Two stages, the same ones `scripts/build-flatpak.sh` runs locally: npm produces
+# the Electron application tree, then flatpak-builder packages that tree. The
+# only difference is that CI exports an OSTree repo and bundles it into a single
+# `.flatpak` file, which is what a release can actually carry.
+name: Flatpak
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  APP_ID: be.bl_it.RomMix
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    # The release job names the bundle in its install instructions.
+    outputs:
+      bundle: ${{ steps.meta.outputs.bundle }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 24, not the 20/22 the README asks of a user: `npm test` runs the
+          # TypeScript tests through node's own type stripping.
+          node-version: 24
+          cache: npm
+
+      - name: Read the version
+        id: meta
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "bundle=rommix-$version-x86_64.flatpak" >> "$GITHUB_OUTPUT"
+
+      # A tag names a version in three places, and only one of them is the tag.
+      # Catching a mismatch here costs seconds; catching it after publishing
+      # means deleting a release. The metainfo entry matters as much as
+      # package.json: it is the changelog software centres show, and a release
+      # missing from it is a release nobody can see.
+      - name: Check the tag against package.json and the metainfo
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version='${{ steps.meta.outputs.version }}'
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          if ! grep -q "<release version=\"$version\"" "flatpak/$APP_ID.metainfo.xml"; then
+            echo "::error::flatpak/$APP_ID.metainfo.xml has no <release version=\"$version\"> entry"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Test
+        run: npm test
+
+      # electron-builder downloads its own Electron into ~/.cache/electron, which
+      # is ~100 MB per build and never changes for a given lockfile.
+      - name: Cache the Electron download
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      # Runs typecheck and electron-vite build, then electron-builder --linux dir.
+      - name: Build the application tree
+        run: npm run pack:dir
+
+      - name: Install the flatpak toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+
+      # Ubuntu 24.04 confines unprivileged user namespaces with AppArmor, which
+      # is exactly what bwrap — and so flatpak-builder — needs. The runner is a
+      # throwaway VM, so lifting the restriction there is free.
+      - name: Allow unprivileged user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+
+      # Everything goes into the user installation: the runner has no system
+      # flatpak state worth sharing, and --user keeps the whole job unprivileged.
+      - name: Add the flathub remote
+        run: |
+          flatpak remote-add --user --if-not-exists \
+            flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      # --install-deps-from pulls the runtime, the SDK and the Electron base app
+      # named by the manifest, so the versions live in the manifest only and
+      # cannot drift from what this workflow installs.
+      #
+      # --disable-rofiles-fuse: the build only copies a prebuilt tree, and FUSE
+      # inside CI is more trouble than the copy-on-write saving is worth.
+      - name: Build the flatpak
+        run: |
+          flatpak-builder \
+            --user \
+            --force-clean \
+            --disable-rofiles-fuse \
+            --install-deps-from=flathub \
+            --repo=build/repo \
+            build/flatpak \
+            "flatpak/$APP_ID.yml"
+
+      # --runtime-repo lets `flatpak install` on the bundle pull the runtime and
+      # the Electron base app from Flathub by itself; without it the install
+      # fails on whoever has not added the remote.
+      - name: Export the bundle
+        run: |
+          flatpak build-bundle \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            build/repo \
+            '${{ steps.meta.outputs.bundle }}' \
+            "$APP_ID"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-bundle
+          path: ${{ steps.meta.outputs.bundle }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: flatpak-bundle
+          path: bundle
+
+      # generate_release_notes has GitHub write the changelog from the commits
+      # and pull requests since the last tag; `body` is prepended to it, which is
+      # where the part a release page actually needs — how to install the thing —
+      # goes. A tag like v0.2.0-rc1 is a pre-release; v0.2.0 is not.
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bundle/*.flatpak
+          name: RomMix ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          body: |
+            ### Install
+
+            ```bash
+            flatpak remote-add --user --if-not-exists \
+              flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+            flatpak install --user ./${{ needs.build.outputs.bundle }}
+            flatpak run ${{ env.APP_ID }}
+            ```
+
+            The bundle takes the freedesktop runtime and the Electron base app
+            from Flathub, so that remote has to be known.

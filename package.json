@@ -16,7 +16,8 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
-    "flatpak": "./scripts/build-flatpak.sh"
+    "flatpak": "./scripts/build-flatpak.sh",
+    "release": "release-it"
   },
   "dependencies": {
     "lucide-react": "^1.33.0",
@@ -35,6 +36,7 @@
     "prettier": "^3.9.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "release-it": "^21.0.2",
     "typescript": "^7.0.2",
     "vite": "^7.3.6"
   },
