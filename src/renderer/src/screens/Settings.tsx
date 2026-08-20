@@ -158,6 +158,12 @@ export function SettingsScreen(): JSX.Element {
         on={settings.syncSavesUp}
         onToggle={() => void saveSettings({ syncSavesUp: !settings.syncSavesUp })}
       />
+      <Toggle
+        label="Ask before sending saves to RomM"
+        hint="Shows what will be sent before sending it."
+        on={settings.confirmSavePush}
+        onToggle={() => void saveSettings({ confirmSavePush: !settings.confirmSavePush })}
+      />
 
       <h2 className="section-title">Downloads</h2>
       <Toggle

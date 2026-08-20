@@ -326,6 +326,24 @@ export interface Settings {
   /** Ask for confirmation before deleting a downloaded game. */
   confirmUninstall: boolean
   /**
+   * Ask before anything is sent to RomM — both the Push saves button and the
+   * automatic upload when a game exits.
+   *
+   * Off by default: pushing is additive — RomM keeps every version — so it is
+   * not the kind of destructive action `confirmUninstall` guards. It is here
+   * for the case where seeing *what* is about to be sent matters: a shared RomM
+   * account, or an emulator whose save location RomMix resolved by heuristic
+   * and which is worth checking before it lands on the server.
+   *
+   * The two pushes ask the same question from different sides. The button knows
+   * its answer before it does anything; the automatic one has already run, so
+   * the launch hands its file list back as `LaunchResult.pendingPush` and
+   * uploads nothing until the renderer sends the approved paths to
+   * `saves:pushSelected`. Declining costs nothing either way — the files stay
+   * where the emulator wrote them, and the button sends everything on disk.
+   */
+  confirmSavePush: boolean
+  /**
    * Notices the user has said they do not want again, by key.
    *
    * Kept as a list of opaque keys rather than a flag per notice so that adding
@@ -420,6 +438,17 @@ export interface LaunchResult {
   /** Saves/states uploaded to RomM after the session ended. */
   uploadedSaves: number
   uploadedStates: number
+  /**
+   * What the session wrote, waiting to be confirmed — set only when
+   * `confirmSavePush` is on, and null when there is nothing to send.
+   *
+   * The automatic push does not happen in that case; the files are listed here
+   * instead, and `saves.pushSelected` sends whichever of them the user
+   * approves. Uploading first and asking afterwards would make the question
+   * pointless, and blocking the main process on a dialog would hold the session
+   * open for as long as nobody answers it.
+   */
+  pendingPush: SavePushPreview | null
   playSeconds: number
 }
 
@@ -433,31 +462,60 @@ export interface LibrarySyncResult {
   adopted: number
 }
 
-/** A save or save state held by RomM, as the detail screen lists them. */
-export interface RemoteAsset {
-  id: number
+/**
+ * Where one save file exists, and whether the two ends agree.
+ *
+ * Named for what a person would do about it: the three states that are not
+ * `synced` are each a candidate for one of the two buttons.
+ */
+export type SaveSyncState =
+  /** Both ends hold it and neither is ahead. Nothing to do. */
+  | 'synced'
+  /** On disk and on RomM, but played since the upload — push candidate. */
+  | 'local-newer'
+  /** On RomM more recently than here — pull candidate. */
+  | 'remote-newer'
+  /** Only on this device. Never uploaded — push candidate. */
+  | 'local-only'
+  /** Only on RomM. Another device's, or deleted here — pull candidate. */
+  | 'remote-only'
+
+/**
+ * A save or save state belonging to a game, on either side of the sync.
+ *
+ * One row per file *name*, not per copy: a save the server and this device both
+ * hold is a single entry whose `sync` says how they compare. Listing the two
+ * ends separately would show a synced save twice and make the interesting
+ * case — the file only one side has — look the same as the boring one.
+ */
+export interface SaveAsset {
+  /** RomM's id for it, or null for a file only this device has. */
+  id: number | null
   kind: 'save' | 'state'
   fileName: string
+  /** The server's size where it has one, the file's own size otherwise. */
   sizeBytes: number
-  /** The emulator RomM recorded as having written it, when it knows. */
-  emulator: string | null
   /**
-   * The matching file in the emulator's save tree, when this device has one.
-   *
-   * What makes "delete" mean it: a save removed from the server while a copy
-   * sits on disk is uploaded again by the next session's push, so the screen
-   * has to be able to say which assets that applies to.
+   * The emulator tag: what RomM recorded as having written it, or — for a file
+   * only this device has — the tag it would be uploaded under.
    */
+  emulator: string | null
+  /** The file in the emulator's save tree, when this device has one. */
   localPath: string | null
+  /** Its modification time on this device, ISO. Null when only RomM has it. */
+  localModifiedAt: string | null
   /**
    * Whether this device uploaded it — null when RomM did not record an origin,
    * which is every state and anything uploaded through the web UI.
    *
-   * Shown rather than acted on. Which device wrote a save says nothing about
-   * whether it is the one worth keeping, and newest-wins remains the rule.
+   * Also what makes `synced` distinguishable from `remote-newer`: a server copy
+   * that is newer than the local file *and* came from here is that same file
+   * after its upload, not a change from somewhere else.
    */
   fromThisDevice: boolean | null
-  updatedAt: string
+  /** When RomM last saw it change, ISO. Null when only this device has it. */
+  updatedAt: string | null
+  sync: SaveSyncState
 }
 
 /** Result of an explicit save pull or push from the detail screen. */
@@ -466,6 +524,52 @@ export interface SaveSyncResult {
   states: number
   /** Set when the emulator's save layout is not one RomMix can sync per game. */
   skippedReason: string | null
+}
+
+/**
+ * One file an imminent push would send.
+ *
+ * Everything here is what the *upload* will do, not what is on disk: the name
+ * is the one the server will file it under and the emulator is the tag RomM
+ * will record, which for a directory save means a single archive standing for a
+ * folder of files that have no names of their own.
+ */
+export interface PendingSave {
+  kind: 'save' | 'state'
+  /** Name it will carry on RomM. */
+  fileName: string
+  /** Where it is read from on this device. */
+  path: string
+  sizeBytes: number
+  /** Local modification time, ISO — how you tell a stale save from a fresh one. */
+  modifiedAt: string
+  /** The emulator tag the upload will carry. */
+  emulator: string
+  /** True when `path` is a folder that gets zipped into one asset. */
+  isDirectory: boolean
+  /**
+   * The asset already on RomM under this name, when there is one.
+   *
+   * The point of showing it: RomM keeps both, but the newer of the two is what
+   * a later pull brings back — so a push of an older local file is the one case
+   * where confirming is worth the interruption.
+   */
+  replaces: {
+    sizeBytes: number
+    updatedAt: string
+    emulator: string | null
+    /** Whether this device uploaded it; null when RomM recorded no origin. */
+    fromThisDevice: boolean | null
+  } | null
+}
+
+/** What `saves.push` would send, asked before it is sent. */
+export interface SavePushPreview {
+  files: PendingSave[]
+  /** Set when this emulator's save layout is not one RomMix can sync per game. */
+  skippedReason: string | null
+  /** The device name RomM will record against the upload. */
+  deviceName: string
 }
 
 /** One BIOS file for a platform, and whether it is in place. */

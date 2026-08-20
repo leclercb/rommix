@@ -21,8 +21,9 @@ import type {
   LaunchChoice,
   LaunchResult,
   LibrarySyncResult,
-  RemoteAsset,
   RootLocation,
+  SaveAsset,
+  SavePushPreview,
   SaveSyncResult,
   Settings
 } from '@shared/types'
@@ -360,17 +361,17 @@ export function registerIpc(rommix: RomMixApp): void {
 
   // -- saves ----------------------------------------------------------------
 
-  /** Everything RomM holds for this ROM, so the detail screen can list it. */
   /**
-   * What RomM holds, marked with what this device has.
+   * Both ends of this ROM's saves, for the detail screen's list.
    *
    * The context is optional here where every other save call requires it: a
    * game that is not downloaded still has saves worth looking at, it simply has
-   * none of them on this device.
+   * none of them on this device — and without a context there is no save tree
+   * to scan, so every row comes back as the server's alone.
    */
-  handle('saves:list', async (romId: number): Promise<RemoteAsset[]> => {
+  handle('saves:list', async (romId: number): Promise<SaveAsset[]> => {
     const local = await saveContext(romId).catch(() => null)
-    return saveSync.remoteAssets(romId, local ?? undefined)
+    return saveSync.listAssets(romId, local ?? undefined)
   })
 
   handle('saves:pull', async (romId: number): Promise<SaveSyncResult> =>
@@ -379,6 +380,29 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('saves:push', async (romId: number): Promise<SaveSyncResult> =>
     saveSync.pushNow(await saveContext(romId))
+  )
+
+  /**
+   * What a push would send, for the confirmation dialog.
+   *
+   * A separate call rather than a flag on `saves:push`: the dialog has to be
+   * answered between the two, and a push that returned "here is what I would
+   * have done" would leave the renderer holding a decision the main process has
+   * already half-made.
+   */
+  handle('saves:pushPreview', async (romId: number): Promise<SavePushPreview> =>
+    saveSync.previewPush(await saveContext(romId))
+  )
+
+  /**
+   * Send the files a confirmation dialog just approved.
+   *
+   * Named by path, and `pushSelected` intersects them with its own scan rather
+   * than uploading what it is handed — the list came from this process in the
+   * first place, and a path is not something the renderer gets to invent.
+   */
+  handle('saves:pushSelected', async (romId: number, paths: string[]): Promise<SaveSyncResult> =>
+    saveSync.pushSelected(await saveContext(romId), paths)
   )
 
   /**

@@ -9,7 +9,6 @@ import type {
   LaunchChoice,
   LaunchResult,
   LibrarySyncResult,
-  RemoteAsset,
   RommCollection,
   RommDeviceAuthInit,
   RommPlatform,
@@ -20,6 +19,8 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease,
   RootLocation,
+  SaveAsset,
+  SavePushPreview,
   SaveSyncResult,
   Settings,
   AuthMode
@@ -83,12 +84,27 @@ export interface RomMixBridge {
     onAdopted(listener: (entries: InstalledRom[]) => void): () => void
   }
   saves: {
-    /** Saves and states RomM holds for a ROM. */
-    list(romId: number): Promise<RemoteAsset[]>
+    /**
+     * Every save and state this game has, on RomM and on this device, one row
+     * per file name with a sync state each.
+     */
+    list(romId: number): Promise<SaveAsset[]>
     /** Fetch newer remote saves now, ignoring the automatic-sync preference. */
     pull(romId: number): Promise<SaveSyncResult>
     /** Send every local save for this game to RomM, not only this session's. */
     push(romId: number): Promise<SaveSyncResult>
+    /**
+     * The same list `push` would send, without sending it — for the
+     * confirmation dialog behind the `confirmSavePush` setting.
+     */
+    pushPreview(romId: number): Promise<SavePushPreview>
+    /**
+     * Send exactly the files a confirmation dialog approved, by local path.
+     *
+     * Also how the automatic push completes: when confirmation is on, the
+     * launch result carries the session's files instead of uploading them.
+     */
+    pushSelected(romId: number, paths: string[]): Promise<SaveSyncResult>
     /** Delete one asset, from the server and from this device. */
     remove(romId: number, kind: 'save' | 'state', id: number): Promise<void>
   }

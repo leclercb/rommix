@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process'
 import { emulatorById } from '@config/emulators'
-import type { EmulatorState, LaunchResult, RommRom } from '@shared/types'
+import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { execPrefix } from './host'
 import type { RommClient } from './romm'
 import type { SaveSync } from './saves'
+import type { Store } from './store'
 
 /**
  * Launches a downloaded ROM and waits for it to exit.
@@ -36,6 +37,7 @@ export class Launcher {
   private current: { romId: number; kill: () => void; stopped: boolean } | null = null
 
   constructor(
+    private readonly store: Store,
     private readonly client: RommClient,
     private readonly saveSync: SaveSync
   ) {}
@@ -74,6 +76,7 @@ export class Launcher {
       error,
       uploadedSaves: 0,
       uploadedStates: 0,
+      pendingPush: null,
       playSeconds: 0
     })
 
@@ -130,12 +133,38 @@ export class Launcher {
       let uploadedSaves = 0
       let uploadedStates = 0
       let pushError: string | null = null
-      try {
-        const pushed = await this.saveSync.push(target, since)
-        uploadedSaves = pushed.saves
-        uploadedStates = pushed.states
-      } catch (cause) {
-        pushError = (cause as Error).message
+      /**
+       * What the session wrote, when the user has asked to see it first.
+       *
+       * The upload is not started here in that case. It cannot be: the answer
+       * comes from a window this process is not allowed to block on, and a
+       * dialog raised from the main process that nobody is there to answer
+       * would hold the session open indefinitely. So the list travels back with
+       * the launch result — the renderer is already awaiting it, which puts the
+       * question on screen at the moment the emulator closes — and the
+       * confirmed files are sent by `saves:pushSelected`.
+       *
+       * Nothing is lost by declining: the files stay where the emulator wrote
+       * them, and Push saves sends everything on disk whenever it is pressed.
+       */
+      let pendingPush: SavePushPreview | null = null
+
+      if (this.store.settings.syncSavesUp && this.store.settings.confirmSavePush) {
+        try {
+          pendingPush = await this.saveSync.previewPush(target, since)
+        } catch (cause) {
+          // Reported as a sync warning, the same as a failed upload: the files
+          // are still on disk, but nobody has been told they are unsent.
+          pushError = (cause as Error).message
+        }
+      } else {
+        try {
+          const pushed = await this.saveSync.push(target, since)
+          uploadedSaves = pushed.saves
+          uploadedStates = pushed.states
+        } catch (cause) {
+          pushError = (cause as Error).message
+        }
       }
 
       await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
@@ -148,6 +177,7 @@ export class Launcher {
         error: warnings.length ? `Save sync warning: ${warnings.join('; ')}` : null,
         uploadedSaves,
         uploadedStates,
+        pendingPush: pendingPush && pendingPush.files.length > 0 ? pendingPush : null,
         playSeconds
       }
     } finally {

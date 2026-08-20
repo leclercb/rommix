@@ -198,13 +198,22 @@ back.
   the local file is kept as `*.rommix-bak` first.
 - **Upload saves after playing** — only the files the session actually wrote are
   sent back to RomM.
+- **Ask before sending saves to RomM** — off by default. Lists the files first,
+  with the emulator tag each will carry and the copy already on the server it
+  lands on top of, and sends only what you approve. It covers both the button
+  and the automatic upload when a game exits; what you decline stays on this
+  device, and Push saves will send it whenever you ask.
 
-You can also pull or push a single game's saves by hand from its page.
+You can also pull or push a single game's saves by hand from its page. The Saves
+tab there lists both ends — what RomM holds and what is on this device — and
+marks each file in sync, newer here, newer on RomM, or missing from one side.
 
 How much of this works depends on the emulator. A save named after the ROM (the
 libretro `.srm`) syncs cleanly. Emulators that key saves by title id instead —
-Eden — or that share one memory card between every game cannot have a save
-attributed to a single game, so RomMix skips them and says why rather than
+Eden and the rest of the Switch lineage — are read by resolving the title id
+from the ROM itself and carrying the save folder as one archive. Emulators that
+share one memory card between every game are the case that cannot work: no save
+in it belongs to a single game, so RomMix skips them and says why rather than
 uploading the wrong data.
 
 ### Downloads

@@ -25,7 +25,7 @@ export class RomMixApp {
   readonly store = new Store(rootPaths().config)
   readonly client = new RommClient(this.store)
   readonly saveSync = new SaveSync(this.store, this.client)
-  readonly launcher = new Launcher(this.client, this.saveSync)
+  readonly launcher = new Launcher(this.store, this.client, this.saveSync)
   readonly downloads: DownloadManager
   readonly bios: BiosManager
 

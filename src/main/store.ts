@@ -51,6 +51,7 @@ function defaultSettings(): Settings {
     syncSavesDown: true,
     syncSavesUp: true,
     confirmUninstall: true,
+    confirmSavePush: false,
     dismissedNotices: [],
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`

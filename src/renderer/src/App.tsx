@@ -161,11 +161,15 @@ function RailItem({
  * and the saves it wrote are still uploaded.
  */
 function RunningOverlay(): JSX.Element {
+  const { settings } = useApp()
+
   return (
     <Overlay title="Game running">
       <p className="muted">
-        The emulator has focus. Quit it to come back to RomMix — your saves are synced to RomM
-        automatically when it closes.
+        The emulator has focus. Quit it to come back to RomMix
+        {settings?.confirmSavePush
+          ? ' — RomMix will ask what to send to RomM.'
+          : ' — your saves are synced to RomM automatically when it closes.'}
       </p>
       <div className="btn-row">
         <FocusButton

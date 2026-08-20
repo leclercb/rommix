@@ -746,6 +746,13 @@ input {
   color: var(--text-faint);
 }
 
+/* A chip that carries a glyph instead of the dot: the arrow says which way the
+   file would move, which the dot cannot, and two marks on one chip would be
+   one mark too many. */
+.status--badge::before {
+  content: none;
+}
+
 /* A small dot marking a ROM that is already on disk. */
 .card__installed {
   position: absolute;

@@ -1,6 +1,15 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
-import type { BiosPlatform, InstalledRom, LaunchChoice, RemoteAsset, RommRom } from '@shared/types'
+import type {
+  BiosPlatform,
+  InstalledRom,
+  LaunchChoice,
+  PendingSave,
+  RommRom,
+  SaveAsset,
+  SavePushPreview,
+  SaveSyncState
+} from '@shared/types'
 import {
   CoverArt,
   FocusButton,
@@ -11,9 +20,62 @@ import {
   Tabs,
   formatBytes
 } from '../components'
+import { Icon, type IconName } from '../icons'
 import { useApp } from '../state'
 
 type DetailTab = 'about' | 'saves' | 'files' | 'screenshots'
+
+/**
+ * How many files the push confirmation lists before summarising the rest.
+ *
+ * Enough for a game's battery save and a handful of states, which is what an
+ * ordinary push is; past that the list stops being something you read and the
+ * count in the dialog's title is doing the work anyway.
+ */
+const PUSH_PREVIEW_ROWS = 8
+
+/**
+ * How each sync state reads on a row.
+ *
+ * The label says which side is ahead, not what to press: the two buttons move
+ * everything at once, so a per-row instruction would be promising an action
+ * that does not exist. `hint` is the same thing at length, on hover.
+ */
+const SYNC_BADGES: Record<
+  SaveSyncState,
+  { label: string; tone: 'ok' | 'warn' | 'off'; icon: IconName; hint: string }
+> = {
+  synced: {
+    label: 'In sync',
+    tone: 'ok',
+    icon: 'confirm',
+    hint: 'This device and RomM have the same file.'
+  },
+  'local-newer': {
+    label: 'Newer here',
+    tone: 'warn',
+    icon: 'push',
+    hint: 'Played since it was last uploaded. Push saves sends it.'
+  },
+  'local-only': {
+    label: 'Not on RomM',
+    tone: 'warn',
+    icon: 'push',
+    hint: 'Only on this device. Push saves sends it.'
+  },
+  'remote-newer': {
+    label: 'Newer on RomM',
+    tone: 'warn',
+    icon: 'pull',
+    hint: 'RomM has a more recent copy. Pull saves fetches it.'
+  },
+  'remote-only': {
+    label: 'Not on this device',
+    tone: 'off',
+    icon: 'pull',
+    hint: 'Only on RomM. Pull saves fetches it.'
+  }
+}
 
 /**
  * A single game: artwork, metadata, and the actions that matter — download it,
@@ -36,10 +98,16 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingRemoval, setConfirmingRemoval] = useState(false)
+  /**
+   * The push waiting on an answer — from the button, or handed back by a launch
+   * that held the session's files instead of uploading them. Both ask the same
+   * question about the same kind of list, so both use this.
+   */
+  const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
   const [choosing, setChoosing] = useState<LaunchChoice | null>(null)
   const [tab, setTab] = useState<DetailTab>('about')
-  const [assets, setAssets] = useState<RemoteAsset[] | null>(null)
-  const [deletingAsset, setDeletingAsset] = useState<RemoteAsset | null>(null)
+  const [assets, setAssets] = useState<SaveAsset[] | null>(null)
+  const [deletingAsset, setDeletingAsset] = useState<SaveAsset | null>(null)
   const [bios, setBios] = useState<BiosPlatform | null>(null)
 
   useEffect(() => {
@@ -52,7 +120,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   }, [romId])
 
   /**
-   * What RomM holds for this game, refetched after every pull or push so the
+   * This game's saves on both sides, refetched after every pull or push so the
    * list is never one action out of date.
    */
   const loadAssets = useCallback(async (): Promise<void> => {
@@ -126,6 +194,12 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     })
   }
 
+  /** How this game is named and pictured in a toast. */
+  const subjectOf = (): { title: string; coverPath: string | null } => ({
+    title: rom?.name ?? rom?.fs_name ?? 'Game',
+    coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
+  })
+
   const startDownload = async (): Promise<void> => {
     setBusy(true)
     try {
@@ -174,22 +248,30 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     setBusy(true)
     try {
       const result = await window.rommix.game.launch(romId, variant)
-      const subject = {
-        title: rom?.name ?? rom?.fs_name ?? 'Game',
-        coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
-      }
+      const subject = subjectOf()
       if (!result.ok) {
         notify(result.error ?? 'The game could not be started', 'error', subject)
       } else {
         const synced = result.uploadedSaves + result.uploadedStates
+        const waiting = result.pendingPush?.files.length ?? 0
         notify(
-          synced > 0
-            ? `Session ended — ${synced} save file${synced === 1 ? '' : 's'} sent to RomM`
-            : 'Session ended',
+          waiting > 0
+            ? `Session ended — ${waiting} file${waiting === 1 ? '' : 's'} to send`
+            : synced > 0
+              ? `Session ended — ${synced} save file${synced === 1 ? '' : 's'} sent to RomM`
+              : 'Session ended',
           result.error ? 'warn' : 'ok',
           subject
         )
         if (result.error) notify(result.error, 'warn')
+
+        // The session's saves, held back for the same question the button
+        // asks. Raised here rather than by the main process because this is
+        // the side that has a screen, and the emulator has just closed over
+        // it — there is no better moment to ask. The toast above says the same
+        // thing, which is what the user sees if they left this screen while
+        // the game was running and the dialog goes up behind them.
+        if (result.pendingPush) setConfirmingPush(result.pendingPush)
       }
     } catch {
       // Reported centrally.
@@ -214,10 +296,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         direction === 'pull'
           ? await window.rommix.saves.pull(romId)
           : await window.rommix.saves.push(romId)
-      const subject = {
-        title: rom?.name ?? rom?.fs_name ?? 'Game',
-        coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
-      }
+      const subject = subjectOf()
 
       if (result.skippedReason) {
         notify(result.skippedReason, 'warn', subject)
@@ -242,6 +321,67 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   }
 
   /**
+   * The Push saves button, which may have a question in front of it.
+   *
+   * The preview is fetched only when the setting is on, so the default path is
+   * the single call it has always been. A preview with nothing in it never
+   * becomes a dialog: there is no decision to take, and the same message the
+   * push itself would have produced is more use than an empty list.
+   */
+  const beginPush = async (): Promise<void> => {
+    if (settings?.confirmSavePush !== true) {
+      await syncSaves('push')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const preview = await window.rommix.saves.pushPreview(romId)
+      if (preview.files.length === 0) {
+        notify(preview.skippedReason ?? 'No local saves to send', 'warn', subjectOf())
+        return
+      }
+      setConfirmingPush(preview)
+    } catch {
+      // Reported centrally.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * Send the approved files, and only those.
+   *
+   * By path rather than by "push everything again": the list was read and
+   * agreed to, and a second scan could have picked up a file written while the
+   * dialog was open — which would be an upload nobody was shown.
+   */
+  const sendPush = async (preview: SavePushPreview): Promise<void> => {
+    setConfirmingPush(null)
+    setBusy(true)
+    try {
+      const result = await window.rommix.saves.pushSelected(
+        romId,
+        preview.files.map((file) => file.path)
+      )
+      const moved = result.saves + result.states
+      notify(
+        result.skippedReason ??
+          (moved === 0
+            ? 'Nothing was sent'
+            : `${moved} file${moved === 1 ? '' : 's'} sent to RomM`),
+        result.skippedReason || moved === 0 ? 'warn' : 'ok',
+        subjectOf()
+      )
+      await loadAssets()
+    } catch {
+      // Reported centrally.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
    * Remove one save or state from the server.
    *
    * The server's copy only. The local file is what the emulator loads, and
@@ -249,8 +389,11 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
    * save currently being played — so a game still on this device can simply be
    * pushed back up afterwards.
    */
-  const deleteAsset = async (asset: RemoteAsset): Promise<void> => {
+  const deleteAsset = async (asset: SaveAsset): Promise<void> => {
     setDeletingAsset(null)
+    // A row RomM does not have is not offered a Delete button; this is the
+    // same fact stated where the id is used.
+    if (asset.id === null) return
     setBusy(true)
     try {
       await window.rommix.saves.remove(romId, asset.kind, asset.id)
@@ -447,11 +590,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             >
               Pull saves
             </FocusButton>
-            <FocusButton
-              icon="push"
-              onSelect={() => void syncSaves('push')}
-              disabled={busy || running}
-            >
+            <FocusButton icon="push" onSelect={() => void beginPush()} disabled={busy || running}>
               Push saves
             </FocusButton>
           </>
@@ -558,7 +697,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
       {running ? (
         <div className="notice notice--warn">
-          The game is running. RomMix will sync your saves back to RomM when you quit the emulator.
+          The game is running.{' '}
+          {settings?.confirmSavePush
+            ? 'RomMix will ask what to send to RomM when you quit the emulator.'
+            : 'RomMix will sync your saves back to RomM when you quit the emulator.'}
         </div>
       ) : null}
 
@@ -633,6 +775,29 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         </Overlay>
       ) : null}
 
+      {confirmingPush ? (
+        <Overlay
+          title={`Send ${confirmingPush.files.length} file${
+            confirmingPush.files.length === 1 ? '' : 's'
+          } to RomM?`}
+        >
+          <p className="muted">Uploaded as {confirmingPush.deviceName}.</p>
+          <PushPreviewList files={confirmingPush.files} />
+          <div className="btn-row">
+            <FocusButton icon="cancel" onSelect={() => setConfirmingPush(null)} autoFocus>
+              Cancel
+            </FocusButton>
+            <FocusButton
+              icon="push"
+              variant="primary"
+              onSelect={() => void sendPush(confirmingPush)}
+            >
+              Send to RomM
+            </FocusButton>
+          </div>
+        </Overlay>
+      ) : null}
+
       <Hints
         items={[
           { key: 'A', label: entry ? 'Play' : 'Download' },
@@ -694,56 +859,138 @@ function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Elem
  * of mine is on the server, and how recent is it — and a save and its state
  * from the same session belong next to each other.
  */
+/**
+ * Exactly what a push is about to send, one row per file.
+ *
+ * The three things worth knowing before pressing send, in the order they
+ * matter: which file, what tag it will carry — a save is only loadable by the
+ * emulator that wrote it, so a wrong tag is a save that never comes back — and
+ * what is already on the server under that name. The last is called out when
+ * the server's copy is the newer of the two, which is the one case where
+ * sending is likely to be a mistake.
+ */
+function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Element {
+  // Capped rather than scrolled: nothing in this list is focusable, so a
+  // scrolling panel on a gamepad is content that cannot be reached. A push of
+  // ten libretro state slots is a real thing, and the count in the title is
+  // already the number that decides the answer.
+  const shown = files.slice(0, PUSH_PREVIEW_ROWS)
+  const hidden = files.length - shown.length
+
+  return (
+    <>
+      <ul className="asset-list">
+        {shown.map((file) => {
+          const stale = file.replaces
+            ? Date.parse(file.replaces.updatedAt) > Date.parse(file.modifiedAt)
+            : false
+
+          return (
+            <li key={`${file.kind}-${file.path}`}>
+              <span className="asset__kind" data-kind={file.kind}>
+                {file.kind === 'save' ? 'Save' : 'State'}
+              </span>
+              <span className="status" data-state={stale ? 'warn' : 'ok'}>
+                {file.emulator}
+              </span>
+              <span className="asset__name">{file.fileName}</span>
+              <span className="asset__meta">
+                {formatBytes(file.sizeBytes)}
+                {/* A Switch save is a folder of files named after nothing, so it
+                  travels as one archive — worth saying, since the name above is
+                  not a name anything on disk has. */}
+                {file.isDirectory ? ' · folder, sent as one zip' : ''} ·{' '}
+                {new Date(file.modifiedAt).toLocaleString()}
+              </span>
+              <span className="asset__meta">
+                {file.replaces
+                  ? `On RomM: ${
+                      file.replaces.fromThisDevice === true
+                        ? 'this device'
+                        : file.replaces.fromThisDevice === false
+                          ? 'another device'
+                          : (file.replaces.emulator ?? 'unknown')
+                    }, ${new Date(file.replaces.updatedAt).toLocaleString()}${
+                      stale ? ' · newer than this' : ''
+                    }`
+                  : 'New on RomM'}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      {hidden > 0 ? (
+        <p className="muted">
+          and {hidden} more file{hidden === 1 ? '' : 's'}.
+        </p>
+      ) : null}
+    </>
+  )
+}
+
 function SavesTab({
   assets,
   entry,
   onDelete
 }: {
-  assets: RemoteAsset[] | null
+  assets: SaveAsset[] | null
   entry?: InstalledRom
-  onDelete: (asset: RemoteAsset) => void
+  onDelete: (asset: SaveAsset) => void
 }): JSX.Element {
   if (!assets) return <Spinner />
   if (assets.length === 0) {
     return (
       <div className="empty">
-        RomM has no saves for this game yet.
-        {entry ? ' Press Push saves to send what is on this device.' : ''}
+        No saves for this game, here or on RomM.
+        {entry ? ' Play it once and its save will appear here.' : ''}
       </div>
     )
   }
 
   return (
     <ul className="asset-list">
-      {assets.map((asset) => (
-        <li key={`${asset.kind}-${asset.id}`}>
-          <span className="asset__kind" data-kind={asset.kind}>
-            {asset.kind === 'save' ? 'Save' : 'State'}
-          </span>
-          {/* Whether this device has it too, which is what decides both halves
-              of a delete and whether a pull would bring anything down. */}
-          {asset.localPath ? (
-            <span className="status" data-state="ok">
-              On this device
+      {assets.map((asset) => {
+        const badge = SYNC_BADGES[asset.sync]
+        // The time the badge is talking about: the end that is ahead.
+        const at =
+          asset.sync === 'local-only' || asset.sync === 'local-newer'
+            ? asset.localModifiedAt
+            : (asset.updatedAt ?? asset.localModifiedAt)
+
+        return (
+          <li key={`${asset.kind}-${asset.id ?? asset.localPath}`}>
+            <span className="asset__kind" data-kind={asset.kind}>
+              {asset.kind === 'save' ? 'Save' : 'State'}
             </span>
-          ) : null}
-          <span className="asset__name">{asset.fileName}</span>
-          <span className="asset__meta">
-            {formatBytes(asset.sizeBytes)}
-            {asset.emulator ? ` · ${asset.emulator}` : ''}
-            {/* Where it came from, when the server recorded it: the useful
-                thing to know about a save you did not expect to see. */}
-            {asset.fromThisDevice === true ? ' · this device' : ''}
-            {asset.fromThisDevice === false ? ' · another device' : ''} ·{' '}
-            {new Date(asset.updatedAt).toLocaleString()}
-          </span>
-          <span className="asset__actions">
-            <FocusButton icon="delete" variant="danger" onSelect={() => onDelete(asset)}>
-              Delete
-            </FocusButton>
-          </span>
-        </li>
-      ))}
+            {/* Which side has it and whether they agree — and so which button,
+                if any, would do something about this row. */}
+            <span className="status status--badge" data-state={badge.tone} title={badge.hint}>
+              <Icon name={badge.icon} size={13} />
+              {badge.label}
+            </span>
+            <span className="asset__name">{asset.fileName}</span>
+            <span className="asset__meta">
+              {formatBytes(asset.sizeBytes)}
+              {asset.emulator ? ` · ${asset.emulator}` : ''}
+              {/* Where it came from, when the server recorded it: the useful
+                  thing to know about a save you did not expect to see. */}
+              {asset.fromThisDevice === true ? ' · this device' : ''}
+              {asset.fromThisDevice === false ? ' · another device' : ''}
+              {at ? ` · ${new Date(at).toLocaleString()}` : ''}
+            </span>
+            {/* Only what RomM holds can be deleted from RomM. A file that has
+                never been uploaded has nothing there to remove, and deleting
+                the copy the emulator is using is not what this button means. */}
+            {asset.id !== null ? (
+              <span className="asset__actions">
+                <FocusButton icon="delete" variant="danger" onSelect={() => onDelete(asset)}>
+                  Delete
+                </FocusButton>
+              </span>
+            ) : null}
+          </li>
+        )
+      })}
     </ul>
   )
 }

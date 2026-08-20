@@ -3,7 +3,15 @@ import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
-import type { EmulatorState, RemoteAsset, RommRom, SaveSyncResult } from '@shared/types'
+import type {
+  EmulatorState,
+  PendingSave,
+  RommRom,
+  SaveAsset,
+  SavePushPreview,
+  SaveSyncResult,
+  SaveSyncState
+} from '@shared/types'
 import type { RommClient } from './romm'
 import type { Store } from './store'
 import { realHome } from './host'
@@ -274,69 +282,107 @@ export class SaveSync {
   }
 
   /**
-   * Everything RomM holds for a ROM, saves and states together, each marked
-   * with the local file it corresponds to.
+   * Every save and state this game has, on the server and on this device, as
+   * one list of file names with a sync state each.
+   *
+   * Both ends, because the interesting rows are the ones only one side has: a
+   * save on disk that was never uploaded is invisible in a list of what RomM
+   * holds, and it is exactly the row a person is looking for when they open
+   * this screen after playing.
    *
    * `local` is absent for a game that is not downloaded — there is no save tree
    * to look in — and every asset is then simply not on this device.
    */
-  async remoteAssets(romId: number, local?: SaveTarget): Promise<RemoteAsset[]> {
+  async listAssets(romId: number, local?: SaveTarget): Promise<SaveAsset[]> {
     const [saves, states] = await Promise.all([this.client.saves(romId), this.client.states(romId)])
 
     /**
-     * The file on this device that a remote asset is a copy of, by name.
+     * What this device has, by kind and name.
      *
      * `findLocal` matches on the ROM's stem, which is how a save is recognised
-     * as belonging to this game at all; the exact file name then picks out
-     * which of them the server is talking about.
+     * as belonging to this game at all; the exact file name then lines it up
+     * with the server's copy, since that is the name it was uploaded under.
      */
-    const localByName = new Map<string, string>()
+    const localAssets = new Map<string, LocalAsset>()
+    let tag: string | null = null
     if (local) {
       const paths = this.locate(local)
+      tag = paths.emulator ?? local.emulator.id
       for (const kind of ['save', 'state'] as const) {
         const location = this.locationFor(paths, kind)
         if (!location) continue
         const found = await this.findLocal(location, local.rom, local.romPath, kind)
         for (const file of found) {
-          localByName.set(`${kind}:${file.fileName.toLowerCase()}`, file.path)
+          localAssets.set(`${kind}:${file.fileName.toLowerCase()}`, file)
         }
       }
     }
-    const localFor = (kind: 'save' | 'state', fileName: string): string | null =>
-      localByName.get(`${kind}:${fileName.toLowerCase()}`) ?? null
 
     // What this device calls itself on the server, so a save can say where it
     // came from. RomM's own id where the device was paired, the local one
     // otherwise — the same pair `uploadSave` sends.
     const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
 
-    const assets: RemoteAsset[] = [
-      ...saves.map((save): RemoteAsset => ({
-        id: save.id,
-        kind: 'save',
-        fileName: save.file_name,
-        sizeBytes: save.file_size_bytes,
-        emulator: save.emulator,
-        localPath: localFor('save', save.file_name),
-        fromThisDevice: save.origin_device_id ? save.origin_device_id === thisDevice : null,
-        updatedAt: save.updated_at
-      })),
-      ...states.map((state): RemoteAsset => ({
-        id: state.id,
-        kind: 'state',
-        fileName: state.file_name,
-        sizeBytes: state.file_size_bytes,
-        emulator: state.emulator,
-        localPath: localFor('state', state.file_name),
-        // States carry no origin on the server, so there is nothing to claim.
-        fromThisDevice: null,
-        updatedAt: state.updated_at
-      }))
-    ]
+    const assets: SaveAsset[] = []
+    const matched = new Set<string>()
 
-    // Newest first: the reason to look at this list is almost always "did my
-    // last session get uploaded".
-    return assets.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    for (const kind of ['save', 'state'] as const) {
+      for (const item of kind === 'save' ? saves : states) {
+        const key = `${kind}:${item.file_name.toLowerCase()}`
+        const localFile = localAssets.get(key)
+        if (localFile) matched.add(key)
+
+        // States carry no origin on the server, so there is nothing to claim.
+        const fromThisDevice =
+          kind === 'save' && 'origin_device_id' in item && item.origin_device_id
+            ? item.origin_device_id === thisDevice
+            : null
+
+        assets.push({
+          id: item.id,
+          kind,
+          fileName: item.file_name,
+          sizeBytes: item.file_size_bytes,
+          emulator: item.emulator,
+          localPath: localFile?.path ?? null,
+          localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
+          fromThisDevice,
+          updatedAt: item.updated_at,
+          sync: syncStateOf(localFile?.mtimeMs ?? null, item.updated_at, fromThisDevice)
+        })
+      }
+    }
+
+    // Whatever is on disk and was not claimed by a row above: this game's
+    // saves that RomM has never been given.
+    for (const [key, file] of localAssets) {
+      if (matched.has(key)) continue
+      assets.push({
+        id: null,
+        kind: key.startsWith('save:') ? 'save' : 'state',
+        fileName: file.fileName,
+        sizeBytes: await sizeOf(file.path, file.isDirectory === true),
+        // The tag it *would* carry, which is what makes the row readable: the
+        // emulator column would otherwise be blank on exactly the rows that
+        // have not been anywhere yet.
+        emulator: tag,
+        localPath: file.path,
+        localModifiedAt: new Date(file.mtimeMs).toISOString(),
+        fromThisDevice: null,
+        updatedAt: null,
+        sync: 'local-only'
+      })
+    }
+
+    // Newest first, by whichever end last saw it change: the reason to look at
+    // this list is almost always "did my last session get uploaded".
+    const changedAt = (asset: SaveAsset): string =>
+      asset.updatedAt && asset.localModifiedAt
+        ? asset.updatedAt > asset.localModifiedAt
+          ? asset.updatedAt
+          : asset.localModifiedAt
+        : (asset.updatedAt ?? asset.localModifiedAt ?? '')
+    return assets.sort((a, b) => changedAt(b).localeCompare(changedAt(a)))
   }
 
   /**
@@ -369,6 +415,119 @@ export class SaveSync {
   }
 
   /**
+   * What a push would send, without sending it.
+   *
+   * Deliberately the same three calls the upload itself makes — `locate`, then
+   * `locationFor` and `findLocal` per kind, with the same `since` — so the list
+   * shown cannot describe a different push from the one that follows. What is
+   * added is only what the dialog needs and the upload does not: the size of a
+   * directory save, which is not stat-able in one call, and the asset already on
+   * the server under each name.
+   *
+   * `since` is what makes this answer for both callers: 0 for the button, which
+   * means everything on disk, and the launch time for the automatic push, which
+   * means only what the session wrote.
+   *
+   * One case can still differ: a save folder that turns out to hold no files is
+   * listed here and skipped by the upload, because knowing that means zipping
+   * it. It costs an over-count of one on a folder the emulator created and
+   * never wrote to, which is not worth a redundant archive to rule out.
+   */
+  async previewPush(target: SaveTarget, since = 0): Promise<SavePushPreview> {
+    const paths = this.locate(target)
+    const tag = paths.emulator ?? target.emulator.id
+    const files: PendingSave[] = []
+
+    for (const kind of ['save', 'state'] as const) {
+      const location = this.locationFor(paths, kind)
+      if (!location) continue
+
+      const local = await this.findLocal(location, target.rom, target.romPath, kind, since)
+      if (local.length === 0) continue
+
+      // Only asked for once there is something to compare it against: a game
+      // with no local saves should not cost a round-trip to the server.
+      const remote =
+        kind === 'save'
+          ? await this.client.saves(target.rom.id).catch(() => [])
+          : await this.client.states(target.rom.id).catch(() => [])
+      const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
+
+      for (const asset of local) {
+        const existing = remote.find((item) => item.file_name === asset.fileName)
+        files.push({
+          kind,
+          fileName: asset.fileName,
+          path: asset.path,
+          sizeBytes: await sizeOf(asset.path, asset.isDirectory === true),
+          modifiedAt: new Date(asset.mtimeMs).toISOString(),
+          emulator: tag,
+          isDirectory: asset.isDirectory === true,
+          replaces: existing
+            ? {
+                sizeBytes: existing.file_size_bytes,
+                updatedAt: existing.updated_at,
+                emulator: existing.emulator,
+                fromThisDevice:
+                  'origin_device_id' in existing && existing.origin_device_id
+                    ? existing.origin_device_id === thisDevice
+                    : null
+              }
+            : null
+        })
+      }
+    }
+
+    // Saves before states, then newest first: the file you are about to send on
+    // purpose is almost always the one written most recently.
+    files.sort((a, b) =>
+      a.kind === b.kind ? b.modifiedAt.localeCompare(a.modifiedAt) : a.kind === 'save' ? -1 : 1
+    )
+
+    return {
+      files,
+      skippedReason: this.reasonFor(paths, files.length),
+      deviceName: this.store.settings.deviceName
+    }
+  }
+
+  /**
+   * Send exactly the files a person just approved, named by their paths.
+   *
+   * The paths are not trusted as paths. They are intersected with a fresh scan
+   * of this game's save locations, so what is uploaded is always something
+   * RomMix independently found for this ROM — a renderer that asked for
+   * `~/.ssh/id_rsa` gets nothing, and neither does one that asks for another
+   * game's save.
+   *
+   * The scan is unbounded in time even when the preview that produced the list
+   * was not: a file the session wrote is on disk now, and re-deriving "written
+   * after the launch" here would only re-litigate a question the dialog has
+   * already answered.
+   */
+  async pushSelected(target: SaveTarget, chosen: readonly string[]): Promise<SaveSyncResult> {
+    const paths = this.locate(target)
+    const wanted = new Set(chosen)
+    const tag = paths.emulator ?? target.emulator.id
+    const moved = { saves: 0, states: 0 }
+
+    for (const kind of ['save', 'state'] as const) {
+      const location = this.locationFor(paths, kind)
+      if (!location) continue
+
+      const local = await this.findLocal(location, target.rom, target.romPath, kind, 0)
+      const selected = local.filter((asset) => wanted.has(asset.path))
+      if (selected.length === 0) continue
+
+      const count = await this.uploadAssets(target, kind, selected, tag)
+      if (kind === 'save') moved.saves += count
+      else moved.states += count
+    }
+
+    return { ...moved, skippedReason: this.reasonFor(paths, moved.saves + moved.states) }
+  }
+
+  /**
    * Why nothing was synced, when nothing was.
    *
    * Only ever shown alongside a zero count: an emulator whose battery saves are
@@ -395,7 +554,7 @@ export class SaveSync {
     id: number,
     local?: SaveTarget
   ): Promise<void> {
-    const assets = await this.remoteAssets(romId, local)
+    const assets = await this.listAssets(romId, local)
     const asset = assets.find((item) => item.kind === kind && item.id === id)
 
     if (asset?.localPath) await rm(asset.localPath, { force: true, recursive: true })
@@ -560,6 +719,22 @@ export class SaveSync {
     if (!location) return 0
 
     const assets = await this.findLocal(location, target.rom, target.romPath, kind, since)
+    return this.uploadAssets(target, kind, assets, paths.emulator ?? target.emulator.id)
+  }
+
+  /**
+   * Put a known list of local files on the server.
+   *
+   * Split from the finding above so that a confirmed push and an automatic one
+   * upload through the same code: which files go is a decision made in two
+   * different places, but what "uploading" means must not be.
+   */
+  private async uploadAssets(
+    target: SaveTarget,
+    kind: 'save' | 'state',
+    assets: readonly LocalAsset[],
+    tag: string
+  ): Promise<number> {
     let uploaded = 0
 
     for (const asset of assets) {
@@ -574,7 +749,6 @@ export class SaveSync {
           payload = staged
         }
 
-        const tag = paths.emulator ?? target.emulator.id
         if (kind === 'save') {
           await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag)
         } else {
@@ -589,6 +763,53 @@ export class SaveSync {
     }
     return uploaded
   }
+}
+
+/**
+ * How the two copies of one file compare.
+ *
+ * The local file's mtime is when the emulator last wrote it; the server's
+ * `updated_at` is when it was last *uploaded*, which for the same file is
+ * always the later of the two. So "the server's is newer" cannot mean "the
+ * server has something else" on its own — and that is what `fromThisDevice`
+ * settles: a server copy that is newer and came from here is this file after
+ * its upload, not a change made somewhere else.
+ *
+ * Which leaves states, where RomM records no origin: a state uploaded from
+ * this device reads as `remote-newer`. That is the honest answer with what the
+ * server tells us, and it is also what a pull would do with it, so the badge
+ * does not promise something the buttons would contradict.
+ */
+function syncStateOf(
+  localMtimeMs: number | null,
+  remoteUpdatedAt: string,
+  fromThisDevice: boolean | null
+): SaveSyncState {
+  if (localMtimeMs === null) return 'remote-only'
+
+  const remote = Date.parse(remoteUpdatedAt)
+  if (!Number.isFinite(remote)) return 'synced'
+  if (localMtimeMs > remote) return 'local-newer'
+  if (localMtimeMs === remote) return 'synced'
+  return fromThisDevice === true ? 'synced' : 'remote-newer'
+}
+
+/**
+ * How big the thing about to be uploaded is.
+ *
+ * A directory is summed rather than stat-ed: what the server receives is a zip
+ * of everything under it, and the folder's own inode size says nothing about
+ * that. Unreadable paths count as zero — the size is shown to a person, and a
+ * failed stat is not a reason to fail the dialog.
+ */
+async function sizeOf(path: string, isDirectory: boolean): Promise<number> {
+  if (!isDirectory) return (await stat(path).catch(() => null))?.size ?? 0
+
+  let total = 0
+  for (const file of await walk(path)) {
+    total += (await stat(file).catch(() => null))?.size ?? 0
+  }
+  return total
 }
 
 /** Recursive copy, for the backup taken before a directory save is overwritten. */
