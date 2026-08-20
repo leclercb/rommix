@@ -38,7 +38,7 @@ and happy under gamescope or launched from Steam.
 ## Installing
 
 There is no published Flathub package yet, so RomMix is built from source. It is
-one command, and needs Node 20+, `flatpak` and `flatpak-builder`.
+one command, and needs Node 20.19+ or 22.12+, `flatpak` and `flatpak-builder`.
 
 ```bash
 git clone <this repository>
@@ -317,11 +317,19 @@ which only understands older AppImages.
 
 ```bash
 npm install
+npx install-electron  # fetch the Electron binary (see below)
 npm run dev         # run against a live RomM server on your desktop
 npm run typecheck   # tsc over main, preload and renderer
 npm test            # platform, emulator and launch-file tests
 npm run flatpak     # build and install the flatpak
 ```
+
+Electron 43 no longer downloads its binary from a postinstall hook, so `npm
+install` leaves you without one and `npm run dev` has nothing to launch. Fetch
+it once with `npx install-electron`, or point `ELECTRON_EXEC_PATH` at a system
+Electron — which is what `.envrc` does here, since the generic-linux build does
+not run on NixOS. Packaging is unaffected either way: electron-builder
+downloads its own copy into `~/.cache/electron`.
 
 `src/config/` holds the parts most worth editing: the platform table, the RomM
 platform-slug mapping, the emulator registry, the BIOS requirements and the
