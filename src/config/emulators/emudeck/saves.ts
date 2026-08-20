@@ -86,7 +86,17 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
       ctx,
       readRetroArchConfig(
         ctx.env,
-        [joinPath(ctx.home, '.var', 'app', 'org.libretro.RetroArch', 'config', 'retroarch', 'retroarch.cfg')],
+        [
+          joinPath(
+            ctx.home,
+            '.var',
+            'app',
+            'org.libretro.RetroArch',
+            'config',
+            'retroarch',
+            'retroarch.cfg'
+          )
+        ],
         ctx.home
       ),
       coreForSystem(ctx.system),
@@ -209,7 +219,10 @@ export function emuDeckSavePaths(ctx: SaveContext, script: string): SavePaths {
 }
 
 /** Exported for the registry test, which checks every launcher resolves. */
-export function emuDeckSaveRoots(saves: string, script: string): {
+export function emuDeckSaveRoots(
+  saves: string,
+  script: string
+): {
   root: string
   saves: SaveLocation | null
 } {

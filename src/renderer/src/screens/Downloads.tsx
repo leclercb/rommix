@@ -145,10 +145,7 @@ export function DownloadsScreen(): JSX.Element {
   }, [installed, sort])
 
   /** The same games in one list, for when grouping is off. */
-  const flat = useMemo(
-    () => [...installed].sort((a, b) => compare(a, b, sort)),
-    [installed, sort]
-  )
+  const flat = useMemo(() => [...installed].sort((a, b) => compare(a, b, sort)), [installed, sort])
 
   const cycleSort = (): void => {
     const next = SORTS[(SORTS.findIndex((option) => option.id === sort) + 1) % SORTS.length]
@@ -184,7 +181,8 @@ export function DownloadsScreen(): JSX.Element {
     <div className="content">
       <h1 className="page-title">Downloads</h1>
       <p className="page-subtitle">
-        {installed.length} game{installed.length === 1 ? '' : 's'} on disk · {formatBytes(totalOnDisk)}
+        {installed.length} game{installed.length === 1 ? '' : 's'} on disk ·{' '}
+        {formatBytes(totalOnDisk)}
       </p>
 
       {/* Two jobs, two tabs. Watching a transfer and managing a full disk are
@@ -192,7 +190,11 @@ export function DownloadsScreen(): JSX.Element {
           the second. */}
       <Tabs
         tabs={[
-          { id: 'activity', label: 'Activity', badge: active.length > 0 ? active.length : undefined },
+          {
+            id: 'activity',
+            label: 'Activity',
+            badge: active.length > 0 ? active.length : undefined
+          },
           { id: 'device', label: 'On this device' }
         ]}
         active={tab}
@@ -244,7 +246,10 @@ export function DownloadsScreen(): JSX.Element {
                 />
               ))}
               <div className="btn-row">
-                <FocusButton icon="clear" onSelect={() => void window.rommix.downloads.clearFinished()}>
+                <FocusButton
+                  icon="clear"
+                  onSelect={() => void window.rommix.downloads.clearFinished()}
+                >
                   Clear finished
                 </FocusButton>
               </div>
@@ -315,9 +320,8 @@ export function DownloadsScreen(): JSX.Element {
       {confirming ? (
         <Overlay title="Uninstall this game?">
           <p className="muted">
-            {confirming.fileName} will be deleted from{' '}
-            {confirming.path.replace(/\/[^/]*$/, '')}. Your saves on RomM are not touched, and you
-            can download it again at any time.
+            {confirming.fileName} will be deleted from {confirming.path.replace(/\/[^/]*$/, '')}.
+            Your saves on RomM are not touched, and you can download it again at any time.
           </p>
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setConfirming(null)} autoFocus>
@@ -513,4 +517,3 @@ function InstalledRow({
     </div>
   )
 }
-

@@ -51,7 +51,13 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family:
+    'Inter',
+    'Noto Sans',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   font-size: 17px;
   line-height: 1.5;
   overflow: hidden;
@@ -92,8 +98,7 @@ input {
   grid-template-columns: auto 1fr;
   height: 100%;
   background:
-    radial-gradient(120vw 90vh at 78% -10%, rgba(90, 200, 250, 0.09), transparent 62%),
-    var(--bg);
+    radial-gradient(120vw 90vh at 78% -10%, rgba(90, 200, 250, 0.09), transparent 62%), var(--bg);
 }
 
 /* The left padding is the TV-safe margin, since that edge is the screen edge.

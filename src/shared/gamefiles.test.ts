@@ -8,7 +8,10 @@ const file = (name: string, sizeBytes = 1024): { name: string; sizeBytes: number
 })
 
 test('a lone ROM is the launch file', () => {
-  assert.equal(chooseLaunchFile([file('QuackShot (World) (Rev A).md')]), 'QuackShot (World) (Rev A).md')
+  assert.equal(
+    chooseLaunchFile([file('QuackShot (World) (Rev A).md')]),
+    'QuackShot (World) (Rev A).md'
+  )
 })
 
 test('a cue wins over the much larger bin it references', () => {

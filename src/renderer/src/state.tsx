@@ -98,19 +98,19 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const notify = useCallback(
     (message: string, tone: Toast['tone'] = 'ok', subject?: ToastSubject): void => {
-    const id = ++toastId
-    setToasts((current) => [
-      ...current,
-      {
-        id,
-        message,
-        tone,
-        title: subject?.title,
-        coverPath: subject?.coverPath,
-        platform: subject?.platform
-      }
-    ])
-    setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 5200)
+      const id = ++toastId
+      setToasts((current) => [
+        ...current,
+        {
+          id,
+          message,
+          tone,
+          title: subject?.title,
+          coverPath: subject?.coverPath,
+          platform: subject?.platform
+        }
+      ])
+      setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 5200)
     },
     []
   )
@@ -185,7 +185,9 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [refreshInstalled, notify])
 
   useEffect(() => {
-    return window.rommix.game.onState((state) => setRunningRomId(state.running ? state.romId : null))
+    return window.rommix.game.onState((state) =>
+      setRunningRomId(state.running ? state.romId : null)
+    )
   }, [])
 
   // Anything that failed in the main process, whoever asked for it.

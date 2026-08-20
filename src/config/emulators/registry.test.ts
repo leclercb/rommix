@@ -180,12 +180,7 @@ test('RetroArch is launched with the core mapped for the system', () => {
     system: 'snes',
     romPath: '/roms/snes/game.sfc'
   })
-  assert.deepEqual(argv, [
-    '/usr/bin/retroarch',
-    '-L',
-    'snes9x_libretro.so',
-    '/roms/snes/game.sfc'
-  ])
+  assert.deepEqual(argv, ['/usr/bin/retroarch', '-L', 'snes9x_libretro.so', '/roms/snes/game.sfc'])
 })
 
 test('Eden takes the ROM path positionally, after the AppImage itself', () => {
@@ -195,10 +190,7 @@ test('Eden takes the ROM path positionally, after the AppImage itself', () => {
     system: 'switch',
     romPath: '/roms/switch/game.nsp'
   })
-  assert.deepEqual(argv, [
-    '/home/u/rommix/emulators/eden/Eden.AppImage',
-    '/roms/switch/game.nsp'
-  ])
+  assert.deepEqual(argv, ['/home/u/rommix/emulators/eden/Eden.AppImage', '/roms/switch/game.nsp'])
 })
 
 test('Eden declines the systems it does not run', () => {
@@ -221,13 +213,10 @@ test('the zsync manifest beside every AppImage is not offered as a download', ()
   // offer the second, which is a few kilobytes of update metadata rather than
   // anything that runs.
   assert.equal(isInstallableAsset('Eden-Linux-v0.2.1-amd64-clang-pgo.AppImage', '.AppImage'), true)
-  assert.equal(
-    isInstallableAsset('Eden-Linux-amd64-clang-pgo.AppImage.zsync', '.AppImage'),
-    false
-  )
+  assert.equal(isInstallableAsset('Eden-Linux-amd64-clang-pgo.AppImage.zsync', '.AppImage'), false)
 })
 
-test('other platforms\' assets are not offered either', () => {
+test("other platforms' assets are not offered either", () => {
   for (const name of [
     'Eden-Windows-v0.2.1-amd64-clang-pgo.zip',
     'Eden-macOS-v0.2.1.dmg',
@@ -305,7 +294,10 @@ test('an emulator declares either fixed folders or where its own are recorded', 
   for (const emulator of EMULATORS) {
     const hasTemplates = Object.keys(emulator.dirs).length > 0
     const hasLayout = emulator.layout != null
-    assert.ok(hasTemplates !== hasLayout, `${emulator.id} declares ${hasTemplates ? 'both' : 'neither'}`)
+    assert.ok(
+      hasTemplates !== hasLayout,
+      `${emulator.id} declares ${hasTemplates ? 'both' : 'neither'}`
+    )
   }
 })
 
@@ -496,7 +488,6 @@ test('EmuDeck opens its own frontend for the Run button', () => {
   ])
 })
 
-
 // ---------------------------------------------------------------------------
 // Shape
 // ---------------------------------------------------------------------------
@@ -515,7 +506,7 @@ test('the field list matches what the interface declares', () => {
   assert.deepEqual(declared, [...FIELD_ORDER])
 })
 
-test('every emulator spells out every field, in the interface\'s order', () => {
+test("every emulator spells out every field, in the interface's order", () => {
   // Not style for its own sake. An absent optional field makes the reader of
   // one emulator guess what the default does, and a differing order makes two
   // emulators impossible to read side by side.

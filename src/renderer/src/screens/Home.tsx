@@ -141,8 +141,7 @@ export function HomeScreen(): JSX.Element {
   // because an unexplained game at the top of the screen invites the question.
   const highlight = continuePlaying.items[0] ?? recentlyAdded.items[0] ?? null
   const highlightReason = continuePlaying.items[0] ? 'Continue playing' : 'Recently added'
-  const open = (tile: { romId: number }): void =>
-    navigate({ name: 'detail', romId: tile.romId })
+  const open = (tile: { romId: number }): void => navigate({ name: 'detail', romId: tile.romId })
 
   return (
     <div className="content">

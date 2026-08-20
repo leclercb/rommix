@@ -2,12 +2,7 @@ import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
-import type {
-  EmulatorDescriptor,
-  EmulatorId,
-  EmulatorState,
-  LaunchVariant
-} from './types.ts'
+import type { EmulatorDescriptor, EmulatorId, EmulatorState, LaunchVariant } from './types.ts'
 
 /**
  * Every emulator RomMix knows how to drive.

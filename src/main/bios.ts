@@ -242,9 +242,7 @@ export class BiosManager {
      * Asked per file rather than per platform: a Switch row holds both keys,
      * which go straight into Eden, and firmware, which cannot.
      */
-    const placement = (
-      fileName: string
-    ): { dir: string | null; staged: boolean } => {
+    const placement = (fileName: string): { dir: string | null; staged: boolean } => {
       if (acceptedByEmulator(emulator, fileName)) return { dir: biosDir, staged: false }
       return { dir: system ? this.stagingDir(system) : null, staged: true }
     }

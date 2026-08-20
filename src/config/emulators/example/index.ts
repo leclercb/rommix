@@ -315,5 +315,4 @@ export const example: EmulatorDescriptor = {
  * `saves` field can return. Referencing them here rather than only in a comment
  * means a rename breaks this file instead of leaving the documentation wrong.
  */
-export const SAVE_HELPERS = { perRom, directory, shared, joinPath 
-}
+export const SAVE_HELPERS = { perRom, directory, shared, joinPath }

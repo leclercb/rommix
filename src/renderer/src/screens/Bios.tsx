@@ -134,8 +134,8 @@ export function BiosScreen(): JSX.Element {
       </p>
       <p className="faint" style={{ fontSize: 14 }}>
         BIOS files come from your own RomM server — upload them there under a platform, and RomMix
-        copies them into whichever emulator runs that platform. Nothing is downloaded from
-        anywhere else.
+        copies them into whichever emulator runs that platform. Nothing is downloaded from anywhere
+        else.
       </p>
 
       <div className="btn-row">
@@ -285,7 +285,10 @@ function PlatformBios({
           <div className="bios__body">
             <div className="bios__name">
               {item.fileName}
-              <span className="status" data-state={item.installed ? 'ok' : item.required ? 'warn' : 'off'}>
+              <span
+                className="status"
+                data-state={item.installed ? 'ok' : item.required ? 'warn' : 'off'}
+              >
                 {item.installed ? 'Installed' : item.required ? 'Required' : 'Optional'}
               </span>
               {/* RomM checks uploads against known-good hashes, and a BIOS that
@@ -321,11 +324,7 @@ function PlatformBios({
                 disabled={busy !== null || platform.biosDir === null}
                 onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
               >
-                {busy === item.fileName
-                  ? 'Installing…'
-                  : item.installed
-                    ? 'Reinstall'
-                    : 'Install'}
+                {busy === item.fileName ? 'Installing…' : item.installed ? 'Reinstall' : 'Install'}
               </FocusButton>
             )}
           </div>

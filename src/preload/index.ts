@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { BiosProgress, ConnectPayload, GameState, RomMixBridge, SyncProgress } from '@shared/api'
+import type {
+  BiosProgress,
+  ConnectPayload,
+  GameState,
+  RomMixBridge,
+  SyncProgress
+} from '@shared/api'
 import type {
   DownloadItem,
   InstalledRom,
@@ -72,14 +78,14 @@ const bridge: RomMixBridge = {
   },
   game: {
     variants: (romId: number) => ipcRenderer.invoke('game:variants', romId),
-    launch: (romId: number, variant?: string) =>
-      ipcRenderer.invoke('game:launch', romId, variant),
+    launch: (romId: number, variant?: string) => ipcRenderer.invoke('game:launch', romId, variant),
     stop: () => ipcRenderer.invoke('game:stop'),
     onState: (listener: (state: GameState) => void) => subscribe<GameState>('game:state', listener)
   },
   system: {
     settings: () => ipcRenderer.invoke('system:settings'),
-    updateSettings: (patch: Partial<Settings>) => ipcRenderer.invoke('system:updateSettings', patch),
+    updateSettings: (patch: Partial<Settings>) =>
+      ipcRenderer.invoke('system:updateSettings', patch),
     emulatorReleases: (id: string) => ipcRenderer.invoke('emulators:releases', id),
     installEmulator: (id: string, asset: EmulatorAsset) =>
       ipcRenderer.invoke('emulators:install', id, asset),

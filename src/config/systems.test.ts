@@ -41,9 +41,7 @@ test('every system with BIOS requirements is a system RomMix knows', () => {
 test('every mapped target is a real ES-DE system directory', () => {
   // A typo here would install ROMs into a folder RetroDECK never scans, which
   // fails silently at launch time rather than at install time.
-  const unknown = Object.entries(ROMM_SLUG_TO_ESDE).filter(
-    ([, esde]) => !isKnownSystem(esde)
-  )
+  const unknown = Object.entries(ROMM_SLUG_TO_ESDE).filter(([, esde]) => !isKnownSystem(esde))
   assert.deepEqual(unknown, [], `unmapped ES-DE targets: ${JSON.stringify(unknown)}`)
 })
 

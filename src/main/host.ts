@@ -178,10 +178,7 @@ export function execPrefix(
  * it out of the system installation, which would need a polkit prompt RomMix
  * cannot answer from a fullscreen UI.
  */
-export function installFlatpak(
-  appId: string,
-  onLine: (line: string) => void
-): Promise<void> {
+export function installFlatpak(appId: string, onLine: (line: string) => void): Promise<void> {
   return new Promise((resolvePromise, rejectPromise) => {
     if (!/^[A-Za-z0-9._-]+$/.test(appId)) {
       rejectPromise(new Error(`Refusing to install a suspicious app id: ${appId}`))
@@ -202,7 +199,11 @@ export function installFlatpak(
     const collect = (chunk: Buffer): void => {
       const text = chunk.toString()
       tail = (tail + text).slice(-4000)
-      for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) onLine(line)
+      for (const line of text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean))
+        onLine(line)
     }
     child.stdout?.on('data', collect)
     child.stderr?.on('data', collect)
@@ -210,7 +211,10 @@ export function installFlatpak(
     child.on('error', (err) => rejectPromise(new Error(`Could not run flatpak: ${err.message}`)))
     child.on('close', (code) => {
       if (code === 0) resolvePromise()
-      else rejectPromise(new Error(tail.trim().split('\n').slice(-3).join(' ') || `flatpak install exited ${code}`))
+      else
+        rejectPromise(
+          new Error(tail.trim().split('\n').slice(-3).join(' ') || `flatpak install exited ${code}`)
+        )
     })
   })
 }

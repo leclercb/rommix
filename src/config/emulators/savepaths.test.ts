@@ -174,7 +174,7 @@ test('a ~ in the config expands to the home directory', () => {
   assert.equal(paths.saves?.dir, `${HOME}/saves`)
 })
 
-test('sorting by content directory names the folder after the ROM\'s parent', () => {
+test("sorting by content directory names the folder after the ROM's parent", () => {
   // RetroArch's `content_dir_name` is `fill_pathname_parent_dir_name`, so it is
   // the directory the ROM sits in — which equals the system only because ROMs
   // normally live at `roms/<system>/game.ext`.
@@ -314,11 +314,7 @@ const RETRODECK_CFG = retroArchCfg({
   sort_savestates_by_content_enable: 'true'
 })
 
-function retroDeck(options: {
-  romPath: string
-  system: string
-  gamelist?: string
-}): SavePaths {
+function retroDeck(options: { romPath: string; system: string; gamelist?: string }): SavePaths {
   const files: Record<string, string> = {
     '/var/rd/config/retroarch/retroarch.cfg': RETRODECK_CFG
   }
@@ -544,10 +540,7 @@ function edenMachine(profiles: Record<string, string[]>, mtimes: Record<string, 
     dirs,
     files,
     mtimes: Object.fromEntries(
-      Object.entries(mtimes).map(([profile, time]) => [
-        `${base}/0000000000000000/${profile}`,
-        time
-      ])
+      Object.entries(mtimes).map(([profile, time]) => [`${base}/0000000000000000/${profile}`, time])
     ),
     heads: {
       '/roms/switch/game.nsp': 'HEAD 01007EF00011E000.cnmt tail'
@@ -575,7 +568,7 @@ test('Eden reads the title id out of the ROM header', () => {
   )
 })
 
-test('an update\'s title id resolves to the base game\'s save folder', () => {
+test("an update's title id resolves to the base game's save folder", () => {
   // Updates end `800` and DLC counts upwards; saves belong to the base game.
   const env = machine({
     dirs: { '/data/eden/nand/user/save/0000000000000000': [ONE_PROFILE] },

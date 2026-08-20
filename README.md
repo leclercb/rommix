@@ -18,11 +18,11 @@ and happy under gamescope or launched from Steam.
 - **At least one emulator.** RomMix can install these for you from its Settings
   screen:
 
-  | Emulator | Covers | Installed from |
-  | --- | --- | --- |
-  | **RetroDECK** | Most systems, from the NES to the PS3 | Flathub |
-  | **RetroArch** | Everything with a libretro core | Flathub |
-  | **Eden** | Nintendo Switch | Its own release page, as an AppImage |
+  | Emulator      | Covers                                | Installed from                       |
+  | ------------- | ------------------------------------- | ------------------------------------ |
+  | **RetroDECK** | Most systems, from the NES to the PS3 | Flathub                              |
+  | **RetroArch** | Everything with a libretro core       | Flathub                              |
+  | **Eden**      | Nintendo Switch                       | Its own release page, as an AppImage |
 
   **EmuDeck** is also supported, but RomMix does not install it — run EmuDeck's
   own installer first and RomMix picks it up. See below.
@@ -59,12 +59,12 @@ flatpak run be.bl_it.RomMix
 The build already asks for everything RomMix needs. If you tighten permissions
 later with Flatseal, these are the ones that matter:
 
-| Permission | Why |
-| --- | --- |
+| Permission                            | Why                                                   |
+| ------------------------------------- | ----------------------------------------------------- |
 | `--talk-name=org.freedesktop.Flatpak` | Starting an emulator. Without it nothing will launch. |
-| `--filesystem=home` | Reading and writing ROMs, saves and BIOS files. |
-| `--filesystem=/run/media` | A ROM library on an SD card or external drive. |
-| `--device=all` | Controller input. Without it the UI is keyboard-only. |
+| `--filesystem=home`                   | Reading and writing ROMs, saves and BIOS files.       |
+| `--filesystem=/run/media`             | A ROM library on an SD card or external drive.        |
+| `--device=all`                        | Controller input. Without it the UI is keyboard-only. |
 
 ---
 
@@ -86,11 +86,11 @@ needs no extra setup.
 On first launch RomMix asks for your server address and how you want to sign in.
 There are three ways, in the order that suits a controller:
 
-1. **Pair this device** *(recommended on a TV)* — RomMix shows a short code and a
+1. **Pair this device** _(recommended on a TV)_ — RomMix shows a short code and a
    QR code. Scan it with your phone, or open the address in any browser, and
    approve the request from RomM. Nothing secret is typed on the couch.
 2. **API token** — a long-lived `rmm_…` token created in RomM under
-   *Administration → Client tokens*.
+   _Administration → Client tokens_.
 3. **Username and password** — signs in and stays signed in.
 
 Your credentials are stored in RomMix's own folder, encrypted with the system
@@ -101,14 +101,14 @@ portal — they fall back to a file readable only by you.
 
 ## Controls
 
-| Button | Action |
-| --- | --- |
-| Left stick / D-pad | Navigate |
-| A | Select |
-| B | Back |
-| X / Start | Open Settings |
-| Y | Search |
-| LB / RB | Previous / next tab, on a game's page |
+| Button             | Action                                |
+| ------------------ | ------------------------------------- |
+| Left stick / D-pad | Navigate                              |
+| A                  | Select                                |
+| B                  | Back                                  |
+| X / Start          | Open Settings                         |
+| Y                  | Search                                |
+| LB / RB            | Previous / next tab, on a game's page |
 
 Keyboard: arrow keys, Enter, Escape or Backspace to go back, Tab and Shift-Tab
 for tabs, `/` to search, `m` for Settings.
@@ -194,7 +194,7 @@ back.
 ### Save sync
 
 - **Download newer saves before playing** — a save from another device is fetched
-  before the game starts. It only ever replaces a local save that is *older*, and
+  before the game starts. It only ever replaces a local save that is _older_, and
   the local file is kept as `*.rommix-bak` first.
 - **Upload saves after playing** — only the files the session actually wrote are
   sent back to RomM.
@@ -245,13 +245,13 @@ Two rarely-needed options live in `~/rommix/config/settings.json`, inside the
 
 ## Where your files go
 
-| What | Where |
-| --- | --- |
-| ROMs | The ROM folder of the emulator that runs the platform, under `<roms>/<system>/` |
-| Saves and states | The emulator's own save folders |
-| BIOS files | The emulator's own BIOS folder |
-| Settings, credentials, download index | `~/rommix/config/` |
-| Emulators RomMix installed | `~/rommix/emulators/` |
+| What                                  | Where                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| ROMs                                  | The ROM folder of the emulator that runs the platform, under `<roms>/<system>/` |
+| Saves and states                      | The emulator's own save folders                                                 |
+| BIOS files                            | The emulator's own BIOS folder                                                  |
+| Settings, credentials, download index | `~/rommix/config/`                                                              |
+| Emulators RomMix installed            | `~/rommix/emulators/`                                                           |
 
 ROMs go into each emulator's own library rather than a folder of RomMix's own, so
 a game is still there when you start that emulator on its own and ES-DE scrapes
@@ -299,7 +299,7 @@ for the new one — the original is left alone.
 
 **An AppImage emulator will not start on NixOS**
 AppImages need a loader for the binaries inside (`programs.nix-ld.enable`), and
-must *not* be routed through `appimage-run` (`programs.appimage.binfmt = false`),
+must _not_ be routed through `appimage-run` (`programs.appimage.binfmt = false`),
 which only understands older AppImages.
 
 ---
@@ -321,7 +321,7 @@ ROM-format tables. It is plain data plus a few lookups, with tests.
 **Adding a system, a BIOS requirement or an emulator is a change in `src/config/`
 and nowhere else.** No file outside it names an emulator. An emulator whose
 folders are fixed declares them as templates; one whose folders the user chose
-declares *where that choice is written down* — which file, in which format,
+declares _where that choice is written down_ — which file, in which format,
 under which keys — and the main process reads it without knowing whose it is.
 The same goes for how a system is launched, where its saves live and how they
 are arranged, and whether the emulator offers more than one way to run it.

@@ -98,7 +98,9 @@ export function readRetroArchConfig(
       if (key === 'savefile_directory') config.savefileDir = expandHome(value, home)
       else if (key === 'savestate_directory') config.savestateDir = expandHome(value, home)
       else if (key === 'libretro_path' && value && value !== 'default') {
-        config.activeCore = baseName(value).replace(/\.(so|dll|dylib)$/i, '').replace(/_libretro$/, '')
+        config.activeCore = baseName(value)
+          .replace(/\.(so|dll|dylib)$/i, '')
+          .replace(/_libretro$/, '')
       }
     }
     // The first config that exists is the one RetroArch reads; a second is a

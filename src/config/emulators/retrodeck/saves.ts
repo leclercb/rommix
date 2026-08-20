@@ -32,10 +32,7 @@ function under(root: string | null, ...segments: readonly string[]): string | nu
 }
 
 /** A location, or null when its root is missing. */
-function at(
-  path: string | null,
-  make: (dir: string) => SaveLocation
-): SaveLocation | null {
+function at(path: string | null, make: (dir: string) => SaveLocation): SaveLocation | null {
   return path ? make(path) : null
 }
 
@@ -179,7 +176,8 @@ const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
  * `es_systems` to exactly this path inside the sandbox, and `installDir` is
  * where that sandbox's files are on the host.
  */
-const ES_SYSTEMS = 'files/retrodeck/components/es-de/share/es-de/resources/systems/linux/es_systems.xml'
+const ES_SYSTEMS =
+  'files/retrodeck/components/es-de/share/es-de/resources/systems/linux/es_systems.xml'
 
 /**
  * The label of the first `<command>` ES-DE lists for a system.
@@ -194,7 +192,11 @@ const ES_SYSTEMS = 'files/retrodeck/components/es-de/share/es-de/resources/syste
  * a file of two hundred systems would happily pair one system's name with
  * another's command.
  */
-function defaultCommandLabel(env: SaveContext['env'], installDir: string, system: string): string | null {
+function defaultCommandLabel(
+  env: SaveContext['env'],
+  installDir: string,
+  system: string
+): string | null {
   const xml = env.text(joinPath(installDir, ES_SYSTEMS))
   if (!xml) return null
 

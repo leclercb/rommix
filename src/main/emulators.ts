@@ -267,10 +267,7 @@ function discoverLayout(
 // Detection
 // ---------------------------------------------------------------------------
 
-async function probe(
-  descriptor: EmulatorDescriptor,
-  settings: Settings
-): Promise<EmulatorState> {
+async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promise<EmulatorState> {
   const install = await resolveInstall(descriptor, settings)
   const paths = !install
     ? NO_PATHS

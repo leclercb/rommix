@@ -47,7 +47,12 @@ export function App(): JSX.Element {
               Rom<span>Mix</span>
             </div>
           </div>
-          <RailItem icon="home" label="Home" route={{ name: 'home' }} active={route.name === 'home'} />
+          <RailItem
+            icon="home"
+            label="Home"
+            route={{ name: 'home' }}
+            active={route.name === 'home'}
+          />
           <RailItem
             icon="library"
             label="Library"
@@ -163,7 +168,12 @@ function RunningOverlay(): JSX.Element {
         automatically when it closes.
       </p>
       <div className="btn-row">
-        <FocusButton icon="cancel" variant="danger" onSelect={() => void window.rommix.game.stop()} autoFocus>
+        <FocusButton
+          icon="cancel"
+          variant="danger"
+          onSelect={() => void window.rommix.game.stop()}
+          autoFocus
+        >
           Close the emulator
         </FocusButton>
       </div>

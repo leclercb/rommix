@@ -237,8 +237,7 @@ export class SaveSync {
         const name = basename(path)
         const ext = extname(name).toLowerCase()
 
-        const matchesKind =
-          kind === 'state' ? STATE_PATTERN.test(name) : SAVE_EXTENSIONS.has(ext)
+        const matchesKind = kind === 'state' ? STATE_PATTERN.test(name) : SAVE_EXTENSIONS.has(ext)
         if (!matchesKind) continue
 
         // Emulators name the save after the ROM file, sometimes with a suffix.
@@ -282,10 +281,7 @@ export class SaveSync {
    * to look in — and every asset is then simply not on this device.
    */
   async remoteAssets(romId: number, local?: SaveTarget): Promise<RemoteAsset[]> {
-    const [saves, states] = await Promise.all([
-      this.client.saves(romId),
-      this.client.states(romId)
-    ])
+    const [saves, states] = await Promise.all([this.client.saves(romId), this.client.states(romId)])
 
     /**
      * The file on this device that a remote asset is a copy of, by name.
@@ -463,9 +459,10 @@ export class SaveSync {
       const match = local.find((entry) => entry.fileName === item.file_name)
       if (match && match.mtimeMs >= remoteTime) continue
 
-      const download = kind === 'save'
-        ? (to: string): Promise<void> => this.client.downloadSave(item.id, to)
-        : (to: string): Promise<void> => this.client.downloadState(item.id, to)
+      const download =
+        kind === 'save'
+          ? (to: string): Promise<void> => this.client.downloadSave(item.id, to)
+          : (to: string): Promise<void> => this.client.downloadState(item.id, to)
 
       try {
         if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {

@@ -1,10 +1,5 @@
 import { type JSX, useEffect, useState } from 'react'
-import {
-  orderedEmulators,
-  emulatorById,
-  emulatorsForSystem,
-  systemCount
-} from '@config/emulators'
+import { orderedEmulators, emulatorById, emulatorsForSystem, systemCount } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
 import type {
   DiagnosticsReport,
@@ -98,17 +93,22 @@ export function SettingsScreen(): JSX.Element {
         <dd>{status?.serverVersion ?? 'unknown'}</dd>
       </dl>
       <div className="btn-row">
-        <FocusButton icon="disconnect" variant="danger" onSelect={() => void disconnect()} autoFocus>
+        <FocusButton
+          icon="disconnect"
+          variant="danger"
+          onSelect={() => void disconnect()}
+          autoFocus
+        >
           Disconnect
         </FocusButton>
       </div>
 
       <h2 className="section-title">Emulators</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        What RomMix found on this machine, and how many platforms each one covers. The order is
-        the preference: a platform with no choice of its own is run by the first emulator here
-        that is installed and covers it, so moving one up makes it the default for everything it
-        can run. Platforms you have chosen for individually below are unaffected.
+        What RomMix found on this machine, and how many platforms each one covers. The order is the
+        preference: a platform with no choice of its own is run by the first emulator here that is
+        installed and covers it, so moving one up makes it the default for everything it can run.
+        Platforms you have chosen for individually below are unaffected.
       </p>
       <EmulatorList
         diagnostics={diagnostics}
@@ -120,9 +120,9 @@ export function SettingsScreen(): JSX.Element {
 
       <h2 className="section-title">Platforms</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        Which emulator runs each platform in your library. Every platform starts on a default
-        taken from what these emulators normally handle; change one and RomMix uses your choice
-        for that platform only, and says so rather than quietly substituting if it is missing.
+        Which emulator runs each platform in your library. Every platform starts on a default taken
+        from what these emulators normally handle; change one and RomMix uses your choice for that
+        platform only, and says so rather than quietly substituting if it is missing.
       </p>
       <PlatformList
         chosen={settings.systemEmulators}
@@ -159,9 +159,9 @@ export function SettingsScreen(): JSX.Element {
 
       <h2 className="section-title">RomMix folder</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        Everything RomMix owns lives here — settings, your RomM credentials, the index of
-        downloaded games, and any emulator RomMix installed for you. Moving this one folder moves
-        the whole installation.
+        Everything RomMix owns lives here — settings, your RomM credentials, the index of downloaded
+        games, and any emulator RomMix installed for you. Moving this one folder moves the whole
+        installation.
       </p>
       <div className="form">
         <TextField
@@ -207,13 +207,15 @@ export function SettingsScreen(): JSX.Element {
 
           {/* Per-emulator detail lives only in the Emulators section above. */}
 
-          {diagnostics.notes.length > 0
-            ? diagnostics.notes.map((note) => (
-                <div className="notice notice--warn" key={note}>
-                  {note}
-                </div>
-              ))
-            : <div className="notice notice--ok">Everything looks ready to play.</div>}
+          {diagnostics.notes.length > 0 ? (
+            diagnostics.notes.map((note) => (
+              <div className="notice notice--warn" key={note}>
+                {note}
+              </div>
+            ))
+          ) : (
+            <div className="notice notice--ok">Everything looks ready to play.</div>
+          )}
 
           <div className="btn-row">
             <FocusButton
@@ -230,7 +232,10 @@ export function SettingsScreen(): JSX.Element {
 
       <h2 className="section-title">Application</h2>
       <div className="btn-row">
-        <FocusButton icon="fullscreen" onSelect={() => void window.rommix.system.toggleFullscreen()}>
+        <FocusButton
+          icon="fullscreen"
+          onSelect={() => void window.rommix.system.toggleFullscreen()}
+        >
           Toggle fullscreen
         </FocusButton>
         <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
@@ -250,12 +255,31 @@ export function SettingsScreen(): JSX.Element {
 
 /** Installed / not-installed marker, with the in-between state named. */
 function Status({ state }: { state: EmulatorState | undefined }): JSX.Element {
-  if (!state) return <span className="status" data-state="off">Not checked</span>
-  if (state.available) return <span className="status" data-state="ok">Installed</span>
+  if (!state)
+    return (
+      <span className="status" data-state="off">
+        Not checked
+      </span>
+    )
+  if (state.available)
+    return (
+      <span className="status" data-state="ok">
+        Installed
+      </span>
+    )
   // Present but unusable is worth distinguishing from absent: the fix is
   // different (run it once, vs install it).
-  if (state.install) return <span className="status" data-state="warn">Needs setup</span>
-  return <span className="status" data-state="off">Not installed</span>
+  if (state.install)
+    return (
+      <span className="status" data-state="warn">
+        Needs setup
+      </span>
+    )
+  return (
+    <span className="status" data-state="off">
+      Not installed
+    </span>
+  )
 }
 
 /** The installed emulators, with what each covers. */
@@ -459,7 +483,11 @@ function EmulatorList({
                 </FocusButton>
               ) : null}
               {descriptor.releases ? (
-                <FocusButton icon="download" variant="ghost" onSelect={() => setInstalling(descriptor.id)}>
+                <FocusButton
+                  icon="download"
+                  variant="ghost"
+                  onSelect={() => setInstalling(descriptor.id)}
+                >
                   {state?.available ? 'Change version' : 'Download'}
                 </FocusButton>
               ) : null}

@@ -105,7 +105,13 @@ export function registerIpc(rommix: RomMixApp): void {
     const server = store.server
     const creds = store.credentials
     if (!server || (!creds.accessToken && !creds.clientToken)) {
-      return { connected: false, baseUrl: server?.baseUrl ?? null, user: null, serverVersion: null, error: null }
+      return {
+        connected: false,
+        baseUrl: server?.baseUrl ?? null,
+        user: null,
+        serverVersion: null,
+        error: null
+      }
     }
     try {
       const [user, beat] = await Promise.all([client.me(), client.heartbeat()])
@@ -276,7 +282,7 @@ export function registerIpc(rommix: RomMixApp): void {
       throw new RommError(
         store.getInstalled(romId)
           ? 'This copy was downloaded for a different emulator. Download it again for the one ' +
-            'this platform now uses.'
+              'this platform now uses.'
           : 'That ROM is not downloaded yet'
       )
     }
@@ -287,7 +293,6 @@ export function registerIpc(rommix: RomMixApp): void {
     }
     return { installed, emulator }
   }
-
 
   /**
    * What this game can be run with.
@@ -377,10 +382,13 @@ export function registerIpc(rommix: RomMixApp): void {
    * server comes back the next time the game is played, and the delete would
    * appear to work and then undo itself.
    */
-  handle('saves:delete', async (romId: number, kind: 'save' | 'state', id: number): Promise<void> => {
-    const local = await saveContext(romId).catch(() => null)
-    await saveSync.deleteAsset(romId, kind, id, local ?? undefined)
-  })
+  handle(
+    'saves:delete',
+    async (romId: number, kind: 'save' | 'state', id: number): Promise<void> => {
+      const local = await saveContext(romId).catch(() => null)
+      await saveSync.deleteAsset(romId, kind, id, local ?? undefined)
+    }
+  )
 
   // -- BIOS -----------------------------------------------------------------
 
@@ -417,11 +425,7 @@ export function registerIpc(rommix: RomMixApp): void {
     // info` and a PATH search per emulator every time a switch is flipped.
     // Both change which emulator answers for a platform: one by moving where
     // they are, the other by moving which comes first.
-    if (
-      'emulatorPaths' in patch ||
-      'emulatorPriority' in patch ||
-      'emulatorRoots' in patch
-    ) {
+    if ('emulatorPaths' in patch || 'emulatorPriority' in patch || 'emulatorRoots' in patch) {
       await rommix.refreshEmulators()
     }
 
@@ -513,7 +517,7 @@ export function registerIpc(rommix: RomMixApp): void {
       notes.push(
         suggestion
           ? `No emulator found. Install ${suggestion.name}, which covers most systems, from the ` +
-            'Emulators section above.'
+              'Emulators section above.'
           : 'No emulator found. Install one from the Emulators section above.'
       )
     } else {

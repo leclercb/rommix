@@ -115,7 +115,7 @@ export const eden: EmulatorDescriptor = {
    * external content from game directories* already looks.
    */
   setupNotes: [
-    'Add RomMix\'s ROM folder to Eden: File → Game Directories.',
+    "Add RomMix's ROM folder to Eden: File → Game Directories.",
     'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.'
   ],
   // One Switch emulator, one way to run a game.

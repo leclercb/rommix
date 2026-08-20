@@ -131,8 +131,7 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
         required: true
       }
     ],
-    setupNote:
-      'The Switch needs prod.keys and a firmware dump from a console.'
+    setupNote: 'The Switch needs prod.keys and a firmware dump from a console.'
   },
   wiiu: { files: [], setupNote: 'Wii U needs keys and an OTP dump from a console.' },
   '3do': {

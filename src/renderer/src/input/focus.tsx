@@ -156,8 +156,9 @@ function revealElement(element: HTMLElement): void {
   const scroller = scrollParentOf(element)
   if (scroller) {
     // Where the element sits inside the scrolled content, not the viewport.
-    const top = scroller.scrollTop + (element.getBoundingClientRect().top -
-      scroller.getBoundingClientRect().top)
+    const top =
+      scroller.scrollTop +
+      (element.getBoundingClientRect().top - scroller.getBoundingClientRect().top)
     const bottom = top + element.offsetHeight
 
     if (top <= SNAP_TO_EDGE_PX) {
@@ -325,7 +326,8 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const visibleEntries = useCallback((): FocusableEntry[] => {
     const layer = layerRef.current
     return [...entries.current.values()].filter(
-      (entry) => entry.layer === layer && entry.element.isConnected && entry.element.offsetParent !== null
+      (entry) =>
+        entry.layer === layer && entry.element.isConnected && entry.element.offsetParent !== null
     )
   }, [])
 
@@ -662,7 +664,13 @@ export function useFocusable(options: {
 
   useEffect(() => {
     if (!enabled || !ref.current) return
-    return register({ id, element: ref.current, onSelect: () => selectRef.current?.(), layer, zone })
+    return register({
+      id,
+      element: ref.current,
+      onSelect: () => selectRef.current?.(),
+      layer,
+      zone
+    })
   }, [enabled, id, register, layer, zone])
 
   useEffect(() => {
@@ -779,10 +787,30 @@ function useGamepad(
         const button = (index: number): boolean => pad.buttons[index]?.pressed ?? false
         const [axisX = 0, axisY = 0] = pad.axes
 
-        edge('up', button(BUTTON.DPAD_UP) || axisY < -AXIS_DEADZONE, () => moveRef.current('up'), true)
-        edge('down', button(BUTTON.DPAD_DOWN) || axisY > AXIS_DEADZONE, () => moveRef.current('down'), true)
-        edge('left', button(BUTTON.DPAD_LEFT) || axisX < -AXIS_DEADZONE, () => moveRef.current('left'), true)
-        edge('right', button(BUTTON.DPAD_RIGHT) || axisX > AXIS_DEADZONE, () => moveRef.current('right'), true)
+        edge(
+          'up',
+          button(BUTTON.DPAD_UP) || axisY < -AXIS_DEADZONE,
+          () => moveRef.current('up'),
+          true
+        )
+        edge(
+          'down',
+          button(BUTTON.DPAD_DOWN) || axisY > AXIS_DEADZONE,
+          () => moveRef.current('down'),
+          true
+        )
+        edge(
+          'left',
+          button(BUTTON.DPAD_LEFT) || axisX < -AXIS_DEADZONE,
+          () => moveRef.current('left'),
+          true
+        )
+        edge(
+          'right',
+          button(BUTTON.DPAD_RIGHT) || axisX > AXIS_DEADZONE,
+          () => moveRef.current('right'),
+          true
+        )
 
         edge('a', button(BUTTON.A), () => activateRef.current(), false)
         edge('b', button(BUTTON.B), () => actionRef.current('back'), false)

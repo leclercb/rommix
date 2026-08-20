@@ -164,9 +164,7 @@ export const EMUDECK_LAUNCHERS: Readonly<Record<string, readonly EmuDeckLauncher
   psp: [standalone('ppsspp', 'PPSSPP', 'ppsspp.sh', ['-f', '-g', ROM_PLACEHOLDER])],
 
   // -- Microsoft ------------------------------------------------------------
-  xbox: [
-    standalone('xemu', 'xemu', 'xemu-emu.sh', ['-full-screen', '-dvd_path', ROM_PLACEHOLDER])
-  ],
+  xbox: [standalone('xemu', 'xemu', 'xemu-emu.sh', ['-full-screen', '-dvd_path', ROM_PLACEHOLDER])],
   // Xenia runs under Proton, so the path it is given has to be a Windows one.
   xbox360: [standalone('xenia', 'Xenia', 'xenia.sh', [`Z:${ROM_PLACEHOLDER}`])],
   dos: [core('dosbox_pure', 'DOSBox Pure', 'dosbox_pure')],
@@ -221,10 +219,7 @@ export const EMUDECK_LAUNCHERS: Readonly<Record<string, readonly EmuDeckLauncher
   // -- Engines and fantasy consoles -----------------------------------------
   doom: [core('prboom', 'PrBoom', 'prboom')],
   scummvm: [
-    standalone('scummvm', 'ScummVM', 'scummvm.sh', [
-      `--path=${ROM_PLACEHOLDER}`,
-      '--auto-detect'
-    ])
+    standalone('scummvm', 'ScummVM', 'scummvm.sh', [`--path=${ROM_PLACEHOLDER}`, '--auto-detect'])
   ],
   easyrpg: [core('easyrpg', 'EasyRPG', 'easyrpg')],
   pico8: [core('retro8', 'Retro8', 'retro8')],
@@ -305,9 +300,7 @@ export const emudeck: EmulatorDescriptor = {
    */
   saves: (ctx) => {
     const options = emuDeckLaunchers(ctx.system)
-    const chosen = ctx.variant
-      ? options.find((option) => option.id === ctx.variant)
-      : options[0]
+    const chosen = ctx.variant ? options.find((option) => option.id === ctx.variant) : options[0]
     if (!chosen) return { saves: null, states: null }
     return emuDeckSavePaths(ctx, chosen.script)
   },

@@ -73,6 +73,10 @@ export interface SystemInfo {
  * a user override can name any of them, and `isKnownSystem` is what decides
  * whether a guessed folder is a real one.
  */
+// One line per system is the point: the columns line up, and a reader compares
+// rows rather than reading 195 six-line objects. Hence the exemption below —
+// which has to be the last comment before the table, and carry no other text.
+// prettier-ignore
 const TABLE: readonly SystemInfo[] = [
   // -- Nintendo -------------------------------------------------------------
   { id: 'nes', label: 'Nintendo Entertainment System', short: 'NES', icon: 'nes', slugs: ['nes'], core: 'mesen' },

@@ -443,13 +443,7 @@ export function Logo({ className }: { className?: string }): JSX.Element {
  * The modules are emitted as one path rather than a few hundred <rect>s, and
  * `crispEdges` keeps the cells from being antialiased into each other.
  */
-export function QrCode({
-  value,
-  size = 240
-}: {
-  value: string
-  size?: number
-}): JSX.Element {
+export function QrCode({ value, size = 240 }: { value: string; size?: number }): JSX.Element {
   const { path, moduleCount } = useMemo(() => {
     // Type 0 auto-sizes; 'M' tolerates ~15% damage, which is the usual choice
     // for something displayed on a screen rather than printed.
@@ -500,13 +494,7 @@ export function QrCode({
  * resort is the short code on a colour derived from the system name: distinct
  * per platform, and legible at a distance.
  */
-export function SystemIcon({
-  system,
-  size = 34
-}: {
-  system: string
-  size?: number
-}): JSX.Element {
+export function SystemIcon({ system, size = 34 }: { system: string; size?: number }): JSX.Element {
   const info = systemInfo(system)
   return <IconImage candidates={[info.icon]} system={system} label={info.label} size={size} />
 }
@@ -581,7 +569,16 @@ function IconImage({
   useEffect(() => setAttempt(0), [cacheKey])
 
   if (cached) {
-    return <img className="system-icon" style={{ width: size, height: size }} src={cached} alt={label} title={label} loading="lazy" />
+    return (
+      <img
+        className="system-icon"
+        style={{ width: size, height: size }}
+        src={cached}
+        alt={label}
+        title={label}
+        loading="lazy"
+      />
+    )
   }
   if (attempt >= sources.length) return <PlatformBadge system={system} />
 
@@ -677,12 +674,7 @@ function TabButton({
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect })
   return (
-    <button
-      ref={ref as Ref<HTMLButtonElement>}
-      className="tab"
-      data-active={active}
-      {...props}
-    >
+    <button ref={ref as Ref<HTMLButtonElement>} className="tab" data-active={active} {...props}>
       {label}
       {badge != null ? <span className="tab__badge">{badge}</span> : null}
     </button>

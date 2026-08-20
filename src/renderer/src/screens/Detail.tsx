@@ -1,12 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
-import type {
-  BiosPlatform,
-  InstalledRom,
-  LaunchChoice,
-  RemoteAsset,
-  RommRom
-} from '@shared/types'
+import type { BiosPlatform, InstalledRom, LaunchChoice, RemoteAsset, RommRom } from '@shared/types'
 import {
   CoverArt,
   FocusButton,
@@ -88,7 +82,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
   const entry: InstalledRom | undefined = installed.find((item) => item.romId === romId)
   const download = downloads.find((item) => item.romId === romId)
-  const active = download?.state === 'downloading' || download?.state === 'queued' || download?.state === 'extracting'
+  const active =
+    download?.state === 'downloading' ||
+    download?.state === 'queued' ||
+    download?.state === 'extracting'
   const running = runningRomId === romId
 
   // Only to decide whether "Run with…" is worth showing, and what this
@@ -352,13 +349,16 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const title = rom.name ?? rom.fs_name
   // The installed entry knows the system for certain; for a game that is not
   // downloaded it is worked out from the platform, exactly as a download would.
-  const system = entry?.system ?? resolveSystem(rom.platform_slug, rom.platform_fs_slug, settings?.systemOverrides)
+  const system =
+    entry?.system ??
+    resolveSystem(rom.platform_slug, rom.platform_fs_slug, settings?.systemOverrides)
   const year = rom.metadatum.first_release_date
     ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
     : null
-  const progress = download && download.totalBytes > 0
-    ? Math.round((download.receivedBytes / download.totalBytes) * 100)
-    : 0
+  const progress =
+    download && download.totalBytes > 0
+      ? Math.round((download.receivedBytes / download.totalBytes) * 100)
+      : 0
 
   return (
     <div className="content">
@@ -403,11 +403,22 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             {running ? 'Running…' : 'Play'}
           </FocusButton>
         ) : active ? (
-          <FocusButton icon="cancel" variant="danger" onSelect={() => void window.rommix.downloads.cancel(romId)} autoFocus>
+          <FocusButton
+            icon="cancel"
+            variant="danger"
+            onSelect={() => void window.rommix.downloads.cancel(romId)}
+            autoFocus
+          >
             Cancel download ({progress}%)
           </FocusButton>
         ) : (
-          <FocusButton icon="download" variant="primary" onSelect={() => void startDownload()} disabled={busy} autoFocus>
+          <FocusButton
+            icon="download"
+            variant="primary"
+            onSelect={() => void startDownload()}
+            disabled={busy}
+            autoFocus
+          >
             Download
           </FocusButton>
         )}
@@ -429,10 +440,18 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             read from or write into until the ROM has been downloaded. */}
         {entry ? (
           <>
-            <FocusButton icon="pull" onSelect={() => void syncSaves('pull')} disabled={busy || running}>
+            <FocusButton
+              icon="pull"
+              onSelect={() => void syncSaves('pull')}
+              disabled={busy || running}
+            >
               Pull saves
             </FocusButton>
-            <FocusButton icon="push" onSelect={() => void syncSaves('push')} disabled={busy || running}>
+            <FocusButton
+              icon="push"
+              onSelect={() => void syncSaves('push')}
+              disabled={busy || running}
+            >
               Push saves
             </FocusButton>
           </>
@@ -577,8 +596,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             {deletingAsset.fileName} will be removed from RomM
             {deletingAsset.localPath
               ? ` and from this device (${deletingAsset.localPath})`
-              : ''}
-            . {deletingAsset.localPath
+              : ''}.{' '}
+            {deletingAsset.localPath
               ? 'Both, because a save left on disk is uploaded again the next time you play — deleting only the server copy would undo itself.'
               : 'This device does not have a copy of it.'}
           </p>
@@ -586,7 +605,11 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             <FocusButton icon="keep" onSelect={() => setDeletingAsset(null)} autoFocus>
               Keep it
             </FocusButton>
-            <FocusButton icon="delete" variant="danger" onSelect={() => void deleteAsset(deletingAsset)}>
+            <FocusButton
+              icon="delete"
+              variant="danger"
+              onSelect={() => void deleteAsset(deletingAsset)}
+            >
               Delete from RomM
             </FocusButton>
           </div>
