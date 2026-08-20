@@ -13,11 +13,40 @@ import {
   resolveEmulator,
   supportsSystem
 } from './index.ts'
-import { eden } from './eden.ts'
-import { emudeck, ROM_PLACEHOLDER } from './emudeck.ts'
-import { retroarch } from './retroarch.ts'
-import { retrodeck } from './retrodeck.ts'
-import type { EmulatorState } from './types.ts'
+import { readFileSync } from 'node:fs'
+import { eden } from './eden/index.ts'
+import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
+import { retroarch } from './retroarch/index.ts'
+import { retrodeck } from './retrodeck/index.ts'
+import { example } from './example/index.ts'
+import type { EmulatorDescriptor, EmulatorState } from './types.ts'
+
+/**
+ * Every field of `EmulatorDescriptor`, in the order the interface declares
+ * them. Descriptors list their fields in this order too, so one can be read
+ * against another — and against the interface — without hunting.
+ */
+const FIELD_ORDER = [
+  'id',
+  'name',
+  'dispatch',
+  'install',
+  'systems',
+  'ownsLibrary',
+  'dirs',
+  'layout',
+  'saves',
+  'releases',
+  'homepage',
+  'env',
+  'flatLibrary',
+  'biosAccepts',
+  'biosStagingNote',
+  'setupNotes',
+  'variants',
+  'open',
+  'launch'
+] as const
 
 /** A state as the main-process probe would report it, for selection tests. */
 function state(id: string, available: boolean): EmulatorState {
@@ -27,11 +56,11 @@ function state(id: string, available: boolean): EmulatorState {
     id: descriptor.id,
     name: descriptor.name,
     dispatch: descriptor.dispatch,
-    saveLayout: descriptor.saveLayout,
-    saveTree: descriptor.saveTree,
     available,
     install: available ? { kind: 'flatpak', ref: 'test.app.Id' } : null,
     paths: { home: null, roms: '/roms', saves: null, states: null, bios: null },
+    configDir: null,
+    dataDir: null,
     unavailableReason: available ? null : 'not installed'
   }
 }
@@ -225,25 +254,6 @@ test('Eden declares the environment it needs to open a window at all', () => {
 test('an emulator with nothing to declare has no environment', () => {
   assert.equal(retrodeck.env, undefined)
   assert.equal(retroarch.env, undefined)
-})
-
-test('every emulator declares where its saves live and how they are arranged', () => {
-  // Both halves are needed to find a save at all, and a missing one would only
-  // show up as "nothing to sync" long after the session that wrote it.
-  for (const emulator of EMULATORS) {
-    assert.ok(
-      emulator.saveTree === 'system-nested' || emulator.saveTree === 'flat',
-      `${emulator.id} declares no save tree`
-    )
-  }
-})
-
-test('a frontend nests saves per system and a standalone emulator does not', () => {
-  // RetroArch writes `<rom>.srm` straight into its save directory. Walking a
-  // system subdirectory would find nothing, and a pull would write the save
-  // into a folder RetroArch never reads.
-  assert.equal(retrodeck.saveTree, 'system-nested')
-  assert.equal(retroarch.saveTree, 'flat')
 })
 
 test('an emulator whose folders the user chose says where that choice is written', () => {
@@ -484,4 +494,46 @@ test('EmuDeck opens its own frontend for the Run button', () => {
   assert.deepEqual(emudeck.open?.({ exec: [], installRef: '/e/tools/launchers' }), [
     '/e/tools/launchers/es-de/es-de.sh'
   ])
+})
+
+
+// ---------------------------------------------------------------------------
+// Shape
+// ---------------------------------------------------------------------------
+
+test('the field list matches what the interface declares', () => {
+  // The order below is copied from `types.ts`, so this catches a field added
+  // to the interface that nobody added here — which would let the ordering
+  // test below pass while ignoring the new field entirely.
+  const source = readFileSync(new URL('./types.ts', import.meta.url), 'utf8')
+  const from = source.indexOf('export interface EmulatorDescriptor')
+  // Stop at the interface's own closing brace, which is the first `}` in
+  // column zero — otherwise this reads on into `EmulatorState` and asserts
+  // against a union of the two.
+  const body = source.slice(from, source.indexOf('\n}\n', from))
+  const declared = [...body.matchAll(/^  (?:readonly )?([a-zA-Z]+)[?]?[:(]/gm)].map((m) => m[1])
+  assert.deepEqual(declared, [...FIELD_ORDER])
+})
+
+test('every emulator spells out every field, in the interface\'s order', () => {
+  // Not style for its own sake. An absent optional field makes the reader of
+  // one emulator guess what the default does, and a differing order makes two
+  // emulators impossible to read side by side.
+  for (const emulator of [...EMULATORS, example] as EmulatorDescriptor[]) {
+    assert.deepEqual(
+      Object.keys(emulator),
+      [...FIELD_ORDER],
+      `${emulator.id} declares its fields in the wrong order, or is missing one`
+    )
+  }
+})
+
+test('the example emulator is documentation, not something RomMix will run', () => {
+  // It exists to be type-checked and copied. Shipping it in the registry would
+  // offer the user an emulator that does not exist.
+  assert.equal(
+    EMULATORS.some((emulator) => emulator.id === example.id),
+    false
+  )
+  assert.equal(emulatorById('example'), null)
 })

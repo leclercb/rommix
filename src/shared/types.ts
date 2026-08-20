@@ -267,8 +267,7 @@ export type {
   EmulatorDispatch,
   EmulatorId,
   EmulatorState,
-  ResolvedInstall,
-  SaveLayout
+  ResolvedInstall
 } from '../config/emulators/types.ts'
 
 import type { EmulatorId, EmulatorState } from '../config/emulators/types.ts'
@@ -287,6 +286,16 @@ export interface Settings {
    * find it. AppImages in particular live wherever the user put them.
    */
   emulatorPaths: Record<EmulatorId, string>
+  /**
+   * Emulator id -> the folder holding that emulator's library, when the user
+   * has moved it somewhere RomMix does not find on its own.
+   *
+   * One root rather than four paths: RetroDECK and EmuDeck each keep roms,
+   * saves, states and BIOS in one relocatable tree, and the reason to set this
+   * — the library lives on an SD card or a second drive — moves all of them at
+   * once. The names below it come from the descriptor's `layout.relative`.
+   */
+  emulatorRoots: Record<EmulatorId, string>
   /**
    * `<emulator id>:<es-de system>` -> launch variant id.
    *

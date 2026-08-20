@@ -11,7 +11,9 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test": "node --test src/shared/*.test.ts src/config/*.test.ts src/config/*/*.test.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test \"src/**/*.test.ts\"",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
     "flatpak": "./scripts/build-flatpak.sh"
@@ -30,6 +32,7 @@
     "electron": "^33.3.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "prettier": "^3.9.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.7.2",

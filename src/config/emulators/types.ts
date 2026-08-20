@@ -8,11 +8,21 @@
  * a *platform + emulator* pair, and BIOS layout to the emulator alone — so a
  * single "which emulator" preference cannot express them.
  *
+ * Every field is required, including the ones that are usually empty. An
+ * optional field lets an emulator quietly inherit a default that is written
+ * nowhere near it, and the reader of `eden.ts` then has to know what `open`
+ * does when absent in order to know what Eden does. Spelling out `open:
+ * undefined` costs a line and answers the question in place — and makes adding
+ * a field to this interface a compile error in every emulator rather than a
+ * silent behaviour change in three of them.
+ *
  * A descriptor is pure data plus one argv builder, so it can be unit-tested
  * without touching the filesystem. Anything that has to look at the machine —
  * is it installed, where did it put its config — is the main process's job, in
  * `src/main/emulators.ts`.
  */
+
+import type { SaveContext, SavePaths } from './savepaths.ts'
 
 /** Stable identifier for an emulator, e.g. 'retrodeck'. Persisted in settings. */
 export type EmulatorId = string
@@ -76,6 +86,13 @@ export interface ReleaseSource {
 export interface ResolvedInstall {
   kind: 'flatpak' | 'binary' | 'appimage' | 'scripts'
   ref: string
+  /**
+   * Where the application's own files are, for the emulators that ship
+   * configuration RomMix has to read — RetroDECK's bundled ES-DE system list is
+   * the one that matters. Only a flatpak has one; asking flatpak for it covers
+   * system and user installs, either architecture, and any branch.
+   */
+  location?: string
 }
 
 /**
@@ -142,6 +159,19 @@ export interface LayoutDiscovery {
   /** Tried in order; the first that carries its `requires` name wins. */
   readonly sources: readonly LayoutSource[]
   /**
+   * Names below the library root, for when the user points RomMix at one.
+   *
+   * An emulator that owns its library keeps that library in one relocatable
+   * tree — the whole point of RetroDECK's SD-card option and EmuDeck's
+   * `Emulation` folder. Told where that tree is, RomMix derives the rest from
+   * these names rather than asking for four paths and letting them drift apart.
+   *
+   * A user-set root is believed outright: the configuration files are not read
+   * at all for that emulator, because "the answer is on disk" and "the user
+   * corrected us" cannot both win, and the correction is the newer fact.
+   */
+  readonly relative?: Readonly<Record<string, string>>
+  /**
    * Where things are when no configuration file says.
    *
    * Applied only to paths that actually exist: a guessed location that happens
@@ -154,33 +184,6 @@ export interface LayoutDiscovery {
     paths: Readonly<Record<string, string>>
   }
 }
-
-/**
- * How the emulator stores per-game save data, which decides how much of it
- * RomMix can meaningfully sync to RomM:
- *
- *  - `per-game-file`  one file named after the ROM (libretro `.srm`). Synced.
- *  - `per-game-dir`   a directory per title, keyed by a title id rather than by
- *                     the ROM filename. Nothing here can be matched to a ROM,
- *                     so RomMix skips it rather than syncing the wrong game's
- *                     data.
- *  - `shared-device`  one memory card shared by every game (PCSX2, Dolphin).
- *                     Per-game sync is not expressible, so RomMix skips it.
- *  - `delegated`      a frontend's tree, whose layout depends on whichever
- *                     emulator the frontend chose. Walked heuristically.
- */
-export type SaveLayout = 'per-game-file' | 'per-game-dir' | 'shared-device' | 'delegated'
-
-/**
- * How the save and state directories are arranged beneath their roots.
- *
- * `system-nested` is a frontend's convention: `<saves>/<es-de system>/…`, with
- * standalone emulators one directory further down. `flat` is an emulator that
- * writes into the root itself, which is what RetroArch does — walking a system
- * subdirectory there would find nothing and, worse, *write* a pulled save into
- * a folder the emulator never reads.
- */
-export type SaveTree = 'system-nested' | 'flat'
 
 /** Extensions and patterns that identify save data on disk. */
 export interface SaveFileConventions {
@@ -258,22 +261,29 @@ export interface EmulatorDescriptor {
    * Set instead of `dirs` when the emulator records its own layout because the
    * user chose it. Templates cannot express a path that lives on the disk.
    */
-  readonly layout?: LayoutDiscovery
-  readonly saveLayout: SaveLayout
-  /** Arrangement below `dirs.saves` and `dirs.states`. */
-  readonly saveTree: SaveTree
+  readonly layout: LayoutDiscovery | undefined
+  /**
+   * Where this emulator keeps the save data for one game.
+   *
+   * A question rather than a declaration, because the answer depends on things
+   * a table cannot hold: which core RetroArch last loaded, which of RetroDECK's
+   * bundled emulators ES-DE will hand the system to, which Switch profile owns
+   * a save. See `savepaths.ts` for what the answer means and what the
+   * descriptor is allowed to look at while producing it.
+   */
+  saves(ctx: SaveContext): SavePaths
   /** Set when RomMix can fetch and install this emulator itself. */
-  readonly releases?: ReleaseSource
+  readonly releases: ReleaseSource | undefined
   /**
    * Where to get it, for emulators RomMix cannot install — shown instead of a
    * button, so "not installed" comes with an answer rather than a dead end.
    */
-  readonly homepage?: string
+  readonly homepage: string | undefined
   /**
    * Environment the emulator needs in order to start, merged over RomMix's own.
    * For things the emulator will not do for itself — not for tuning.
    */
-  readonly env?: Readonly<Record<string, string>>
+  readonly env: Readonly<Record<string, string>> | undefined
   /**
    * True when this emulator's game list reads one directory and does not
    * descend into it.
@@ -287,7 +297,7 @@ export interface EmulatorDescriptor {
    *
    * Such an emulator gets every file loose in the system folder instead.
    */
-  readonly flatLibrary?: boolean
+  readonly flatLibrary: boolean
   /**
    * Which firmware files this emulator's own BIOS folder will take, matched on
    * the end of the file name.
@@ -303,12 +313,12 @@ export interface EmulatorDescriptor {
    * is still fetched from RomM and still has a definite home — RomMix simply
    * stops short of the step only the emulator can perform.
    */
-  readonly biosAccepts?: readonly string[]
+  readonly biosAccepts: readonly string[] | undefined
   /**
    * What to tell the user about files that had to be staged rather than
    * installed. Shown on the BIOS screen beside the folder they went to.
    */
-  readonly biosStagingNote?: string
+  readonly biosStagingNote: string | undefined
   /**
    * Steps the user has to perform inside the emulator itself, which RomMix can
    * neither do nor verify from outside.
@@ -319,18 +329,18 @@ export interface EmulatorDescriptor {
    * once, where the game is, is the difference between a setup step and a bug
    * report.
    */
-  readonly setupNotes?: readonly string[]
+  readonly setupNotes: readonly string[]
   /**
    * The ways this emulator can run a system. Absent, or one entry, means there
    * is nothing to ask about.
    */
-  variants?(system: string): readonly LaunchVariant[]
+  variants: ((system: string) => readonly LaunchVariant[]) | undefined
   /**
    * argv to start the emulator on its own, for the Run button. Only needed
    * where that is not simply `exec` — a launcher directory has no one program,
    * so EmuDeck points this at its frontend.
    */
-  open?(ctx: { exec: readonly string[]; installRef: string }): string[]
+  open: ((ctx: { exec: readonly string[]; installRef: string }) => string[]) | undefined
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
 }
@@ -340,12 +350,21 @@ export interface EmulatorState {
   id: EmulatorId
   name: string
   dispatch: EmulatorDispatch
-  saveLayout: SaveLayout
-  saveTree: SaveTree
   /** Installed, and usable right now. */
   available: boolean
   install: ResolvedInstall | null
   paths: EmulationPaths
+  /**
+   * The emulator's own config and data roots for the install that was found —
+   * inside `~/.var/app/<id>/` for a flatpak, the XDG roots otherwise.
+   *
+   * Not part of `paths`, which holds the emulation directories a frontend
+   * records for itself. Save resolution needs both and neither implies the
+   * other: RetroDECK keeps its library at `~/retrodeck` and the `retroarch.cfg`
+   * governing where libretro saves land inside its flatpak tree.
+   */
+  configDir: string | null
+  dataDir: string | null
   /** Why it is not available, phrased for the diagnostics panel. */
   unavailableReason: string | null
 }

@@ -1,4 +1,5 @@
-import type { EmulatorDescriptor, LaunchVariant } from './types.ts'
+import { emuDeckSavePaths } from './saves.ts'
+import type { EmulatorDescriptor, LaunchVariant } from '../types.ts'
 
 /**
  * EmuDeck.
@@ -242,14 +243,15 @@ export const emudeck: EmulatorDescriptor = {
   id: 'emudeck',
   name: 'EmuDeck',
   dispatch: 'rommix',
+
   // What "EmuDeck is installed" means: the launcher scripts are there. Not
+
   // that the Emulation folder exists — that is created early in setup and left
+
   // behind by an uninstall, whereas the launchers are what RomMix actually
+
   // runs. Where they are comes from the tools directory `layout` reads.
   install: [{ kind: 'scripts', dir: { from: 'tools', path: 'launchers' } }],
-  // RomMix cannot install EmuDeck: its installer sets up a dozen emulators and
-  // asks the user a page of questions about how they want them configured.
-  homepage: 'https://www.emudeck.com',
   systems: Object.keys(EMUDECK_LAUNCHERS),
   // EmuDeck builds the Emulation folder during its own setup, and until that
   // has happened there is nowhere to install a ROM to.
@@ -276,6 +278,10 @@ export const emudeck: EmulatorDescriptor = {
         defaults: { roms: 'roms', saves: 'saves', bios: 'bios', tools: 'tools' }
       }
     ],
+    // What EmuDeck keeps below its Emulation folder. `tools` is here too: it is
+    // where the launcher scripts live, and therefore what "EmuDeck is
+    // installed" means at all.
+    relative: { roms: 'roms', saves: 'saves', bios: 'bios', tools: 'tools' },
     fallback: {
       base: 'home',
       paths: {
@@ -287,11 +293,36 @@ export const emudeck: EmulatorDescriptor = {
       }
     }
   },
-  // EmuDeck files saves per emulator under Emulation/saves, and symlinks each
-  // emulator's own directory into it, so what is there depends on which
-  // emulator ran the game rather than on the ES-DE system.
-  saveLayout: 'delegated',
-  saveTree: 'flat',
+  /**
+   * EmuDeck files saves per emulator under `Emulation/saves`, symlinking each
+   * emulator's own directory into it — so what is there depends on which
+   * emulator ran the game rather than on the ES-DE system.
+   *
+   * Which emulator that was is not a guess: it is the launcher the user already
+   * chose, recorded in `settings.systemLaunchers` and handed back here as
+   * `variant`. An unrecognised or absent variant resolves to EmuDeck's own
+   * default for the system, which is the same one `launch` would have run.
+   */
+  saves: (ctx) => {
+    const options = emuDeckLaunchers(ctx.system)
+    const chosen = ctx.variant
+      ? options.find((option) => option.id === ctx.variant)
+      : options[0]
+    if (!chosen) return { saves: null, states: null }
+    return emuDeckSavePaths(ctx, chosen.script)
+  },
+  // RomMix cannot install EmuDeck: its own installer sets up a dozen emulators
+  // and asks a page of questions about how they should be configured.
+  releases: undefined,
+  // RomMix cannot install EmuDeck: its installer sets up a dozen emulators and
+  // asks the user a page of questions about how they want them configured.
+  homepage: 'https://www.emudeck.com',
+  env: undefined,
+  // ES-DE scans recursively, so a multi-file game keeps its own folder.
+  flatLibrary: false,
+  biosAccepts: undefined,
+  biosStagingNote: undefined,
+  setupNotes: [],
   variants: emuDeckLaunchers,
   open: ({ exec, installRef }) => [...exec, `${installRef}/${EMUDECK_FRONTEND}`],
   launch: ({ exec, installRef, system, romPath, variant }) => {

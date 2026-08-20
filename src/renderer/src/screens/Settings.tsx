@@ -318,6 +318,28 @@ function EmulatorList({
     []
   )
 
+  /**
+   * The library folder the user is editing, and what they have typed.
+   *
+   * Held per emulator rather than as one draft: two emulators can both own a
+   * library, and a half-typed path for one must not leak into the other.
+   */
+  const [rootDraft, setRootDraft] = useState<{ id: EmulatorId; value: string } | null>(null)
+
+  const saveRoot = async (id: EmulatorId, value: string): Promise<void> => {
+    const trimmed = value.trim()
+    const roots = { ...(settings?.emulatorRoots ?? {}) }
+    // An emptied field is a request to go back to discovery, not a request to
+    // look for the library in a directory called "".
+    if (trimmed) roots[id] = trimmed
+    else delete roots[id]
+
+    await saveSettings({ emulatorRoots: roots })
+    setRootDraft(null)
+    onInstalled()
+    await refreshInstalled()
+  }
+
   const installFromFlathub = async (id: EmulatorId): Promise<void> => {
     setFlatpakBusy(id)
     setFlatpakLine(null)
@@ -362,6 +384,42 @@ function EmulatorList({
               {state?.unavailableReason ? (
                 <div className="emulator__meta">{state.unavailableReason}</div>
               ) : null}
+              {/* Only for the emulators that keep their library in one
+                  relocatable tree. Naming a folder for RetroArch would suggest
+                  RomMix could move a library RetroArch does not have. */}
+              {descriptor.layout?.relative ? (
+                rootDraft?.id === descriptor.id ? (
+                  <div className="form">
+                    <TextField
+                      label="Library folder"
+                      value={rootDraft.value}
+                      onChange={(value) => setRootDraft({ id: descriptor.id, value })}
+                      placeholder={state?.paths.home ?? ''}
+                      hint={
+                        'ROMs, saves, states and BIOS are read from inside this folder. ' +
+                        'Leave it empty to go back to finding it automatically.'
+                      }
+                      autoFocus
+                    />
+                    <div className="btn-row">
+                      <FocusButton
+                        icon="folder"
+                        onSelect={() => void saveRoot(descriptor.id, rootDraft.value)}
+                      >
+                        Use this folder
+                      </FocusButton>
+                      <FocusButton icon="back" variant="ghost" onSelect={() => setRootDraft(null)}>
+                        Cancel
+                      </FocusButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="emulator__path">
+                    Library: {state?.paths.home ?? 'not found'}
+                    {settings?.emulatorRoots?.[descriptor.id] ? ' (set by you)' : ''}
+                  </div>
+                )
+              ) : null}
               {/* An emulator RomMix cannot install itself would otherwise say
                   "not installed" and offer nothing to do about it. */}
               {!state?.install && descriptor.homepage ? (
@@ -382,6 +440,22 @@ function EmulatorList({
                   onSelect={() => void run(descriptor.id, descriptor.name)}
                 >
                   Run
+                </FocusButton>
+              ) : null}
+              {/* Offered even when the emulator is not detected: a library
+                  RomMix cannot find is the main reason to point it at one. */}
+              {descriptor.layout?.relative && rootDraft?.id !== descriptor.id ? (
+                <FocusButton
+                  icon="folder"
+                  variant="ghost"
+                  onSelect={() =>
+                    setRootDraft({
+                      id: descriptor.id,
+                      value: settings?.emulatorRoots?.[descriptor.id] ?? state?.paths.home ?? ''
+                    })
+                  }
+                >
+                  Library folder
                 </FocusButton>
               ) : null}
               {descriptor.releases ? (

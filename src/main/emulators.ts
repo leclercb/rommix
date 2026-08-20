@@ -17,7 +17,7 @@ import {
   binaryPath,
   findAppImage,
   findMatchingFile,
-  flatpakInstalled,
+  flatpakLocation,
   realHome,
   xdgConfigHome,
   xdgDataHome
@@ -69,7 +69,8 @@ async function resolveInstall(
 
   for (const spec of descriptor.install) {
     if (spec.kind === 'flatpak') {
-      if (await flatpakInstalled(spec.appId)) return { kind: 'flatpak', ref: spec.appId }
+      const location = await flatpakLocation(spec.appId)
+      if (location) return { kind: 'flatpak', ref: spec.appId, location }
     } else if (spec.kind === 'binary') {
       const path = await binaryPath(spec.names)
       if (path) return { kind: 'binary', ref: path }
@@ -80,7 +81,7 @@ async function resolveInstall(
       // A set of launcher scripts, somewhere the emulator's own configuration
       // points at. Discovery runs without an install, which is exactly the
       // position it is in: the directory it finds *is* the install.
-      const { paths, extras } = discoverLayout(descriptor, null)
+      const { paths, extras } = discoverLayout(descriptor, null, settings)
       const root = extras[spec.dir.from] ?? paths[spec.dir.from as keyof EmulationPaths]
       if (!root) continue
       const dir = join(root, spec.dir.path)
@@ -180,11 +181,34 @@ function readConfigValues(path: string, source: LayoutSource): Map<string, strin
  */
 function discoverLayout(
   descriptor: EmulatorDescriptor,
-  install: ResolvedInstall | null
+  install: ResolvedInstall | null,
+  settings: Settings
 ): { paths: EmulationPaths; extras: Record<string, string> } {
   const found = new Map<string, string>()
   const layout = descriptor.layout
   const bases = baseDirs(install)
+
+  /**
+   * A library folder the user pointed us at wins outright, and the emulator's
+   * own configuration is not consulted at all.
+   *
+   * The two cannot both be believed — "the answer is on disk" and "the user
+   * corrected us" would produce a tree half in each place — and the correction
+   * is the newer fact. It is also the only thing that helps when the emulator's
+   * settings file is somewhere RomMix cannot find, which is exactly the
+   * situation that makes someone set this.
+   */
+  const root = settings.emulatorRoots[descriptor.id]
+  if (root && layout?.relative) {
+    const paths = { ...NO_PATHS, home: root }
+    const extras: Record<string, string> = {}
+    for (const [name, child] of Object.entries(layout.relative)) {
+      const resolved = join(root, child)
+      if (name in NO_PATHS) paths[name as keyof EmulationPaths] = resolved
+      else extras[name] = resolved
+    }
+    return { paths, extras }
+  }
 
   for (const source of layout?.sources ?? []) {
     const file = join(bases[source.file.base], source.file.path)
@@ -251,8 +275,13 @@ async function probe(
   const paths = !install
     ? NO_PATHS
     : descriptor.layout
-      ? discoverLayout(descriptor, install).paths
+      ? discoverLayout(descriptor, install, settings).paths
       : declaredPaths(descriptor, install)
+
+  // Where this install keeps its own configuration, which is a different
+  // question from where it keeps the emulation library — and the one save
+  // resolution asks when it needs to read an emulator's settings.
+  const bases = install ? baseDirs(install) : null
 
   // An emulator that owns its library is only useful once that library exists;
   // before that there is nowhere to install to.
@@ -266,11 +295,11 @@ async function probe(
     id: descriptor.id,
     name: descriptor.name,
     dispatch: descriptor.dispatch,
-    saveLayout: descriptor.saveLayout,
-    saveTree: descriptor.saveTree,
     available: unavailableReason === null,
     install,
     paths,
+    configDir: bases?.config ?? null,
+    dataDir: bases?.data ?? null,
     unavailableReason
   }
 }

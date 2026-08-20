@@ -61,7 +61,11 @@ export class Launcher {
    * lets us diff the save directory by modification time.
    */
   async launch(options: LaunchOptions): Promise<LaunchResult> {
-    const { rom, emulator, system } = options
+    const { rom, emulator, system, romPath, variant } = options
+    // Everything save sync needs to ask the descriptor where this game's data
+    // lives — including which variant is running, since that is what decides
+    // the answer for a frontend that offers several.
+    const target = { rom, emulator, system, romPath, variant }
 
     const failure = (error: string, command = ''): LaunchResult => ({
       ok: false,
@@ -101,7 +105,7 @@ export class Launcher {
       // reported but does not block play — the local save is still valid.
       let pullError: string | null = null
       try {
-        await this.saveSync.pull(rom, emulator, system)
+        await this.saveSync.pull(target)
       } catch (cause) {
         pullError = (cause as Error).message
       }
@@ -127,7 +131,7 @@ export class Launcher {
       let uploadedStates = 0
       let pushError: string | null = null
       try {
-        const pushed = await this.saveSync.push(rom, emulator, system, since)
+        const pushed = await this.saveSync.push(target, since)
         uploadedSaves = pushed.saves
         uploadedStates = pushed.states
       } catch (cause) {

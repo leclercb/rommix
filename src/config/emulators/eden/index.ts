@@ -1,4 +1,5 @@
-import type { EmulatorDescriptor } from './types.ts'
+import { switchSavePaths } from '../switch-saves.ts'
+import type { EmulatorDescriptor } from '../types.ts'
 
 /**
  * Eden — a Nintendo Switch emulator continuing the Yuzu codebase.
@@ -13,9 +14,10 @@ import type { EmulatorDescriptor } from './types.ts'
  *    directory so the pre-flight check can show it, and nothing is placed
  *    automatically.
  *  - Its saves live under `nand/user/save/…` keyed by **title id**, not by ROM
- *    filename, so `per-game-dir` marks them as outside what the filename-stem
- *    matcher in save sync can handle. Nothing is synced rather than something
- *    wrong being synced.
+ *    filename. The id is read from the ROM's own metadata and the profile
+ *    folder from disk, so the folder *is* findable — see `switch-saves.ts` —
+ *    and it is synced whole. Where the id cannot be read, nothing is synced
+ *    rather than something wrong being synced.
  *
  * Being Yuzu-derived it follows the usual XDG layout — `~/.config/eden` and
  * `~/.local/share/eden` — which an AppImage uses directly, since it is not
@@ -32,6 +34,32 @@ export const eden: EmulatorDescriptor = {
     { kind: 'appimage', patterns: ['eden*.appimage'] }
   ],
   systems: ['switch'],
+  ownsLibrary: false,
+  dirs: {
+    // Eden ships no ROM folder at all: `Paths\romsPath` is empty and its game
+    // list is the virtual SDMC/NAND entries plus directories the user adds.
+    // RomMix's own folder is therefore the honest answer, and it is one the
+    // user can add under Eden's Game Directories to see them there too.
+    roms: { base: 'rommix', path: 'roms' },
+    saves: { base: 'data', path: 'eden/nand/user/save' },
+    // No `states`: Yuzu-lineage emulators keep save states inside the profile
+    // data rather than in a tree of their own, and naming a directory that does
+    // not exist would only make the diagnostics panel print a fiction.
+    bios: { base: 'data', path: 'eden/keys' }
+  },
+  // Eden's folders follow the XDG layout, with nothing user-selectable and no
+  // configuration file to read them from.
+  layout: undefined,
+  /**
+   * `nand/user/save/<space>/<profile>/<title id>/`, resolved per game.
+   *
+   * The title id is read out of the ROM's own metadata entry and the profile
+   * off disk — see `switch-saves.ts`. That folder is the unit of save data, so
+   * it is synced as one archive: the files inside it carry no name that ties
+   * them to a game, and uploading them individually would produce a pile of
+   * `01.dat`s on the server belonging to nothing in particular.
+   */
+  saves: (ctx) => switchSavePaths(ctx, ctx.paths.saves, 'Eden'),
   /**
    * Eden's own Forgejo instance, not a GitHub mirror: the
    * github.com/eden-emulator/Releases repository answers HTTP 451, having been
@@ -43,6 +71,8 @@ export const eden: EmulatorDescriptor = {
     assetSuffix: '.AppImage',
     homepage: 'https://eden-emu.dev'
   },
+  // Its own releases page is the only source; RomMix fetches from it.
+  homepage: undefined,
   /**
    * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
    * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,
@@ -57,21 +87,6 @@ export const eden: EmulatorDescriptor = {
    * considers more stable — remove this if you prefer that.
    */
   env: { I_WANT_A_BROKEN_WAYLAND_UI: '1' },
-  ownsLibrary: false,
-  dirs: {
-    // Eden ships no ROM folder at all: `Paths\romsPath` is empty and its game
-    // list is the virtual SDMC/NAND entries plus directories the user adds.
-    // RomMix's own folder is therefore the honest answer, and it is one the
-    // user can add under Eden's Game Directories to see them there too.
-    roms: { base: 'rommix', path: 'roms' },
-    saves: { base: 'data', path: 'eden/nand/user/save' },
-    // No `states`: Yuzu-lineage emulators keep save states inside the profile
-    // data rather than in a tree of their own, and naming a directory that does
-    // not exist would only make the diagnostics panel print a fiction.
-    bios: { base: 'data', path: 'eden/keys' }
-  },
-  saveLayout: 'per-game-dir',
-  saveTree: 'flat',
   /**
    * Eden's game list is the directories it has been given, read one level
    * deep. A game unpacked into a folder of its own would never appear in it,
@@ -103,5 +118,9 @@ export const eden: EmulatorDescriptor = {
     'Add RomMix\'s ROM folder to Eden: File → Game Directories.',
     'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.'
   ],
+  // One Switch emulator, one way to run a game.
+  variants: undefined,
+  // `exec` alone opens Eden with no game.
+  open: undefined,
   launch: ({ exec, romPath }) => [...exec, romPath]
 }

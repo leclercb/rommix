@@ -66,10 +66,25 @@ async function runHost(argv: string[], timeoutMs = 8000): Promise<string | null>
   }
 }
 
+/**
+ * Where this flatpak is deployed on the host, or null when it is not installed.
+ *
+ * The location doubles as the "is it installed" answer and as a way into the
+ * application's own files — which matters for an emulator that ships
+ * configuration RomMix has to read, like the ES-DE system list inside
+ * RetroDECK. Asking flatpak beats constructing the path: it covers system and
+ * user installations, either architecture, and any branch, none of which RomMix
+ * would otherwise know.
+ */
+export async function flatpakLocation(appId: string): Promise<string | null> {
+  const out = await runHost(['flatpak', 'info', '--show-location', appId])
+  const path = out?.trim().split('\n')[0]
+  return path ? path : null
+}
+
 /** Is this flatpak application installed on the host? */
 export async function flatpakInstalled(appId: string): Promise<boolean> {
-  const out = await runHost(['flatpak', 'info', '--show-location', appId])
-  return out != null && out.trim().length > 0
+  return (await flatpakLocation(appId)) != null
 }
 
 /**

@@ -16,12 +16,12 @@ import type {
   LaunchResult,
   LibrarySyncResult,
   RemoteAsset,
-  RommRom,
   RootLocation,
   SaveSyncResult,
   Settings
 } from '@shared/types'
 import type { RomMixApp } from './app'
+import type { SaveTarget } from './saves'
 import { canSpawnHost, inFlatpak, installFlatpak, isWritable } from './host'
 import { fetchReleases, installAsset } from './releases'
 import { defaultRoot, relocateRoot, resolveRoot } from './root'
@@ -62,6 +62,9 @@ export function registerIpc(rommix: RomMixApp): void {
   const { store, client, downloads, launcher, bios, saveSync } = rommix
   const handle = handler((message) => rommix.send('app:error', message))
 
+  /** Key under which a per-system launch choice is remembered. */
+  const launcherKey = (emulatorId: string, system: string): string => `${emulatorId}:${system}`
+
   /**
    * The ROM plus everything needed to sync its saves.
    *
@@ -69,9 +72,7 @@ export function registerIpc(rommix: RomMixApp): void {
    * of the three ways this can fail — not downloaded, no emulator, emulator
    * changed — has its own message.
    */
-  const saveContext = async (
-    romId: number
-  ): Promise<{ rom: RommRom; emulator: EmulatorState; system: string }> => {
+  const saveContext = async (romId: number): Promise<SaveTarget> => {
     // Before `installedNow`, not after: whether an entry belongs to the
     // emulator currently in charge is a question about the probe, and an
     // unprobed RomMix would answer "yes" to all of them.
@@ -84,7 +85,19 @@ export function registerIpc(rommix: RomMixApp): void {
     if (!emulator) {
       throw new RommError(`No installed emulator can run "${installed.system}"`)
     }
-    return { rom: await client.rom(romId), emulator, system: installed.system }
+    return {
+      rom: await client.rom(romId),
+      emulator,
+      system: installed.system,
+      // The file the emulator is handed, never the game directory: RetroArch
+      // names its save folder after the directory the *ROM* sits in, so the
+      // difference between the two is the difference between finding a save
+      // and creating an empty folder beside it.
+      romPath: await downloads.launchTarget(installed),
+      // The same recorded choice `game:launch` honours, so the save location
+      // and the emulator that wrote it can never disagree.
+      variant: store.settings.systemLaunchers[launcherKey(emulator.id, installed.system)]
+    }
   }
 
   /** Current connection state, including who we are signed in as. */
@@ -275,8 +288,6 @@ export function registerIpc(rommix: RomMixApp): void {
     return { installed, emulator }
   }
 
-  /** Key under which a per-system launch choice is remembered. */
-  const launcherKey = (emulatorId: string, system: string): string => `${emulatorId}:${system}`
 
   /**
    * What this game can be run with.
@@ -351,15 +362,13 @@ export function registerIpc(rommix: RomMixApp): void {
     return saveSync.remoteAssets(romId, local ?? undefined)
   })
 
-  handle('saves:pull', async (romId: number): Promise<SaveSyncResult> => {
-    const { rom, emulator, system } = await saveContext(romId)
-    return saveSync.pullNow(rom, emulator, system)
-  })
+  handle('saves:pull', async (romId: number): Promise<SaveSyncResult> =>
+    saveSync.pullNow(await saveContext(romId))
+  )
 
-  handle('saves:push', async (romId: number): Promise<SaveSyncResult> => {
-    const { rom, emulator, system } = await saveContext(romId)
-    return saveSync.pushNow(rom, emulator, system)
-  })
+  handle('saves:push', async (romId: number): Promise<SaveSyncResult> =>
+    saveSync.pushNow(await saveContext(romId))
+  )
 
   /**
    * Delete one save or state, from the server and from this device.
@@ -403,12 +412,16 @@ export function registerIpc(rommix: RomMixApp): void {
   handle('system:updateSettings', async (patch: Partial<Settings>) => {
     const next = store.updateSettings(patch)
 
-    // Only a hand-written executable path changes what probing the machine
-    // would find. Re-running it for a save-sync toggle would mean a `flatpak
+    // Only a hand-written executable path or library folder changes what
+    // probing the machine would find. Re-running it for a save-sync toggle would mean a `flatpak
     // info` and a PATH search per emulator every time a switch is flipped.
     // Both change which emulator answers for a platform: one by moving where
     // they are, the other by moving which comes first.
-    if ('emulatorPaths' in patch || 'emulatorPriority' in patch) {
+    if (
+      'emulatorPaths' in patch ||
+      'emulatorPriority' in patch ||
+      'emulatorRoots' in patch
+    ) {
       await rommix.refreshEmulators()
     }
 
@@ -418,6 +431,7 @@ export function registerIpc(rommix: RomMixApp): void {
     if (
       'emulatorPaths' in patch ||
       'emulatorPriority' in patch ||
+      'emulatorRoots' in patch ||
       'systemEmulators' in patch ||
       'systemOverrides' in patch
     ) {

@@ -1,10 +1,8 @@
 import { EventEmitter } from 'node:events'
-import { createWriteStream, existsSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
-import { basename, dirname, extname, join, normalize, resolve, sep } from 'node:path'
-import { pipeline } from 'node:stream/promises'
-import yauzl from 'yauzl'
+import { basename, dirname, extname, join } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
@@ -16,6 +14,7 @@ import type {
   RommRom
 } from '@shared/types'
 import { RommClient, RommError } from './romm'
+import { extractZip, isZip } from './zip'
 import type { Store } from './store'
 
 /**
@@ -33,67 +32,6 @@ import type { Store } from './store'
  * one slower and thrash the disk on a handheld, and a serial queue keeps the
  * progress UI honest.
  */
-
-/** Reject absolute paths and `..` segments from zip entries (zip-slip). */
-function safeJoin(root: string, entryName: string): string | null {
-  const cleaned = entryName.replace(/\\/g, '/').replace(/^\/+/, '')
-  const target = resolve(root, normalize(cleaned))
-  if (target !== root && !target.startsWith(root + sep)) return null
-  return target
-}
-
-/** Does this file start with the ZIP local-file-header magic? */
-async function isZip(path: string): Promise<boolean> {
-  const { open } = await import('node:fs/promises')
-  const handle = await open(path, 'r')
-  try {
-    const buf = Buffer.alloc(4)
-    const { bytesRead } = await handle.read(buf, 0, 4, 0)
-    return bytesRead === 4 && buf.toString('latin1') === 'PK\x03\x04'
-  } finally {
-    await handle.close()
-  }
-}
-
-/** Extract a zip archive into `destDir`, creating directories as needed. */
-async function extractZip(zipPath: string, destDir: string): Promise<void> {
-  const root = resolve(destDir)
-  await mkdir(root, { recursive: true })
-
-  await new Promise<void>((resolvePromise, rejectPromise) => {
-    yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (err, zipfile) => {
-      if (err || !zipfile) return rejectPromise(err ?? new Error('Cannot open archive'))
-
-      zipfile.on('error', rejectPromise)
-      zipfile.on('end', () => resolvePromise())
-
-      zipfile.readEntry()
-      zipfile.on('entry', (entry) => {
-        const target = safeJoin(root, entry.fileName)
-        if (!target) {
-          // Refuse to write outside the destination and keep going.
-          zipfile.readEntry()
-          return
-        }
-
-        if (entry.fileName.endsWith('/')) {
-          mkdir(target, { recursive: true })
-            .then(() => zipfile.readEntry())
-            .catch(rejectPromise)
-          return
-        }
-
-        zipfile.openReadStream(entry, (streamErr, stream) => {
-          if (streamErr || !stream) return rejectPromise(streamErr ?? new Error('Bad zip entry'))
-          mkdir(dirname(target), { recursive: true })
-            .then(() => pipeline(stream, createWriteStream(target)))
-            .then(() => zipfile.readEntry())
-            .catch(rejectPromise)
-        })
-      })
-    })
-  })
-}
 
 /** Recursive directory size, used to record what an extracted game occupies. */
 async function directorySize(path: string): Promise<number> {

@@ -1,7 +1,7 @@
-import { eden } from './eden.ts'
-import { emudeck } from './emudeck.ts'
-import { retroarch } from './retroarch.ts'
-import { retrodeck } from './retrodeck.ts'
+import { eden } from './eden/index.ts'
+import { emudeck } from './emudeck/index.ts'
+import { retroarch } from './retroarch/index.ts'
+import { retrodeck } from './retrodeck/index.ts'
 import type {
   EmulatorDescriptor,
   EmulatorId,
@@ -144,10 +144,15 @@ export function isInstallableAsset(assetName: string, suffix: string): boolean {
   return assetName.endsWith(suffix)
 }
 
-export { eden } from './eden.ts'
-export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck.ts'
-export { retroarch } from './retroarch.ts'
-export { retrodeck, RETRODECK_APP_ID } from './retrodeck.ts'
+export { eden } from './eden/index.ts'
+export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck/index.ts'
+export { retroarch } from './retroarch/index.ts'
+export { retrodeck, RETRODECK_APP_ID } from './retrodeck/index.ts'
+export { retroDeckComponent } from './retrodeck/saves.ts'
+export { emuDeckSaveFolder } from './emudeck/saves.ts'
+export { switchTitleId, switchProfileDir } from './switch-saves.ts'
+export { coreLibraryName, readRetroArchConfig } from './libretro.ts'
+export { baseName, dirName, joinPath } from './savepaths.ts'
 export { SAVE_CONVENTIONS } from './saves.ts'
 
 export type {
@@ -165,7 +170,13 @@ export type {
   LayoutSource,
   ReleaseSource,
   ResolvedInstall,
-  SaveFileConventions,
-  SaveLayout,
-  SaveTree
+  SaveFileConventions
 } from './types.ts'
+
+export type {
+  SaveContext,
+  SaveEnvironment,
+  SaveLocation,
+  SaveMatch,
+  SavePaths
+} from './savepaths.ts'
