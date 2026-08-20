@@ -309,4 +309,4 @@ does not matter.
 
 ## Licence
 
-MIT.
+MIT — see [LICENSE](LICENSE).
