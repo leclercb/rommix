@@ -636,21 +636,78 @@ input {
   flex-wrap: wrap;
 }
 
-.emulator__meta,
-.emulator__path {
+.emulator__meta {
   font-size: 14px;
   color: var(--text-faint);
   margin-top: 3px;
 }
 
-.emulator__path {
+/* What the emulator is, beside where its files are.
+   The folders column is the wider of the two: its lines are absolute paths and
+   the other's are a URL and an app id. `minmax(0, …)` rather than a bare
+   fraction because a grid track otherwise floors at its content's width, and a
+   long path would push the row wide instead of ellipsising inside it. */
+.emulator__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+  gap: 12px 28px;
+  margin-top: 8px;
+}
+
+/* One column under the other where there is no room for two — the same lines
+   in the same order, which is why the groups keep their headings. */
+@media (max-width: 820px) {
+  .emulator__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.emulator__group {
+  min-width: 0;
+}
+
+.emulator__group-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+/* One described fact, marked with the kind of fact it is. The icon holds its
+   width so the text of every line starts on the same column, which is what
+   makes seven of them scannable rather than a paragraph of grey. */
+.emulator__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.emulator__line svg {
+  flex: none;
+  opacity: 0.7;
+}
+
+/* The path, not the row, is what may be too long: an ellipsised line still
+   begins with its mark. */
+.emulator__line-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Home folder, Change version, Run/Install, up, down. Wrapping and right
+   aligned, so a row that runs out of width breaks against the edge the buttons
+   end on rather than sliding away from them. */
 .emulator__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -1031,6 +1088,15 @@ input {
   font-size: 14px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+
+/* One way of installing an emulator: the button that takes it, and what it
+   would do in plain words beside it. */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
 }
 
 /* --------------------------------------------------------------------------

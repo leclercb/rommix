@@ -17,7 +17,7 @@ import type { EmulatorDescriptor } from '../types.ts'
  * at the machine asks through the `env` handed to `saves()`.
  */
 export const example: EmulatorDescriptor = {
-  // -- identity -------------------------------------------------------------
+  // -- identity ------------------------------------------------------------------
 
   /**
    * Stable id, lowercase, no spaces. Persisted in settings — as the key of the
@@ -25,10 +25,8 @@ export const example: EmulatorDescriptor = {
    * folder override — so renaming one silently discards the user's choices.
    */
   id: 'example',
-
   /** What to call it on screen. Free text; used in messages to the user. */
   name: 'Example',
-
   /**
    * Who decides which emulator core actually runs a game.
    *
@@ -43,34 +41,63 @@ export const example: EmulatorDescriptor = {
    */
   dispatch: 'rommix',
 
-  // -- finding it -----------------------------------------------------------
+  // -- finding and installing it -------------------------------------------------
 
   /**
    * How the program might be installed, tried in order; the first hit wins.
+   *
+   * Each entry says both how to recognise an install of that kind and how to
+   * obtain one, so an emulator that is on Flathub *and* published as an
+   * AppImage offers the user both and RomMix installs whichever they press.
    * All four kinds:
    *
    *   { kind: 'flatpak',  appId: 'org.libretro.RetroArch'}
    *       Asked of flatpak itself, so it covers system and user installs.
    *       Also records where the flatpak is deployed, which is how a
-   *       descriptor can read configuration the emulator ships.
+   *       descriptor can read configuration the emulator ships. Installed
+   *       from Flathub by that id.
+   *
+   *   { kind: 'appimage', patterns: ['eden*.appimage'], release: {…} }
+   *       A loose file, searched for in the folders people keep AppImages in
+   *       and in the one RomMix downloads into. Only `*` is supported in a
+   *       pattern, and matching is case-insensitive. `release` is where the
+   *       project publishes its builds, and is required — an AppImage RomMix
+   *       cannot fetch is one the user drops in a folder themselves, which is
+   *       what `binary` already describes:
+   *
+   *         release: {
+   *           api: 'https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases',
+   *           // Anchored: Eden ships `.AppImage.zsync` update files beside
+   *           // every `.AppImage`, and shadPS4 gives Windows and macOS the
+   *           // same `.zip` as Linux. A zip is unpacked after download.
+   *           asset: /\.AppImage$/i
+   *         }
    *
    *   { kind: 'binary',   names: ['retroarch', 'retroarch-nightly'] }
-   *       Looked up on the host's PATH.
-   *
-   *   { kind: 'appimage', patterns: ['eden*.appimage'] }
-   *       A loose file, searched for in the folders people keep AppImages in.
-   *       Only `*` is supported in a pattern, and matching is case-insensitive.
+   *       Looked up on the host's PATH. Whatever put it there — a distro
+   *       package, a build — is not something RomMix can drive, so an
+   *       emulator with only this is one the user installs themselves.
    *
    *   { kind: 'scripts',  dir: { from: 'tools', path: 'launchers' } }
    *       A directory of launcher scripts rather than one program, which is
    *       what a configurator like EmuDeck leaves behind. `from` names
    *       something `layout` discovered — a path key or an extra — and `path`
-   *       hangs off it. The directory that is found *is* the install.
+   *       hangs off it. The directory that is found *is* the install, and
+   *       like `binary` it is the user's to create.
    */
   install: [
     { kind: 'flatpak', appId: 'org.example.Example' },
     { kind: 'binary', names: ['example'] }
   ],
+  /**
+   * The project's own page. Carried by every emulator: for one RomMix cannot
+   * install it is the whole answer, and for the rest it is what the settings
+   * row and the release picker point at.
+   */
+  homepage: 'https://example.test',
+
+  // -- what it runs --------------------------------------------------------------
+
   /**
    * ES-DE systems this emulator runs, by folder name — the keys of the table in
    * `src/config/systems.ts`. Always a concrete list, even for a program that
@@ -83,14 +110,36 @@ export const example: EmulatorDescriptor = {
    */
   systems: ['snes', 'nes'],
   /**
+   * The ways this emulator can run a system, best-known default first.
+   * `undefined`, or a function returning fewer than two entries, means there is
+   * nothing to ask about and RomMix asks nothing.
+   *
+   * Where a real choice exists — three Saturn cores of differing accuracy, four
+   * Switch emulators of which only some run a given game — RomMix asks before
+   * the first launch and remembers the answer per emulator and system. That
+   * recorded answer is handed back as `ctx.variant` in `saves()`, so the save
+   * location can never disagree with what actually ran.
+   *
+   * ```ts
+   * variants: (system) => system === 'saturn'
+   *   ? [
+   *       { id: 'kronos', label: 'Kronos', note: 'RetroArch' },
+   *       { id: 'beetle', label: 'Beetle Saturn', note: 'RetroArch' }
+   *     ]
+   *   : []
+   * ```
+   */
+  variants: undefined,
+
+  // -- where its files go --------------------------------------------------------
+
+  /**
    * True when the emulator owns a folder layout RomMix has to discover rather
    * than create — which also means it is unusable until the emulator has been
    * run once and that layout exists. RetroDECK and EmuDeck are true; a
    * standalone emulator that just needs a folder to read is false.
    */
   ownsLibrary: false,
-  // -- where its folders are ------------------------------------------------
-
   /**
    * Fixed path templates. Set these *or* `layout`, never both — the registry
    * test enforces it.
@@ -149,7 +198,19 @@ export const example: EmulatorDescriptor = {
    * ```
    */
   layout: undefined,
-  // -- saves ----------------------------------------------------------------
+  /**
+   * True when this emulator's game list reads one directory and does not
+   * descend into it.
+   *
+   * A multi-file game is normally unpacked into a folder of its own, which is
+   * what ES-DE expects. An emulator that scans flat cannot see into that
+   * folder, so the game is simply not there as far as it is concerned — and
+   * RomMix would go on reporting it as downloaded and playable. Such an
+   * emulator gets every file loose in the system folder instead.
+   */
+  flatLibrary: false,
+
+  // -- saves ---------------------------------------------------------------------
 
   /**
    * Where this emulator keeps one game's save data.
@@ -187,70 +248,42 @@ export const example: EmulatorDescriptor = {
     emulator: undefined,
     unsyncableReason: undefined
   }),
-  // -- installing it --------------------------------------------------------
+
+  // -- bios ----------------------------------------------------------------------
 
   /**
-   * Set when RomMix can fetch and install this emulator itself. Only
-   * Forgejo/Gitea-shaped release APIs are modelled, which is what Eden
-   * publishes; a flatpak or distro package needs none of this.
+   * The directory one BIOS file is to be copied into. `undefined` means
+   * `paths.bios` takes everything, which is true of every emulator whose BIOS
+   * is a set of files dropped in a directory.
    *
-   * ```ts
-   * releases: {
-   *   api: 'https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases',
-   *   // An exact suffix, never a substring: Eden ships `.AppImage.zsync`
-   *   // update files beside every `.AppImage`, and offering one would be a
-   *   // download that cannot run.
-   *   assetSuffix: '.AppImage',
-   *   homepage: 'https://eden-emu.dev'
-   * }
-   * ```
-   */
-  releases: undefined,
-  /**
-   * Where to get it, for an emulator RomMix cannot install. Shown instead of a
-   * button, so "not installed" comes with an answer rather than a dead end.
-   * Leave undefined when `releases` is set or the emulator is on Flathub.
-   */
-  homepage: undefined,
-  // -- running it -----------------------------------------------------------
-
-  /**
-   * Environment the emulator needs in order to start, merged over RomMix's own.
-   * For things the emulator will not do for itself — not for tuning. Eden sets
-   * `I_WANT_A_BROKEN_WAYLAND_UI` because without it its AppImage forces X11 and
-   * dies on a session with no X server.
-   */
-  env: undefined,
-  /**
-   * True when this emulator's game list reads one directory and does not
-   * descend into it.
+   * Answer with a directory for anything else — a subfolder, or another tree
+   * entirely — and `null` for a file this emulator cannot be given at all:
    *
-   * A multi-file game is normally unpacked into a folder of its own, which is
-   * what ES-DE expects. An emulator that scans flat cannot see into that
-   * folder, so the game is simply not there as far as it is concerned — and
-   * RomMix would go on reporting it as downloaded and playable. Such an
-   * emulator gets every file loose in the system folder instead.
-   */
-  flatLibrary: false,
-  /**
-   * Which firmware files this emulator's BIOS folder will take, matched on the
-   * end of the file name. `undefined` means all of them, which is true of every
-   * emulator whose BIOS is a set of files dropped in a directory.
+   *   bios: ({ fileName, paths }) =>
+   *     fileName.toLowerCase().endsWith('.keys')
+   *       ? paths.bios
+   *       : null
    *
-   * Eden is the other kind: its keys go in `keys/`, but a firmware dump is
-   * hundreds of NCA files that have to be *registered* into the NAND by Eden
-   * itself, so it declares `['.keys']`. Anything not accepted is staged in
-   * RomMix's own `bios/<system>` folder instead — still fetched, still with a
-   * definite home, with RomMix stopping short of the step only the emulator can
-   * perform.
+   * A refused file is staged in RomMix's own `bios/<system>` folder instead —
+   * still fetched, still with a definite home, with RomMix stopping short of
+   * the step only the emulator can perform, as with a Switch firmware dump the
+   * emulator has to register into its NAND itself.
+   *
+   * The context carries `installDir` and the same read-only `env` as `saves`,
+   * because for a frontend this is not knowledge to be typed out: RetroDECK
+   * ships a manifest of every BIOS file its bundled components want and where,
+   * and `retrodeck/bios.ts` reads it rather than keeping a copy of it here.
    */
-  biosAccepts: undefined,
+  bios: undefined,
   /**
    * What to tell the user about files that had to be staged rather than
    * installed. Shown on the BIOS screen beside the folder they went to. Only
-   * meaningful alongside `biosAccepts`.
+   * meaningful for an emulator whose `bios` refuses something.
    */
   biosStagingNote: undefined,
+
+  // -- what the user has to do themselves ----------------------------------------
+
   /**
    * Steps the user has to perform inside the emulator itself, which RomMix can
    * neither do nor verify from outside. `[]` when there are none.
@@ -261,27 +294,16 @@ export const example: EmulatorDescriptor = {
    * difference between a setup step and a bug report.
    */
   setupNotes: [],
+
+  // -- running it ----------------------------------------------------------------
+
   /**
-   * The ways this emulator can run a system, best-known default first.
-   * `undefined`, or a function returning fewer than two entries, means there is
-   * nothing to ask about and RomMix asks nothing.
-   *
-   * Where a real choice exists — three Saturn cores of differing accuracy, four
-   * Switch emulators of which only some run a given game — RomMix asks before
-   * the first launch and remembers the answer per emulator and system. That
-   * recorded answer is handed back as `ctx.variant` in `saves()`, so the save
-   * location can never disagree with what actually ran.
-   *
-   * ```ts
-   * variants: (system) => system === 'saturn'
-   *   ? [
-   *       { id: 'kronos', label: 'Kronos', note: 'RetroArch' },
-   *       { id: 'beetle', label: 'Beetle Saturn', note: 'RetroArch' }
-   *     ]
-   *   : []
-   * ```
+   * Environment the emulator needs in order to start, merged over RomMix's own.
+   * For things the emulator will not do for itself — not for tuning. Eden sets
+   * `I_WANT_A_BROKEN_WAYLAND_UI` because without it its AppImage forces X11 and
+   * dies on a session with no X server.
    */
-  variants: undefined,
+  env: undefined,
   /**
    * argv to start the emulator on its own, for the Run button beside it in
    * Settings. Only needed where that is not simply `exec` — a launcher

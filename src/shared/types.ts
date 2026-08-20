@@ -262,6 +262,8 @@ export interface ConnectionStatus {
  * "RomMix's types".
  */
 export type {
+  BiosContext,
+  BiosTarget,
   EmulationPaths,
   EmulatorDescriptor,
   EmulatorDispatch,
@@ -269,6 +271,7 @@ export type {
   EmulatorState,
   ResolvedInstall
 } from '../config/emulators/types.ts'
+export type { SaveEnvironment } from '../config/emulators/savepaths.ts'
 
 import type { EmulatorId, EmulatorState } from '../config/emulators/types.ts'
 

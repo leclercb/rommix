@@ -1,13 +1,22 @@
-import { type JSX, useEffect, useState } from 'react'
-import { orderedEmulators, emulatorById, emulatorsForSystem, systemCount } from '@config/emulators'
+import { type JSX, type ReactNode, useEffect, useState } from 'react'
+import {
+  orderedEmulators,
+  emulatorById,
+  emulatorsForSystem,
+  installMethods,
+  releaseSource,
+  systemCount
+} from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
 import type {
   DiagnosticsReport,
   EmulatorAsset,
+  EmulatorDescriptor,
   EmulatorId,
   EmulatorInstallProgress,
   EmulatorRelease,
   EmulatorState,
+  ResolvedInstall,
   RommPlatform,
   RootLocation
 } from '@shared/types'
@@ -21,6 +30,7 @@ import {
   TextField,
   formatBytes
 } from '../components'
+import { Icon, type IconName } from '../icons'
 import { useApp } from '../state'
 
 /**
@@ -282,6 +292,76 @@ function Status({ state }: { state: EmulatorState | undefined }): JSX.Element {
   )
 }
 
+/** One of the routes `installMethods` returns: a thing RomMix can actually do. */
+type InstallMethod = ReturnType<typeof installMethods>[number]
+
+/**
+ * How each install kind is spelled on screen.
+ *
+ * The keys are identifiers and read like them — `appimage` is not a word
+ * anybody writes, and a row that says "appimage:" looks like a leaked internal
+ * name rather than a statement about the user's machine.
+ */
+const INSTALL_KIND: Record<ResolvedInstall['kind'], string> = {
+  flatpak: 'Flatpak',
+  binary: 'Program',
+  appimage: 'AppImage',
+  scripts: 'Launchers'
+}
+
+/**
+ * One line of an emulator's description, marked with what kind of fact it is.
+ *
+ * The icon is the column: a row can carry seven of these and they are all the
+ * same faint grey text, so scanning for "where are its saves" means reading
+ * every one of them. A glyph in front turns that into a glance — and it is
+ * drawn from the same vocabulary as the rest of the app, so the save mark here
+ * is the save mark on the game page.
+ */
+function Detail({
+  icon,
+  children,
+  title
+}: {
+  icon: IconName
+  children: ReactNode
+  title?: string
+}): JSX.Element {
+  return (
+    <div className="emulator__line" title={title}>
+      <Icon name={icon} size={14} />
+      <span className="emulator__line-text">{children}</span>
+    </div>
+  )
+}
+
+/**
+ * One `Label: /path` line, or nothing when there is no path to name.
+ *
+ * A missing path is left out rather than printed as "none": these rows say
+ * where the emulator's files are, and an emulator that keeps no save folder of
+ * its own has nothing to say here, not an empty answer.
+ */
+function Path({
+  icon,
+  label,
+  value,
+  note
+}: {
+  icon: IconName
+  label: string
+  value: string | null | undefined
+  note?: string
+}): JSX.Element | null {
+  if (!value) return null
+  return (
+    <Detail icon={icon} title={value}>
+      {label}: {value}
+      {note}
+    </Detail>
+  )
+}
+
 /** The installed emulators, with what each covers. */
 function EmulatorList({
   diagnostics,
@@ -296,6 +376,16 @@ function EmulatorList({
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
   const [flatpakBusy, setFlatpakBusy] = useState<EmulatorId | null>(null)
   const [flatpakLine, setFlatpakLine] = useState<string | null>(null)
+  /**
+   * The emulator whose install panel is open.
+   *
+   * One button in the row and the choice inside the panel: installing reaches
+   * outside RomMix — it runs flatpak against the host, or writes a program into
+   * its own folder — and on a pad the button under the cursor is one A press
+   * away at all times. The panel is both the confirmation and, for an emulator
+   * packaged more than one way, where that is picked.
+   */
+  const [pending, setPending] = useState<EmulatorDescriptor | null>(null)
 
   // The order shown is the order used. Held as a full list rather than as the
   // moved entry alone, so what is saved is exactly what is on screen.
@@ -343,7 +433,7 @@ function EmulatorList({
   )
 
   /**
-   * The library folder the user is editing, and what they have typed.
+   * The home folder the user is editing, and what they have typed.
    *
    * Held per emulator rather than as one draft: two emulators can both own a
    * library, and a half-typed path for one must not leak into the other.
@@ -364,11 +454,23 @@ function EmulatorList({
     await refreshInstalled()
   }
 
-  const installFromFlathub = async (id: EmulatorId): Promise<void> => {
-    setFlatpakBusy(id)
+  /**
+   * Put this emulator on the machine, by the route the user confirmed.
+   *
+   * A download is a choice of build rather than one act, so it opens the
+   * picker; Flathub is one command and runs here.
+   */
+  const install = async (descriptor: EmulatorDescriptor, spec: InstallMethod): Promise<void> => {
+    setPending(null)
+    if (spec.kind === 'appimage') {
+      setInstalling(descriptor.id)
+      return
+    }
+
+    setFlatpakBusy(descriptor.id)
     setFlatpakLine(null)
     try {
-      await window.rommix.system.installEmulatorFlatpak(id)
+      await window.rommix.system.installEmulatorFlatpak(descriptor.id)
       onInstalled()
     } finally {
       setFlatpakBusy(null)
@@ -382,6 +484,14 @@ function EmulatorList({
         const state = diagnostics?.emulators.find((emulator) => emulator.id === descriptor.id)
         const covers = systemCount(descriptor)
 
+        // The library root is named only for an emulator that is here and keeps
+        // one relocatable tree: naming a folder for RetroArch would suggest
+        // RomMix could move a library RetroArch does not have, and "not found"
+        // under "Not installed" is the same fact twice.
+        const home = Boolean(descriptor.layout?.relative && state?.install)
+        const folders =
+          home || Boolean(state?.paths.roms || state?.paths.saves || state?.paths.bios)
+
         return (
           <div className="emulator" key={descriptor.id}>
             <div className="emulator__body">
@@ -389,84 +499,85 @@ function EmulatorList({
                 {descriptor.name}
                 <Status state={state} />
               </div>
-              <div className="emulator__meta">
-                {covers} platform{covers === 1 ? '' : 's'}
-                {descriptor.dispatch === 'self'
-                  ? ' · chooses the emulator itself for each platform'
-                  : ''}
-              </div>
-              {state?.install ? (
-                <div className="emulator__path" title={state.install.ref}>
-                  {state.install.kind}: {state.install.ref}
-                </div>
-              ) : null}
-              {state?.paths.roms ? (
-                <div className="emulator__path" title={state.paths.roms}>
-                  ROMs: {state.paths.roms}
-                </div>
-              ) : null}
-              {state?.unavailableReason ? (
-                <div className="emulator__meta">{state.unavailableReason}</div>
-              ) : null}
-              {/* Only for the emulators that keep their library in one
-                  relocatable tree. Naming a folder for RetroArch would suggest
-                  RomMix could move a library RetroArch does not have. */}
-              {descriptor.layout?.relative ? (
-                rootDraft?.id === descriptor.id ? (
-                  <div className="form">
-                    <TextField
-                      label="Library folder"
-                      value={rootDraft.value}
-                      onChange={(value) => setRootDraft({ id: descriptor.id, value })}
-                      placeholder={state?.paths.home ?? ''}
-                      hint={
-                        'ROMs, saves, states and BIOS are read from inside this folder. ' +
-                        'Leave it empty to go back to finding it automatically.'
-                      }
-                      autoFocus
+              <div className="emulator__columns">
+                {/* What this emulator is and where it came from. */}
+                <section className="emulator__group">
+                  <h3 className="emulator__group-title">General</h3>
+                  <Detail icon="emulator">
+                    {covers} platform{covers === 1 ? '' : 's'}
+                  </Detail>
+                  {/* Why it cannot be used, directly under the badge that says
+                      so rather than across the gap in the other column. */}
+                  {state?.unavailableReason ? (
+                    <Detail icon="warn">{state.unavailableReason}</Detail>
+                  ) : null}
+                  <Path icon="homepage" label="Homepage" value={descriptor.homepage} />
+                  {state?.install ? (
+                    <Path
+                      icon="package"
+                      label={INSTALL_KIND[state.install.kind]}
+                      value={state.install.ref}
                     />
-                    <div className="btn-row">
-                      <FocusButton
-                        icon="folder"
-                        onSelect={() => void saveRoot(descriptor.id, rootDraft.value)}
-                      >
-                        Use this folder
-                      </FocusButton>
-                      <FocusButton icon="back" variant="ghost" onSelect={() => setRootDraft(null)}>
-                        Cancel
-                      </FocusButton>
-                    </div>
+                  ) : null}
+                </section>
+
+                {/* Where its files are. Absent entirely for an emulator that is
+                    not here: a heading over nothing is a column of empty. */}
+                {folders ? (
+                  <section className="emulator__group">
+                    <h3 className="emulator__group-title">Folders</h3>
+                    {/* Home first: for an emulator that owns a library the three
+                        below hang off it, so the block reads top-down instead of
+                        ending on the folder they all came from. */}
+                    {home ? (
+                      <Path
+                        icon="home"
+                        label="Home"
+                        value={state?.paths.home ?? 'not found'}
+                        note={settings?.emulatorRoots?.[descriptor.id] ? ' (set by you)' : ''}
+                      />
+                    ) : null}
+                    <Path icon="roms" label="Roms" value={state?.paths.roms} />
+                    <Path icon="saves" label="Saves" value={state?.paths.saves} />
+                    <Path icon="bios" label="Bios" value={state?.paths.bios} />
+                  </section>
+                ) : null}
+              </div>
+
+              {/* Below the columns rather than inside one: a field and its two
+                  buttons need the width of the row, and half of it would put a
+                  path input in a column narrower than the paths it edits. */}
+              {rootDraft?.id === descriptor.id ? (
+                <div className="form">
+                  <TextField
+                    label="Home folder"
+                    value={rootDraft.value}
+                    onChange={(value) => setRootDraft({ id: descriptor.id, value })}
+                    placeholder={state?.paths.home ?? ''}
+                    hint={
+                      'Roms, saves, states and BIOS are read from inside this folder. ' +
+                      'Leave it empty to go back to finding it automatically.'
+                    }
+                    autoFocus
+                  />
+                  <div className="btn-row">
+                    <FocusButton
+                      icon="folder"
+                      onSelect={() => void saveRoot(descriptor.id, rootDraft.value)}
+                    >
+                      Use this folder
+                    </FocusButton>
+                    <FocusButton icon="back" variant="ghost" onSelect={() => setRootDraft(null)}>
+                      Cancel
+                    </FocusButton>
                   </div>
-                ) : (
-                  <div className="emulator__path">
-                    Library: {state?.paths.home ?? 'not found'}
-                    {settings?.emulatorRoots?.[descriptor.id] ? ' (set by you)' : ''}
-                  </div>
-                )
-              ) : null}
-              {/* An emulator RomMix cannot install itself would otherwise say
-                  "not installed" and offer nothing to do about it. */}
-              {!state?.install && descriptor.homepage ? (
-                <div className="emulator__meta">
-                  Set it up with its own installer: {descriptor.homepage}
                 </div>
               ) : null}
             </div>
             <div className="emulator__actions">
-              {/* Offered whenever the program is *present*, not only when it is
-                  usable: an emulator that has never been run is unavailable
-                  precisely because it has never been run, and this is the
-                  button that fixes it. */}
-              {state?.install ? (
-                <FocusButton
-                  icon="play"
-                  variant="ghost"
-                  onSelect={() => void run(descriptor.id, descriptor.name)}
-                >
-                  Run
-                </FocusButton>
-              ) : null}
-              {/* Offered even when the emulator is not detected: a library
+              {/* First, ahead of the buttons that install and rank: it is the
+                  one thing here that opens something rather than doing it.
+                  Offered even when the emulator is not detected — a library
                   RomMix cannot find is the main reason to point it at one. */}
               {descriptor.layout?.relative && rootDraft?.id !== descriptor.id ? (
                 <FocusButton
@@ -479,30 +590,49 @@ function EmulatorList({
                     })
                   }
                 >
-                  Library folder
+                  Home folder
                 </FocusButton>
               ) : null}
-              {descriptor.releases ? (
+              {/* Change version stays offered once installed, because a
+                  downloaded build is the one kind of install RomMix keeps
+                  managing after the fact. */}
+              {state?.install && releaseSource(descriptor) ? (
                 <FocusButton
                   icon="download"
                   variant="ghost"
                   onSelect={() => setInstalling(descriptor.id)}
                 >
-                  {state?.available ? 'Change version' : 'Download'}
+                  Change version
                 </FocusButton>
               ) : null}
-              {/* A flatpak emulator that is simply absent can be fetched from
-                  Flathub; one that is present needs no button. */}
-              {!state?.install && descriptor.install.some((i) => i.kind === 'flatpak') ? (
+              {/* Run and Install are the same slot, because they are the same
+                  question asked of an emulator that is here and one that is
+                  not. Run is offered whenever the program is *present*, not
+                  only when it is usable: an emulator that has never been run is
+                  unavailable precisely because it has never been run, and this
+                  is the button that fixes it. */}
+              {state?.install ? (
+                <FocusButton
+                  icon="play"
+                  variant="ghost"
+                  onSelect={() => void run(descriptor.id, descriptor.name)}
+                >
+                  Run
+                </FocusButton>
+              ) : (
+                /* One button whatever the emulator offers — how it gets here is
+                   the panel's business, including "you install this one
+                   yourself". A row of routes would put the packaging of an
+                   emulator in front of someone who only wants it installed. */
                 <FocusButton
                   icon="install"
                   variant="ghost"
                   disabled={flatpakBusy !== null}
-                  onSelect={() => void installFromFlathub(descriptor.id)}
+                  onSelect={() => setPending(descriptor)}
                 >
                   {flatpakBusy === descriptor.id ? 'Installing…' : 'Install'}
                 </FocusButton>
-              ) : null}
+              )}
               {/* Last, so the buttons that do something to this emulator come
                   first and the pair that only moves it sits where a list's
                   handles belong. Rank, not decoration: moving one up makes it
@@ -530,6 +660,52 @@ function EmulatorList({
         <Overlay title="Installing from Flathub">
           <p className="muted">{flatpakLine ?? 'Contacting Flathub…'}</p>
           <Spinner />
+        </Overlay>
+      ) : null}
+
+      {/* Every route this emulator has, each naming what it would do — and the
+          answer "none of them" where that is the truth. */}
+      {pending ? (
+        <Overlay title={`Install ${pending.name}`}>
+          {installMethods(pending).map((spec, index) => (
+            <div className="choice" key={spec.kind}>
+              <FocusButton
+                icon={spec.kind === 'flatpak' ? 'install' : 'download'}
+                onSelect={() => void install(pending, spec)}
+                autoFocus={index === 0}
+              >
+                {INSTALL_KIND[spec.kind]}
+              </FocusButton>
+              <span className="faint">
+                {spec.kind === 'flatpak'
+                  ? `${spec.appId}, from Flathub`
+                  : "the build you pick, into RomMix's own folder"}
+              </span>
+            </div>
+          ))}
+
+          {installMethods(pending).length === 0 ? (
+            <p className="muted">
+              {pending.name} has to be installed by hand
+              {pending.homepage ? (
+                <>
+                  , from <strong>{pending.homepage}</strong>
+                </>
+              ) : null}
+              .
+            </p>
+          ) : null}
+
+          <div className="btn-row">
+            <FocusButton
+              icon="cancel"
+              variant="ghost"
+              onSelect={() => setPending(null)}
+              autoFocus={installMethods(pending).length === 0}
+            >
+              Cancel
+            </FocusButton>
+          </div>
         </Overlay>
       ) : null}
 
@@ -637,7 +813,7 @@ function InstallPicker({
       </div>
 
       <p className="faint" style={{ fontSize: 13 }}>
-        Downloaded from {descriptor?.releases?.homepage} into RomMix&apos;s own emulator folder.
+        Published at {descriptor?.homepage}.
       </p>
 
       <div className="btn-row">

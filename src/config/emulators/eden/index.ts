@@ -31,9 +31,27 @@ export const eden: EmulatorDescriptor = {
     // Listed first so a packaged build is preferred if one ever appears; today
     // only the AppImage pattern matches anything.
     { kind: 'binary', names: ['eden'] },
-    { kind: 'appimage', patterns: ['eden*.appimage'] }
+    {
+      kind: 'appimage',
+      patterns: ['eden*.appimage'],
+      /**
+       * Eden's own Forgejo instance, not a GitHub mirror: the
+       * github.com/eden-emulator/Releases repository answers HTTP 451, having
+       * been blocked following a DMCA notice, so anything built against it
+       * would be dead on arrival. This endpoint needs no authentication.
+       */
+      release: {
+        api: 'https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases',
+        // Anchored, so the `.AppImage.zsync` update manifest beside every
+        // build is not offered as a download that cannot run.
+        asset: /\.AppImage$/i
+      }
+    }
   ],
+  homepage: 'https://eden-emu.dev',
   systems: ['switch'],
+  // One Switch emulator, one way to run a game.
+  variants: undefined,
   ownsLibrary: false,
   dirs: {
     // Eden ships no ROM folder at all: `Paths\romsPath` is empty and its game
@@ -51,6 +69,14 @@ export const eden: EmulatorDescriptor = {
   // configuration file to read them from.
   layout: undefined,
   /**
+   * Eden's game list is the directories it has been given, read one level
+   * deep. A game unpacked into a folder of its own would never appear in it,
+   * so a multi-file title is put loose beside everything else — which is also
+   * what makes its updates and DLC apply, since Eden takes external content
+   * from the game directories rather than needing it installed to the NAND.
+   */
+  flatLibrary: true,
+  /**
    * `nand/user/save/<space>/<profile>/<title id>/`, resolved per game.
    *
    * The title id is read out of the ROM's own metadata entry and the profile
@@ -61,47 +87,13 @@ export const eden: EmulatorDescriptor = {
    */
   saves: (ctx) => switchSavePaths(ctx, ctx.paths.saves, 'Eden'),
   /**
-   * Eden's own Forgejo instance, not a GitHub mirror: the
-   * github.com/eden-emulator/Releases repository answers HTTP 451, having been
-   * blocked following a DMCA notice, so anything built against it would be
-   * dead on arrival. This endpoint needs no authentication.
+   * `dirs.bios` is already `keys/`, so a key file needs no subdirectory of its
+   * own. Everything else is refused: a firmware dump is hundreds of NCAs that
+   * Eden has to register into its own NAND — dropping them into the tree leaves
+   * a NAND that looks populated and is not — so those are staged in RomMix's
+   * `bios/switch` for the user to install from.
    */
-  releases: {
-    api: 'https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases',
-    assetSuffix: '.AppImage',
-    homepage: 'https://eden-emu.dev'
-  },
-  // Its own releases page is the only source; RomMix fetches from it.
-  homepage: undefined,
-  /**
-   * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
-   * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,
-   * `SDL_VIDEO_DRIVER=x11`, `GDK_BACKEND=x11`, and it unsets WAYLAND_DISPLAY —
-   * which fails outright on a session with no X server, i.e. a plain Wayland
-   * desktop or the gamescope sessions RomMix targets.
-   *
-   * Set to 1 the hook does nothing at all: it does not select Wayland, it just
-   * stops overriding, leaving Qt and SDL to auto-detect. So on pure X11 this is
-   * a no-op. The one case it changes is a Wayland session that *also* has
-   * Xwayland, where Eden would otherwise have taken the xcb path upstream
-   * considers more stable — remove this if you prefer that.
-   */
-  env: { I_WANT_A_BROKEN_WAYLAND_UI: '1' },
-  /**
-   * Eden's game list is the directories it has been given, read one level
-   * deep. A game unpacked into a folder of its own would never appear in it,
-   * so a multi-file title is put loose beside everything else — which is also
-   * what makes its updates and DLC apply, since Eden takes external content
-   * from the game directories rather than needing it installed to the NAND.
-   */
-  flatLibrary: true,
-  /**
-   * Only the key files belong in `keys/`. A firmware dump is hundreds of NCAs
-   * that Eden has to register into its own NAND — dropping them into the tree
-   * leaves a NAND that looks populated and is not — so those are staged in
-   * RomMix's `bios/switch` for the user to install from.
-   */
-  biosAccepts: ['.keys'],
+  bios: ({ fileName, paths }) => (fileName.toLowerCase().endsWith('.keys') ? paths.bios : null),
   biosStagingNote: 'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
   /**
    * What is left for the user once RomMix has done what it can — kept to two
@@ -118,8 +110,20 @@ export const eden: EmulatorDescriptor = {
     "Add RomMix's ROM folder to Eden: File → Game Directories.",
     'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.'
   ],
-  // One Switch emulator, one way to run a game.
-  variants: undefined,
+  /**
+   * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
+   * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,
+   * `SDL_VIDEO_DRIVER=x11`, `GDK_BACKEND=x11`, and it unsets WAYLAND_DISPLAY —
+   * which fails outright on a session with no X server, i.e. a plain Wayland
+   * desktop or the gamescope sessions RomMix targets.
+   *
+   * Set to 1 the hook does nothing at all: it does not select Wayland, it just
+   * stops overriding, leaving Qt and SDL to auto-detect. So on pure X11 this is
+   * a no-op. The one case it changes is a Wayland session that *also* has
+   * Xwayland, where Eden would otherwise have taken the xcb path upstream
+   * considers more stable — remove this if you prefer that.
+   */
+  env: { I_WANT_A_BROKEN_WAYLAND_UI: '1' },
   // `exec` alone opens Eden with no game.
   open: undefined,
   launch: ({ exec, romPath }) => [...exec, romPath]

@@ -2,7 +2,15 @@ import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
-import type { EmulatorDescriptor, EmulatorId, EmulatorState, LaunchVariant } from './types.ts'
+import { shadps4 } from './shadps4/index.ts'
+import type {
+  EmulatorDescriptor,
+  EmulatorId,
+  EmulatorState,
+  InstallSpec,
+  LaunchVariant,
+  ReleaseSource
+} from './types.ts'
 
 /**
  * Every emulator RomMix knows how to drive.
@@ -12,7 +20,13 @@ import type { EmulatorDescriptor, EmulatorId, EmulatorState, LaunchVariant } fro
  * RetroDECK and EmuDeck already encode the user's own per-system arrangement,
  * and a standalone emulator is what covers the systems neither does.
  */
-export const EMULATORS: readonly EmulatorDescriptor[] = [retrodeck, emudeck, retroarch, eden]
+export const EMULATORS: readonly EmulatorDescriptor[] = [
+  retrodeck,
+  emudeck,
+  retroarch,
+  eden,
+  shadps4
+]
 
 /**
  * Directories an AppImage is plausibly sitting in, relative to the user's home.
@@ -128,15 +142,38 @@ export function launchVariants(
 }
 
 /**
- * Is this release asset something RomMix could actually run?
+ * The ways RomMix can put this emulator on the machine, in the descriptor's own
+ * order of preference.
  *
- * An exact suffix, never a substring. Eden publishes an `.AppImage.zsync`
- * update manifest beside every `.AppImage`, and a substring test offers both —
- * installing the manifest would leave a few kilobytes of metadata sitting
- * where the emulator should be.
+ * Derived from the install list rather than declared beside it: a route that
+ * cannot be detected is a route that would install an emulator RomMix then
+ * reports as missing, and one that cannot be installed is `binary` or
+ * `scripts` — something the user set up themselves and RomMix only finds.
  */
-export function isInstallableAsset(assetName: string, suffix: string): boolean {
-  return assetName.endsWith(suffix)
+export function installMethods(
+  descriptor: EmulatorDescriptor
+): readonly (InstallSpec & { kind: 'flatpak' | 'appimage' })[] {
+  return descriptor.install.filter(
+    (spec): spec is InstallSpec & { kind: 'flatpak' | 'appimage' } =>
+      spec.kind === 'flatpak' || spec.kind === 'appimage'
+  )
+}
+
+/** Where this emulator publishes the builds RomMix can download, if it does. */
+export function releaseSource(descriptor: EmulatorDescriptor): ReleaseSource | null {
+  const spec = descriptor.install.find((entry) => entry.kind === 'appimage')
+  return spec?.kind === 'appimage' ? spec.release : null
+}
+
+/**
+ * Is this release asset something RomMix could actually run here?
+ *
+ * One anchored pattern per source, because "the Linux build" is not a suffix:
+ * Eden publishes an `.AppImage.zsync` update manifest beside every
+ * `.AppImage`, and shadPS4 gives Windows, macOS and Linux the same `.zip`.
+ */
+export function isInstallableAsset(assetName: string, source: ReleaseSource): boolean {
+  return source.asset.test(assetName)
 }
 
 export { eden } from './eden/index.ts'

@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import { biosFor } from '@config/bios'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
+import { realHome } from './host'
 import { rootPaths } from './root'
+import { fileSystemEnvironment } from './saveenv'
 import type {
   BiosItem,
   BiosPlatform,
@@ -11,7 +13,8 @@ import type {
   BiosSyncResult,
   EmulatorState,
   RommFirmware,
-  RommPlatform
+  RommPlatform,
+  SaveEnvironment
 } from '@shared/types'
 import { RommClient, RommError } from './romm'
 import type { Store } from './store'
@@ -37,16 +40,33 @@ function key(name: string): string {
 }
 
 /**
- * Can this file go straight into the emulator's own BIOS folder?
+ * The directory one BIOS file is to be copied into, or null when the emulator
+ * cannot be given it at all.
  *
- * A descriptor that says nothing takes everything, which is what a BIOS folder
- * normally is. `biosAccepts` marks the exception — Eden takes its keys and
- * nothing else — and everything it does not name is staged instead.
+ * The whole answer is the descriptor's: a frontend that files firmware under
+ * `bios/dc/` and one that drops everything at the root are both ordinary, and
+ * nothing outside the emulator knows which it is. A descriptor that says
+ * nothing means the BIOS folder itself, which is what a BIOS folder normally
+ * is.
  */
-function acceptedByEmulator(emulator: EmulatorState | null, fileName: string): boolean {
-  const accepts = emulator ? emulatorById(emulator.id)?.biosAccepts : undefined
-  if (!accepts) return true
-  return accepts.some((suffix) => key(fileName).endsWith(key(suffix)))
+function targetOf(
+  emulator: EmulatorState,
+  system: string,
+  fileName: string,
+  env: SaveEnvironment
+): string | null {
+  const place = emulatorById(emulator.id)?.bios
+  if (!place) return emulator.paths.bios
+  return place({
+    system,
+    fileName,
+    paths: emulator.paths,
+    configDir: emulator.configDir,
+    dataDir: emulator.dataDir,
+    installDir: emulator.install?.location ?? null,
+    home: realHome(),
+    env
+  })
 }
 
 /**
@@ -80,6 +100,12 @@ async function existingFiles(dir: string): Promise<Set<string>> {
 }
 
 export class BiosManager {
+  /**
+   * The read-only view of the disk descriptors answer `bios` against — one per
+   * manager, because it is also the key their manifest caches hang off.
+   */
+  private readonly env = fileSystemEnvironment()
+
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
@@ -243,8 +269,12 @@ export class BiosManager {
      * which go straight into Eden, and firmware, which cannot.
      */
     const placement = (fileName: string): { dir: string | null; staged: boolean } => {
-      if (acceptedByEmulator(emulator, fileName)) return { dir: biosDir, staged: false }
-      return { dir: system ? this.stagingDir(system) : null, staged: true }
+      // Nothing to ask when the emulator or its BIOS folder is unknown: the
+      // row is blocked either way, and `blockedReason` below says which.
+      if (!emulator || !system || !biosDir) return { dir: null, staged: false }
+      const target = targetOf(emulator, system, fileName, this.env)
+      if (target !== null) return { dir: target, staged: false }
+      return { dir: this.stagingDir(system), staged: true }
     }
 
     /** Present already — checked in the folder this file actually goes to. */

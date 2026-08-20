@@ -1,11 +1,12 @@
 import { createWriteStream } from 'node:fs'
-import { chmod, mkdir, rename, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { chmod, mkdir, readdir, rename, rm } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@shared/types'
 import { rootPaths } from './root'
+import { extractZip, isZip } from './zip'
 
 /**
  * Installing an emulator that ships as a loose download rather than a package.
@@ -58,7 +59,7 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
           (asset): asset is { name: string; browser_download_url: string; size?: number } =>
             typeof asset.name === 'string' &&
             typeof asset.browser_download_url === 'string' &&
-            isInstallableAsset(asset.name, source.assetSuffix)
+            isInstallableAsset(asset.name, source)
         )
         .map((asset) => ({
           name: asset.name,
@@ -131,5 +132,34 @@ export async function installAsset(
   // where it looks installed but cannot be run.
   await chmod(partial, 0o755)
   await rename(partial, destination)
-  return destination
+
+  // By its magic bytes rather than its name: what matters is whether the file
+  // is an archive, not what the project chose to call it.
+  return (await isZip(destination)) ? unpackImage(destination, dir) : destination
+}
+
+/**
+ * Take the program out of a downloaded archive.
+ *
+ * Not every project publishes the image itself: shadPS4's Linux release is a
+ * zip with one `.AppImage` inside it. Unpacking here rather than teaching the
+ * probe to look inside archives keeps the managed directory holding what it
+ * claims to — a program that can be run — and is what makes a zipped release
+ * indistinguishable from a plain one everywhere else.
+ *
+ * The archive is removed once its contents are out, so nothing is left for
+ * auto-discovery to find twice.
+ */
+async function unpackImage(archive: string, dir: string): Promise<string> {
+  await extractZip(archive, dir)
+  await rm(archive, { force: true })
+
+  const image = (await readdir(dir)).find((name) => name.toLowerCase().endsWith('.appimage'))
+  if (!image) {
+    throw new Error(`${basename(archive)} holds no AppImage`)
+  }
+
+  const path = join(dir, image)
+  await chmod(path, 0o755)
+  return path
 }

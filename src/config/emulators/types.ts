@@ -22,7 +22,7 @@
  * `src/main/emulators.ts`.
  */
 
-import type { SaveContext, SavePaths } from './savepaths.ts'
+import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 
 /** Stable identifier for an emulator, e.g. 'retrodeck'. Persisted in settings. */
 export type EmulatorId = string
@@ -42,42 +42,56 @@ export type EmulatorId = string
 export type EmulatorDispatch = 'self' | 'rommix'
 
 /**
- * How the program might be installed. Tried in order, first hit wins.
- *
- * `appimage` exists because not every emulator ships on Flathub — Eden is
- * AppImage-only — and an AppImage is a loose file in a download folder rather
- * than something on PATH, so it has to be looked for by name.
- */
-export type InstallSpec =
-  | { kind: 'flatpak'; appId: string }
-  | { kind: 'binary'; names: readonly string[] }
-  | { kind: 'appimage'; patterns: readonly string[] }
-  /**
-   * A directory of launcher scripts rather than one program, which is what a
-   * configurator like EmuDeck leaves behind. Its location comes out of the
-   * emulator's own configuration, so it is named relative to something
-   * `layout` discovered: `from` is a path key or extra, `path` hangs off it.
-   */
-  | { kind: 'scripts'; dir: { from: string; path: string } }
-
-/**
- * Where an emulator's own releases can be listed, for emulators RomMix can
- * install itself. Only Forgejo/Gitea-shaped APIs are modelled, which is what
- * Eden publishes; a distro package or flatpak needs none of this.
+ * Where an emulator publishes the builds RomMix can download. Only
+ * Forgejo/Gitea-shaped APIs are modelled — Eden's own Forgejo, and GitHub,
+ * whose release payload carries the same names.
  */
 export interface ReleaseSource {
   /** Endpoint returning the release list. */
   api: string
   /**
-   * Exact filename suffix of a usable download. An exact suffix rather than a
-   * substring on purpose: Eden ships `.AppImage.zsync` update files beside
-   * every `.AppImage`, and offering one as an emulator would be a download
-   * that cannot run.
+   * Matches the file name of a usable download, and nothing else on the
+   * release page. Anchor it: Eden ships `.AppImage.zsync` update files beside
+   * every `.AppImage`, and shadPS4 ships macOS and Windows zips beside the
+   * Linux one.
    */
-  assetSuffix: string
-  /** Human-readable home page, shown next to the picker. */
-  homepage: string
+  asset: RegExp
 }
+
+/**
+ * How the program might be installed. Tried in order, first hit wins.
+ *
+ * Each entry answers both halves of "can this emulator be here": how to
+ * recognise an install of that kind, and how to obtain one. They are the same
+ * question — where a program comes from is what decides how it is found — and
+ * splitting them once meant an emulator both on Flathub and published as an
+ * AppImage could only offer whichever half the screen happened to check.
+ *
+ * What "obtain" means follows the kind, so a descriptor cannot describe a
+ * route RomMix has no way to take:
+ *
+ *  - `flatpak`   installed from Flathub by app id.
+ *  - `appimage`  downloaded from the project's own releases. A loose file in a
+ *                download folder rather than something on PATH, so it is also
+ *                looked for by name — both the copy RomMix fetched and one the
+ *                user put there themselves.
+ *  - `binary`    found on PATH. Whatever put it there — a distro package, a
+ *                build — is not something RomMix can drive.
+ *  - `scripts`   a directory of launchers rather than one program, which is
+ *                what a configurator like EmuDeck leaves behind. Its location
+ *                comes out of the emulator's own configuration, so it is named
+ *                relative to something `layout` discovered: `from` is a path
+ *                key or extra, `path` hangs off it.
+ *
+ * An emulator whose every route is `binary` or `scripts` is one the user
+ * installs themselves, and the Settings screen says exactly that rather than
+ * offering a button that cannot work.
+ */
+export type InstallSpec =
+  | { kind: 'flatpak'; appId: string }
+  | { kind: 'appimage'; patterns: readonly string[]; release: ReleaseSource }
+  | { kind: 'binary'; names: readonly string[] }
+  | { kind: 'scripts'; dir: { from: string; path: string } }
 
 /**
  * An install that was actually found. `ref` is a flatpak app id, the path of a
@@ -227,11 +241,75 @@ export interface LaunchContext {
   variant?: string
 }
 
+/**
+ * Everything a descriptor is told about one BIOS file it might be given.
+ *
+ * Deliberately the same shape as `SaveContext` minus the game: the two
+ * questions turn out to need the same facts, because both are answered by
+ * whichever emulator a frontend dispatches the system to, and that is read off
+ * disk rather than declared.
+ */
+export interface BiosContext {
+  /** ES-DE system the file belongs to, e.g. 'dreamcast'. */
+  system: string
+  /** The file exactly as RomM holds it, e.g. 'dc_boot.bin'. */
+  fileName: string
+  /** The roots the probe discovered for this emulator. */
+  paths: EmulationPaths
+  /** The emulator's own config and data roots, as `saves` is given them. */
+  configDir: string | null
+  dataDir: string | null
+  /**
+   * Where the emulator's *own* files were deployed, when RomMix knows.
+   *
+   * The interesting one for a frontend: RetroDECK ships a manifest per bundled
+   * component listing every BIOS file it knows about and where that component
+   * wants it, which beats any table RomMix could keep of its conclusions.
+   */
+  installDir: string | null
+  /** The user's real home directory. */
+  home: string
+  env: SaveEnvironment
+}
+
+/**
+ * The directory one BIOS file is to be copied into — absolute, and usually
+ * inside `paths.bios` but not necessarily: RetroDECK files a GameCube IPL
+ * under its *saves* tree, because that is where Dolphin reads it from.
+ *
+ * `null` means this emulator cannot be given the file at all, and it goes to
+ * RomMix's own `bios/<system>` folder instead, where the user can point the
+ * emulator's own installer at it — Eden's firmware is a few hundred NCA files
+ * that have to be *registered* into the NAND by Eden itself, and copying them
+ * into the tree by hand produces a NAND it does not believe in. The file is
+ * still fetched from RomM and still has a definite home; RomMix simply stops
+ * short of the step only the emulator can perform.
+ */
+export type BiosTarget = string | null
+
 export interface EmulatorDescriptor {
+  // -- identity ------------------------------------------------------------------
+
   readonly id: EmulatorId
   readonly name: string
   readonly dispatch: EmulatorDispatch
+
+  // -- finding and installing it -------------------------------------------------
+
   readonly install: readonly InstallSpec[]
+  /**
+   * The project's own page: where the program comes from, what it is, and how
+   * to set it up by hand.
+   *
+   * Carried by every emulator, not only the ones RomMix cannot install. For
+   * those it is the whole answer — "not installed" with an address beats "not
+   * installed" and a dead end — and for the rest it is still the one thing a
+   * settings row can offer someone who wants to know what they are looking at.
+   */
+  readonly homepage: string | undefined
+
+  // -- what it runs --------------------------------------------------------------
+
   /**
    * ES-DE systems this emulator runs.
    *
@@ -241,6 +319,14 @@ export interface EmulatorDescriptor {
    * can be wrong and corrected beats a claim that cannot be checked.
    */
   readonly systems: readonly string[]
+  /**
+   * The ways this emulator can run a system. Absent, or one entry, means there
+   * is nothing to ask about.
+   */
+  variants: ((system: string) => readonly LaunchVariant[]) | undefined
+
+  // -- where its files go --------------------------------------------------------
+
   /**
    * True when the emulator owns a folder layout that RomMix has to discover
    * rather than create — which also means it is unusable until the emulator
@@ -263,28 +349,6 @@ export interface EmulatorDescriptor {
    */
   readonly layout: LayoutDiscovery | undefined
   /**
-   * Where this emulator keeps the save data for one game.
-   *
-   * A question rather than a declaration, because the answer depends on things
-   * a table cannot hold: which core RetroArch last loaded, which of RetroDECK's
-   * bundled emulators ES-DE will hand the system to, which Switch profile owns
-   * a save. See `savepaths.ts` for what the answer means and what the
-   * descriptor is allowed to look at while producing it.
-   */
-  saves(ctx: SaveContext): SavePaths
-  /** Set when RomMix can fetch and install this emulator itself. */
-  readonly releases: ReleaseSource | undefined
-  /**
-   * Where to get it, for emulators RomMix cannot install — shown instead of a
-   * button, so "not installed" comes with an answer rather than a dead end.
-   */
-  readonly homepage: string | undefined
-  /**
-   * Environment the emulator needs in order to start, merged over RomMix's own.
-   * For things the emulator will not do for itself — not for tuning.
-   */
-  readonly env: Readonly<Record<string, string>> | undefined
-  /**
    * True when this emulator's game list reads one directory and does not
    * descend into it.
    *
@@ -298,27 +362,46 @@ export interface EmulatorDescriptor {
    * Such an emulator gets every file loose in the system folder instead.
    */
   readonly flatLibrary: boolean
+
+  // -- saves ---------------------------------------------------------------------
+
   /**
-   * Which firmware files this emulator's own BIOS folder will take, matched on
-   * the end of the file name.
+   * Where this emulator keeps the save data for one game.
    *
-   * Absent means "all of them", which is true of every emulator whose BIOS is
-   * a set of files dropped in a directory. Eden is the other kind: its keys go
-   * in `keys/`, but a firmware dump is a few hundred NCA files that have to be
-   * *registered* into the NAND by Eden itself, and copying them into the tree
-   * by hand produces a NAND the emulator does not believe in.
-   *
-   * Anything not accepted here is put in RomMix's own `bios/<system>` folder
-   * instead, where the user can point the emulator's installer at it. The file
-   * is still fetched from RomM and still has a definite home — RomMix simply
-   * stops short of the step only the emulator can perform.
+   * A question rather than a declaration, because the answer depends on things
+   * a table cannot hold: which core RetroArch last loaded, which of RetroDECK's
+   * bundled emulators ES-DE will hand the system to, which Switch profile owns
+   * a save. See `savepaths.ts` for what the answer means and what the
+   * descriptor is allowed to look at while producing it.
    */
-  readonly biosAccepts: readonly string[] | undefined
+  saves(ctx: SaveContext): SavePaths
+
+  // -- bios ----------------------------------------------------------------------
+
+  /**
+   * Where this emulator wants one BIOS file copied — see `BiosTarget`.
+   *
+   * Absent means `paths.bios` itself takes everything, which is what a BIOS
+   * folder normally is and is why most descriptors leave it undefined. Asked
+   * per file rather than declared per emulator because the answer varies
+   * within one: Eden takes `prod.keys` into its `keys/` folder and cannot take
+   * a firmware dump at all, and RetroDECK's answer depends on which of its
+   * bundled components ES-DE hands the system to — `bios/` for a libretro core,
+   * `bios/dc/` for Flycast, `saves/gc/dolphin/EU/` for a GameCube IPL.
+   *
+   * A question rather than a table for the same reason `saves` is one: the
+   * answer is in the emulator's own data, and a copy of its conclusions here
+   * goes stale on its next release.
+   */
+  readonly bios: ((ctx: BiosContext) => BiosTarget) | undefined
   /**
    * What to tell the user about files that had to be staged rather than
    * installed. Shown on the BIOS screen beside the folder they went to.
    */
   readonly biosStagingNote: string | undefined
+
+  // -- what the user has to do themselves ----------------------------------------
+
   /**
    * Steps the user has to perform inside the emulator itself, which RomMix can
    * neither do nor verify from outside.
@@ -330,11 +413,14 @@ export interface EmulatorDescriptor {
    * report.
    */
   readonly setupNotes: readonly string[]
+
+  // -- running it ----------------------------------------------------------------
+
   /**
-   * The ways this emulator can run a system. Absent, or one entry, means there
-   * is nothing to ask about.
+   * Environment the emulator needs in order to start, merged over RomMix's own.
+   * For things the emulator will not do for itself — not for tuning.
    */
-  variants: ((system: string) => readonly LaunchVariant[]) | undefined
+  readonly env: Readonly<Record<string, string>> | undefined
   /**
    * argv to start the emulator on its own, for the Run button. Only needed
    * where that is not simply `exec` — a launcher directory has no one program,

@@ -238,7 +238,6 @@ export const emudeck: EmulatorDescriptor = {
   id: 'emudeck',
   name: 'EmuDeck',
   dispatch: 'rommix',
-
   // What "EmuDeck is installed" means: the launcher scripts are there. Not
 
   // that the Emulation folder exists — that is created early in setup and left
@@ -247,7 +246,13 @@ export const emudeck: EmulatorDescriptor = {
 
   // runs. Where they are comes from the tools directory `layout` reads.
   install: [{ kind: 'scripts', dir: { from: 'tools', path: 'launchers' } }],
+  // RomMix cannot install EmuDeck: its own installer sets up a dozen emulators
+  // and asks a page of questions about how they should be configured.
+  // RomMix cannot install EmuDeck: its installer sets up a dozen emulators and
+  // asks the user a page of questions about how they want them configured.
+  homepage: 'https://www.emudeck.com',
   systems: Object.keys(EMUDECK_LAUNCHERS),
+  variants: emuDeckLaunchers,
   // EmuDeck builds the Emulation folder during its own setup, and until that
   // has happened there is nowhere to install a ROM to.
   ownsLibrary: true,
@@ -288,6 +293,8 @@ export const emudeck: EmulatorDescriptor = {
       }
     }
   },
+  // ES-DE scans recursively, so a multi-file game keeps its own folder.
+  flatLibrary: false,
   /**
    * EmuDeck files saves per emulator under `Emulation/saves`, symlinking each
    * emulator's own directory into it — so what is there depends on which
@@ -304,19 +311,11 @@ export const emudeck: EmulatorDescriptor = {
     if (!chosen) return { saves: null, states: null }
     return emuDeckSavePaths(ctx, chosen.script)
   },
-  // RomMix cannot install EmuDeck: its own installer sets up a dozen emulators
-  // and asks a page of questions about how they should be configured.
-  releases: undefined,
-  // RomMix cannot install EmuDeck: its installer sets up a dozen emulators and
-  // asks the user a page of questions about how they want them configured.
-  homepage: 'https://www.emudeck.com',
-  env: undefined,
-  // ES-DE scans recursively, so a multi-file game keeps its own folder.
-  flatLibrary: false,
-  biosAccepts: undefined,
+  // Its Emulation/bios folder takes any firmware file, at the root.
+  bios: undefined,
   biosStagingNote: undefined,
   setupNotes: [],
-  variants: emuDeckLaunchers,
+  env: undefined,
   open: ({ exec, installRef }) => [...exec, `${installRef}/${EMUDECK_FRONTEND}`],
   launch: ({ exec, installRef, system, romPath, variant }) => {
     const options = emuDeckLaunchers(system)

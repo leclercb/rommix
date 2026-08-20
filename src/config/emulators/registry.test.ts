@@ -8,7 +8,9 @@ import {
   defaultEmulatorFor,
   emulatorById,
   emulatorsForSystem,
+  installMethods,
   isInstallableAsset,
+  releaseSource,
   launchVariants,
   resolveEmulator,
   supportsSystem
@@ -18,6 +20,7 @@ import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
+import { shadps4 } from './shadps4/index.ts'
 import { example } from './example/index.ts'
 import type { EmulatorDescriptor, EmulatorState } from './types.ts'
 
@@ -31,19 +34,18 @@ const FIELD_ORDER = [
   'name',
   'dispatch',
   'install',
+  'homepage',
   'systems',
+  'variants',
   'ownsLibrary',
   'dirs',
   'layout',
-  'saves',
-  'releases',
-  'homepage',
-  'env',
   'flatLibrary',
-  'biosAccepts',
+  'saves',
+  'bios',
   'biosStagingNote',
   'setupNotes',
-  'variants',
+  'env',
   'open',
   'launch'
 ] as const
@@ -208,12 +210,15 @@ test('an emulator returns null rather than argv for a system it cannot run', () 
   assert.equal(argv, null)
 })
 
+/** A release source of the ordinary shape: one extension, one platform. */
+const APPIMAGE = { api: 'https://example.test/releases', asset: /\.AppImage$/i }
+
 test('the zsync manifest beside every AppImage is not offered as a download', () => {
   // Both are real asset names from Eden's release feed. A substring test would
   // offer the second, which is a few kilobytes of update metadata rather than
   // anything that runs.
-  assert.equal(isInstallableAsset('Eden-Linux-v0.2.1-amd64-clang-pgo.AppImage', '.AppImage'), true)
-  assert.equal(isInstallableAsset('Eden-Linux-amd64-clang-pgo.AppImage.zsync', '.AppImage'), false)
+  assert.equal(isInstallableAsset('Eden-Linux-v0.2.1-amd64-clang-pgo.AppImage', APPIMAGE), true)
+  assert.equal(isInstallableAsset('Eden-Linux-amd64-clang-pgo.AppImage.zsync', APPIMAGE), false)
 })
 
 test("other platforms' assets are not offered either", () => {
@@ -223,15 +228,41 @@ test("other platforms' assets are not offered either", () => {
     'Eden-Android-v0.2.1-standard.apk',
     'Eden-v0.2.1.torrent'
   ]) {
-    assert.equal(isInstallableAsset(name, '.AppImage'), false, name)
+    assert.equal(isInstallableAsset(name, APPIMAGE), false, name)
   }
 })
 
 test('Eden declares a release source RomMix can install from', () => {
-  assert.ok(eden.releases)
+  const source = releaseSource(eden)
+  assert.ok(source)
   // Not a GitHub mirror: github.com/eden-emulator/Releases answers 451.
-  assert.match(eden.releases.api, /^https:\/\/git\.eden-emu\.dev\//)
-  assert.equal(eden.releases.assetSuffix, '.AppImage')
+  assert.match(source.api, /^https:\/\/git\.eden-emu\.dev\//)
+  assert.ok(source.asset.test('Eden-Linux-v0.2.1-amd64-clang-pgo.AppImage'))
+})
+
+test('every AppImage route says where its builds come from', () => {
+  // The point of merging the two: a route that can be recognised and not
+  // fetched is a `binary` — something the user put there — and one offered as
+  // an AppImage would be an Install button with nothing behind it.
+  for (const emulator of [...EMULATORS, example]) {
+    for (const spec of emulator.install) {
+      if (spec.kind === 'appimage') assert.ok(spec.release.api, `${emulator.id} names no release`)
+    }
+  }
+})
+
+test('installable routes are exactly the ones RomMix can act on', () => {
+  assert.deepEqual(
+    installMethods(retrodeck).map((spec) => spec.kind),
+    ['flatpak']
+  )
+  assert.deepEqual(
+    installMethods(eden).map((spec) => spec.kind),
+    ['appimage']
+  )
+  // EmuDeck is a directory of launchers its own installer wrote: nothing here
+  // for RomMix to press.
+  assert.deepEqual(installMethods(emudeck), [])
 })
 
 test('Eden declares the environment it needs to open a window at all', () => {
@@ -527,4 +558,53 @@ test('the example emulator is documentation, not something RomMix will run', () 
     false
   )
   assert.equal(emulatorById('example'), null)
+})
+
+test("shadPS4 is launched on the game directory's eboot, not on the largest file", () => {
+  // What `chooseLaunchFile` nominates for a PS4 game is one of its data files:
+  // the entry point is small and named, so the descriptor names it.
+  const argv = shadps4.launch({
+    exec: ['flatpak', 'run', 'net.shadps4.shadPS4'],
+    installRef: 'net.shadps4.shadPS4',
+    system: 'ps4',
+    romPath: '/roms/ps4/CUSA12345/data.psarc'
+  })
+  assert.deepEqual(argv, ['flatpak', 'run', 'net.shadps4.shadPS4', '/roms/ps4/CUSA12345/eboot.bin'])
+})
+
+test('shadPS4 passes an eboot and a package through as they are', () => {
+  const run = (romPath: string): string[] | null =>
+    shadps4.launch({
+      exec: ['/usr/bin/shadps4'],
+      installRef: '/usr/bin/shadps4',
+      system: 'ps4',
+      romPath
+    })
+
+  assert.deepEqual(run('/roms/ps4/CUSA12345/eboot.bin'), [
+    '/usr/bin/shadps4',
+    '/roms/ps4/CUSA12345/eboot.bin'
+  ])
+  // A package is shadPS4's to install; rewriting it to an eboot that does not
+  // exist yet would turn "install this" into "file not found".
+  assert.deepEqual(run('/roms/ps4/game.pkg'), ['/usr/bin/shadps4', '/roms/ps4/game.pkg'])
+})
+
+test('shadPS4 runs the PlayStation 4 and nothing else', () => {
+  assert.equal(supportsSystem(shadps4, 'ps4'), true)
+  assert.equal(supportsSystem(shadps4, 'ps3'), false)
+  // The only emulator in the registry that covers it, so it is the default.
+  assert.equal(defaultEmulatorFor('ps4'), 'shadps4')
+})
+
+test("a project publishing every platform as a zip offers only this one's", () => {
+  // shadPS4's real asset names. No suffix separates them, which is what
+  // `assetIncludes` is for.
+  const source = {
+    api: 'https://api.github.com/repos/shadps4-emu/shadPS4/releases',
+    asset: /^shadps4-linux-.*\.zip$/i
+  }
+  assert.equal(isInstallableAsset('shadps4-linux-sdl-0.18.0.zip', source), true)
+  assert.equal(isInstallableAsset('shadps4-macos-sdl-0.18.0.zip', source), false)
+  assert.equal(isInstallableAsset('shadps4-win64-sdl-0.18.0.zip', source), false)
 })

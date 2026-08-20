@@ -9,10 +9,12 @@ import {
   EyeOff,
   ChevronRight,
   CircleAlert,
+  Disc3,
   Download,
   Eraser,
   FolderOpen,
   Gamepad2,
+  Globe,
   HardDrive,
   House,
   Layers,
@@ -20,10 +22,12 @@ import {
   ListOrdered,
   LogOut,
   Maximize,
+  Package,
   Play,
   Plug,
   Power,
   RefreshCw,
+  Save,
   Search,
   Settings,
   Sparkles,
@@ -79,7 +83,13 @@ export const ICONS = {
   fullscreen: Maximize,
   connect: Plug,
   keep: Check,
-  hide: EyeOff
+  hide: EyeOff,
+  /** Where a program came from: the package or image it was installed as. */
+  package: Package,
+  /** A project's own page on the web. */
+  homepage: Globe,
+  roms: Disc3,
+  saves: Save
 } as const
 
 export type IconName = keyof typeof ICONS

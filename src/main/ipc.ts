@@ -1,6 +1,12 @@
 import { app, ipcMain } from 'electron'
 import type { ConnectPayload } from '@shared/api'
-import { EMULATORS, emulatorById, launchVariants } from '@config/emulators'
+import {
+  EMULATORS,
+  emulatorById,
+  isInstallableAsset,
+  launchVariants,
+  releaseSource
+} from '@config/emulators'
 import type {
   BiosPlatform,
   BiosReport,
@@ -467,10 +473,11 @@ export function registerIpc(rommix: RomMixApp): void {
   /** Releases RomMix could install for this emulator, newest first. */
   handle('emulators:releases', async (id: string): Promise<EmulatorRelease[]> => {
     const descriptor = emulatorById(id)
-    if (!descriptor?.releases) {
+    const source = descriptor ? releaseSource(descriptor) : null
+    if (!source) {
       throw new RommError(`RomMix cannot install ${descriptor?.name ?? id} for you`)
     }
-    return fetchReleases(descriptor.releases)
+    return fetchReleases(source)
   })
 
   /**
@@ -482,10 +489,11 @@ export function registerIpc(rommix: RomMixApp): void {
    */
   handle('emulators:install', async (id: string, asset: EmulatorAsset): Promise<string> => {
     const descriptor = emulatorById(id)
-    if (!descriptor?.releases) {
+    const source = descriptor ? releaseSource(descriptor) : null
+    if (!source) {
       throw new RommError(`RomMix cannot install ${descriptor?.name ?? id} for you`)
     }
-    if (!asset.name.endsWith(descriptor.releases.assetSuffix)) {
+    if (!isInstallableAsset(asset.name, source)) {
       throw new RommError(`${asset.name} is not something RomMix can run`)
     }
 

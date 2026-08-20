@@ -42,7 +42,10 @@ export const retroarch: EmulatorDescriptor = {
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
     { kind: 'binary', names: ['retroarch'] }
   ],
+  homepage: 'https://www.retroarch.com',
   systems: systemsWithCore(),
+  // One core per system, named by `launch`, so there is nothing to choose.
+  variants: undefined,
   ownsLibrary: false,
   dirs: {
     roms: { base: 'rommix', path: 'roms' },
@@ -53,6 +56,9 @@ export const retroarch: EmulatorDescriptor = {
   // RetroArch's folders are fixed by its packaging, so there is no config file
   // to discover them from and no library root to relocate.
   layout: undefined,
+  // It reads its ROM folders recursively, so a multi-file game may keep a
+  // folder of its own.
+  flatLibrary: false,
   /**
    * Straight from `retroarch.cfg`, because every part of the answer lives
    * there: the two roots, whether saves are sorted into a folder per core or
@@ -70,20 +76,13 @@ export const retroarch: EmulatorDescriptor = {
       coreForSystem(ctx.system),
       { saves: ctx.paths.saves, states: ctx.paths.states }
     ),
-  releases: undefined,
-  homepage: undefined,
-  env: undefined,
-  // It reads its ROM folders recursively, so a multi-file game may keep a
-  // folder of its own.
-  flatLibrary: false,
   // Its system folder takes any firmware file dropped in.
-  biosAccepts: undefined,
+  bios: undefined,
   biosStagingNote: undefined,
   // Cores are installed from RetroArch's own Online Updater, which it will
   // prompt for; nothing here needs saying in advance.
   setupNotes: [],
-  // One core per system, named by `launch`, so there is nothing to choose.
-  variants: undefined,
+  env: undefined,
   // `exec` alone starts RetroArch with no content.
   open: undefined,
   launch: ({ exec, system, romPath }) => {

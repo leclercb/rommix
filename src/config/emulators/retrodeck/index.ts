@@ -1,4 +1,5 @@
 import { systemsWithCore } from '../../systems.ts'
+import { retroDeckBiosDir } from './bios.ts'
 import { retroDeckSavePaths } from './saves.ts'
 import type { EmulatorDescriptor } from '../types.ts'
 
@@ -68,7 +69,11 @@ export const retrodeck: EmulatorDescriptor = {
   name: 'RetroDECK',
   dispatch: 'self',
   install: [{ kind: 'flatpak', appId: RETRODECK_APP_ID }],
+  homepage: 'https://retrodeck.net',
   systems: [...new Set([...systemsWithCore(), ...RETRODECK_STANDALONE_SYSTEMS])],
+  // RetroDECK resolves the emulator per system from its own ES-DE
+  // configuration, so RomMix has nothing to offer a choice between.
+  variants: undefined,
   ownsLibrary: true,
   dirs: {},
   /**
@@ -112,27 +117,25 @@ export const retrodeck: EmulatorDescriptor = {
       }
     }
   },
+  // ES-DE scans recursively, and a multi-file game in a folder of its own is
+  // what it expects.
+  flatLibrary: false,
   /**
    * Resolved per game, because RetroDECK's answer is "wherever the component I
    * chose puts them" — and which component that is comes out of the user's own
    * ES-DE configuration. See `retrodeck-saves.ts`.
    */
   saves: retroDeckSavePaths,
-  // Installed from Flathub, so RomMix never fetches a release itself.
-  releases: undefined,
-  homepage: undefined,
-  env: undefined,
-  // ES-DE scans recursively, and a multi-file game in a folder of its own is
-  // what it expects.
-  flatLibrary: false,
-  // Its BIOS folder takes any firmware file.
-  biosAccepts: undefined,
+  /**
+   * Read out of RetroDECK's own component manifests: the root of `bios/` for
+   * almost everything, a subfolder or another tree entirely where the
+   * component that runs the system says so. See `bios.ts`.
+   */
+  bios: retroDeckBiosDir,
   biosStagingNote: undefined,
   // Everything RetroDECK needs it does in its own first-run setup.
   setupNotes: [],
-  // RetroDECK resolves the emulator per system from its own ES-DE
-  // configuration, so RomMix has nothing to offer a choice between.
-  variants: undefined,
+  env: undefined,
   // `exec` alone opens RetroDECK's own frontend.
   open: undefined,
   launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath]

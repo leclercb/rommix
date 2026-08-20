@@ -306,6 +306,22 @@ function componentForLabel(label: string): string | null {
 }
 
 /**
+ * What resolving a component needs, which is less than a whole `SaveContext`.
+ *
+ * Named separately so BIOS placement can ask the same question: a BIOS file
+ * belongs to a system rather than to a game, so there is no ROM to look up a
+ * per-game override with, and everything below the first step still applies.
+ */
+export interface ComponentContext {
+  paths: { home: string | null }
+  system: string
+  /** The game being launched, or null when the question is about a system. */
+  romPath: string | null
+  installDir: string | null
+  env: SaveContext['env']
+}
+
+/**
  * The emulator RetroDECK will actually run this game with.
  *
  * Replicates `run_game.sh`'s own resolution, in its order: the per-game
@@ -316,13 +332,13 @@ function componentForLabel(label: string): string | null {
  * path that disagreed with that choice would be a save written where nothing
  * looks.
  */
-export function retroDeckComponent(ctx: SaveContext): string {
+export function retroDeckComponent(ctx: ComponentContext): string {
   const gamelist = ctx.paths.home
     ? ctx.env.text(joinPath(ctx.paths.home, 'ES-DE', 'gamelists', ctx.system, 'gamelist.xml'))
     : null
 
   if (gamelist) {
-    const label = altEmulatorFor(gamelist, baseName(ctx.romPath))
+    const label = altEmulatorFor(gamelist, ctx.romPath ? baseName(ctx.romPath) : null)
     const component = label ? componentForLabel(label) : null
     // A recognised label wins; an unrecognised one still means "a core", which
     // is what the RetroArch fallback below already is.
@@ -351,8 +367,8 @@ export function retroDeckComponent(ctx: SaveContext): string {
  * games, and pulling in a parser to read two strings would cost more than it
  * explains.
  */
-function altEmulatorFor(gamelist: string, romFileName: string): string | null {
-  const games = gamelist.matchAll(/<game>([\s\S]*?)<\/game>/g)
+function altEmulatorFor(gamelist: string, romFileName: string | null): string | null {
+  const games = romFileName ? gamelist.matchAll(/<game>([\s\S]*?)<\/game>/g) : []
   for (const [, block] of games) {
     const path = /<path>\s*([\s\S]*?)\s*<\/path>/.exec(block)?.[1]
     if (!path) continue

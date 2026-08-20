@@ -4,6 +4,7 @@ import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
+import { shadps4 } from './shadps4/index.ts'
 import { EMULATORS } from './index.ts'
 import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
@@ -50,6 +51,7 @@ interface ContextOptions {
   system: string
   paths?: Partial<SaveContext['paths']>
   configDir?: string | null
+  dataDir?: string | null
   installDir?: string | null
   variant?: string
   env?: SaveEnvironment
@@ -72,7 +74,7 @@ function context(options: ContextOptions): SaveContext {
     romStem: romPath.slice(romPath.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''),
     home: HOME,
     configDir: options.configDir ?? null,
-    dataDir: null,
+    dataDir: options.dataDir ?? null,
     installDir: options.installDir ?? null,
     variant: options.variant,
     env: options.env ?? machine({})
@@ -653,4 +655,59 @@ test('Eden has no save states, so none are claimed', () => {
   // its own; naming a directory would only invent one.
   const paths = edenPaths(edenMachine({ [ONE_PROFILE]: [] }))
   assert.equal(paths.states, null)
+})
+
+/**
+ * shadPS4 keys its saves by the game's CUSA serial, which is stated in the
+ * game's own `sce_sys/param.sfo` and conventionally repeated in the folder
+ * name. `param.sfo` is binary, so the fake machine serves it through `heads`
+ * exactly as the real one reads it.
+ */
+const SERIAL = 'CUSA12345'
+const SAVEDATA = '/data/shadps4/savedata'
+
+function shadPaths(env: SaveEnvironment, romPath = `/roms/ps4/${SERIAL}/eboot.bin`): SavePaths {
+  return shadps4.saves(
+    context({ romPath, system: 'ps4', paths: { saves: SAVEDATA }, env, dataDir: '/data' })
+  )
+}
+
+test('shadPS4 resolves a save folder from the serial in the game metadata', () => {
+  const env = machine({
+    dirs: { [SAVEDATA]: ['1'], [`${SAVEDATA}/1`]: [SERIAL] },
+    heads: { [`/roms/ps4/Game/sce_sys/param.sfo`]: `\x00PSF TITLE_ID ${SERIAL} APP_VER` }
+  })
+  const paths = shadPaths(env, '/roms/ps4/Game/eboot.bin')
+  assert.equal(paths.saves?.dir, `${SAVEDATA}/1/${SERIAL}`)
+  // The folder is the unit of save data, so it is synced whole.
+  assert.equal(paths.saves?.match, 'directory')
+  assert.equal(paths.states, null)
+})
+
+test('the user directory already holding this game wins over the first one', () => {
+  const env = machine({
+    dirs: { [SAVEDATA]: ['1', '2'], [`${SAVEDATA}/2`]: [SERIAL] },
+    files: { [`${SAVEDATA}/2/${SERIAL}`]: '' }
+  })
+  assert.equal(shadPaths(env).saves?.dir, `${SAVEDATA}/2/${SERIAL}`)
+})
+
+test('a game never played resolves to the only user there is', () => {
+  const env = machine({ dirs: { [SAVEDATA]: ['7'] } })
+  assert.equal(shadPaths(env).saves?.dir, `${SAVEDATA}/7/${SERIAL}`)
+})
+
+test('a savedata directory the emulator spelled differently is still found', () => {
+  // The folder is shadPS4's to create, so the one on disk wins over the one
+  // the descriptor names — a difference of case would otherwise cost every
+  // save on the system.
+  const env = machine({ dirs: { '/data': ['shadPS4'], '/data/shadPS4/savedata': ['1'] } })
+  assert.equal(shadPaths(env).saves?.dir, `/data/shadPS4/savedata/1/${SERIAL}`)
+})
+
+test('with no serial, nothing is synced rather than something wrong', () => {
+  const env = machine({ dirs: { [SAVEDATA]: ['1'] } })
+  const paths = shadPaths(env, '/roms/ps4/Some Game/eboot.bin')
+  assert.equal(paths.saves, null)
+  assert.match(paths.unsyncableReason ?? '', /serial/i)
 })
