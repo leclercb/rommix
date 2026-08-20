@@ -94,13 +94,15 @@ jobs:
       - name: Build the application tree
         run: npm run pack:dir
 
-      # elfutils is named explicitly because flatpak-builder only *recommends*
-      # it, and --no-install-recommends would leave the build to get all the way
-      # to extracting debuginfo before failing on a missing eu-strip.
+      # Recommends are left on deliberately. flatpak-builder only *recommends*
+      # the two things it finishes a build with — eu-strip from elfutils for the
+      # debuginfo, and the gdk-pixbuf SVG loader that appstreamcli compose needs
+      # to turn the scalable icon into PNG renditions. Both are named here as
+      # well, so a change in what apt recommends cannot quietly take them away.
       - name: Install the flatpak toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils
+          sudo apt-get install -y flatpak flatpak-builder elfutils librsvg2-common
 
       # Ubuntu 24.04 confines unprivileged user namespaces with AppArmor, which
       # is exactly what bwrap — and so flatpak-builder — needs. The runner is a
