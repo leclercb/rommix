@@ -296,7 +296,9 @@ A version with a suffix — `0.2.0-rc1` — publishes as a pre-release.
 
 The changelog entry the hook writes falls back to commit subjects, so for a real
 release commit a hand-written `<release>` entry in
-`flatpak/be.bl_it.RomMix.metainfo.xml` first and it will be left alone.
+`flatpak/be.bl_it.RomMix.metainfo.xml` first and its prose will be left alone.
+Its `date` is stamped at release time either way, so whatever you write there
+does not matter.
 
 > **On Flathub.** The manifest packages a prebuilt application tree, which
 > Flathub does not accept — submitting would mean vendoring the npm sources with
