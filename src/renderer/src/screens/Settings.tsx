@@ -593,10 +593,11 @@ function EmulatorList({
                   Home folder
                 </FocusButton>
               ) : null}
-              {/* Change version stays offered once installed, because a
-                  downloaded build is the one kind of install RomMix keeps
-                  managing after the fact. */}
-              {state?.install && releaseSource(descriptor) ? (
+              {/* Only for an install RomMix downloaded: a build it fetched is
+                  the one kind it keeps managing after the fact. Offering this
+                  beside a flatpak would propose swapping it for an AppImage,
+                  which is not a version change but a different install. */}
+              {state?.install?.kind === 'appimage' && releaseSource(descriptor) ? (
                 <FocusButton
                   icon="download"
                   variant="ghost"
