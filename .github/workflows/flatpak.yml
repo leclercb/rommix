@@ -94,10 +94,13 @@ jobs:
       - name: Build the application tree
         run: npm run pack:dir
 
+      # elfutils is named explicitly because flatpak-builder only *recommends*
+      # it, and --no-install-recommends would leave the build to get all the way
+      # to extracting debuginfo before failing on a missing eu-strip.
       - name: Install the flatpak toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils
 
       # Ubuntu 24.04 confines unprivileged user namespaces with AppArmor, which
       # is exactly what bwrap — and so flatpak-builder — needs. The runner is a
