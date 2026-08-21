@@ -223,13 +223,12 @@ export class Launcher {
       const exit = await this.run(argv, session, emulator.install, emulatorById(emulator.id)?.env)
       const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
 
-      // Only a failure to start ends the launch here. An emulator that ran and
-      // then exited badly still wrote save files, and returning before the push
-      // would lose the session in the course of reporting on it.
-      if (exit.startupError) {
-        return { ...failure(exit.startupError, command), playSeconds }
-      }
-
+      // Nothing returns early on a bad exit, however it is classified. The push
+      // below only sends what was written after `since`, so an emulator that
+      // truly never started has nothing to send and loses nothing by being
+      // asked — whereas a session misjudged as a failed start would have its
+      // saves abandoned unsent. Getting the classification wrong should cost a
+      // wrong message, not a lost save.
       let uploadedSaves = 0
       let uploadedStates = 0
       let pushError: string | null = null
@@ -267,7 +266,11 @@ export class Launcher {
         }
       }
 
-      await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+      // Not for a launch that never became a session: a zero-second entry in
+      // the play history is noise about something that did not happen.
+      if (!exit.startupError) {
+        await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+      }
 
       // The emulator's own complaint and the sync's are separate subjects, so
       // they are said separately rather than run together under one heading
@@ -279,10 +282,12 @@ export class Launcher {
       ].filter(Boolean)
 
       return {
-        ok: true,
+        ok: exit.startupError == null,
         emulator: emulator.id,
         command,
-        error: notes.length ? notes.join(' ') : null,
+        // The startup failure is the headline when there is one; the warnings
+        // follow it rather than replacing it.
+        error: [exit.startupError, ...notes].filter(Boolean).join(' ') || null,
         uploadedSaves,
         uploadedStates,
         pendingPush: pendingPush && pendingPush.files.length > 0 ? pendingPush : null,
@@ -336,8 +341,15 @@ export class Launcher {
         // is only a client of it, and signalling that one is what the close
         // button used to do — nothing. Anything else was spawned directly and a
         // signal reaches it.
-        if (install?.kind === 'flatpak') void stopFlatpakApp(install.ref)
-        else child.kill('SIGTERM')
+        if (install?.kind !== 'flatpak') return void child.kill('SIGTERM')
+
+        void stopFlatpakApp(install.ref).then((stopped) => {
+          // No instance was listed — the app is still starting, or it is not
+          // running under flatpak's own bookkeeping. Signalling what we spawned
+          // is unlikely to reach it, but a close button with one more thing to
+          // try beats one that has quietly given up.
+          if (!stopped) child.kill('SIGTERM')
+        })
       }
 
       child.on('error', (err) => {

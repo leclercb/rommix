@@ -1,5 +1,5 @@
 import type { JSX, Ref } from 'react'
-import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon } from './components'
+import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon, Spinner } from './components'
 import { FocusZone, useAction, useFocusable } from './input/focus'
 import { Icon, type IconName } from './icons'
 import { useApp, type Route, type Toast } from './state'
@@ -156,12 +156,27 @@ function RailItem({
  * Shown while an emulator owns the screen. RomMix is still running behind
  * gamescope, and this makes it obvious that input is going elsewhere.
  *
+ * It also covers the part of a launch before there is an emulator at all —
+ * installing a missing core is a download of several megabytes — because this
+ * overlay goes up the moment Play is pressed and nothing behind it can be seen.
+ * A screen that says "the emulator has focus" while RomMix is still fetching
+ * the core is describing something that has not happened yet.
+ *
  * The close button is the way back from an emulator that has hung or opened
  * off-screen: it asks the process to quit, so the session still ends normally
  * and the saves it wrote are still uploaded.
  */
 function RunningOverlay(): JSX.Element {
-  const { settings } = useApp()
+  const { settings, runningStage } = useApp()
+
+  if (runningStage) {
+    return (
+      <Overlay title="Getting ready">
+        <p className="muted">{runningStage}</p>
+        <Spinner />
+      </Overlay>
+    )
+  }
 
   return (
     <Overlay title="Game running">

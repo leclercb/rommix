@@ -159,6 +159,8 @@ export interface RommCollection {
   id: number
   name: string
   description: string
+  /** Every ROM in it. Present on the list response, not only on one collection. */
+  rom_ids: number[]
   rom_count: number
   path_cover_small: string | null
   path_cover_large: string | null

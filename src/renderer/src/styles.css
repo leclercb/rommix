@@ -351,6 +351,21 @@ input {
   opacity: 0.42;
 }
 
+/* A button that carries a state as well as an action: the mark is filled in
+   when the state is on, and hollow when it is off. Only the mark — the button
+   keeps its own colours, so a favourited game does not look like a warning. */
+.btn[data-on='true'] svg {
+  fill: var(--danger);
+  color: var(--danger);
+}
+
+/* Focused, the button is painted accent and a red heart on it would be a
+   clash; the fill alone still says it is on. */
+.btn[data-on='true'][data-focused='true'] svg {
+  fill: currentcolor;
+  color: currentcolor;
+}
+
 .btn-row {
   display: flex;
   gap: 12px;
@@ -1220,7 +1235,12 @@ input {
   font-size: 15px;
 }
 
+/* Icon then label, both in the dim colour: the mark belongs to the label it
+   sits with, not to the value across the gutter. */
 .kv dt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   color: var(--text-faint);
 }
 
@@ -1363,6 +1383,15 @@ input {
    written — the same place every other destructive button on a row sits. */
 .asset__actions {
   margin-left: auto;
+}
+
+/* The leading mark on a file row, where a save row has its Save/State tag —
+   same slot, same width, so the two lists line up. */
+.asset__icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--text-faint);
 }
 
 .asset__kind {

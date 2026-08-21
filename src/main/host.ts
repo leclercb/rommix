@@ -144,14 +144,16 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
   const sandboxes = await sandboxPids(appId)
   if (sandboxes.length === 0) return false
 
-  // The sandbox process itself is bubblewrap, which would tear the sandbox down
-  // around an application still trying to write. Its descendants are the
-  // application.
+  // The sandbox process is normally bubblewrap and the application is its
+  // child, so the descendants are what must be asked to quit. The sandbox
+  // itself is included because that layout is not guaranteed — where the
+  // application *is* the sandbox process there would otherwise be nothing to
+  // signal, and the grace period would expire into a kill for no reason.
+  // Signalling bubblewrap when it is not the application is harmless: it does
+  // not forward, which is the whole reason the descendants are listed.
   const ps = await runHost(['ps', '-eo', 'pid=,ppid='])
-  const targets = descendantsOf(ps ?? '', sandboxes)
-  if (targets.length > 0) {
-    await runHost(['kill', '-TERM', ...targets.map(String)])
-  }
+  const targets = [...descendantsOf(ps ?? '', sandboxes), ...sandboxes]
+  await runHost(['kill', '-TERM', ...targets.map(String)])
 
   const deadline = Date.now() + QUIT_GRACE_MS
   while (Date.now() < deadline) {

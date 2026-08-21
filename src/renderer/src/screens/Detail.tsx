@@ -1,4 +1,4 @@
-import { type JSX, useCallback, useEffect, useState } from 'react'
+import { Fragment, type JSX, useCallback, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
 import type {
   BiosPlatform,
@@ -116,7 +116,6 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     navigate,
     notify,
     refreshInstalled,
-    runningStage,
     saveSettings,
     settings
   } = useApp()
@@ -134,6 +133,8 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const [choosing, setChoosing] = useState<LaunchChoice | null>(null)
   const [tab, setTab] = useState<DetailTab>('about')
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
+  /** Null until RomM has been asked, which is what the button waits on. */
+  const [favourite, setFavourite] = useState<boolean | null>(null)
   const [deletingAsset, setDeletingAsset] = useState<SaveAsset | null>(null)
   const [bios, setBios] = useState<BiosPlatform | null>(null)
 
@@ -158,6 +159,16 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     setAssets(null)
     void loadAssets()
   }, [loadAssets])
+
+  useEffect(() => {
+    setFavourite(null)
+    void window.rommix.library
+      .favourite(romId)
+      .then(setFavourite)
+      // Asked for a button, not for the screen: a server that will not answer
+      // leaves the button waiting rather than putting an error over the game.
+      .catch(() => setFavourite(null))
+  }, [romId])
 
   /**
    * The BIOS situation for this game's platform.
@@ -303,6 +314,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     } catch {
       // Reported centrally.
     } finally {
+      // The session is exactly what makes this list wrong: it writes save files
+      // and syncs them, so every row's state and the scope its Delete button
+      // names were decided before any of that happened.
+      await loadAssets()
       setBusy(false)
     }
   }
@@ -429,6 +444,25 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     }
   }
 
+  /**
+   * Mark or unmark the game on RomM.
+   *
+   * The state is shown before the server has confirmed it: the call is a
+   * collection edit that takes a moment, and a heart that fills in only after a
+   * round trip reads as a button that missed the press. It is put back if the
+   * call fails.
+   */
+  const toggleFavourite = async (): Promise<void> => {
+    if (favourite === null) return
+    const next = !favourite
+    setFavourite(next)
+    try {
+      setFavourite(await window.rommix.library.setFavourite(romId, next))
+    } catch {
+      setFavourite(!next)
+    }
+  }
+
   /** Re-open the picker for a platform that has already been answered. */
   const openChooser = async (): Promise<void> => {
     try {
@@ -514,9 +548,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const system =
     entry?.system ??
     resolveSystem(rom.platform_slug, rom.platform_fs_slug, settings?.systemOverrides)
-  const year = rom.metadatum.first_release_date
-    ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
-    : null
+  const rating = rom.metadatum.average_rating ? Math.round(rom.metadatum.average_rating) : null
   const progress =
     download && download.totalBytes > 0
       ? Math.round((download.receivedBytes / download.totalBytes) * 100)
@@ -540,7 +572,15 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
               />
               {rom.platform_display_name}
             </span>
-            {year ? <span className="chip">{year}</span> : null}
+            {/* The rating rather than the release year: the year is a fact
+                about the game, but the rating is the one that helps decide
+                whether to press Play. The full release date is in About. */}
+            {rating !== null ? (
+              <span className="chip chip--icon">
+                <Icon name="rating" size={15} />
+                {rating} / 100
+              </span>
+            ) : null}
             <span className="chip">{formatBytes(rom.fs_size_bytes)}</span>
             {entry ? <span className="chip chip--on">Downloaded</span> : null}
             {rom.metadatum.genres.slice(0, 3).map((genre) => (
@@ -562,10 +602,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             disabled={busy || running}
             autoFocus
           >
-            {/* The stage where there is one: between pressing Play and the
-                emulator appearing there can be a core to download, and a button
-                that only says "Running…" through it looks stuck. */}
-            {running ? (runningStage ?? 'Running…') : 'Play'}
+            {running ? 'Running…' : 'Play'}
           </FocusButton>
         ) : active ? (
           <FocusButton
@@ -587,6 +624,18 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             Download
           </FocusButton>
         )}
+
+        {/* Marked on RomM, not here, so the shelf on the home screen and the
+            same game in a browser agree. Always offered: a game does not have
+            to be downloaded to be one you want to keep track of. */}
+        <FocusButton
+          icon="favourite"
+          on={favourite === true}
+          onSelect={() => void toggleFavourite()}
+          disabled={favourite === null}
+        >
+          {favourite ? 'Remove from favourites' : 'Add to favourites'}
+        </FocusButton>
 
         {/* The way back to a choice already made: without it, a platform
             answered once could only be changed by editing settings. Shown only
@@ -835,44 +884,97 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   )
 }
 
+/** One fact about the game: what to draw beside it, what to call it, its value. */
+type Fact = { icon: IconName; label: string; value: string | null }
+
+/**
+ * Everything about the game that is not a file and not artwork.
+ *
+ * Three groups, in the order they are wanted: what the game is, which dump of
+ * it this is, and where this copy of it lives. Nothing the page already says
+ * gets a row — the filename is the Files tab's whole subject, and platform,
+ * rating, size and genre are chips beside the cover — so what is left here is
+ * only what cannot be read anywhere else.
+ *
+ * Built as a list and filtered rather than written as conditional rows: RomM's
+ * metadata is only as complete as the provider a game was matched against, and
+ * a homebrew ROM matched to nothing would otherwise leave an empty tab, which
+ * reads as a failure rather than as an absence.
+ */
 function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
+  const meta = rom.metadatum
+  const list = (values: string[]): string | null => (values.length > 0 ? values.join(', ') : null)
+  const at = (value: string | null): string | null =>
+    value ? new Date(value).toLocaleString() : null
+
+  const facts: Fact[] = [
+    { icon: 'company', label: 'Company', value: list(meta.companies) },
+    { icon: 'franchise', label: 'Series', value: list(meta.franchises) },
+    {
+      icon: 'time',
+      label: 'Released',
+      value: meta.first_release_date
+        ? new Date(meta.first_release_date * 1000).toLocaleDateString(undefined, {
+            dateStyle: 'long'
+          })
+        : null
+    },
+    // Worth knowing before starting something with a second person in the room,
+    // and the one pair of facts RomM holds that nothing else on this page shows.
+    {
+      icon: 'players',
+      label: 'Players',
+      value: meta.player_count && meta.player_count !== '0' ? meta.player_count : null
+    },
+    { icon: 'modes', label: 'Modes', value: list(meta.game_modes) },
+
+    // Which dump this is. Region and language decide whether a game boots on a
+    // given BIOS and whether it can be read once it has; revision and tags are
+    // how two files of the same game tell themselves apart.
+    { icon: 'region', label: 'Region', value: list(rom.regions) },
+    { icon: 'languages', label: 'Languages', value: list(rom.languages) },
+    { icon: 'revision', label: 'Revision', value: rom.revision },
+    { icon: 'tags', label: 'Tags', value: list(rom.tags) },
+
+    { icon: 'play', label: 'Last played', value: at(rom.rom_user.last_played) },
+    // The folder to open to find this game: its own directory when it was
+    // unpacked into one, otherwise the system folder it sits in. Not the
+    // filename — that is the Files tab, in full, for both ends.
+    {
+      icon: 'folder',
+      label: 'Installed to',
+      value: entry ? (entry.isDirectory ? entry.path : entry.path.replace(/\/[^/]*$/, '')) : null
+    },
+    { icon: 'systemFolder', label: 'System folder', value: entry?.system ?? null },
+    // Which emulator's library holds this copy. It is the reason a game can be
+    // on disk and still offered as a download: pointing the platform elsewhere
+    // does not move the file.
+    { icon: 'emulator', label: 'Downloaded for', value: entry?.emulatorId ?? null },
+    // What it takes up here, which is not the size on the chip beside the
+    // cover: RomM sends a multi-file game as one zip and RomMix unpacks it.
+    { icon: 'size', label: 'On disk', value: entry ? formatBytes(entry.sizeBytes) : null },
+    { icon: 'download', label: 'Downloaded', value: entry ? at(entry.installedAt) : null }
+  ]
+
+  const shown = facts.filter((fact) => fact.value !== null)
+  if (shown.length === 0) {
+    return <div className="empty">RomM knows nothing more about this game.</div>
+  }
+
   return (
     <dl className="kv">
-      <dt>File</dt>
-      <dd>{rom.fs_name}</dd>
-      <dt>Size</dt>
-      <dd>{formatBytes(rom.fs_size_bytes)}</dd>
-      {rom.metadatum.companies.length > 0 ? (
-        <>
-          <dt>Company</dt>
-          <dd>{rom.metadatum.companies.join(', ')}</dd>
-        </>
-      ) : null}
-      {rom.regions.length > 0 ? (
-        <>
-          <dt>Region</dt>
-          <dd>{rom.regions.join(', ')}</dd>
-        </>
-      ) : null}
-      {rom.rom_user.last_played ? (
-        <>
-          <dt>Last played</dt>
-          <dd>{new Date(rom.rom_user.last_played).toLocaleString()}</dd>
-        </>
-      ) : null}
-      {entry ? (
-        <>
-          <dt>Installed to</dt>
-          <dd>{entry.path}</dd>
-          <dt>System folder</dt>
-          <dd>{entry.system}</dd>
-          {/* Which emulator's library holds this copy. It is the reason a game
-              can be on disk and still offered as a download: pointing the
-              platform elsewhere does not move the file. */}
-          <dt>Downloaded for</dt>
-          <dd>{entry.emulatorId}</dd>
-        </>
-      ) : null}
+      {shown.map((fact) => (
+        <Fragment key={fact.label}>
+          {/* The icon marks the label it sits with — the word is right there —
+              so it keeps the label's dim colour rather than competing with the
+              value, which is the part being read. */}
+          <dt>
+            <Icon name={fact.icon} size={16} />
+            {fact.label}
+          </dt>
+          <dd>{fact.value}</dd>
+        </Fragment>
+      ))}
     </dl>
   )
 }
@@ -1041,6 +1143,9 @@ function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.E
         <ul className="asset-list">
           {rom.files.map((file) => (
             <li key={file.id}>
+              <span className="asset__icon">
+                <Icon name="file" size={17} />
+              </span>
               <span className="asset__name">{file.file_name}</span>
               <span className="asset__meta">{formatBytes(file.file_size_bytes)}</span>
             </li>
@@ -1057,6 +1162,9 @@ function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.E
         <ul className="asset-list">
           {local.map((file) => (
             <li key={file}>
+              <span className="asset__icon">
+                <Icon name="file" size={17} />
+              </span>
               <span className="asset__name">{file}</span>
             </li>
           ))}

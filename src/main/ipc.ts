@@ -216,6 +216,10 @@ export function registerIpc(rommix: RomMixApp): void {
     await downloads.adopt([rom])
     return rom
   })
+  handle('library:favourite', (romId: number) => client.isFavourite(romId))
+  handle('library:setFavourite', (romId: number, favourite: boolean) =>
+    client.setFavourite(romId, favourite)
+  )
   handle('library:installed', async () => {
     // The probe decides which entries belong to the emulator now in charge, so
     // answering before it has run would report every stale copy as present —

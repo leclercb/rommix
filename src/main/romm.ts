@@ -305,6 +305,59 @@ export class RommClient {
     return this.json<RommCollection[]>('/api/collections')
   }
 
+  /**
+   * The user's favourites.
+   *
+   * RomM has no per-ROM favourite flag — /api/roms/{id}/props carries rating,
+   * backlog and play status and nothing else — so a favourite is a membership
+   * of one ordinary collection, which the server marks `is_favorite` by its
+   * name. A user who has never favourited anything has no such collection yet,
+   * hence the null.
+   */
+  async favourites(): Promise<RommCollection | null> {
+    const all = await this.collections()
+    return all.find((collection) => collection.is_favorite) ?? null
+  }
+
+  async isFavourite(romId: number): Promise<boolean> {
+    const collection = await this.favourites()
+    return collection?.rom_ids.includes(romId) ?? false
+  }
+
+  /**
+   * Add or remove one game, making the collection on first use.
+   *
+   * The name is the whole of what makes it the favourites collection: RomM
+   * derives `is_favorite` from it, and the create call has no field to set.
+   */
+  async setFavourite(romId: number, favourite: boolean): Promise<boolean> {
+    const existing = await this.favourites()
+    // Nothing to remove it from. Creating a collection in order to not put a
+    // game in it would leave the user with an empty shelf they never asked for.
+    if (!existing && !favourite) return false
+
+    const collection = existing ?? (await this.createFavourites())
+    const res = await this.request(`/api/collections/${collection.id}/roms`, {
+      method: favourite ? 'POST' : 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rom_ids: [romId] })
+    })
+    if (!res.ok) throw await this.toError(res)
+    return favourite
+  }
+
+  /** POST /api/collections — multipart, since RomM takes artwork on the same call. */
+  private async createFavourites(): Promise<RommCollection> {
+    const form = new FormData()
+    form.append('name', 'Favourites')
+    const res = await this.request('/api/collections', {
+      method: 'POST',
+      body: form as RequestInit['body']
+    })
+    if (!res.ok) throw await this.toError(res)
+    return (await res.json()) as RommCollection
+  }
+
   roms(query: RomQuery = {}): Promise<RommRomPage> {
     const params = new URLSearchParams()
     if (query.search_term) params.set('search_term', query.search_term)

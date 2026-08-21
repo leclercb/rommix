@@ -1,5 +1,5 @@
 import { createWriteStream } from 'node:fs'
-import { access, mkdir, rm } from 'node:fs/promises'
+import { access, copyFile, mkdir, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -62,12 +62,16 @@ function archiveUrl(core: RequiredCore): string | null {
   return `${base.replace(/^http:\/\//i, 'https://')}${core.fileName}.zip`
 }
 
-/** Is this core already where the emulator will look for it? */
-export async function coreInstalled(core: RequiredCore): Promise<boolean> {
-  return access(join(core.dir, core.fileName)).then(
+function exists(path: string): Promise<boolean> {
+  return access(path).then(
     () => true,
     () => false
   )
+}
+
+/** Is this core already where the emulator will look for it? */
+export async function coreInstalled(core: RequiredCore): Promise<boolean> {
+  return exists(join(core.dir, core.fileName))
 }
 
 /**
@@ -108,11 +112,16 @@ export async function missingCore(
 /**
  * Download a core and put it where the emulator loads cores from.
  *
- * The archive lands in the system temp directory rather than beside the core:
- * the cores directory is scanned by RetroArch for anything that looks like a
- * core, and a half-written file there is a worse failure than a failed
- * download — it makes the core look installed on the next launch, which would
- * skip this function and fail inside the emulator instead.
+ * Nothing incomplete is ever written into the cores directory. Both the
+ * download and the extraction happen under the system temp directory, and only
+ * a finished file is renamed into place — a rename within the same filesystem
+ * being the one step that cannot half-happen.
+ *
+ * The alternative loses silently and permanently. A core left truncated where
+ * the emulator looks is one that `coreInstalled` reports as present, so the
+ * install is never retried; every future launch skips straight to the emulator,
+ * which dies loading it. That is the exact failure this module exists to
+ * remove, reintroduced in a form that no longer heals itself.
  */
 export async function installCore(
   core: RequiredCore,
@@ -140,19 +149,32 @@ export async function installCore(
     onProgress({ core: core.name, receivedBytes: received, totalBytes: total })
   })
 
-  const archive = join(tmpdir(), `rommix-core-${core.id}-${process.pid}.zip`)
+  const staging = join(tmpdir(), `rommix-core-${core.id}-${process.pid}`)
+  const archive = `${staging}.zip`
+  // Beside the core rather than in the temp directory, because the last step
+  // has to be a rename and a rename cannot cross filesystems — /tmp is
+  // routinely a tmpfs while the cores live under the user's home. The suffix
+  // keeps it from matching what the emulator scans for in the meantime.
+  const partial = join(core.dir, `${core.fileName}.part`)
+
   try {
     await pipeline(body, createWriteStream(archive))
+    await extractZip(archive, staging)
+
+    // The archive is expected to hold exactly the file the emulator will ask
+    // for. Checked before anything is put in place, so a buildbot that renamed
+    // something fails here rather than as the fatal core error this replaced.
+    const extracted = join(staging, core.fileName)
+    if (!(await exists(extracted))) {
+      throw new Error(`The ${core.name} download did not contain ${core.fileName}`)
+    }
+
     await mkdir(core.dir, { recursive: true })
-    await extractZip(archive, core.dir)
+    await copyFile(extracted, partial)
+    await rename(partial, join(core.dir, core.fileName))
   } finally {
     await rm(archive, { force: true })
-  }
-
-  // The archive is expected to hold exactly the file the emulator will ask
-  // for. Checking says so plainly here rather than letting a buildbot that
-  // renamed something surface as the same fatal core error this replaced.
-  if (!(await coreInstalled(core))) {
-    throw new Error(`The ${core.name} download did not contain ${core.fileName}`)
+    await rm(staging, { recursive: true, force: true })
+    await rm(partial, { force: true })
   }
 }

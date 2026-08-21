@@ -4,21 +4,30 @@ import {
   ArrowLeft,
   ArrowUp,
   Ban,
+  Building2,
   Check,
   ChevronDown,
+  Clock,
   EyeOff,
   ChevronRight,
   CircleAlert,
   Disc3,
   Download,
   Eraser,
+  File,
+  Flag,
   FolderOpen,
+  FolderTree,
   Gamepad2,
   Globe,
   HardDrive,
+  Heart,
   House,
+  Joystick,
+  Languages,
   Layers,
   LayoutGrid,
+  Library,
   ListOrdered,
   LogOut,
   Maximize,
@@ -31,8 +40,12 @@ import {
   Search,
   Settings,
   Sparkles,
+  Star,
+  Tag,
+  Tags,
   Trash2,
-  Upload
+  Upload,
+  Users
 } from 'lucide-react'
 
 /**
@@ -89,7 +102,29 @@ export const ICONS = {
   /** A project's own page on the web. */
   homepage: Globe,
   roms: Disc3,
-  saves: Save
+  saves: Save,
+  /** A game the user has marked. Filled in by CSS when it is one. */
+  favourite: Heart,
+  /** One file, on the server or on disk. */
+  file: File,
+  /** How much room something takes. */
+  size: HardDrive,
+  company: Building2,
+  /** The series a game belongs to. */
+  franchise: Library,
+  players: Users,
+  /** How a game can be played: alone, together, split screen. */
+  modes: Joystick,
+  rating: Star,
+  region: Flag,
+  languages: Languages,
+  /** Which dump of the game this is. */
+  revision: Tag,
+  tags: Tags,
+  /** A moment in time: when something was last done. */
+  time: Clock,
+  /** The per-system folder a download lands in, as opposed to its full path. */
+  systemFolder: FolderTree
 } as const
 
 export type IconName = keyof typeof ICONS

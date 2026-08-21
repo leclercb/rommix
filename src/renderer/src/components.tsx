@@ -48,6 +48,7 @@ export function FocusButton({
   disabled = false,
   autoFocus = false,
   icon,
+  on,
   actionLabel
 }: {
   children?: ReactNode
@@ -57,6 +58,14 @@ export function FocusButton({
   autoFocus?: boolean
   /** Drawn before the label — or alone, where the mark is unambiguous. */
   icon?: IconName
+  /**
+   * For a button that is also a state: the icon is filled in when it is on.
+   *
+   * Only the icon. A button that changed colour with its state would read as a
+   * warning rather than as something the user has switched on, and the label
+   * still says what pressing it does either way.
+   */
+  on?: boolean
   /**
    * What this does, for the hint bar and for assistive tech.
    *
@@ -82,6 +91,7 @@ export function FocusButton({
       ref={ref as Ref<HTMLButtonElement>}
       className={`btn ${variant === 'default' ? '' : `btn--${variant}`}`}
       data-disabled={disabled}
+      data-on={on}
       aria-label={actionLabel}
       title={children === undefined ? actionLabel : undefined}
       {...props}

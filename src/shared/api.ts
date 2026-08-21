@@ -91,6 +91,10 @@ export interface RomMixBridge {
     collections(): Promise<RommCollection[]>
     roms(query: RomQuery): Promise<RommRomPage>
     rom(id: number): Promise<RommRom>
+    /** Whether this game is in the user's favourites on RomM. */
+    favourite(romId: number): Promise<boolean>
+    /** Put it in or take it out; resolves to the state it ended up in. */
+    setFavourite(romId: number, favourite: boolean): Promise<boolean>
     installed(): Promise<InstalledRom[]>
     /**
      * Check every ROM on the server against the disk: forget what has been
