@@ -53,6 +53,7 @@ function defaultSettings(): Settings {
     confirmUninstall: true,
     confirmSavePush: false,
     dismissedNotices: [],
+    uiScale: 0,
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`
   }

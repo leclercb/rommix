@@ -1,7 +1,7 @@
 {
   "name": "rommix",
   "version": "0.1.0",
-  "description": "Big Picture style RomM launcher for Linux desktop, gamescope and Steam, with RetroDECK, RetroArch and Eden integration",
+  "description": "Big Picture style RomM launcher for Linux desktop, gamescope and Steam, with RetroDECK, EmuDeck, RetroArch, Eden and shadPS4 integration",
   "license": "MIT",
   "author": "Benjamin Leclerc",
   "main": "./out/main/index.js",
@@ -9,6 +9,7 @@
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
     "preview:web": "vite --config vite.web.config.ts",
+    "build:site": "./scripts/build-site.sh",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",

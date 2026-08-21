@@ -272,21 +272,25 @@ const ROMS: RommRom[] = [
       average_rating: 91
     }
   }),
+  // A large, slow download, which is what the Switch row is here to draw. The
+  // title is deliberately not a Nintendo first-party one: this is a public demo
+  // page, and a Switch emulator shown downloading Nintendo's own game is the one
+  // pairing that has actually been litigated over.
   game({
     id: 5,
-    name: 'The Legend of Zelda: Breath of the Wild',
+    name: 'The Witcher 3: Wild Hunt',
     platform_id: 3,
-    summary: 'A field, and permission to cross it in any direction.',
+    summary: 'A hundred hours of contract work, most of it about people rather than monsters.',
     fs_size_bytes: 14_495_514_624,
     metadatum: {
-      genres: ['Adventure'],
-      franchises: ['The Legend of Zelda'],
-      companies: ['Nintendo'],
+      genres: ['Role-playing'],
+      franchises: ['The Witcher'],
+      companies: ['CD Projekt Red'],
       game_modes: ['Single player'],
-      age_ratings: ['Everyone 10+'],
+      age_ratings: ['Mature'],
       player_count: '1',
-      first_release_date: 1_488_499_200,
-      average_rating: 96
+      first_release_date: 1_571_097_600,
+      average_rating: 94
     }
   }),
   // No artwork, no metadata, no summary: the game the banner has to fall back
@@ -339,7 +343,7 @@ const DOWNLOADS: DownloadItem[] = [
   },
   {
     romId: 5,
-    name: 'The Legend of Zelda: Breath of the Wild',
+    name: 'The Witcher 3: Wild Hunt',
     coverPath: romById(5).path_cover_small,
     system: 'switch',
     platformName: 'Nintendo Switch',
@@ -347,7 +351,7 @@ const DOWNLOADS: DownloadItem[] = [
     receivedBytes: 0,
     totalBytes: 14_495_514_624,
     error: null,
-    targetPath: '/home/deck/Emulation/roms/switch/botw.nsp'
+    targetPath: '/home/deck/Emulation/roms/switch/witcher3.nsp'
   },
   {
     romId: 1,
@@ -544,6 +548,7 @@ const SETTINGS: Settings = {
   confirmUninstall: true,
   confirmSavePush: false,
   dismissedNotices: [],
+  uiScale: 0,
   deviceId: 'web-preview',
   deviceName: 'RomMix @ web preview'
 }

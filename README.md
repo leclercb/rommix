@@ -7,23 +7,37 @@ ROM folder, launch them, and sync saves and save states back to RomM when you
 quit. Built for a TV or a handheld: fullscreen, driven entirely by a controller,
 at home under gamescope or launched from Steam.
 
+**[rommix on the web →](https://leclercb.github.io/rommix/)** — what it is, and a
+[live demo](https://leclercb.github.io/rommix/demo/) of the interface running in
+your browser against a small made-up library. Nothing is installed and no server
+is involved: it is the front end alone, for looking at rather than using.
+
 ---
 
 ## Requirements
 
 - **Linux**, with `flatpak`.
 - **A RomM server** you can reach, version 5.x or newer, with an account on it.
-- **At least one emulator.** RomMix installs these for you from Settings:
+- **At least one emulator.** These are the five RomMix knows how to drive:
 
-  | Emulator      | Covers                                | Installed from                       |
-  | ------------- | ------------------------------------- | ------------------------------------ |
-  | **RetroDECK** | Most systems, from the NES to the PS3 | Flathub                              |
-  | **RetroArch** | Everything with a libretro core       | Flathub                              |
-  | **Eden**      | Nintendo Switch                       | Its own release page, as an AppImage |
+  | Emulator      | Covers                                    | Comes from                                  |
+  | ------------- | ----------------------------------------- | ------------------------------------------- |
+  | **RetroDECK** | 79 systems, the NES to the PS3            | Flathub, installed from Settings            |
+  | **EmuDeck**   | 74 systems, the NES to the Switch and 360 | Its own installer — see [EmuDeck](#emudeck) |
+  | **RetroArch** | 69 systems, one libretro core each        | Flathub, installed from Settings            |
+  | **Eden**      | Nintendo Switch                           | Its own releases, downloaded from Settings  |
+  | **shadPS4**   | PlayStation 4                             | Flathub or its releases, from Settings      |
+
+  RetroDECK and EmuDeck are front ends rather than emulators: each carries a
+  dozen of its own — Dolphin, DuckStation, PCSX2, RPCS3, melonDS, Cemu, Ryujinx
+  and the rest — and RomMix hands a game to whichever one that system is
+  configured for. RetroArch runs the libretro core RomMix names for the system,
+  47 of them across those 69. Eden and shadPS4 each run one console and nothing
+  else. Settings → **Platforms** shows what every system resolves to.
 
   Start with RetroDECK if you have none of them: it covers the most platforms and
-  picks the right emulator for each system itself. [EmuDeck](#emudeck) works too,
-  but run its own installer first — RomMix does not install it.
+  picks the right emulator for each system itself. EmuDeck works too, but run its
+  own installer first — RomMix does not install it.
 
 - **A controller** is recommended but not required.
 
@@ -74,6 +88,14 @@ with Flatseal, these are the ones that matter:
 | `--filesystem=home`                   | Reading and writing ROMs, saves and BIOS files.       |
 | `--filesystem=/run/media`             | A ROM library on an SD card or external drive.        |
 | `--device=all`                        | Controller input. Without it the UI is keyboard-only. |
+| `--filesystem=/run/udev:ro`           | Controller input, again — see below.                  |
+
+Controllers need both of the last two. `--device=all` puts the pad in
+`/dev/input`, but Chromium decides which of those devices _is_ a pad by reading
+a property udev keeps in `/run/udev`. Without the second permission it can open
+every controller on the machine and recognises none of them, and the interface
+is keyboard-only with no error anywhere. Settings → **Pre-flight check** names
+the pad it can see, if any.
 
 ---
 
@@ -131,12 +153,23 @@ tabs, `/` to search, `m` for Settings.
 
 ## Settings
 
+### Interface
+
+**Scale** — how large the interface is drawn. It is laid out for a 1080p
+television, so on a 4K one **Auto** doubles it and everything is back at the
+size it is meant to be read at from a sofa. Pick a number instead if your panel
+is further away than that, or nearer.
+
+A desktop that already scales for itself — 4K at 200% — is left alone: it is
+being scaled once already.
+
 ### Emulators
 
 What RomMix found, what each one covers and where it keeps its games. Buttons
-install RetroDECK or RetroArch from Flathub, download Eden, or **Run** an
-emulator on its own — needed for the setup only the emulator can do: RetroDECK
-creates its folders on first run, RetroArch needs its cores, Eden needs its keys.
+install RetroDECK, RetroArch or shadPS4 from Flathub, download Eden or shadPS4 as
+an AppImage, or **Run** an emulator on its own — needed for the setup only the
+emulator can do: RetroDECK creates its folders on first run, RetroArch needs its
+cores, Eden needs its keys, and shadPS4 has to be told where the games are.
 
 ### EmuDeck
 
@@ -256,6 +289,19 @@ Add a `systemOverrides` entry, as above.
 Its platform is pointed at a different emulator now, and the file is in the
 previous one's library. Point it back, or download a copy for the new one.
 
+**The controller does nothing**
+Press a button on it and check Settings → **Pre-flight check**: Chromium hides
+pads from a page until one is used, so the name only appears after the first
+press. If it stays empty in the flatpak, the missing permission is
+`--filesystem=/run/udev:ro` — see [Permissions](#permissions). A pad named there
+but followed by `(unmapped)` is one Chromium does not recognise; the buttons
+RomMix uses still work, and any that do not are worth reporting with that name.
+
+**The interface is tiny on a 4K television**
+Settings → Interface → **Scale**. Auto should already have doubled it, so a
+screen that reports a resolution it is not actually running at is the usual
+cause — set 200% by hand.
+
 **An AppImage emulator will not start on NixOS**
 AppImages need `programs.nix-ld.enable`, and must _not_ go through
 `appimage-run` (`programs.appimage.binfmt = false`).
@@ -268,6 +314,7 @@ AppImages need `programs.nix-ld.enable`, and must _not_ go through
 npm install
 npx install-electron   # Electron 43 no longer fetches its binary on install
 npm run dev            # against a live RomM server on your desktop
+npm run preview:web    # the front end alone, in a browser, on :5273
 npm run typecheck
 npm test
 npm run flatpak        # build and install the flatpak
@@ -279,7 +326,33 @@ Electron, which is what `.envrc` does here. Packaging is unaffected either way.
 `src/config/` holds the platform table, the RomM slug mapping, the emulator
 registry, the BIOS requirements and the ROM-format tables. **Adding a system, a
 BIOS requirement or an emulator is a change in `src/config/` and nowhere else** —
-no file outside it names an emulator.
+no code outside it names an emulator. The three lists that do are prose and have
+to be edited by hand: the table above, the one in `site/index.html`, and the
+feature list in the metainfo.
+
+### The web preview and the site
+
+`npm run preview:web` serves the renderer as an ordinary web page, for looking at
+the front end where starting Electron is not worth it — a headless box, or a
+remote session. There is no preload script in a browser, so
+`src/renderer/src/dev/bridge.ts` answers every call from a small library held in
+memory. It is a mannequin: nothing is persisted, nothing reaches a RomM server,
+and anything that would touch a disk or an emulator reports plausible success
+without doing it. The module is behind the `VITE_WEB_PREVIEW` flag that
+`vite.web.config.ts` sets, so it is never part of a shipped bundle.
+
+```bash
+npm run build:site     # out/site: the landing page, with the preview in demo/
+npx --yes serve out/site
+```
+
+That same preview is what is published at
+[leclercb.github.io/rommix/demo/](https://leclercb.github.io/rommix/demo/), beside
+the one-page site in [site/index.html](site/index.html).
+[.github/workflows/pages.yml](.github/workflows/pages.yml) runs
+`npm run build:site` and deploys `out/site` on a push to `main` that touched the
+site or the renderer. Pages has to be enabled once in the repository settings,
+with **Source** set to _GitHub Actions_.
 
 ### Releasing
 

@@ -34,9 +34,19 @@ finish-args:
   - --socket=pulseaudio
   - --device=dri
 
-  # Controllers. Chromium's Gamepad API reads /dev/input/event*, so without
-  # device access the entire UI becomes keyboard-only.
+  # Controllers. Chromium's Gamepad API reads /dev/input/js*, so without device
+  # access the entire UI becomes keyboard-only.
   - --device=all
+
+  # …and reading them is not enough on its own. Chromium enumerates input
+  # devices through libudev and keeps only those carrying the ID_INPUT_JOYSTICK
+  # property, which udev's rules set and store in its database under
+  # /run/udev/data — not in /sys, and so not in the sandbox. Without this every
+  # pad is present in /dev/input and none of them is a gamepad as far as
+  # Chromium is concerned: `navigator.getGamepads()` stays empty, no
+  # `gamepadconnected` ever fires, and the UI is silently keyboard-only with
+  # `--device=all` already granted. Read-only: nothing here is ours to write.
+  - --filesystem=/run/udev:ro
 
   # RomMix's own folder (~/rommix by default, relocatable), the ROM tree, and
   # each emulator's save directory all live under the real home — and a

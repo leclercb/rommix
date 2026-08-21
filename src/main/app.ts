@@ -1,4 +1,4 @@
-import { BrowserWindow, protocol, shell } from 'electron'
+import { BrowserWindow, protocol, screen, shell } from 'electron'
 import { join } from 'node:path'
 import { resolveEmulator } from '@config/emulators'
 import { BiosManager } from './bios'
@@ -12,6 +12,21 @@ import { Store } from './store'
 import type { EmulatorState } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
+
+/**
+ * The screen the interface is drawn for: 1080p, the resolution a living-room
+ * layout has been designed around for fifteen years.
+ */
+const DESIGN_HEIGHT = 1080
+
+/** Never smaller than drawn, and never past the point where a shelf holds one game. */
+const MIN_SCALE = 1
+const MAX_SCALE = 3
+
+/** To the nearest quarter, so a 1440p panel lands on a round 1.25 rather than 1.333…. */
+function quantize(scale: number): number {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(scale * 4) / 4))
+}
 
 /**
  * Everything the main process owns, in one object that the IPC layer is handed.
@@ -90,6 +105,17 @@ export class RomMixApp {
 
     window.once('ready-to-show', () => window.show())
 
+    // After the load rather than beside it: a zoom factor set on a WebContents
+    // that has not committed a document yet is dropped when one arrives.
+    window.webContents.on('did-finish-load', () => this.applyUiScale())
+    // A television that reports its real resolution only once it has negotiated
+    // a mode, and a window dragged to a second monitor, are the same event here.
+    // `screen` outlives the window, so its listener is taken back off again.
+    const rescale = (): void => this.applyUiScale()
+    screen.on('display-metrics-changed', rescale)
+    window.on('moved', rescale)
+    window.on('closed', () => screen.removeListener('display-metrics-changed', rescale))
+
     // Keep navigation inside the app; open real links in the user's browser.
     window.webContents.setWindowOpenHandler(({ url }) => {
       void shell.openExternal(url)
@@ -103,6 +129,45 @@ export class RomMixApp {
     }
 
     this.window = window
+  }
+
+  /**
+   * Size the interface for the screen it is actually on.
+   *
+   * Chromium's zoom factor multiplies the CSS pixel, so the whole stylesheet
+   * follows from one number and nothing in it has to be written twice: the
+   * layout is identical, only larger. `vw`/`vh` are unaffected by design —
+   * measured against a viewport that shrinks by the same factor — so the
+   * overscan-safe inset stays the same share of the panel it was.
+   *
+   * Called on load, on a settings change, and whenever the display or the
+   * window moves under it.
+   */
+  applyUiScale(): void {
+    if (!this.window || this.window.isDestroyed()) return
+    this.window.webContents.setZoomFactor(this.uiScale())
+  }
+
+  /**
+   * The factor to render at: the user's, or the one the screen asks for.
+   *
+   * The automatic answer is the panel's height over the height the interface
+   * was drawn for — 2 on a 4K television, which puts every element back at the
+   * physical size it has at 1080p, which is the size it was designed to be read
+   * at from a sofa.
+   *
+   * `display.size` is already in device-independent pixels, so a desktop whose
+   * compositor scales for itself — 3840x2160 at 200%, reported as 1920x1080 —
+   * asks for nothing here, and is not scaled twice. The case this exists for is
+   * the opposite one, and the common one on a television: no compositor scaling
+   * at all, 3840x2160 handed over whole.
+   */
+  private uiScale(): number {
+    const chosen = this.store.settings.uiScale
+    if (chosen > 0) return quantize(chosen)
+    if (!this.window || this.window.isDestroyed()) return MIN_SCALE
+    const display = screen.getDisplayMatching(this.window.getBounds())
+    return quantize(display.size.height / DESIGN_HEIGHT)
   }
 
   toggleFullscreen(): boolean {

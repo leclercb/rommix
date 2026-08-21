@@ -352,6 +352,17 @@ export interface Settings {
    * one later needs no migration: an unknown key simply means "not dismissed".
    */
   dismissedNotices: string[]
+  /**
+   * How much larger than its drawn size the interface is rendered, or 0 for
+   * "match the screen".
+   *
+   * The stylesheet is written in CSS pixels for a 1080p television, so on a 4K
+   * one — which hands Chromium 3840x2160 CSS pixels rather than scaling
+   * anything itself — every size in it comes out half as large as it was drawn
+   * to be. 0 measures the screen and picks the factor; a number states it,
+   * for a panel whose reported size does not match how far away it is sat from.
+   */
+  uiScale: number
   /** Stable identifier reported to RomM as this device. */
   deviceId: string
   deviceName: string

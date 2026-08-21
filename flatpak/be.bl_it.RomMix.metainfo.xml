@@ -19,7 +19,7 @@
       <li>Browse and search your whole RomM library with cover art</li>
       <li>Sign in by pairing the device, so no password is typed on a TV</li>
       <li>Download games straight into the right system folder</li>
-      <li>Launch into RetroDECK, RetroArch or Eden, chosen per platform</li>
+      <li>Launch into RetroDECK, EmuDeck, RetroArch, Eden or shadPS4, per platform</li>
       <li>Install emulators and BIOS files without leaving the app</li>
       <li>Sync save files and save states back to RomM when you quit</li>
       <li>Designed for gamescope, handhelds and Steam Big Picture</li>
@@ -44,6 +44,9 @@
   </requires>
 
   <content_rating type="oars-1.1" />
+
+  <url type="homepage">https://leclercb.github.io/rommix/</url>
+  <url type="bugtracker">https://github.com/leclercb/rommix/issues</url>
 
   <releases>
     <release version="0.1.0" date="2026-08-20">

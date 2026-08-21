@@ -45,6 +45,39 @@ function gamepadPresent(): boolean {
   return navigator.getGamepads().some((pad) => pad !== null)
 }
 
+/**
+ * What Chromium says it can see, for the pre-flight check.
+ *
+ * Worth reporting because a controller that does not work looks identical from
+ * the couch whichever end it failed at, and this separates them: a name here
+ * means the pad reached the page and the fault is in what the UI does with it;
+ * nothing here means the pad never arrived at all — the usual cause being a
+ * sandbox without `--filesystem=/run/udev:ro`, where Chromium can open every
+ * device in /dev/input and identify none of them as a gamepad.
+ *
+ * "Not seen yet" is also the honest answer before the first button press:
+ * Chromium withholds pads from a page until one of them is used, so that a page
+ * cannot silently fingerprint what is plugged in.
+ */
+export function useGamepadName(): string | null {
+  const [name, setName] = useState<string | null>(null)
+
+  useEffect(() => {
+    const read = (): void => {
+      const pad = navigator.getGamepads().find((entry) => entry !== null)
+      const next = pad ? `${pad.id}${pad.mapping === 'standard' ? '' : ' (unmapped)'}` : null
+      setName((current) => (current === next ? current : next))
+    }
+    read()
+    // Polled rather than driven by `gamepadconnected`, which fires once and
+    // says nothing about a pad already connected when this screen opened.
+    const timer = window.setInterval(read, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  return name
+}
+
 interface FocusableEntry {
   id: string
   element: HTMLElement
@@ -739,6 +772,25 @@ const BUTTON = {
   DPAD_RIGHT: 15
 } as const
 
+/**
+ * The same pad when Chromium has no mapping for it — `pad.mapping` is `''`.
+ *
+ * Chromium remaps a controller to the standard layout only when it recognises
+ * the vendor and product id, from a table it keeps per platform. An Xbox pad on
+ * the end of a USB cable is in that table; the same pad over Bluetooth through
+ * xpadneo, a third-party clone, or anything the kernel presents under a name
+ * upstream has not seen, is not — and then the buttons arrive in the order the
+ * Linux joystick driver reports them instead.
+ *
+ * Which is nearly the standard order: A/B/X/Y and the shoulders land in the
+ * same places, so only two things need saying here. Start is button 7 rather
+ * than 9, and the d-pad is not a set of buttons at all but a hat reported as a
+ * pair of axes. Neither exists in a standard-mapped pad — where axes 6 and 7
+ * are absent and button 7 is the right trigger — so both are read only when
+ * there is no mapping, and holding RT never opens the menu.
+ */
+const UNMAPPED = { START: 7, HAT_X: 6, HAT_Y: 7 } as const
+
 const AXIS_DEADZONE = 0.55
 /** Delay before a held direction starts repeating, then the repeat period. */
 const REPEAT_DELAY_MS = 400
@@ -798,27 +850,33 @@ function useGamepad(
         const button = (index: number): boolean => pad.buttons[index]?.pressed ?? false
         const [axisX = 0, axisY = 0] = pad.axes
 
+        // See UNMAPPED: on a pad Chromium could not identify, the d-pad is a
+        // hat on two more axes and Start has moved.
+        const mapped = pad.mapping === 'standard'
+        const hatX = mapped ? 0 : (pad.axes[UNMAPPED.HAT_X] ?? 0)
+        const hatY = mapped ? 0 : (pad.axes[UNMAPPED.HAT_Y] ?? 0)
+
         edge(
           'up',
-          button(BUTTON.DPAD_UP) || axisY < -AXIS_DEADZONE,
+          button(BUTTON.DPAD_UP) || axisY < -AXIS_DEADZONE || hatY < -AXIS_DEADZONE,
           () => moveRef.current('up'),
           true
         )
         edge(
           'down',
-          button(BUTTON.DPAD_DOWN) || axisY > AXIS_DEADZONE,
+          button(BUTTON.DPAD_DOWN) || axisY > AXIS_DEADZONE || hatY > AXIS_DEADZONE,
           () => moveRef.current('down'),
           true
         )
         edge(
           'left',
-          button(BUTTON.DPAD_LEFT) || axisX < -AXIS_DEADZONE,
+          button(BUTTON.DPAD_LEFT) || axisX < -AXIS_DEADZONE || hatX < -AXIS_DEADZONE,
           () => moveRef.current('left'),
           true
         )
         edge(
           'right',
-          button(BUTTON.DPAD_RIGHT) || axisX > AXIS_DEADZONE,
+          button(BUTTON.DPAD_RIGHT) || axisX > AXIS_DEADZONE || hatX > AXIS_DEADZONE,
           () => moveRef.current('right'),
           true
         )
@@ -829,7 +887,12 @@ function useGamepad(
         edge('y', button(BUTTON.Y), () => actionRef.current('search'), false)
         edge('lb', button(BUTTON.LB), () => actionRef.current('tabLeft'), false)
         edge('rb', button(BUTTON.RB), () => actionRef.current('tabRight'), false)
-        edge('start', button(BUTTON.START), () => actionRef.current('menu'), false)
+        edge(
+          'start',
+          button(BUTTON.START) || (!mapped && button(UNMAPPED.START)),
+          () => actionRef.current('menu'),
+          false
+        )
 
         // One connected pad drives the UI; a second would double every input.
         break

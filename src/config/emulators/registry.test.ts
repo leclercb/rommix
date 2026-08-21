@@ -187,14 +187,19 @@ test('RetroArch is launched with the core mapped for the system', () => {
   assert.deepEqual(argv, ['/usr/bin/retroarch', '-L', 'snes9x_libretro.so', '/roms/snes/game.sfc'])
 })
 
-test('Eden takes the ROM path positionally, after the AppImage itself', () => {
+test('Eden is started fullscreen, with the ROM named by -g', () => {
   const argv = eden.launch({
     exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
     installRef: '/home/u/rommix/emulators/eden/Eden.AppImage',
     system: 'switch',
     romPath: '/roms/switch/game.nsp'
   })
-  assert.deepEqual(argv, ['/home/u/rommix/emulators/eden/Eden.AppImage', '/roms/switch/game.nsp'])
+  assert.deepEqual(argv, [
+    '/home/u/rommix/emulators/eden/Eden.AppImage',
+    '-f',
+    '-g',
+    '/roms/switch/game.nsp'
+  ])
 })
 
 test('Eden declines the systems it does not run', () => {

@@ -1,0 +1,77 @@
+# Publishes the site — the landing page plus the browser demo — to GitHub Pages.
+#
+# The build is `scripts/build-site.sh`, exactly as it runs locally, so what lands
+# on the site is what `npm run build:site` produces here. Nothing in it is part of
+# the application: the demo is the renderer with the stub bridge from
+# `src/renderer/src/dev/` behind it, which is never in a shipped bundle.
+#
+# Pages has to be enabled once, with its source set to GitHub Actions, in the
+# repository's Settings -> Pages. Until that is done this workflow builds and
+# then fails on deploy.
+name: Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # The demo is built from the renderer, so a change to the front end
+      # changes the site too.
+      - 'site/**'
+      - 'src/renderer/**'
+      - 'src/shared/**'
+      - 'src/config/**'
+      - 'vite.web.config.ts'
+      - 'scripts/build-site.sh'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and never cancelled halfway: an interrupted publish
+# leaves the live site mid-swap, which is worse than a queued run.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the site
+        run: npm run build:site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

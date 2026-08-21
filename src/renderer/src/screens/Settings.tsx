@@ -31,6 +31,7 @@ import {
   formatBytes
 } from '../components'
 import { Icon, type IconName } from '../icons'
+import { useGamepadName } from '../input/focus'
 import { useApp } from '../state'
 
 /**
@@ -46,6 +47,7 @@ export function SettingsScreen(): JSX.Element {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
   const [root, setRoot] = useState<RootLocation | null>(null)
   const [rootDraft, setRootDraft] = useState('')
+  const controller = useGamepadName()
 
   useEffect(() => {
     void window.rommix.system.diagnostics().then(setDiagnostics)
@@ -112,6 +114,15 @@ export function SettingsScreen(): JSX.Element {
           Disconnect
         </FocusButton>
       </div>
+
+      <h2 className="section-title">Interface</h2>
+      <Choice<UiScaleChoice>
+        label="Scale"
+        hint="Auto follows the screen: twice the size on a 4K television."
+        value={uiScaleChoice(settings.uiScale)}
+        options={UI_SCALES}
+        onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
+      />
 
       <h2 className="section-title">Emulators</h2>
       <p className="faint" style={{ fontSize: 14 }}>
@@ -218,6 +229,8 @@ export function SettingsScreen(): JSX.Element {
             </dd>
             <dt>ROM folders writable</dt>
             <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
+            <dt>Controller</dt>
+            <dd>{controller ?? 'none seen — press a button on it'}</dd>
           </dl>
 
           {/* Per-emulator detail lives only in the Emulators section above. */}
@@ -986,4 +999,52 @@ function Toggle({
       />
     </div>
   )
+}
+
+/** The same row as `Toggle`, for a setting with more than two answers. */
+function Choice<T extends string>({
+  label,
+  hint,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  hint?: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}): JSX.Element {
+  return (
+    <div className="setting">
+      <div className="setting__text">
+        <div className="setting__label">{label}</div>
+        {hint ? <div className="setting__hint">{hint}</div> : null}
+      </div>
+      <SegmentedControl<T> value={value} options={options} onChange={onChange} />
+    </div>
+  )
+}
+
+/**
+ * The scales offered, as the strings the segmented control switches on.
+ *
+ * A short list of round numbers rather than a slider: this is a control being
+ * driven from a sofa, and every value between 100% and 200% that anyone would
+ * actually stop at is here. `auto` is 0 in settings — see `Settings.uiScale`.
+ */
+type UiScaleChoice = 'auto' | '1' | '1.25' | '1.5' | '2'
+
+const UI_SCALES: { value: UiScaleChoice; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '1', label: '100%' },
+  { value: '1.25', label: '125%' },
+  { value: '1.5', label: '150%' },
+  { value: '2', label: '200%' }
+]
+
+/** The stored number as one of the offered choices, falling back to Auto. */
+function uiScaleChoice(scale: number): UiScaleChoice {
+  const match = UI_SCALES.find((option) => option.value === String(scale))
+  return match ? match.value : 'auto'
 }

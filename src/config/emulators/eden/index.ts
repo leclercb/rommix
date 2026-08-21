@@ -129,5 +129,19 @@ export const eden: EmulatorDescriptor = {
   env: { I_WANT_A_BROKEN_WAYLAND_UI: '1' },
   // `exec` alone opens Eden with no game.
   open: undefined,
-  launch: ({ exec, romPath }) => [...exec, romPath]
+  /**
+   * `-f` for fullscreen and `-g` to name the game — yuzu's own options, which
+   * Eden inherits, and the same pair EmuDeck's `eden.sh` passes.
+   *
+   * Without `-f` Eden restores whatever window geometry its config remembers,
+   * which on a first run is a small window opening on top of RomMix's own
+   * fullscreen one: a game started from the couch lands in a corner of the
+   * television. The flag wins over the config for that session only, so a user
+   * who prefers windowed play still has it the moment they start Eden itself.
+   *
+   * `-g` rather than the bare positional path both take: yuzu's positional
+   * argument is parsed only after getopt is done with the rest, so a ROM whose
+   * filename begins with a dash is read as an option and the launch fails.
+   */
+  launch: ({ exec, romPath }) => [...exec, '-f', '-g', romPath]
 }

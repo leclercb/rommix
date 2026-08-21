@@ -490,6 +490,10 @@ export function registerIpc(rommix: RomMixApp): void {
       // the games look downloaded when they are, for this emulator, not there.
       rommix.send('library:installed', downloads.installed)
     }
+
+    // The only setting the main process itself has to act on: the zoom factor
+    // lives on the window, not in the stylesheet.
+    if ('uiScale' in patch) rommix.applyUiScale()
     return next
   })
 
