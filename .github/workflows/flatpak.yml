@@ -35,9 +35,9 @@ jobs:
       bundle: ${{ steps.meta.outputs.bundle }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # 24, not the 20/22 the README asks of a user: `npm test` runs the
           # TypeScript tests through node's own type stripping.
@@ -82,7 +82,7 @@ jobs:
       # electron-builder downloads its own Electron into ~/.cache/electron, which
       # is ~100 MB per build and never changes for a given lockfile.
       - name: Cache the Electron download
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/electron
@@ -145,7 +145,7 @@ jobs:
             '${{ steps.meta.outputs.bundle }}' \
             "$APP_ID"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flatpak-bundle
           path: ${{ steps.meta.outputs.bundle }}
@@ -160,7 +160,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: flatpak-bundle
           path: bundle
@@ -170,7 +170,7 @@ jobs:
       # where the part a release page actually needs — how to install the thing —
       # goes. A tag like v0.2.0-rc1 is a pre-release; v0.2.0 is not.
       - name: Publish the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: bundle/*.flatpak
           name: RomMix ${{ github.ref_name }}

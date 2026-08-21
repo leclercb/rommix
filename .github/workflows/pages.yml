@@ -5,9 +5,11 @@
 # the application: the demo is the renderer with the stub bridge from
 # `src/renderer/src/dev/` behind it, which is never in a shipped bundle.
 #
-# Pages has to be enabled once, with its source set to GitHub Actions, in the
-# repository's Settings -> Pages. Until that is done this workflow builds and
-# then fails on deploy.
+# Pages has to be enabled once by hand, in Settings -> Pages, with Source set to
+# GitHub Actions. There is no way around it from here: the action that can create
+# the site refuses to do it with the workflow's own GITHUB_TOKEN and wants a
+# personal access token, which is a secret to manage and rotate in exchange for
+# saving one click. Until it is enabled, `deploy-pages` below fails.
 name: Pages
 
 on:
@@ -41,9 +43,9 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -54,9 +56,11 @@ jobs:
       - name: Build the site
         run: npm run build:site
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
+      # No `configure-pages` step: its job is to hand a static site generator the
+      # URL the site will be served from, and `vite.web.config.ts` builds with a
+      # relative base precisely so that nothing has to be told. Deploying reads
+      # the Pages settings for itself.
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: out/site
 
@@ -74,4 +78,4 @@ jobs:
 
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
