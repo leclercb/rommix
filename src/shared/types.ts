@@ -689,5 +689,7 @@ export interface DiagnosticsReport {
   emulators: EmulatorState[]
   /** True when every installed emulator's ROM folder can be written to. */
   romsWritable: boolean
+  /** The log file, so a bug report can name the file rather than hunt for it. */
+  logPath: string
   notes: string[]
 }

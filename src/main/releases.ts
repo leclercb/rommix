@@ -5,6 +5,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@shared/types'
+import { log } from './log'
 import { rootPaths } from './root'
 import { extractZip, isZip } from './zip'
 
@@ -46,6 +47,10 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
     headers: { Accept: 'application/json' }
   })
   if (!response.ok) {
+    log.error('release', 'could not list releases', undefined, {
+      api: source.api,
+      status: response.status
+    })
     throw new Error(`${source.api} responded ${response.status}`)
   }
 
@@ -94,6 +99,9 @@ export async function installAsset(
   onProgress: (progress: EmulatorInstallProgress) => void
 ): Promise<string> {
   const dir = managedEmulatorDir(emulatorId)
+  // Worth a line of its own: anything previously installed for this emulator is
+  // deleted here, before a single byte of the replacement has arrived.
+  log.info('release', 'clearing the managed directory', { emulator: emulatorId, dir })
   await rm(dir, { recursive: true, force: true })
   await mkdir(dir, { recursive: true })
 
@@ -102,6 +110,10 @@ export async function installAsset(
 
   const response = await fetch(asset.url)
   if (!response.ok || !response.body) {
+    log.error('release', 'the download was refused', undefined, {
+      url: asset.url,
+      status: response.status
+    })
     throw new Error(`Download failed: ${asset.url} responded ${response.status}`)
   }
 
@@ -124,9 +136,15 @@ export async function installAsset(
   try {
     await pipeline(body, createWriteStream(partial))
   } catch (cause) {
+    log.error('release', 'the download broke off part-way', cause, {
+      emulator: emulatorId,
+      asset: asset.name,
+      received
+    })
     await rm(partial, { force: true })
     throw cause
   }
+  log.info('release', 'asset downloaded', { emulator: emulatorId, asset: asset.name, received })
 
   // Executable before the rename, so the finished name never exists in a state
   // where it looks installed but cannot be run.

@@ -250,6 +250,7 @@ object. Close RomMix before editing it.
 | BIOS files                            | The emulator's own BIOS folder            |
 | Settings, credentials, download index | `~/rommix/config/`                        |
 | Emulators RomMix installed            | `~/rommix/emulators/`                     |
+| Log file                              | `~/rommix/logs/rommix.log`                |
 
 ROMs go into each emulator's own library rather than a folder of RomMix's own, so
 a game is still there when you start that emulator yourself and ES-DE scrapes it
@@ -305,6 +306,24 @@ cause — set 200% by hand.
 **An AppImage emulator will not start on NixOS**
 AppImages need `programs.nix-ld.enable`, and must _not_ go through
 `appimage-run` (`programs.appimage.binfmt = false`).
+
+### The log
+
+Everything RomMix does goes to `~/rommix/logs/rommix.log` — the command each
+emulator was started with and the code it exited on, what was asked of the RomM
+server and what came back, where each ROM, save and BIOS file was written. It is
+the file to read when something fails silently, and the one to attach to a bug
+report. Settings → **Pre-flight check** names its exact location.
+
+```bash
+tail -f ~/rommix/logs/rommix.log
+```
+
+Credentials are stripped on the way in, so a log is safe to paste as it is.
+
+It rolls over at 5 MB, keeping the previous one as `rommix.log.1`. For more
+detail — every request, every emulator probe, download progress — start RomMix
+with `ROMMIX_LOG=debug`; `ROMMIX_LOG=off` writes nothing at all.
 
 ---
 

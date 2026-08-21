@@ -30,6 +30,7 @@ import type {
 import type { RomMixApp } from './app'
 import type { SaveTarget } from './saves'
 import { canSpawnHost, inFlatpak, installFlatpak, isWritable } from './host'
+import { log } from './log'
 import { fetchReleases, installAsset } from './releases'
 import { defaultRoot, relocateRoot, resolveRoot } from './root'
 import { RommError, normaliseBaseUrl } from './romm'
@@ -45,7 +46,28 @@ import { RommError, normaliseBaseUrl } from './romm'
  * no longer has to, and a call made on a screen's behalf (a refresh, a probe,
  * something started by a keypress two screens ago) can no longer fail in
  * silence and leave the UI quietly showing nothing.
+ *
+ * It is also where every action the user took is written to the log. One line
+ * per call, from the one place every call already passes through, which is what
+ * makes the log a record of what was done rather than of what a handful of
+ * hand-instrumented handlers remembered to mention.
  */
+
+/**
+ * Channels logged only at debug level.
+ *
+ * These are the ones a screen asks on every render or every few seconds. At
+ * info level they would be most of the file, and none of them says anything
+ * about what the person in front of the television did.
+ */
+const CHATTY = new Set([
+  'server:status',
+  'server:pollPairing',
+  'system:settings',
+  'downloads:list',
+  'library:installed',
+  'library:favourite'
+])
 
 function handler(report: (message: string) => void) {
   return function handle<Args extends unknown[], Result>(
@@ -53,11 +75,20 @@ function handler(report: (message: string) => void) {
     fn: (...args: Args) => Promise<Result> | Result
   ): void {
     ipcMain.handle(channel, async (_event, ...args) => {
+      const took = log.since()
+      const level = CHATTY.has(channel) ? 'debug' : 'info'
+      // Arguments as they were passed: a call that failed is far easier to
+      // account for with the id or the query that produced it. `log` scrubs the
+      // credentials out of `server:connect` on the way past.
+      log[level]('ipc', `→ ${channel}`, args.length > 0 ? { args } : undefined)
       try {
-        return await fn(...(args as Args))
+        const result = await fn(...(args as Args))
+        log[level]('ipc', `← ${channel}`, { ms: took() })
+        return result
       } catch (cause) {
         const message =
           cause instanceof RommError ? cause.message : ((cause as Error).message ?? String(cause))
+        log.error('ipc', `✗ ${channel}`, cause, { ms: took() })
         report(message)
         throw new Error(message)
       }
@@ -130,6 +161,10 @@ export function registerIpc(rommix: RomMixApp): void {
         error: null
       }
     } catch (cause) {
+      log.warn('server', 'not connected', {
+        baseUrl: server.baseUrl,
+        reason: (cause as Error).message
+      })
       return {
         connected: false,
         baseUrl: server.baseUrl,
@@ -167,9 +202,19 @@ export function registerIpc(rommix: RomMixApp): void {
       const result = await status()
       if (!result.connected) throw new RommError(result.error ?? 'Could not sign in')
       await rommix.refreshEmulators()
+      log.info('server', 'connected', {
+        baseUrl,
+        mode: payload.mode,
+        user: result.user?.username ?? null,
+        serverVersion: result.serverVersion
+      })
       return result
     } catch (cause) {
       // Leave the app as we found it rather than half-connected.
+      log.error('server', 'sign-in failed, rolling back to the previous server', cause, {
+        baseUrl,
+        mode: payload.mode
+      })
       store.setServer(previousServer)
       store.clearCredentials()
       throw cause
@@ -177,6 +222,7 @@ export function registerIpc(rommix: RomMixApp): void {
   })
 
   handle('server:disconnect', async () => {
+    log.info('server', 'signed out', { baseUrl: store.server?.baseUrl ?? null })
     store.clearCredentials()
     store.setServer(null)
   })
@@ -235,10 +281,12 @@ export function registerIpc(rommix: RomMixApp): void {
    */
   handle('library:sync', async (): Promise<LibrarySyncResult> => {
     await rommix.ensureEmulators()
+    const took = log.since()
     const result = await downloads.sync((checked, total) =>
       rommix.send('library:syncProgress', { checked, total })
     )
     rommix.send('library:installed', downloads.installed)
+    log.info('library', 'full sync finished', { ...result, ms: took() })
     return result
   })
 
@@ -345,6 +393,14 @@ export function registerIpc(rommix: RomMixApp): void {
 
     const rom = await client.rom(romId)
 
+    log.info('game', 'launch requested', {
+      romId,
+      name: rom.name ?? rom.fs_name,
+      system: installed.system,
+      emulator: emulator.id,
+      variant: chosen ?? null
+    })
+
     rommix.send('game:state', { running: true, romId, stage: null })
     try {
       return await launcher.launch({
@@ -365,7 +421,10 @@ export function registerIpc(rommix: RomMixApp): void {
     }
   })
 
-  handle('game:stop', () => launcher.stop())
+  handle('game:stop', () => {
+    log.info('game', 'stop requested from the interface')
+    launcher.stop()
+  })
 
   // -- saves ----------------------------------------------------------------
 
@@ -462,6 +521,7 @@ export function registerIpc(rommix: RomMixApp): void {
   handle('system:settings', () => store.settings)
 
   handle('system:updateSettings', async (patch: Partial<Settings>) => {
+    log.info('settings', 'changed', { patch })
     const next = store.updateSettings(patch)
 
     // Only a hand-written executable path or library folder changes what
@@ -539,6 +599,12 @@ export function registerIpc(rommix: RomMixApp): void {
       throw new RommError(`${asset.name} is not something RomMix can run`)
     }
 
+    log.info('emulator', 'installing a release asset', {
+      emulator: id,
+      asset: asset.name,
+      url: asset.url,
+      sizeBytes: asset.sizeBytes
+    })
     const path = await installAsset(id, asset, (progress) =>
       rommix.send('emulators:progress', progress)
     )
@@ -546,6 +612,7 @@ export function registerIpc(rommix: RomMixApp): void {
       emulatorPaths: { ...store.settings.emulatorPaths, [id]: path }
     })
     await rommix.refreshEmulators()
+    log.info('emulator', 'installed', { emulator: id, path })
     return path
   })
 
@@ -599,11 +666,22 @@ export function registerIpc(rommix: RomMixApp): void {
     }
     const romsWritable = writable.every((entry) => entry.ok)
 
+    // The whole picture in one place, since this is the report a person is
+    // looking at when they decide the log is worth reading.
+    log.info('diagnostics', 'pre-flight check', {
+      inFlatpak: inFlatpak(),
+      canSpawnHost: spawn,
+      available: emulators.filter((emulator) => emulator.available).map((emulator) => emulator.id),
+      romsWritable,
+      notes
+    })
+
     return {
       inFlatpak: inFlatpak(),
       canSpawnHost: spawn,
       emulators,
       romsWritable,
+      logPath: log.path(),
       notes
     }
   })
@@ -621,6 +699,10 @@ export function registerIpc(rommix: RomMixApp): void {
     if (!descriptor || !spec || spec.kind !== 'flatpak') {
       throw new RommError(`${descriptor?.name ?? id} is not distributed as a flatpak`)
     }
+    log.info('emulator', 'installing a flatpak from flathub', {
+      emulator: id,
+      appId: spec.appId
+    })
     await installFlatpak(spec.appId, (line) =>
       rommix.send('emulators:progress', {
         emulatorId: id,
@@ -631,6 +713,7 @@ export function registerIpc(rommix: RomMixApp): void {
       })
     )
     await rommix.refreshEmulators()
+    log.info('emulator', 'flatpak installed', { emulator: id, appId: spec.appId })
   })
 
   /** Where RomMix keeps its own files, and where it would by default. */
@@ -647,11 +730,16 @@ export function registerIpc(rommix: RomMixApp): void {
     }
     // Copies the configuration across and repoints; the move only takes effect
     // once Electron restarts, since userData is fixed before the app starts.
+    log.info('root', 'moving the RomMix folder', { from: resolveRoot(), to: target })
     relocateRoot(target)
+    // Said here rather than after the restart: the next run's log is in the new
+    // folder, so this line is the only record of where the old one went.
+    log.info('root', 'moved; the log continues in the new folder after a restart')
     return { current: target, fallback: defaultRoot(), fromEnvironment: false }
   })
 
   handle('system:restart', () => {
+    log.info('app', "restarting at the interface's request")
     app.relaunch()
     app.exit(0)
   })

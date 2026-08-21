@@ -5,6 +5,7 @@ import { BiosManager } from './bios'
 import { DownloadManager } from './downloads'
 import { detectEmulators } from './emulators'
 import { Launcher } from './launcher'
+import { log } from './log'
 import { RommClient } from './romm'
 import { SaveSync } from './saves'
 import { rootPaths } from './root'
@@ -105,6 +106,29 @@ export class RomMixApp {
 
     window.once('ready-to-show', () => window.show())
 
+    /**
+     * The renderer's own failures, which otherwise stay in a DevTools console
+     * nobody can open on a television.
+     *
+     * `render-process-gone` is the important one: the interface disappears and
+     * the main process carries on, so without this the log of a crashed UI ends
+     * with whatever it was doing a moment earlier and no mention of the crash.
+     */
+    window.webContents.on('render-process-gone', (_event, details) =>
+      log.error('window', 'the interface process died', undefined, { ...details })
+    )
+    window.webContents.on('unresponsive', () => log.warn('window', 'the interface is unresponsive'))
+    window.webContents.on('responsive', () => log.info('window', 'the interface responded again'))
+    window.webContents.on('did-fail-load', (_event, code, description, url) =>
+      log.error('window', 'the interface failed to load', undefined, { code, description, url })
+    )
+    window.webContents.on('console-message', (details) => {
+      if (details.level !== 'error') return
+      log.warn('renderer', details.message, {
+        source: `${details.sourceId}:${details.lineNumber}`
+      })
+    })
+
     // After the load rather than beside it: a zoom factor set on a WebContents
     // that has not committed a document yet is dropped when one arrives.
     window.webContents.on('did-finish-load', () => this.applyUiScale())
@@ -118,6 +142,7 @@ export class RomMixApp {
 
     // Keep navigation inside the app; open real links in the user's browser.
     window.webContents.setWindowOpenHandler(({ url }) => {
+      log.info('window', 'opening a link in the browser', { url })
       void shell.openExternal(url)
       return { action: 'deny' }
     })
@@ -196,6 +221,12 @@ export class RomMixApp {
           }
         })
       } catch (cause) {
+        // Cover art failing is a screen full of blank tiles and no message
+        // anywhere, so the reason is only ever visible here.
+        log.warn('image', 'could not fetch cover art', {
+          path,
+          reason: (cause as Error).message
+        })
         return new Response((cause as Error).message, { status: 502 })
       }
     })

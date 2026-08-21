@@ -745,6 +745,8 @@ const bridge: RomMixBridge = {
         canSpawnHost: false,
         emulators: [],
         romsWritable: true,
+        // Named as it would be on a real install; the preview writes no log.
+        logPath: '~/rommix/logs/rommix.log',
         notes: ['This is the web preview: nothing was actually checked.']
       }),
     root: () =>

@@ -5,6 +5,7 @@ import { dirname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 import yauzl from 'yauzl'
+import { log } from './log'
 
 /**
  * Reading and writing zip archives.
@@ -70,7 +71,13 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
       zipfile.on('entry', (entry) => {
         const target = safeJoin(root, entry.fileName)
         if (!target) {
-          // Refuse to write outside the destination and keep going.
+          // Refuse to write outside the destination and keep going. Logged
+          // because a zip trying to escape its destination is either a corrupt
+          // archive or a hostile one, and both are worth knowing about.
+          log.warn('zip', 'refused an entry pointing outside the destination', {
+            archive: zipPath,
+            entry: entry.fileName
+          })
           zipfile.readEntry()
           return
         }

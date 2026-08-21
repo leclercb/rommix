@@ -13,6 +13,7 @@ import type {
   LibrarySyncResult,
   RommRom
 } from '@shared/types'
+import { log } from './log'
 import { RommClient, RommError } from './romm'
 import { extractZip, isZip } from './zip'
 import type { Store } from './store'
@@ -354,7 +355,10 @@ export class DownloadManager extends EventEmitter {
     const existing = this.queue.find(
       (item) => item.romId === rom.id && (item.state === 'queued' || item.state === 'downloading')
     )
-    if (existing) return { ...existing }
+    if (existing) {
+      log.debug('download', 'already queued', { romId: rom.id, state: existing.state })
+      return { ...existing }
+    }
 
     const { path, system } = this.plan(rom)
     const item: DownloadItem = {
@@ -375,6 +379,15 @@ export class DownloadManager extends EventEmitter {
     if (stale >= 0) this.queue.splice(stale, 1)
 
     this.queue.push(item)
+    log.info('download', 'queued', {
+      romId: rom.id,
+      name: item.name,
+      system,
+      platform: rom.platform_display_name,
+      totalBytes: item.totalBytes,
+      targetPath: path,
+      queued: this.queue.filter((i) => i.state === 'queued').length
+    })
     this.emitUpdate()
     void this.pump(rom)
     return { ...item }
@@ -384,6 +397,7 @@ export class DownloadManager extends EventEmitter {
     this.controllers.get(romId)?.abort()
     const item = this.queue.find((i) => i.romId === romId)
     if (item && (item.state === 'queued' || item.state === 'downloading')) {
+      log.info('download', 'cancelled', { romId, name: item.name, was: item.state })
       item.state = 'cancelled'
       this.emitUpdate()
     }
@@ -423,6 +437,12 @@ export class DownloadManager extends EventEmitter {
           const rom = item.romId === seed.id ? seed : await this.client.rom(item.romId)
           await this.runOne(item, rom)
         } catch (cause) {
+          // Reached when the ROM could not even be fetched from the server, so
+          // `runOne` never got to record the failure against the item itself.
+          log.error('download', 'could not start the queued download', cause, {
+            romId: item.romId,
+            name: item.name
+          })
           item.state = 'error'
           item.error = (cause as Error).message
           this.emitUpdate()
@@ -443,19 +463,44 @@ export class DownloadManager extends EventEmitter {
     // changed, or become unavailable, between queueing and starting, and that
     // belongs on this item as an error rather than thrown at the queue.
     let downloadTo: string | null = null
+    const took = log.since()
 
     try {
       const { dir, path, system, emulatorId, asDirectory, flat } = this.plan(rom)
       // Multi-file games download to a temporary archive next to their target.
       downloadTo = asDirectory ? `${path}.zip` : path
 
+      log.info('download', 'started', {
+        romId: rom.id,
+        name: item.name,
+        system,
+        emulator: emulatorId,
+        totalBytes: item.totalBytes,
+        multiFile: rom.has_multiple_files,
+        asDirectory,
+        flat,
+        downloadTo
+      })
+
       await mkdir(dir, { recursive: true })
+      // Progress is reported per chunk and would be thousands of lines a game.
+      // A tenth of the transfer is enough to see where one stalled.
+      let reported = 0
       await this.client.downloadRom(
         rom,
         downloadTo,
         (progress) => {
           item.receivedBytes = progress.received
           if (progress.total) item.totalBytes = progress.total
+          const share = progress.total ? Math.floor((progress.received / progress.total) * 10) : 0
+          if (share > reported) {
+            reported = share
+            log.debug('download', `${share * 10}%`, {
+              romId: rom.id,
+              received: progress.received,
+              total: progress.total
+            })
+          }
           this.emitUpdate()
         },
         controller.signal
@@ -465,6 +510,7 @@ export class DownloadManager extends EventEmitter {
       if (asDirectory || (await isZip(downloadTo))) {
         item.state = 'extracting'
         this.emitUpdate()
+        log.info('download', 'extracting the archive', { romId: rom.id, from: downloadTo })
         installed = await unpack(rom, downloadTo, dir, path, asDirectory, flat)
       } else {
         installed = {
@@ -480,11 +526,23 @@ export class DownloadManager extends EventEmitter {
 
       item.state = 'done'
       item.receivedBytes = item.totalBytes
+      log.info('download', 'installed', {
+        romId: rom.id,
+        name: item.name,
+        path: installed.path,
+        launchPath: installed.launchPath,
+        sizeBytes: installed.sizeBytes,
+        isDirectory: installed.isDirectory,
+        ms: took()
+      })
       this.emitUpdate()
     } catch (cause) {
       const aborted = controller.signal.aborted
       item.state = aborted ? 'cancelled' : 'error'
       item.error = aborted ? null : (cause as Error).message
+      const detail = { romId: rom.id, name: item.name, downloadTo, ms: took() }
+      if (aborted) log.info('download', 'abandoned after cancellation', detail)
+      else log.error('download', 'failed', cause, detail)
       if (downloadTo) await rm(downloadTo, { force: true }).catch(() => undefined)
       this.emitUpdate()
     } finally {
@@ -660,7 +718,13 @@ export class DownloadManager extends EventEmitter {
 
     // Announced as a group: a library page can adopt dozens at once, and one
     // notification per game would bury the screen.
-    if (adopted.length > 0) this.emit('adopted', adopted)
+    if (adopted.length > 0) {
+      log.info('library', 'adopted ROMs already on disk', {
+        count: adopted.length,
+        romIds: adopted.map((entry) => entry.romId)
+      })
+      this.emit('adopted', adopted)
+    }
     return adopted
   }
 
@@ -682,6 +746,7 @@ export class DownloadManager extends EventEmitter {
     // Drop what is gone first, so a game deleted from disk and then re-copied
     // elsewhere is re-adopted in the same pass rather than the next one.
     const removed = this.store.pruneInstalled()
+    log.info('library', 'checking the whole library against the disk', { removed })
 
     const PAGE = 200
     let checked = 0
@@ -724,7 +789,20 @@ export class DownloadManager extends EventEmitter {
    */
   async uninstall(romId: number): Promise<void> {
     const entry = this.store.getInstalled(romId)
-    if (!entry) return
+    if (!entry) {
+      log.warn('library', 'uninstall asked for a ROM that is not in the index', { romId })
+      return
+    }
+
+    // Before the deletion rather than after: what was removed is the whole
+    // point of the line, and a failure part-way through leaves it recorded.
+    log.info('library', 'uninstalling', {
+      romId,
+      name: entry.name,
+      path: entry.path,
+      files: entry.isDirectory ? 'whole directory' : entry.files,
+      sizeBytes: entry.sizeBytes
+    })
 
     if (!entry.isDirectory && entry.files.length > 1) {
       const dir = dirname(entry.path)

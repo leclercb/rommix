@@ -18,6 +18,7 @@ import type {
   RommUser,
   RomQuery
 } from '@shared/types'
+import { log } from './log'
 import type { Store } from './store'
 
 /**
@@ -106,6 +107,7 @@ export class RommClient {
   ): Promise<Response> {
     const base = opts.baseUrl ?? this.baseUrl
     const retryOn401 = opts.retryOn401 ?? true
+    const method = init.method ?? 'GET'
 
     const send = async (): Promise<Response> =>
       fetch(`${base}${path}`, {
@@ -113,17 +115,27 @@ export class RommClient {
         headers: { Accept: 'application/json', ...this.authHeader(), ...(init.headers ?? {}) }
       })
 
+    // Every call to the server, with what came back. The path carries the query
+    // string, so this doubles as the record of what RomMix asked *for* — which
+    // page of the library, which ROM's saves, which platform's firmware.
+    const took = log.since()
     let res: Response
     try {
       res = await send()
     } catch (cause) {
+      log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
       throw new RommError(`Cannot reach ${base}: ${(cause as Error).message}`)
     }
 
     if (res.status === 401 && retryOn401 && this.store.credentials.refreshToken) {
+      log.info('romm', `${method} ${path} → 401, refreshing the access token and retrying`)
       await this.refreshAccessToken()
       res = await send()
     }
+
+    const line = `${method} ${path} → ${res.status}`
+    if (res.ok) log.debug('romm', line, { ms: took() })
+    else log.warn('romm', line, { ms: took(), baseUrl: base })
     return res
   }
 
@@ -155,7 +167,9 @@ export class RommClient {
     const res = await this.request('/api/heartbeat', {}, { baseUrl, retryOn401: false })
     if (!res.ok) throw await this.toError(res)
     const body = (await res.json()) as { SYSTEM?: { VERSION?: string } }
-    return { version: body.SYSTEM?.VERSION ?? null }
+    const version = body.SYSTEM?.VERSION ?? null
+    log.debug('romm', 'heartbeat', { baseUrl: baseUrl ?? this.baseUrl, serverVersion: version })
+    return { version }
   }
 
   /** POST /api/token with the OAuth2 password grant. */
@@ -176,15 +190,18 @@ export class RommClient {
       { baseUrl, retryOn401: false }
     )
     if (!res.ok) {
+      log.warn('romm', 'password sign-in refused', { username, status: res.status })
       if (res.status === 401) throw new RommError('Wrong username or password', 401)
       throw await this.toError(res)
     }
     const token = (await res.json()) as RommTokenResponse
+    log.info('romm', 'signed in with a password', { username, expiresIn: token.expires })
     this.storeToken(token)
   }
 
   /** Store a long-lived `rmm_...` client token typed in by the user. */
   setClientToken(token: string): void {
+    log.info('romm', 'using a client token typed in by the user')
     this.store.setCredentials({
       clientToken: token.trim(),
       accessToken: null,
@@ -201,6 +218,12 @@ export class RommClient {
    */
   async startDevicePairing(baseUrl?: string): Promise<RommDeviceAuthInit> {
     const { deviceId, deviceName } = this.store.settings
+    log.info('romm', 'starting device pairing', {
+      deviceId,
+      deviceName,
+      clientVersion: app.getVersion(),
+      scopes: REQUIRED_SCOPES
+    })
     const res = await this.request(
       '/api/auth/device/init',
       {
@@ -243,6 +266,7 @@ export class RommClient {
     if (!res.ok) throw await this.toError(res)
 
     const token = (await res.json()) as RommDeviceAuthToken
+    log.info('romm', 'device paired', { deviceId: token.device_id, expiresAt: token.expires_at })
     this.store.setCredentials({
       clientToken: token.access_token,
       deviceId: token.device_id,
@@ -278,9 +302,11 @@ export class RommClient {
         }).toString()
       })
       if (!res.ok) {
+        log.warn('romm', 'token refresh refused, credentials cleared', { status: res.status })
         this.store.clearCredentials()
         throw new RommError('Session expired — sign in again', 401)
       }
+      log.info('romm', 'access token refreshed')
       this.storeToken((await res.json()) as RommTokenResponse)
     })()
 
@@ -343,6 +369,10 @@ export class RommClient {
       body: JSON.stringify({ rom_ids: [romId] })
     })
     if (!res.ok) throw await this.toError(res)
+    log.info('romm', favourite ? 'added to favourites' : 'removed from favourites', {
+      romId,
+      collectionId: collection.id
+    })
     return favourite
   }
 
@@ -419,10 +449,22 @@ export class RommClient {
       onProgress({ received, total })
     })
 
+    const took = log.since()
     try {
       await pipeline(source, createWriteStream(partial), { signal })
       await rename(partial, destination)
+      log.info('romm', 'ROM content downloaded', {
+        romId: rom.id,
+        bytes: received,
+        ms: took(),
+        destination
+      })
     } catch (cause) {
+      // Distinguished here rather than upstream: a cancelled transfer and a
+      // broken one look identical by the time the queue sees the exception.
+      const detail = { romId: rom.id, received, total, ms: took() }
+      if (signal.aborted) log.info('romm', 'ROM download cancelled', detail)
+      else log.error('romm', 'ROM download failed', cause, detail)
       await rm(partial, { force: true }).catch(() => undefined)
       throw cause
     }
@@ -448,6 +490,11 @@ export class RommClient {
       `/api/firmware/${item.id}/content/${encodeURIComponent(item.file_name)}`,
       destination
     )
+    log.info('romm', 'firmware downloaded', {
+      firmwareId: item.id,
+      fileName: item.file_name,
+      destination
+    })
   }
 
   // -- saves and states -----------------------------------------------------
@@ -474,6 +521,7 @@ export class RommClient {
       body: JSON.stringify({ saves: ids })
     })
     if (!res.ok) throw await this.toError(res)
+    log.info('romm', 'saves deleted on the server', { ids })
   }
 
   /** POST /api/states/delete — the same, for save states. */
@@ -485,6 +533,7 @@ export class RommClient {
       body: JSON.stringify({ states: ids })
     })
     if (!res.ok) throw await this.toError(res)
+    log.info('romm', 'states deleted on the server', { ids })
   }
 
   async downloadSave(id: number, destination: string): Promise<void> {
@@ -515,15 +564,26 @@ export class RommClient {
     const deviceId = this.store.credentials.deviceId ?? this.store.settings.deviceId
     if (deviceId) params.set('device_id', deviceId)
 
+    const payload = await readFile(filePath)
     const form = new FormData()
-    form.append('saveFile', new Blob([await readFile(filePath)]) as unknown as Blob, fileName)
+    form.append('saveFile', new Blob([payload]) as unknown as Blob, fileName)
 
+    log.info('romm', 'uploading a save', {
+      romId,
+      fileName,
+      emulator,
+      deviceId,
+      bytes: payload.length,
+      from: filePath
+    })
     const res = await this.request(`/api/saves?${params.toString()}`, {
       method: 'POST',
       body: form as RequestInit['body']
     })
     if (!res.ok) throw await this.toError(res)
-    return (await res.json()) as RommSave
+    const saved = (await res.json()) as RommSave
+    log.info('romm', 'save uploaded', { romId, saveId: saved.id, fileName })
+    return saved
   }
 
   /** POST /api/states — multipart upload of a save state. */
@@ -536,21 +596,40 @@ export class RommClient {
     const params = new URLSearchParams({ rom_id: String(romId) })
     if (emulator) params.set('emulator', emulator)
 
+    const payload = await readFile(filePath)
     const form = new FormData()
-    form.append('stateFile', new Blob([await readFile(filePath)]) as unknown as Blob, fileName)
+    form.append('stateFile', new Blob([payload]) as unknown as Blob, fileName)
 
+    log.info('romm', 'uploading a save state', {
+      romId,
+      fileName,
+      emulator,
+      bytes: payload.length,
+      from: filePath
+    })
     const res = await this.request(`/api/states?${params.toString()}`, {
       method: 'POST',
       body: form as RequestInit['body']
     })
     if (!res.ok) throw await this.toError(res)
-    return (await res.json()) as RommState
+    const saved = (await res.json()) as RommState
+    log.info('romm', 'save state uploaded', { romId, stateId: saved.id, fileName })
+    return saved
   }
 
   /** POST /api/play-sessions — report time played so RomM's stats stay honest. */
   async reportPlaySession(romId: number, startedAt: Date, seconds: number): Promise<void> {
-    if (seconds < 5) return
+    if (seconds < 5) {
+      log.debug('romm', 'play session too short to report', { romId, seconds })
+      return
+    }
     const deviceId = this.store.credentials.deviceId ?? this.store.settings.deviceId
+    log.info('romm', 'reporting a play session', {
+      romId,
+      deviceId,
+      startedAt: startedAt.toISOString(),
+      seconds
+    })
     try {
       await this.request('/api/play-sessions', {
         method: 'POST',
@@ -566,8 +645,12 @@ export class RommClient {
           ]
         })
       })
-    } catch {
+    } catch (cause) {
       // Play-time reporting is best-effort; never fail a launch over it.
+      log.warn('romm', 'could not report the play session', {
+        romId,
+        reason: (cause as Error).message
+      })
     }
   }
 }

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { APPIMAGE_SEARCH_DIRS } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
+import { log } from './log'
 
 /**
  * Talking to the machine RomMix is installed on, from either side of a flatpak
@@ -61,7 +62,14 @@ async function runHost(argv: string[], timeoutMs = 8000): Promise<string | null>
   try {
     const { stdout } = await execFileAsync(cmd, args, { timeout: timeoutMs })
     return stdout
-  } catch {
+  } catch (cause) {
+    // Null is an ordinary answer here — "no such flatpak", "not on PATH" — so
+    // this is debug rather than a warning. It is still the only place a
+    // flatpak-spawn that cannot reach the host at all announces itself.
+    log.debug('host', 'command failed', {
+      command: argv.join(' '),
+      reason: (cause as Error).message
+    })
     return null
   }
 }
@@ -142,7 +150,10 @@ function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
  */
 export async function stopFlatpakApp(appId: string): Promise<boolean> {
   const sandboxes = await sandboxPids(appId)
-  if (sandboxes.length === 0) return false
+  if (sandboxes.length === 0) {
+    log.info('host', 'no running instance to stop', { appId })
+    return false
+  }
 
   // The sandbox process is normally bubblewrap and the application is its
   // child, so the descendants are what must be asked to quit. The sandbox
@@ -153,16 +164,24 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
   // not forward, which is the whole reason the descendants are listed.
   const ps = await runHost(['ps', '-eo', 'pid=,ppid='])
   const targets = [...descendantsOf(ps ?? '', sandboxes), ...sandboxes]
+  log.info('host', 'asking a flatpak app to quit', { appId, sandboxes, targets })
   await runHost(['kill', '-TERM', ...targets.map(String)])
 
   const deadline = Date.now() + QUIT_GRACE_MS
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 250))
-    if ((await sandboxPids(appId)).length === 0) return true
+    if ((await sandboxPids(appId)).length === 0) {
+      log.info('host', 'the app quit on its own', { appId })
+      return true
+    }
   }
 
   // It ignored the request, or there was nothing under the sandbox to ask.
   // Being stuck in an emulator with no way back is worse than a lost save.
+  log.warn('host', 'the app ignored SIGTERM, killing it — a save may be lost', {
+    appId,
+    graceMs: QUIT_GRACE_MS
+  })
   await runHost(['flatpak', 'kill', appId])
   return true
 }
@@ -274,6 +293,7 @@ export function installFlatpak(appId: string, onLine: (line: string) => void): P
       appId
     ])
 
+    log.info('host', 'installing a flatpak', { appId, command: [cmd, ...args].join(' ') })
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let tail = ''
     const collect = (chunk: Buffer): void => {
@@ -288,13 +308,24 @@ export function installFlatpak(appId: string, onLine: (line: string) => void): P
     child.stdout?.on('data', collect)
     child.stderr?.on('data', collect)
 
-    child.on('error', (err) => rejectPromise(new Error(`Could not run flatpak: ${err.message}`)))
+    child.on('error', (err) => {
+      log.error('host', 'flatpak could not be run', err, { appId })
+      rejectPromise(new Error(`Could not run flatpak: ${err.message}`))
+    })
     child.on('close', (code) => {
-      if (code === 0) resolvePromise()
-      else
-        rejectPromise(
-          new Error(tail.trim().split('\n').slice(-3).join(' ') || `flatpak install exited ${code}`)
-        )
+      if (code === 0) {
+        log.info('host', 'flatpak install finished', { appId })
+        resolvePromise()
+        return
+      }
+      log.error('host', 'flatpak install failed', undefined, {
+        appId,
+        code,
+        output: tail.slice(-1000)
+      })
+      rejectPromise(
+        new Error(tail.trim().split('\n').slice(-3).join(' ') || `flatpak install exited ${code}`)
+      )
     })
   })
 }

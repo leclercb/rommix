@@ -4,6 +4,7 @@ import { biosFor } from '@config/bios'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
 import { realHome } from './host'
+import { log } from './log'
 import { rootPaths } from './root'
 import { fileSystemEnvironment } from './saveenv'
 import type {
@@ -146,7 +147,14 @@ export class BiosManager {
         return found
       }
       return await this.describe(platform, firmware, listing)
-    } catch {
+    } catch (cause) {
+      // Deliberately not an error for the user, but a game page that shows no
+      // BIOS warning because the check failed looks exactly like one with
+      // nothing to warn about.
+      log.warn('bios', 'could not check this platform, the page shows no warning', {
+        platformId,
+        reason: (cause as Error).message
+      })
       return null
     }
   }
@@ -184,6 +192,10 @@ export class BiosManager {
           } catch (cause) {
             byPlatform.set(platform.id, [])
             failures.push((cause as Error).message)
+            log.warn('bios', 'the server refused to list firmware', {
+              platform: platform.slug,
+              reason: (cause as Error).message
+            })
           }
         })
       )
@@ -396,16 +408,35 @@ export class BiosManager {
     let failed = 0
     let done = 0
 
+    log.info('bios', 'installing everything the server holds', {
+      platformId: platformId ?? 'all',
+      pending: pending.length,
+      fetchable: fetchable.length
+    })
+
     for (const item of fetchable) {
       try {
         await this.place(item.firmwareId as number, firmwareById, dirFor, report)
         installed += 1
-      } catch {
+      } catch (cause) {
         failed += 1
+        // Counted rather than thrown, so without this the only record of which
+        // file could not be placed — and why — is a number on a screen.
+        log.error('bios', 'could not install a BIOS file', cause, {
+          fileName: item.fileName,
+          firmwareId: item.firmwareId,
+          dir: item.dir
+        })
       }
       done += 1
       onProgress?.(done, fetchable.length)
     }
+
+    log.info('bios', 'finished installing', {
+      installed,
+      failed,
+      unavailable: pending.length - fetchable.length
+    })
 
     return {
       installed,
@@ -437,6 +468,12 @@ export class BiosManager {
 
     await mkdir(dir, { recursive: true })
     const destination = join(dir, firmware.file_name)
+    log.info('bios', 'installing a BIOS file', {
+      firmwareId,
+      fileName: firmware.file_name,
+      sizeBytes: firmware.file_size_bytes,
+      destination
+    })
     // Copied exactly as the server holds it, archive or not: Eden's firmware
     // installer takes a zip as readily as a folder, and unpacking one here
     // would only turn a file RomMix can account for into several it cannot.

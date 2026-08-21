@@ -5,6 +5,7 @@ import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { installCore, missingCore } from './cores'
 import { execPrefix, stopFlatpakApp } from './host'
+import { log } from './log'
 import type { RommClient } from './romm'
 import type { SaveSync } from './saves'
 import type { Store } from './store'
@@ -143,16 +144,19 @@ export class Launcher {
     // the answer for a frontend that offers several.
     const target = { rom, emulator, system, romPath, variant }
 
-    const failure = (error: string, command = ''): LaunchResult => ({
-      ok: false,
-      emulator: emulator.id,
-      command,
-      error,
-      uploadedSaves: 0,
-      uploadedStates: 0,
-      pendingPush: null,
-      playSeconds: 0
-    })
+    const failure = (error: string, command = ''): LaunchResult => {
+      log.warn('launch', 'launch failed', { romId: rom.id, emulator: emulator.id, error, command })
+      return {
+        ok: false,
+        emulator: emulator.id,
+        command,
+        error,
+        uploadedSaves: 0,
+        uploadedStates: 0,
+        pendingPush: null,
+        playSeconds: 0
+      }
+    }
 
     if (this.current) return failure('A game is already running')
 
@@ -164,6 +168,19 @@ export class Launcher {
       )
     }
     const command = argv.join(' ')
+    // The exact argv, because "it did nothing" is almost always a question
+    // about what was actually run, and this is the answer to it.
+    log.info('launch', 'starting', {
+      romId: rom.id,
+      name: rom.name ?? rom.fs_name,
+      system,
+      emulator: emulator.id,
+      install: emulator.install?.kind ?? null,
+      installRef: emulator.install?.ref ?? null,
+      variant: variant ?? null,
+      romPath,
+      command
+    })
 
     // Claimed before the first await, so a second launch is refused for the
     // whole session rather than only once the emulator is up. Until there is a
@@ -205,9 +222,11 @@ export class Launcher {
       // reported but does not block play — the local save is still valid.
       let pullError: string | null = null
       try {
-        await this.saveSync.pull(target)
+        const pulled = await this.saveSync.pull(target)
+        log.info('launch', 'saves pulled before start', { romId: rom.id, written: pulled })
       } catch (cause) {
         pullError = (cause as Error).message
+        log.error('launch', 'save pull failed, starting anyway', cause, { romId: rom.id })
       }
 
       // Stopped while the saves were coming down: there is no process to
@@ -251,18 +270,31 @@ export class Launcher {
       if (this.store.settings.syncSavesUp && this.store.settings.confirmSavePush) {
         try {
           pendingPush = await this.saveSync.previewPush(target, since)
+          log.info('launch', 'session saves awaiting confirmation', {
+            romId: rom.id,
+            files: pendingPush.files.length
+          })
         } catch (cause) {
           // Reported as a sync warning, the same as a failed upload: the files
           // are still on disk, but nobody has been told they are unsent.
           pushError = (cause as Error).message
+          log.error('launch', 'could not list what the session wrote', cause, { romId: rom.id })
         }
       } else {
         try {
           const pushed = await this.saveSync.push(target, since)
           uploadedSaves = pushed.saves
           uploadedStates = pushed.states
+          log.info('launch', 'session saves pushed', {
+            romId: rom.id,
+            saves: uploadedSaves,
+            states: uploadedStates
+          })
         } catch (cause) {
           pushError = (cause as Error).message
+          log.error('launch', 'save push failed; the files are still on disk', cause, {
+            romId: rom.id
+          })
         }
       }
 
@@ -271,6 +303,18 @@ export class Launcher {
       if (!exit.startupError) {
         await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
       }
+
+      log.info('launch', exit.startupError ? 'launch did not become a session' : 'session ended', {
+        romId: rom.id,
+        emulator: emulator.id,
+        playSeconds,
+        uploadedSaves,
+        uploadedStates,
+        startupError: exit.startupError,
+        warning: exit.warning,
+        pullError,
+        pushError
+      })
 
       // The emulator's own complaint and the sync's are separate subjects, so
       // they are said separately rather than run together under one heading
@@ -333,10 +377,17 @@ export class Launcher {
       child.stdout?.on('data', collect)
       child.stderr?.on('data', collect)
 
+      log.info('emulator', 'process spawned', { pid: child.pid ?? null, command: argv.join(' ') })
+
       const startedAt = Date.now()
       let signalled = false
       session.kill = () => {
         signalled = true
+        log.info('emulator', 'asking the emulator to quit', {
+          pid: child.pid ?? null,
+          install: install?.kind ?? null,
+          ref: install?.ref ?? null
+        })
         // A flatpak has to be stopped through flatpak: the process spawned here
         // is only a client of it, and signalling that one is what the close
         // button used to do — nothing. Anything else was spawned directly and a
@@ -353,6 +404,7 @@ export class Launcher {
       }
 
       child.on('error', (err) => {
+        log.error('emulator', 'the process could not be started', err, { command: argv.join(' ') })
         resolvePromise({
           startupError: `Could not start the emulator: ${err.message}`,
           warning: null
@@ -360,17 +412,30 @@ export class Launcher {
       })
 
       child.on('close', (code, signal) => {
+        const ranMs = Date.now() - startedAt
+        // The exit itself, before any of it is interpreted: the code and the
+        // signal are what an emulator's own bug tracker asks for, and the
+        // classification below deliberately discards most of that distinction.
+        const exit = { pid: child.pid ?? null, code, signal, ms: ranMs, signalled }
+
         const clean = { startupError: null, warning: null }
-        if (code === 0) return resolvePromise(clean)
+        if (code === 0) {
+          log.info('emulator', 'exited cleanly', exit)
+          return resolvePromise(clean)
+        }
         // Stopped from RomMix, or killed from outside. Either way somebody
         // asked for this and it is not a failure to report back to them.
-        if (signalled || signal) return resolvePromise(clean)
+        if (signalled || signal) {
+          log.info('emulator', 'exited after being asked to stop', exit)
+          return resolvePromise(clean)
+        }
 
         // Long enough to have been a session, so whatever the code meant, the
         // emulator ran and may have written saves. Anything it flagged is worth
         // passing on; it is not worth throwing the session away over.
-        if (Date.now() - startedAt >= STARTUP_MS) {
+        if (ranMs >= STARTUP_MS) {
           const flagged = flaggedLines(output)
+          log.warn('emulator', 'exited non-zero after a real session', { ...exit, flagged })
           return resolvePromise({
             startupError: null,
             warning: flagged ? `The emulator reported: ${flagged}` : null
@@ -381,6 +446,15 @@ export class Launcher {
         // that silently did nothing — a missing libretro core is exactly this
         // shape — so it is reported even when the emulator explained nothing.
         const detail = flaggedLines(output) ?? tailOf(output)
+        // The one case where the emulator's own output is worth keeping in
+        // full: nothing was shown on screen, so this is the only account of
+        // why. Trimmed to the tail, which is where a program that is about to
+        // die says so.
+        log.error('emulator', 'quit immediately — treated as a crash', undefined, {
+          ...exit,
+          detail,
+          output: output.slice(-2000)
+        })
         return resolvePromise({
           startupError: detail
             ? `The emulator quit immediately: ${detail}`
@@ -393,7 +467,12 @@ export class Launcher {
 
   /** Ask the running game to quit. */
   stop(): void {
-    this.current?.kill()
+    if (!this.current) {
+      log.debug('launch', 'stop asked for with nothing running')
+      return
+    }
+    log.info('launch', 'stopping the running game', { romId: this.current.romId })
+    this.current.kill()
   }
 
   /**
@@ -416,14 +495,24 @@ export class Launcher {
     const argv = descriptor.open
       ? descriptor.open({ exec: prefix, installRef: emulator.install.ref })
       : prefix
+    const command = argv.join(' ')
+    log.info('emulator', 'starting on its own, with no game', { emulator: emulator.id, command })
+
     const [cmd, ...args] = argv
     const child = spawn(cmd, args, {
       stdio: 'ignore',
       detached: true,
       env: { ...process.env, ...(descriptor.env ?? {}) }
     })
-    child.on('error', () => undefined)
+    // Nothing waits on this process, so the log is the only place its failure
+    // to start can be recorded at all.
+    child.on('error', (err) =>
+      log.error('emulator', 'could not be started on its own', err, {
+        emulator: emulator.id,
+        command
+      })
+    )
     child.unref()
-    return argv.join(' ')
+    return command
   }
 }

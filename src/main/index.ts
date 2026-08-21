@@ -1,6 +1,7 @@
 import { BrowserWindow, app, protocol } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app'
 import { registerIpc } from './ipc'
+import { log, logSession } from './log'
 import { ensureRoot } from './root'
 
 /** RomMix main process bootstrap. */
@@ -10,6 +11,24 @@ import { ensureRoot } from './root'
 // singleton locks, none of which belong in a folder meant to hold the handful of
 // files RomMix itself writes.
 ensureRoot()
+
+logSession({
+  version: app.getVersion(),
+  electron: process.versions.electron,
+  chrome: process.versions.chrome,
+  node: process.versions.node
+})
+
+/**
+ * Anything that escaped everywhere else.
+ *
+ * Neither handler stops the process: an unhandled rejection from a background
+ * probe is not a reason to close a game the user is playing. What it is a
+ * reason for is a line in the log, which is the only place such a failure has
+ * ever been visible at all.
+ */
+process.on('uncaughtException', (cause) => log.error('app', 'uncaught exception', cause))
+process.on('unhandledRejection', (cause) => log.error('app', 'unhandled rejection', cause))
 
 // Must run before `app.ready`.
 protocol.registerSchemesAsPrivileged([
@@ -44,23 +63,31 @@ applyDisplayFlags()
 
 // Only one instance may own the ROM tree and the download queue.
 if (!app.requestSingleInstanceLock()) {
+  log.info('app', 'another instance already holds the lock, quitting')
   app.quit()
 } else {
   const rommix = new RomMixApp()
 
   void app.whenReady().then(async () => {
+    const took = log.since()
     rommix.registerImageProtocol()
-    rommix.store.pruneInstalled()
+    const pruned = rommix.store.pruneInstalled()
+    if (pruned > 0) log.info('library', 'dropped index entries whose files are gone', { pruned })
     await rommix.refreshEmulators()
     registerIpc(rommix)
     rommix.createWindow()
+    log.info('app', 'ready', { ms: took() })
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) rommix.createWindow()
+      if (BrowserWindow.getAllWindows().length === 0) {
+        log.info('app', 'activated with no window, opening one')
+        rommix.createWindow()
+      }
     })
   })
 
   app.on('second-instance', () => {
+    log.info('app', 'second instance started, focusing this one')
     const [window] = BrowserWindow.getAllWindows()
     if (window) {
       if (window.isMinimized()) window.restore()
@@ -68,5 +95,10 @@ if (!app.requestSingleInstanceLock()) {
     }
   })
 
-  app.on('window-all-closed', () => app.quit())
+  app.on('window-all-closed', () => {
+    log.info('app', 'last window closed, quitting')
+    app.quit()
+  })
+
+  app.on('before-quit', () => log.info('app', '--- RomMix quitting ---'))
 }

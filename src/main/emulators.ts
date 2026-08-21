@@ -11,6 +11,7 @@ import type {
   ResolvedInstall
 } from '@config/emulators'
 import type { Settings } from '@shared/types'
+import { log } from './log'
 import { managedEmulatorDir } from './releases'
 import { rootPaths } from './root'
 import {
@@ -288,6 +289,19 @@ async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promis
       ? `${descriptor.name} has not been run yet, so its folders do not exist.`
       : null
 
+  // What the probe concluded, per emulator: where it was found, and the folders
+  // every later decision — where a ROM lands, where its saves are, where a BIOS
+  // goes — is made from.
+  log.debug('probe', descriptor.id, {
+    install: install?.kind ?? null,
+    ref: install?.ref ?? null,
+    roms: paths.roms,
+    saves: paths.saves,
+    states: paths.states,
+    bios: paths.bios,
+    unavailableReason
+  })
+
   return {
     id: descriptor.id,
     name: descriptor.name,
@@ -302,12 +316,23 @@ async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promis
 }
 
 /** Probe every registered emulator and report what is usable right now. */
-export function detectEmulators(settings: Settings): Promise<EmulatorState[]> {
+export async function detectEmulators(settings: Settings): Promise<EmulatorState[]> {
   // Probed in the user's order, because that order *is* the answer to "which
   // emulator runs this": `resolveEmulator` takes the first available one that
   // covers the system, so sorting here is what makes reordering in Settings
   // change anything at all.
-  return Promise.all(
+  const took = log.since()
+  const states = await Promise.all(
     orderedEmulators(settings.emulatorPriority).map((descriptor) => probe(descriptor, settings))
   )
+
+  // In probe order, which is also priority order: the first entry covering a
+  // platform is the one that will run it, so this line answers "why is it
+  // launching that one" without reading any of the debug lines above.
+  log.info('probe', 'emulators detected', {
+    available: states.filter((state) => state.available).map((state) => state.id),
+    missing: states.filter((state) => !state.available).map((state) => state.id),
+    ms: took()
+  })
+  return states
 }

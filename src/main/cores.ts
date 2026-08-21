@@ -8,6 +8,7 @@ import { emulatorById } from '@config/emulators'
 import type { CoreContext, EmulatorState, RequiredCore } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
 import { realHome } from './host'
+import { log } from './log'
 import { fileSystemEnvironment } from './saveenv'
 import { extractZip } from './zip'
 
@@ -98,15 +99,29 @@ export async function missingCore(
   let core: RequiredCore | null
   try {
     core = descriptor.core(context)
-  } catch {
+  } catch (cause) {
     // A descriptor that cannot answer is a bug, but not one worth turning into
     // a refused launch: the emulator may still start, and if it does not it
     // now fails with its own message rather than ours.
+    log.error('core', 'the emulator descriptor could not name a core', cause, {
+      emulator: emulator.id,
+      system
+    })
     return null
   }
 
   if (!core) return null
-  return (await coreInstalled(core)) ? null : core
+  if (await coreInstalled(core)) {
+    log.debug('core', 'already installed', { core: core.fileName, dir: core.dir })
+    return null
+  }
+  log.info('core', 'missing and has to be installed before the launch', {
+    core: core.fileName,
+    name: core.name,
+    dir: core.dir,
+    system
+  })
+  return core
 }
 
 /**
@@ -135,8 +150,14 @@ export async function installCore(
     )
   }
 
+  log.info('core', 'downloading', { core: core.fileName, url })
+
   const response = await fetch(url)
   if (!response.ok || !response.body) {
+    log.error('core', 'the buildbot refused the download', undefined, {
+      url,
+      status: response.status
+    })
     throw new Error(`Could not download the ${core.name} core: ${url} responded ${response.status}`)
   }
 
@@ -172,6 +193,11 @@ export async function installCore(
     await mkdir(core.dir, { recursive: true })
     await copyFile(extracted, partial)
     await rename(partial, join(core.dir, core.fileName))
+    log.info('core', 'installed', {
+      core: core.fileName,
+      dir: core.dir,
+      bytes: received
+    })
   } finally {
     await rm(archive, { force: true })
     await rm(staging, { recursive: true, force: true })

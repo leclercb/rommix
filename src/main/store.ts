@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
+import { log } from './log'
 
 /**
  * On-disk state for RomMix.
@@ -106,6 +107,22 @@ export class Store {
         r
       ])
     )
+
+    // What RomMix believes at the moment it starts. Which credential kind is
+    // held explains most sign-in questions on its own — a client token that
+    // never expires and a JWT pair behave differently — and the token itself
+    // never leaves this file.
+    log.info('store', 'state loaded', {
+      dir: this.dir,
+      server: this.serverCache?.baseUrl ?? null,
+      authMode: this.serverCache?.authMode ?? null,
+      credentials: this.credentialsCache.clientToken
+        ? 'client token'
+        : this.credentialsCache.accessToken
+          ? 'access token'
+          : 'none',
+      installed: this.installedCache.size
+    })
   }
 
   // -- settings -------------------------------------------------------------
@@ -162,8 +179,12 @@ export class Store {
         writeFileSync(this.credentialsPath, Buffer.concat([Buffer.from('ENC1'), blob]))
         return
       }
-    } catch {
+      log.warn('store', 'no OS keyring available, credentials are stored in plain text')
+    } catch (cause) {
       // fall through to plaintext
+      log.warn('store', 'the OS keyring refused to encrypt, falling back to plain text', {
+        reason: (cause as Error).message
+      })
     }
     writeFileSync(this.credentialsPath, Buffer.concat([Buffer.from('RAW1'), Buffer.from(json)]), {
       mode: 0o600
@@ -180,7 +201,14 @@ export class Store {
         magic === 'ENC1' ? safeStorage.decryptString(body) : magic === 'RAW1' ? body.toString() : ''
       if (!json) return { ...EMPTY_CREDENTIALS }
       return { ...EMPTY_CREDENTIALS, ...(JSON.parse(json) as object) }
-    } catch {
+    } catch (cause) {
+      // Reads as "signed out" to the user, which is the wrong explanation: the
+      // tokens are there and could not be decrypted, usually because the
+      // keyring the OS offered this time is not the one that encrypted them.
+      log.warn('store', 'stored credentials could not be read, treating them as absent', {
+        path: this.credentialsPath,
+        reason: (cause as Error).message
+      })
       return { ...EMPTY_CREDENTIALS }
     }
   }

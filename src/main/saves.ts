@@ -15,6 +15,7 @@ import type {
 import type { RommClient } from './romm'
 import type { Store } from './store'
 import { realHome } from './host'
+import { log } from './log'
 import { fileSystemEnvironment } from './saveenv'
 import { extractZip, zipDirectory } from './zip'
 
@@ -184,10 +185,31 @@ export class SaveSync {
     }
 
     try {
-      return descriptor.saves(context)
-    } catch {
+      const paths = descriptor.saves(context)
+      // Where the descriptor decided this game's files are. Half of every save
+      // sync question is "which folder did it look in", and it is a folder
+      // nothing else in the log names.
+      log.debug('saves', 'located', {
+        romId: target.rom.id,
+        emulator: target.emulator.id,
+        system: target.system,
+        variant: target.variant ?? null,
+        saves: paths.saves?.dir ?? null,
+        savesMatch: paths.saves?.match ?? null,
+        states: paths.states?.dir ?? null,
+        statesMatch: paths.states?.match ?? null,
+        tag: paths.emulator ?? null,
+        unsyncableReason: paths.unsyncableReason ?? null
+      })
+      return paths
+    } catch (cause) {
       // A descriptor that fails to resolve a path is a bug, but not one worth
       // turning into a failed launch: the game still runs, unsynced.
+      log.error('saves', 'the emulator descriptor could not say where saves live', cause, {
+        romId: target.rom.id,
+        emulator: target.emulator.id,
+        system: target.system
+      })
       return { saves: null, states: null }
     }
   }
@@ -264,7 +286,10 @@ export class SaveSync {
    * Returns how many assets were written locally.
    */
   async pull(target: SaveTarget): Promise<number> {
-    if (!this.store.settings.syncSavesDown) return 0
+    if (!this.store.settings.syncSavesDown) {
+      log.debug('saves', 'automatic pull is switched off', { romId: target.rom.id })
+      return 0
+    }
     const paths = this.locate(target)
 
     let written = 0
@@ -390,7 +415,9 @@ export class SaveSync {
     const paths = this.locate(target)
     const saves = await this.pullKind(target, paths, 'save')
     const states = await this.pullKind(target, paths, 'state')
-    return { saves, states, skippedReason: this.reasonFor(paths, saves + states) }
+    const result = { saves, states, skippedReason: this.reasonFor(paths, saves + states) }
+    log.info('saves', 'pulled on request', { romId: target.rom.id, ...result })
+    return result
   }
 
   /**
@@ -403,7 +430,12 @@ export class SaveSync {
   async pushNow(target: SaveTarget): Promise<SaveSyncResult> {
     const paths = this.locate(target)
     const pushed = await this.upload(target, paths, 0)
-    return { ...pushed, skippedReason: this.reasonFor(paths, pushed.saves + pushed.states) }
+    const result = {
+      ...pushed,
+      skippedReason: this.reasonFor(paths, pushed.saves + pushed.states)
+    }
+    log.info('saves', 'pushed on request', { romId: target.rom.id, ...result })
+    return result
   }
 
   /**
@@ -502,6 +534,8 @@ export class SaveSync {
     const wanted = new Set(chosen)
     const tag = paths.emulator ?? target.emulator.id
     const moved = { saves: 0, states: 0 }
+    /** Which of the approved paths this side actually found again. */
+    const found = new Set<string>()
 
     for (const kind of ['save', 'state'] as const) {
       const location = this.locationFor(paths, kind)
@@ -511,12 +545,27 @@ export class SaveSync {
       const selected = local.filter((asset) => wanted.has(asset.path))
       if (selected.length === 0) continue
 
+      for (const asset of selected) found.add(asset.path)
+
       const count = await this.uploadAssets(target, kind, selected, tag)
       if (kind === 'save') moved.saves += count
       else moved.states += count
     }
 
-    return { ...moved, skippedReason: this.reasonFor(paths, moved.saves + moved.states) }
+    // A file the dialog offered that the scan no longer finds is how an
+    // approved save silently fails to arrive, and nothing else would say so.
+    if (found.size < wanted.size) {
+      log.warn('saves', 'some approved files were not found on a fresh scan', {
+        romId: target.rom.id,
+        approved: wanted.size,
+        found: found.size,
+        missing: [...wanted].filter((path) => !found.has(path))
+      })
+    }
+
+    const result = { ...moved, skippedReason: this.reasonFor(paths, moved.saves + moved.states) }
+    log.info('saves', 'pushed the approved files', { romId: target.rom.id, ...result })
+    return result
   }
 
   /**
@@ -560,6 +609,14 @@ export class SaveSync {
         (id === null ? item.id === null && item.fileName === fileName : item.id === id)
     )
     if (!asset) throw new Error(`${fileName} is no longer there to delete`)
+
+    log.info('saves', `deleting a ${kind}`, {
+      romId,
+      id: asset.id,
+      fileName: asset.fileName,
+      localPath: asset.localPath,
+      onServer: asset.id !== null
+    })
 
     if (asset.localPath) await rm(asset.localPath, { force: true, recursive: true })
     if (asset.id === null) return
@@ -635,8 +692,24 @@ export class SaveSync {
           await this.restoreFile(location, item.file_name, match?.path, download)
         }
         written += 1
-      } catch {
-        // A single failed asset should not block the launch.
+        log.info('saves', `${kind} pulled`, {
+          romId: target.rom.id,
+          id: item.id,
+          fileName: item.file_name,
+          emulator: item.emulator,
+          into: match?.path ?? location.dir,
+          overwrote: Boolean(match)
+        })
+      } catch (cause) {
+        // A single failed asset should not block the launch — but it is the
+        // user's save, and until now nothing anywhere recorded that it did not
+        // arrive.
+        log.error('saves', `could not pull a ${kind}`, cause, {
+          romId: target.rom.id,
+          id: item.id,
+          fileName: item.file_name,
+          dir: location.dir
+        })
       }
     }
     return written
@@ -750,7 +823,18 @@ export class SaveSync {
         if (asset.isDirectory) {
           staged = join(tmpdir(), `rommix-save-${target.rom.id}-${Date.now()}.zip`)
           const count = await zipDirectory(asset.path, staged)
-          if (count === 0) continue
+          if (count === 0) {
+            log.info('saves', 'save folder is empty, nothing to upload', {
+              romId: target.rom.id,
+              dir: asset.path
+            })
+            continue
+          }
+          log.debug('saves', 'archived a save folder for upload', {
+            romId: target.rom.id,
+            dir: asset.path,
+            files: count
+          })
           payload = staged
         }
 
@@ -760,8 +844,16 @@ export class SaveSync {
           await this.client.uploadState(target.rom.id, payload, asset.fileName, tag)
         }
         uploaded += 1
-      } catch {
-        // Keep going; a partial sync beats aborting on the first failure.
+      } catch (cause) {
+        // Keep going; a partial sync beats aborting on the first failure. The
+        // count the interface shows cannot say which file was left behind, so
+        // this line is the only place that names it.
+        log.error('saves', `could not upload a ${kind}`, cause, {
+          romId: target.rom.id,
+          fileName: asset.fileName,
+          path: asset.path,
+          emulator: tag
+        })
       } finally {
         if (staged) await rm(staged, { force: true }).catch(() => undefined)
       }

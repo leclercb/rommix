@@ -231,6 +231,9 @@ export function SettingsScreen(): JSX.Element {
             <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
             <dt>Controller</dt>
             <dd>{controller ?? 'none seen — press a button on it'}</dd>
+            {/* The file to attach to a bug report, named where the problems are. */}
+            <dt>Log file</dt>
+            <dd>{diagnostics.logPath}</dd>
           </dl>
 
           {/* Per-emulator detail lives only in the Emulators section above. */}
