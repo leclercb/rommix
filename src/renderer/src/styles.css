@@ -3,8 +3,9 @@
  *
  * Sizing assumes a couch: nothing smaller than 16px, generous hit areas, and a
  * 3.5% safe-area inset so nothing important lands in a TV's overscan. Focus is
- * communicated by scale, a bright ring and elevation, because on a TV a subtle
- * outline is invisible from three metres away.
+ * communicated by a bright ring, a colour change and elevation — and, where
+ * there is no colour to change, by scale — because on a TV a subtle outline is
+ * invisible from three metres away.
  */
 
 :root {
@@ -31,7 +32,19 @@
   --safe-x: 3.5vw;
   --safe-y: 3.5vh;
 
-  --focus-ring: 0 0 0 3px var(--accent), 0 12px 34px rgba(0, 0, 0, 0.65);
+  /*
+   * Two focus treatments, for two kinds of focusable.
+   *
+   * `--focus-lift` is the elevation alone, for anything that fills with accent
+   * when focused: the colour is already the loudest signal available, and the
+   * ring below would only add three pixels on every side — which, animated in
+   * over `--transition`, reads as the control growing.
+   *
+   * `--focus-ring` adds the outline, for everything that cannot change colour to
+   * say it is focused: cover art, a text field, a row of a list.
+   */
+  --focus-lift: 0 12px 34px rgba(0, 0, 0, 0.65);
+  --focus-ring: 0 0 0 3px var(--accent), var(--focus-lift);
   --transition: 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
 
   color-scheme: dark;
@@ -95,135 +108,164 @@ input {
 
 .app {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
   height: 100%;
   background:
     radial-gradient(120vw 90vh at 78% -10%, rgba(90, 200, 250, 0.09), transparent 62%), var(--bg);
 }
 
-/* The left padding is the TV-safe margin, since that edge is the screen edge.
-   The right edge is internal, so it only needs enough room to keep the item
-   highlight from running into the divider — but it must not be so much smaller
-   than --safe-x that the items read as shoved against the border. */
-.rail {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: calc(var(--safe-y) + 8px) 36px var(--safe-y) var(--safe-x);
-  border-right: 1px solid var(--border);
+/*
+ * The bar across the top: mark on the left, menu in the middle, who you are on
+ * the right.
+ *
+ * The two outer tracks are equal fractions so the menu is centred on the
+ * *screen* rather than on the space left over between two blocks of differing
+ * width — the brand is a fixed mark and wordmark, the status is a username of
+ * any length, and centring between them would leave the menu drifting from one
+ * screen to the next.
+ *
+ * A grid row rather than a floating bar: the page below scrolls inside its own
+ * box, so nothing can ever pass underneath this and be lost behind it.
+ */
+.topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  padding: 12px var(--safe-x);
+  border-bottom: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.28);
-  min-width: 268px;
 }
 
-/*
- * The masthead: mark and wordmark on one centred line, in a panel of their own.
- *
- * Stacked and left-aligned they read as two loose elements that happen to sit
- * above the menu. Set side by side inside a panel they read as one thing — the
- * app's identity — and its lower edge gives the menu a place to begin, which is
- * what the bare margin was failing to do.
- *
- * The panel is lit from the top-left, where the mark is, so the block has a
- * direction rather than being a flat rectangle drawn around two children.
- */
-.rail__brand {
+.topbar__brand {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 11px;
-  margin-bottom: 20px;
-  padding: 13px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background:
-    radial-gradient(70% 130% at 16% 0%, rgba(90, 200, 250, 0.16), transparent 68%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
+  min-width: 0;
 }
 
-.rail__logo {
+.topbar__logo {
   width: 38px;
   height: 38px;
-  /* The mark is the only saturated thing in the rail; the glow ties it to the
-     accent wash behind it instead of leaving it pasted onto the panel. */
+  /* The mark is the only saturated thing in the bar; the glow ties it to the
+     accent wash behind it instead of leaving it pasted onto the ground. */
   filter: drop-shadow(0 3px 10px rgba(90, 200, 250, 0.3));
 }
 
-.rail__wordmark {
+.topbar__wordmark {
   font-size: 23px;
   font-weight: 750;
   letter-spacing: -0.4px;
   /* Its own line box would push the wordmark off the mark's centre line. */
   line-height: 1;
+  white-space: nowrap;
 }
 
-.rail__wordmark span {
+.topbar__wordmark span {
   color: var(--accent);
 }
 
-.rail__item {
+.topbar__nav {
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 12px 16px;
+  gap: 6px;
+}
+
+/* The end of the bar: the server this library comes from, right-aligned and
+   quiet. Two lines on one row — who you are, then where — because the username
+   is the part looked for and the host is the part confirmed. */
+.topbar__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-self: end;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-faint);
+  min-width: 0;
+}
+
+.topbar__user,
+.topbar__host {
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__user {
+  color: var(--text-dim);
+  font-weight: 650;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
   border-radius: var(--radius);
+  /* The active mark is drawn on this edge, so the space is reserved on every
+     item — added only to the active one, each item would shift as focus
+     travelled along the bar. */
+  border-bottom: 3px solid transparent;
   color: var(--text-dim);
   font-weight: 600;
   transition: var(--transition);
   white-space: nowrap;
 }
 
-.rail__item[data-active='true'] {
+.nav-item[data-active='true'] {
   color: var(--text);
   background: var(--surface);
+  border-bottom-color: var(--accent);
 }
 
-.rail__item[data-focused='true'] {
+/* Lifted rather than nudged sideways: this is a row now, and a horizontal shift
+   would close the gap to the item beside it. */
+.nav-item[data-focused='true'] {
   background: var(--accent);
   color: var(--accent-contrast);
-  box-shadow: var(--focus-ring);
-  transform: translateX(4px);
+  border-bottom-color: var(--accent);
+  box-shadow: var(--focus-lift);
+  transform: translateY(-2px);
 }
 
-/* A fixed column so the labels line up whatever the icon's own width. */
-.rail__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-}
-
-.rail__spacer {
-  flex: 1;
-}
-
-.rail__status {
-  padding: 10px 16px;
-  font-size: 13px;
-  color: var(--text-faint);
-  line-height: 1.45;
-}
-
-/* Sits under the connection line, quieter than it: this is a signature, not
-   something the user has to read. */
-.rail__credit {
-  padding: 2px 16px 0;
-  font-size: 12px;
-  color: var(--text-faint);
-  opacity: 0.75;
-}
-
-.rail__heart {
-  color: var(--danger);
-}
-
-.rail__badge {
-  margin-left: auto;
+.nav-item__badge {
   background: var(--accent);
   color: var(--accent-contrast);
   border-radius: 999px;
   padding: 1px 9px;
   font-size: 13px;
   font-weight: 700;
+}
+
+/* A focused item is painted accent; its badge has to leave that ground. */
+.nav-item[data-focused='true'] .nav-item__badge {
+  background: var(--accent-contrast);
+  color: var(--accent);
+}
+
+/*
+ * Too narrow for five labels: the menu keeps its place in the middle and drops
+ * to marks alone, and the server line goes, being the one thing here that is
+ * never acted on.
+ */
+@media (max-width: 1100px) {
+  .nav-item__label,
+  .topbar__status {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 10px 14px;
+  }
+}
+
+/* Narrower still, the wordmark goes too and the mark stands for the app. */
+@media (max-width: 720px) {
+  .topbar__wordmark {
+    display: none;
+  }
 }
 
 .content {
@@ -234,8 +276,9 @@ input {
   /* Scrolling to a focused element aligns against this inset rather than the
      hard edge, so the row you land on keeps a band of context above and below
      it instead of sitting against the rim of the screen. The bottom inset is
-     the larger of the two because the hint bar floats over that edge. */
-  scroll-padding: 96px 0 128px;
+     the larger of the two because the hint bar floats over that edge; the top
+     is modest because the bar above is a row of its own and covers nothing. */
+  scroll-padding: 40px 0 128px;
 }
 
 .content::-webkit-scrollbar {
@@ -319,22 +362,37 @@ input {
   padding: 13px 15px;
 }
 
+/* Colour and elevation, at exactly the size it already was — no scale, and no
+   outline either, both of which make a focused button grow into the ones beside
+   it. The accent fill is doing the work. */
 .btn[data-focused='true'] {
   background: var(--accent);
   color: var(--accent-contrast);
   border-color: var(--accent);
-  box-shadow: var(--focus-ring);
-  transform: scale(1.04);
+  box-shadow: var(--focus-lift);
 }
 
+/*
+ * The one button on a screen worth reaching for first — Play, Download, Connect.
+ *
+ * Tinted, not filled. A solid accent panel is what *focus* looks like here, so a
+ * button painted that way while nothing is on it says "focused" from across the
+ * room, and Play sitting next to a genuinely focused Pull saves reads as two
+ * focused buttons. The tint keeps it the loudest thing in the row while leaving
+ * the fill to mean one thing only.
+ *
+ * Deliberately the same treatment as a chosen segment in `.segmented__option` —
+ * both are "this is the one", drawn without claiming the focus colour — and the
+ * same shape as `.btn--danger`, which has always taken its colour on focus alone.
+ *
+ * There is no focused rule to go with this: `.btn[data-focused]` carries an
+ * attribute as well as a class, so it already outweighs this and a focused Play
+ * fills in exactly like every other focused button.
+ */
 .btn--primary {
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border-color: var(--accent);
-}
-
-.btn--primary[data-focused='true'] {
-  background: #7ad6ff;
+  background: rgba(90, 200, 250, 0.14);
+  border-color: var(--accent-strong);
+  color: var(--text);
 }
 
 .btn--danger[data-focused='true'] {
@@ -908,6 +966,155 @@ input {
   overflow: hidden;
 }
 
+/* --------------------------------------------------------------------------
+   Game banner (detail screen)
+   -------------------------------------------------------------------------- */
+
+/*
+ * The head of a game's page: its own artwork, edge to edge, with the cover and
+ * the title over it.
+ *
+ * Full-bleed sideways and pulled up over the page's top inset, so the banner
+ * meets the navigation bar and the three edges of the screen — a picture inset
+ * by the same margin as a paragraph reads as an illustration in the page rather
+ * than as the page's own head. The insets are given back to the contents, which
+ * still line up with everything below.
+ *
+ * Deliberately not clipped: the artwork is held inside `.backdrop` instead, so
+ * that a focused Play button's ring and drop shadow are free to fall past the
+ * banner's lower edge rather than being cut off at it.
+ */
+.game-hero {
+  position: relative;
+  margin: calc(var(--safe-y) * -1) calc(var(--safe-x) * -1) 0;
+  padding: calc(var(--safe-y) + 26px) var(--safe-x) 26px;
+}
+
+.game-hero__body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 34px;
+  align-items: end;
+}
+
+.game-hero__art {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.7);
+}
+
+.game-hero__title {
+  font-size: 46px;
+  font-weight: 780;
+  letter-spacing: -1.4px;
+  line-height: 1.05;
+  margin: 0 0 12px;
+  /* The banner is a photograph; without this the title dissolves into whatever
+     happens to be bright behind it. */
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+}
+
+.game-hero__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* Solid where the other chips are translucent: this is the one figure in the
+   line that is read rather than scanned. */
+.game-hero__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 200, 87, 0.14);
+  border: 1px solid rgba(255, 200, 87, 0.4);
+  color: var(--warning);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.game-hero__summary {
+  color: var(--text-dim);
+  max-width: 78ch;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The chips sit on artwork rather than on the page, so they carry their own
+   dark ground instead of the near-transparent one. */
+.game-hero .chip {
+  background: rgba(6, 8, 12, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  backdrop-filter: blur(6px);
+}
+
+.game-hero .chip--on {
+  background: rgba(93, 219, 160, 0.2);
+  border-color: rgba(93, 219, 160, 0.45);
+  color: var(--success);
+}
+
+/* The buttons are the last thing in the banner; the row's own top margin is
+   enough and its bottom one would only push the tabs away. */
+.game-hero .btn-row {
+  margin-bottom: 0;
+}
+
+/* Under a narrow window the cover would squeeze the title into two words a
+   line; the artwork goes above the text instead of beside it. */
+@media (max-width: 900px) {
+  .game-hero__body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .game-hero__art {
+    max-width: 190px;
+  }
+}
+
+/*
+ * The artwork itself, behind everything: blurred past legibility, dimmed, and
+ * dissolved into the page at the bottom so the banner has no edge to notice.
+ *
+ * Scaled up because a blur of this radius samples past the edges of the image
+ * and would otherwise leave a soft grey border around all four sides.
+ */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.15);
+  filter: blur(34px) saturate(1.25);
+  opacity: 0.38;
+}
+
+.backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(11, 13, 19, 0.55), rgba(11, 13, 19, 0.15) 40%, var(--bg)),
+    linear-gradient(90deg, rgba(11, 13, 19, 0.72), transparent 60%);
+}
+
 .chip {
   display: inline-block;
   padding: 3px 11px;
@@ -1036,7 +1243,7 @@ input {
   background: var(--accent);
   color: var(--accent-contrast);
   border-color: var(--accent);
-  box-shadow: var(--focus-ring);
+  box-shadow: var(--focus-lift);
 }
 
 /* --------------------------------------------------------------------------
@@ -1178,7 +1385,8 @@ input {
   font-variant-numeric: tabular-nums;
 }
 
-/* Button-hint bar along the bottom, like a console UI. */
+/* The footer: the signature at one end, the button hints at the other, like a
+   console UI. */
 .hints {
   position: fixed;
   bottom: 0;
@@ -1203,6 +1411,35 @@ input {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
+}
+
+/*
+ * Hard left, the hints staying hard right.
+ *
+ * An auto margin rather than `space-between` on the bar: the bar wraps, and
+ * with space-between a wrapped second line would spread its two remaining
+ * hints to the far edges instead of keeping them together at the end.
+ *
+ * Quieter than the hints beside it — this is a signature, not something anyone
+ * has to read — and the first thing dropped on a window too narrow to hold both
+ * it and the buttons it shares the line with.
+ */
+.hints__credit {
+  margin-right: auto;
+  font-size: 13px;
+  color: var(--text-faint);
+  opacity: 0.75;
+}
+
+.hints__heart {
+  color: var(--danger);
+  margin: 0 4px;
+}
+
+@media (max-width: 900px) {
+  .hints__credit {
+    display: none;
+  }
 }
 
 /*
@@ -1247,6 +1484,28 @@ input {
 .kv dd {
   margin: 0;
   word-break: break-all;
+}
+
+/*
+ * The same list, in as many columns as the width will hold.
+ *
+ * For a list long enough that one column of it runs off the bottom of the
+ * screen — a game RomM has full metadata for is fifteen rows — where the second
+ * column costs nothing but the space already going spare beside it.
+ *
+ * `auto-fill` rather than a fixed two: below the minimum it becomes one column
+ * on its own, which is the whole of the narrow-window behaviour.
+ */
+.kv--columns {
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 10px 40px;
+}
+
+.kv--columns .kv__row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 20px;
+  align-items: baseline;
 }
 
 /* --------------------------------------------------------------------------
@@ -1317,11 +1576,48 @@ input {
    Tabs
    -------------------------------------------------------------------------- */
 
+/*
+ * A card holding a tab strip and whatever the strip is pointing at.
+ *
+ * The two are one block rather than a row of buttons above some loose content:
+ * the strip is the lid, and the border runs round both so the answer to "what
+ * does this tab govern" is drawn rather than inferred.
+ */
+.panel {
+  margin: 26px 0 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.panel__body {
+  padding: 4px 22px 18px;
+}
+
+/* Inside the card the lists supply the spacing, so the first and last of them
+   must not add the page's margins on top of the padding. */
+.panel__body > :first-child {
+  margin-top: 14px;
+}
+
+.panel__body > :last-child {
+  margin-bottom: 0;
+}
+
 .tabs {
   display: flex;
   gap: 8px;
   margin: 26px 0 4px;
   border-bottom: 1px solid var(--border);
+}
+
+/* In a card the strip is the card's own top edge: flush with it, on a slightly
+   raised ground, and without the margins it needs when it stands alone. */
+.panel .tabs {
+  margin: 0;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .tab {
@@ -1352,6 +1648,10 @@ input {
 
 .tab__badge {
   margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
   font-size: 12px;
   font-weight: 700;
   color: var(--text-faint);

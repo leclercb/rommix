@@ -11,7 +11,7 @@ import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
 import { SettingsScreen } from './screens/Settings'
 
-/** App shell: navigation rail, the current screen, and global overlays. */
+/** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
   const { route, goBack, navigate, downloads, runningRomId, toasts, status } = useApp()
 
@@ -39,61 +39,64 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
-      <FocusZone id="rail">
-        <nav className="rail">
-          <div className="rail__brand">
-            <Logo className="rail__logo" />
-            <div className="rail__wordmark">
+      <FocusZone id="nav">
+        {/* The mark on the left, the menu across the middle, who you are on the
+            right: the same three slots RomM's own bar has. The brand and the
+            status flank the menu as equal tracks so the menu is centred on the
+            screen rather than on whatever is left over beside them. */}
+        <header className="topbar">
+          <div className="topbar__brand">
+            <Logo className="topbar__logo" />
+            <div className="topbar__wordmark">
               Rom<span>Mix</span>
             </div>
           </div>
-          <RailItem
-            icon="home"
-            label="Home"
-            route={{ name: 'home' }}
-            active={route.name === 'home'}
-          />
-          <RailItem
-            icon="library"
-            label="Library"
-            route={{ name: 'library' }}
-            active={route.name === 'library'}
-          />
-          <RailItem
-            icon="downloads"
-            label="Downloads"
-            route={{ name: 'downloads' }}
-            active={route.name === 'downloads'}
-            badge={activeDownloads > 0 ? activeDownloads : undefined}
-          />
-          <RailItem
-            icon="bios"
-            label="BIOS"
-            route={{ name: 'bios' }}
-            active={route.name === 'bios'}
-          />
-          <RailItem
-            icon="settings"
-            label="Settings"
-            route={{ name: 'settings' }}
-            active={route.name === 'settings'}
-          />
-          <div className="rail__spacer" />
-          <div className="rail__status">
+
+          <nav className="topbar__nav">
+            <NavItem
+              icon="home"
+              label="Home"
+              route={{ name: 'home' }}
+              active={route.name === 'home'}
+            />
+            <NavItem
+              icon="library"
+              label="Library"
+              route={{ name: 'library' }}
+              active={route.name === 'library'}
+            />
+            <NavItem
+              icon="downloads"
+              label="Downloads"
+              route={{ name: 'downloads' }}
+              active={route.name === 'downloads'}
+              badge={activeDownloads > 0 ? activeDownloads : undefined}
+            />
+            <NavItem
+              icon="bios"
+              label="BIOS"
+              route={{ name: 'bios' }}
+              active={route.name === 'bios'}
+            />
+            <NavItem
+              icon="settings"
+              label="Settings"
+              route={{ name: 'settings' }}
+              active={route.name === 'settings'}
+            />
+          </nav>
+
+          <div className="topbar__status">
             {status?.connected ? (
               <>
-                {status.user?.username}
-                <br />
-                {hostOf(status.baseUrl)}
+                <span className="topbar__user">{status.user?.username}</span>
+                <span className="topbar__host">{hostOf(status.baseUrl)}</span>
               </>
             ) : (
               'Not connected'
             )}
           </div>
-          <div className="rail__credit">
-            Developped with <span className="rail__heart">♥</span> by leclercb
-          </div>
-        </nav>
+        </header>
       </FocusZone>
 
       <FocusZone id="content">
@@ -125,7 +128,7 @@ function Screen({ route }: { route: Route }): JSX.Element {
   }
 }
 
-function RailItem({
+function NavItem({
   icon,
   label,
   route,
@@ -142,12 +145,19 @@ function RailItem({
   const { ref, props } = useFocusable({ onSelect: () => navigate(route), actionLabel: label })
 
   return (
-    <div ref={ref as Ref<HTMLDivElement>} className="rail__item" data-active={active} {...props}>
-      <span className="rail__icon">
-        <Icon name={icon} size={20} />
-      </span>
-      {label}
-      {badge ? <span className="rail__badge">{badge}</span> : null}
+    <div
+      ref={ref as Ref<HTMLDivElement>}
+      className="nav-item"
+      data-active={active}
+      aria-label={label}
+      title={label}
+      {...props}
+    >
+      <Icon name={icon} size={20} />
+      {/* Hidden on a narrow window, where five labels would wrap the bar onto a
+          second line. The title on the row is what is left to name it there. */}
+      <span className="nav-item__label">{label}</span>
+      {badge ? <span className="nav-item__badge">{badge}</span> : null}
     </div>
   )
 }
@@ -245,7 +255,7 @@ function Toasts({ toasts }: { toasts: Toast[] }): JSX.Element {
   )
 }
 
-/** Just the hostname, so the rail does not show a full URL. */
+/** Just the hostname, so the bar does not show a full URL. */
 function hostOf(url: string | null): string {
   if (!url) return ''
   try {

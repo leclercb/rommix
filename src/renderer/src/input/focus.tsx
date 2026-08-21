@@ -94,17 +94,19 @@ const LayerContext = createContext(0)
 /**
  * The region of the screen a subtree belongs to.
  *
- * Zones are what stop the navigation rail and the page from competing. Purely
- * geometric navigation has no idea that the rail is a different *kind* of thing
- * from the list beside it: stepping down the last item of a page finds a rail
- * item below and to the left, takes it because nothing else is down there, and
- * the user is suddenly in the menu without having asked to be. Which one wins
- * depends on where the page happens to have ended — that is the unpredictability.
+ * Zones are what stop the navigation bar and the page from competing. Purely
+ * geometric navigation has no idea that the bar is a different *kind* of thing
+ * from the page below it: a press that finds nothing in the direction it was
+ * going takes whatever else lies that way, and the user is suddenly in the menu
+ * without having asked to be. Which one wins depends on where the page happens
+ * to have ended — that is the unpredictability.
  *
- * So up and down stay inside the zone they started in, and left and right cross
- * between zones. That is the same contract every console UI offers, and it is
- * what makes the rail feel like somewhere you *go* rather than somewhere you
- * fall into.
+ * So a zone is left only when it has nothing further to offer in that direction,
+ * and — going up or down — only once the page behind it has been scrolled to its
+ * end as well. Walking up a library reaches the top of the library first, and
+ * only the next press reaches the bar. That is the same contract every console
+ * UI offers, and it is what makes the menu feel like somewhere you *go* rather
+ * than somewhere you fall into.
  */
 const ZoneContext = createContext('root')
 
@@ -450,32 +452,41 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
         return step[0].id
       }
 
-      // Within the zone first, always. Up and down stop at its edge rather than
-      // spilling into whatever else is on screen.
+      /**
+       * Off the edge of this zone and into the next one that way.
+       *
+       * Where it lands is where you last were in that zone — the bar remembers
+       * which item you left it on, the page remembers the game you were looking
+       * at — falling back to whatever lies that way if you have never been there.
+       */
+      const cross = (): string | null => {
+        const outside = candidates.filter((entry) => entry.zone !== current.zone)
+        const crossing = pick(outside)
+        if (!crossing) return null
+        const zone = entries.current.get(crossing)?.zone
+        const remembered = zone ? zoneMemory.current.get(zone) : undefined
+        return remembered && outside.some((entry) => entry.id === remembered)
+          ? remembered
+          : crossing
+      }
+
+      // Within the zone first, always: a zone is left only once there is
+      // genuinely nothing further to reach inside it.
       const inZone = candidates.filter((entry) => entry.zone === current.zone)
       let target = pick(inZone)
 
-      // Nothing left to focus that way, but the page may still have something
-      // to show: the last press before the edge reveals the rest of it.
+      // Up and down are the one way across, the menu being a row above the page.
+      // Left and right stay put: they walk along the bar, and off its last item
+      // there is nothing that way except whatever the page happens to have in
+      // its left-hand column, which is not somewhere anyone asked to go.
       if (!target && vertical) {
-        scrollToEnd(current.element, direction)
-        return
-      }
-
-      if (!target && !vertical) {
-        // Sideways off the edge of a zone is the one way across. Where it lands
-        // is where you last were in that zone — the rail remembers which item
-        // you left it on, the page remembers the game you were looking at —
-        // falling back to whatever lies that way if you have never been there.
-        const outside = candidates.filter((entry) => entry.zone !== current.zone)
-        const crossing = pick(outside)
-        if (crossing) {
-          const zone = entries.current.get(crossing)?.zone
-          const remembered = zone ? zoneMemory.current.get(zone) : undefined
-          const usable =
-            remembered && outside.some((entry) => entry.id === remembered) ? remembered : crossing
-          target = usable
-        }
+        // Nothing left to focus that way, but the page may still have something
+        // to show: the last press before the edge reveals the rest of it. That
+        // is also what keeps the bar out of the way — the page is left for it
+        // only from the very top, never from the middle of a list that still
+        // scrolls.
+        if (scrollToEnd(current.element, direction)) return
+        target = cross()
       }
 
       if (!target) return

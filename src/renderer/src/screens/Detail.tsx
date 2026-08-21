@@ -1,4 +1,4 @@
-import { Fragment, type JSX, useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
 import type {
   BiosPlatform,
@@ -11,6 +11,7 @@ import type {
   SaveSyncState
 } from '@shared/types'
 import {
+  ArtBackdrop,
   CoverArt,
   FocusButton,
   Hints,
@@ -23,7 +24,7 @@ import {
 import { Icon, type IconName } from '../icons'
 import { useApp } from '../state'
 
-type DetailTab = 'about' | 'saves' | 'files' | 'screenshots'
+type DetailTab = 'details' | 'saves' | 'files' | 'screenshots'
 
 /**
  * How many files the push confirmation lists before summarising the rest.
@@ -131,7 +132,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
    */
   const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
   const [choosing, setChoosing] = useState<LaunchChoice | null>(null)
-  const [tab, setTab] = useState<DetailTab>('about')
+  const [tab, setTab] = useState<DetailTab>('details')
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   /** Null until RomM has been asked, which is what the button waits on. */
   const [favourite, setFavourite] = useState<boolean | null>(null)
@@ -140,7 +141,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
   useEffect(() => {
     setRom(null)
-    setTab('about')
+    setTab('details')
     void window.rommix.library
       .rom(romId)
       .then(setRom)
@@ -194,7 +195,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     download?.state === 'extracting'
   const running = runningRomId === romId
 
-  // Only to decide whether "Run with…" is worth showing, and what this
+  // Only to decide whether "Run with" is worth showing, and what this
   // emulator still needs done by hand. The launch path asks again rather than
   // trusting either, since the emulator for a platform can be changed from
   // Settings while this screen is open.
@@ -549,6 +550,9 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     entry?.system ??
     resolveSystem(rom.platform_slug, rom.platform_fs_slug, settings?.systemOverrides)
   const rating = rom.metadatum.average_rating ? Math.round(rom.metadatum.average_rating) : null
+  const year = rom.metadatum.first_release_date
+    ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
+    : null
   const progress =
     download && download.totalBytes > 0
       ? Math.round((download.receivedBytes / download.totalBytes) * 100)
@@ -556,135 +560,163 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
   return (
     <div className="content">
-      <div className="hero">
-        <div className="hero__art">
-          <CoverArt path={rom.path_cover_large ?? rom.path_cover_small} name={title} />
-        </div>
-        <div>
-          <h1 className="hero__title">{title}</h1>
-          <div className="hero__meta">
-            <span className="chip chip--icon">
-              <PlatformIcon
-                slug={rom.platform_slug}
-                system={system}
-                size={20}
-                label={rom.platform_display_name}
-              />
-              {rom.platform_display_name}
-            </span>
-            {/* The rating rather than the release year: the year is a fact
-                about the game, but the rating is the one that helps decide
-                whether to press Play. The full release date is in About. */}
-            {rating !== null ? (
-              <span className="chip chip--icon">
-                <Icon name="rating" size={15} />
-                {rating} / 100
-              </span>
-            ) : null}
-            <span className="chip">{formatBytes(rom.fs_size_bytes)}</span>
-            {entry ? <span className="chip chip--on">Downloaded</span> : null}
-            {rom.metadatum.genres.slice(0, 3).map((genre) => (
-              <span className="chip" key={genre}>
-                {genre}
-              </span>
-            ))}
+      {/* The game's own banner: a still of it washed out behind the cover and
+          the title, running to both edges of the screen. The artwork is what
+          says which game this is from across a room — the words only confirm
+          it — so it is given the top of the page rather than a thumbnail. */}
+      <div className="game-hero">
+        <ArtBackdrop
+          paths={[rom.merged_screenshots?.[0], rom.path_cover_large, rom.path_cover_small]}
+        />
+        <div className="game-hero__body">
+          <div className="game-hero__art">
+            <CoverArt path={rom.path_cover_large ?? rom.path_cover_small} name={title} />
           </div>
-          {rom.summary ? <p className="hero__summary">{rom.summary}</p> : null}
-        </div>
-      </div>
+          <div className="game-hero__text">
+            <h1 className="game-hero__title">{title}</h1>
+            <div className="game-hero__meta">
+              <span className="chip chip--icon">
+                <PlatformIcon
+                  slug={rom.platform_slug}
+                  system={system}
+                  size={22}
+                  label={rom.platform_display_name}
+                />
+                {rom.platform_display_name}
+              </span>
+              {/* Out on its own rather than as one chip among several: it is
+                  the one number here that helps decide whether to press Play,
+                  and in a line of grey pills it was read last. */}
+              {rating !== null ? (
+                <span className="game-hero__rating">
+                  <Icon name="rating" size={16} />
+                  {rating}
+                  <span className="faint"> / 100</span>
+                </span>
+              ) : null}
+              {/* The year only; the full release date is a row in Details. */}
+              {year !== null ? <span className="chip">{year}</span> : null}
+              {/* Which dump this is, where the game itself is named — the pair
+                  that decides whether a copy boots and which of two files of
+                  the same game you are looking at. */}
+              {rom.regions.length > 0 ? (
+                <span className="chip chip--icon">
+                  <Icon name="region" size={14} />
+                  {rom.regions.join(', ')}
+                </span>
+              ) : null}
+              {rom.revision ? <span className="chip">Rev {rom.revision}</span> : null}
+              <span className="chip">{formatBytes(rom.fs_size_bytes)}</span>
+              {entry ? <span className="chip chip--on">Downloaded</span> : null}
+              {rom.metadatum.genres.slice(0, 3).map((genre) => (
+                <span className="chip" key={genre}>
+                  {genre}
+                </span>
+              ))}
+            </div>
+            {rom.summary ? <p className="game-hero__summary">{rom.summary}</p> : null}
 
-      <div className="btn-row">
-        {entry ? (
-          <FocusButton
-            icon="play"
-            variant="primary"
-            onSelect={() => void startPlay()}
-            disabled={busy || running}
-            autoFocus
-          >
-            {running ? 'Running…' : 'Play'}
-          </FocusButton>
-        ) : active ? (
-          <FocusButton
-            icon="cancel"
-            variant="danger"
-            onSelect={() => void window.rommix.downloads.cancel(romId)}
-            autoFocus
-          >
-            Cancel download ({progress}%)
-          </FocusButton>
-        ) : (
-          <FocusButton
-            icon="download"
-            variant="primary"
-            onSelect={() => void startDownload()}
-            disabled={busy}
-            autoFocus
-          >
-            Download
-          </FocusButton>
-        )}
+            <div className="btn-row">
+              {entry ? (
+                <FocusButton
+                  icon="play"
+                  variant="primary"
+                  onSelect={() => void startPlay()}
+                  disabled={busy || running}
+                  autoFocus
+                >
+                  {running ? 'Running…' : 'Play'}
+                </FocusButton>
+              ) : active ? (
+                <FocusButton
+                  icon="cancel"
+                  variant="danger"
+                  onSelect={() => void window.rommix.downloads.cancel(romId)}
+                  autoFocus
+                >
+                  Cancel download ({progress}%)
+                </FocusButton>
+              ) : (
+                <FocusButton
+                  icon="download"
+                  variant="primary"
+                  onSelect={() => void startDownload()}
+                  disabled={busy}
+                  autoFocus
+                >
+                  Download
+                </FocusButton>
+              )}
 
-        {/* Marked on RomM, not here, so the shelf on the home screen and the
+              {/* Marked on RomM, not here, so the shelf on the home screen and the
             same game in a browser agree. Always offered: a game does not have
             to be downloaded to be one you want to keep track of. */}
-        <FocusButton
-          icon="favourite"
-          on={favourite === true}
-          onSelect={() => void toggleFavourite()}
-          disabled={favourite === null}
-        >
-          {favourite ? 'Remove from favourites' : 'Add to favourites'}
-        </FocusButton>
+              <FocusButton
+                icon="favourite"
+                on={favourite === true}
+                onSelect={() => void toggleFavourite()}
+                disabled={favourite === null}
+              >
+                {favourite ? 'Remove from favourites' : 'Add to favourites'}
+              </FocusButton>
 
-        {/* The way back to a choice already made: without it, a platform
+              {/* The way back to a choice already made: without it, a platform
             answered once could only be changed by editing settings. Shown only
             where there is genuinely more than one answer. */}
-        {entry && variants.length > 1 ? (
-          <FocusButton
-            icon="emulator"
-            onSelect={() => void openChooser()}
-            disabled={busy || running}
-          >
-            Run with…
-          </FocusButton>
-        ) : null}
+              {entry && variants.length > 1 ? (
+                <FocusButton
+                  icon="emulator"
+                  onSelect={() => void openChooser()}
+                  disabled={busy || running}
+                >
+                  Run with
+                </FocusButton>
+              ) : null}
 
-        {/* Only for a game that is here: there is no local save directory to
+              {/* Only for a game that is here: there is no local save directory to
             read from or write into until the ROM has been downloaded. */}
-        {entry ? (
-          <>
-            <FocusButton
-              icon="pull"
-              onSelect={() => void syncSaves('pull')}
-              disabled={busy || running}
-            >
-              Pull saves
-            </FocusButton>
-            <FocusButton icon="push" onSelect={() => void beginPush()} disabled={busy || running}>
-              Push saves
-            </FocusButton>
-          </>
-        ) : null}
+              {entry ? (
+                <>
+                  <FocusButton
+                    icon="pull"
+                    onSelect={() => void syncSaves('pull')}
+                    disabled={busy || running}
+                  >
+                    Pull saves
+                  </FocusButton>
+                  <FocusButton
+                    icon="push"
+                    onSelect={() => void beginPush()}
+                    disabled={busy || running}
+                  >
+                    Push saves
+                  </FocusButton>
+                </>
+              ) : null}
 
-        {entry ? (
-          <FocusButton
-            icon="uninstall"
-            variant="danger"
-            onSelect={() =>
-              // Without the confirmation, one A press on a focused danger
-              // button deletes a multi-gigabyte download outright.
-              settings?.confirmUninstall === false ? void uninstall() : setConfirmingRemoval(true)
-            }
-            disabled={busy || running}
-          >
-            Uninstall
-          </FocusButton>
-        ) : null}
+              {entry ? (
+                <FocusButton
+                  icon="uninstall"
+                  variant="danger"
+                  onSelect={() =>
+                    // Without the confirmation, one A press on a focused danger
+                    // button deletes a multi-gigabyte download outright.
+                    settings?.confirmUninstall === false
+                      ? void uninstall()
+                      : setConfirmingRemoval(true)
+                  }
+                  disabled={busy || running}
+                >
+                  Uninstall
+                </FocusButton>
+              ) : null}
 
-        <FocusButton icon="back" variant="ghost" onSelect={goBack}>
-          Back
-        </FocusButton>
+              <FocusButton icon="back" variant="ghost" onSelect={goBack}>
+                Back
+              </FocusButton>
+            </div>
+          </div>
+        </div>
       </div>
 
       {active ? (
@@ -743,28 +775,35 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
 
       {/* Tabs rather than one long column: saves, files and screenshots are
           each a list that can run to dozens of rows, and stacking them put the
-          thing you came for several screens of scrolling down. */}
-      <Tabs<DetailTab>
-        active={tab}
-        onChange={setTab}
-        tabs={[
-          { id: 'about', label: 'About' },
-          { id: 'saves', label: 'Saves', badge: assets?.length },
-          { id: 'files', label: 'Files', badge: rom.files.length || undefined },
-          {
-            id: 'screenshots',
-            label: 'Screenshots',
-            badge: rom.merged_screenshots?.length || undefined
-          }
-        ]}
-      />
+          thing you came for several screens of scrolling down.
 
-      {tab === 'about' ? <About rom={rom} entry={entry} /> : null}
-      {tab === 'saves' ? (
-        <SavesTab assets={assets} entry={entry} onDelete={setDeletingAsset} />
-      ) : null}
-      {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
-      {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
+          Strip and contents share one card, so the tabs read as the lid of what
+          is under them rather than as four buttons floating above the page. */}
+      <div className="panel">
+        <Tabs<DetailTab>
+          active={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'details', label: 'Details' },
+            { id: 'saves', label: 'Saves', badge: assets?.length },
+            { id: 'files', label: 'Files', badge: rom.files.length || undefined },
+            {
+              id: 'screenshots',
+              label: 'Screenshots',
+              badge: rom.merged_screenshots?.length || undefined
+            }
+          ]}
+        />
+
+        <div className="panel__body">
+          {tab === 'details' ? <Details rom={rom} entry={entry} /> : null}
+          {tab === 'saves' ? (
+            <SavesTab assets={assets} entry={entry} onDelete={setDeletingAsset} />
+          ) : null}
+          {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
+          {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
+        </div>
+      </div>
 
       {running ? (
         <div className="notice notice--warn">
@@ -779,7 +818,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <Overlay title={`How should ${choosing.system} games run?`}>
           <p className="muted">
             {choosing.emulatorName} offers several. Remembered for {choosing.system} — change it
-            later with Run with…
+            later with Run with
           </p>
           <div className="btn-row">
             {choosing.options.map((option) => (
@@ -893,15 +932,15 @@ type Fact = { icon: IconName; label: string; value: string | null }
  * Three groups, in the order they are wanted: what the game is, which dump of
  * it this is, and where this copy of it lives. Nothing the page already says
  * gets a row — the filename is the Files tab's whole subject, and platform,
- * rating, size and genre are chips beside the cover — so what is left here is
- * only what cannot be read anywhere else.
+ * rating, year, region, revision, size and genre are all in the banner — so
+ * what is left here is only what cannot be read anywhere else.
  *
  * Built as a list and filtered rather than written as conditional rows: RomM's
  * metadata is only as complete as the provider a game was matched against, and
  * a homebrew ROM matched to nothing would otherwise leave an empty tab, which
  * reads as a failure rather than as an absence.
  */
-function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
+function Details({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
   const meta = rom.metadatum
   const list = (values: string[]): string | null => (values.length > 0 ? values.join(', ') : null)
   const at = (value: string | null): string | null =>
@@ -928,12 +967,10 @@ function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Elem
     },
     { icon: 'modes', label: 'Modes', value: list(meta.game_modes) },
 
-    // Which dump this is. Region and language decide whether a game boots on a
-    // given BIOS and whether it can be read once it has; revision and tags are
-    // how two files of the same game tell themselves apart.
-    { icon: 'region', label: 'Region', value: list(rom.regions) },
+    // Which dump this is. Region and revision are chips in the banner; what is
+    // left is the language it can be read in and the tags two files of the same
+    // game tell themselves apart by.
     { icon: 'languages', label: 'Languages', value: list(rom.languages) },
-    { icon: 'revision', label: 'Revision', value: rom.revision },
     { icon: 'tags', label: 'Tags', value: list(rom.tags) },
 
     { icon: 'play', label: 'Last played', value: at(rom.rom_user.last_played) },
@@ -962,9 +999,12 @@ function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Elem
   }
 
   return (
-    <dl className="kv">
+    // Each pair in a wrapper of its own rather than as loose siblings: that is
+    // what lets the list run in two columns where there is room for two, since
+    // a bare dt/dd stream has nothing for a grid to keep together.
+    <dl className="kv kv--columns">
       {shown.map((fact) => (
-        <Fragment key={fact.label}>
+        <div className="kv__row" key={fact.label}>
           {/* The icon marks the label it sits with — the word is right there —
               so it keeps the label's dim colour rather than competing with the
               value, which is the part being read. */}
@@ -973,7 +1013,7 @@ function About({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Elem
             {fact.label}
           </dt>
           <dd>{fact.value}</dd>
-        </Fragment>
+        </div>
       ))}
     </dl>
   )

@@ -41,6 +41,37 @@ export function CoverArt({
   )
 }
 
+/**
+ * The wash of artwork behind a game's hero.
+ *
+ * A still from the game where RomM has one, its cover where it does not: blurred
+ * far past legibility and faded into the page, so it reads as the colour of the
+ * game rather than as a picture competing with the title over it.
+ *
+ * Nothing at all when there is no artwork or the fetch fails — a broken image
+ * behind the hero would be worse than the plain background it replaced, and a
+ * homebrew ROM matched to no provider has neither a screenshot nor a cover.
+ */
+export function ArtBackdrop({
+  paths
+}: {
+  paths: (string | null | undefined)[]
+}): JSX.Element | null {
+  const url = paths.map((path) => window.rommix.system.imageUrl(path ?? null)).find(Boolean) ?? null
+  const [failed, setFailed] = useState(false)
+
+  // A different game in the same slot must clear the previous failure.
+  useEffect(() => setFailed(false), [url])
+
+  if (!url || failed) return null
+
+  return (
+    <div className="backdrop" aria-hidden="true">
+      <img src={url} alt="" onError={() => setFailed(true)} />
+    </div>
+  )
+}
+
 export function FocusButton({
   children,
   onSelect,
@@ -342,10 +373,15 @@ export function GameRow({
 }
 
 /**
- * Console-style button hints pinned to the bottom of the screen.
+ * The footer: who made this on the left, what the buttons do on the right.
  *
  * Call sites name controller buttons; what is drawn is whatever the player is
  * actually holding, so the bar stops telling a keyboard user to press A.
+ *
+ * The signature lives here because every screen draws this bar, which makes it
+ * the only strip in the app that is genuinely always on screen — and because
+ * the far end of it is the one place a line nobody needs to read can sit
+ * without being in the way of something that must be.
  */
 export function Hints({ items }: { items: { key: string; label: string }[] }): JSX.Element {
   const keyLabel = useKeyLabel()
@@ -353,6 +389,9 @@ export function Hints({ items }: { items: { key: string; label: string }[] }): J
 
   return (
     <div className="hints">
+      <span className="hints__credit">
+        Developed with <span className="hints__heart">♥</span> by leclercb
+      </span>
       {items.map((item) => (
         <span key={item.key + item.label}>
           <span className="hint__key">{keyLabel(item.key)}</span>
