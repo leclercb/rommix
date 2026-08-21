@@ -711,3 +711,95 @@ test('with no serial, nothing is synced rather than something wrong', () => {
   assert.equal(paths.saves, null)
   assert.match(paths.unsyncableReason ?? '', /serial/i)
 })
+
+// ---------------------------------------------------------------------------
+// Cores
+// ---------------------------------------------------------------------------
+
+/**
+ * Which core a launch needs, and where it has to be put.
+ *
+ * The stakes are the same as for save paths and the failure is louder: a core
+ * installed into a directory RetroArch does not search leaves `-L` resolving to
+ * nothing, and RetroArch treats that as fatal before it opens a window — which
+ * is indistinguishable from a crash from the outside.
+ */
+
+const RA_CONFIG = `${HOME}/.var/app/org.libretro.RetroArch/config`
+
+function coreFor(
+  system: string,
+  cfg?: Record<string, string>
+): ReturnType<NonNullable<EmulatorDescriptor['core']>> {
+  const env = machine(
+    cfg ? { files: { [`${RA_CONFIG}/retroarch/retroarch.cfg`]: retroArchCfg(cfg) } } : {}
+  )
+  return retroarch.core!(
+    context({ romPath: '/roms/n64/game.z64', system, configDir: RA_CONFIG, env })
+  )
+}
+
+test('the core a system needs is named from the system table', () => {
+  const core = coreFor('n64')
+  assert.equal(core?.id, 'mupen64plus_next')
+  assert.equal(core?.fileName, 'mupen64plus_next_libretro.so')
+  // The name the core reports for itself, which is what its Online Updater
+  // entry and its save folder are both called.
+  assert.equal(core?.name, 'Mupen64Plus-Next')
+})
+
+test('a system with no core mapped asks for nothing', () => {
+  // The same condition `launch` returns null for. Promising an install here
+  // would download nothing and then fail at the spawn anyway.
+  assert.equal(coreFor('n64dd'), null)
+})
+
+test('the core goes where the config says cores are read from', () => {
+  // `libretro_directory` is the directory RetroArch actually searches when it
+  // is handed a bare core file name; anywhere else is an install that resolves
+  // to nothing.
+  const core = coreFor('n64', { libretro_directory: '/mnt/sd/cores' })
+  assert.equal(core?.dir, '/mnt/sd/cores')
+})
+
+test('a ~ in the cores directory expands to the real home', () => {
+  const core = coreFor('n64', { libretro_directory: '~/.config/retroarch/cores' })
+  assert.equal(core?.dir, `${HOME}/.config/retroarch/cores`)
+})
+
+test('a RetroArch that has never written a config still has somewhere to install', () => {
+  // First run of a fresh flatpak: no cfg exists yet, and the packaged default
+  // is the only answer there is.
+  assert.equal(coreFor('n64')?.dir, `${RA_CONFIG}/retroarch/cores`)
+})
+
+test('builds come from the buildbot RetroArch itself would update from', () => {
+  // It writes the URL for the platform it is running on, which is the one
+  // place the right architecture is already spelled out.
+  const core = coreFor('n64', {
+    core_updater_buildbot_cores_url: 'http://buildbot.libretro.com/nightly/linux/arm64/latest/'
+  })
+  assert.equal(core?.buildbotUrl, 'http://buildbot.libretro.com/nightly/linux/arm64/latest/')
+})
+
+test('a buildbot url missing its trailing slash is still appendable', () => {
+  const core = coreFor('n64', {
+    core_updater_buildbot_cores_url: 'https://example.test/cores'
+  })
+  assert.equal(core?.buildbotUrl, 'https://example.test/cores/')
+})
+
+test('no buildbot url in the config leaves the installer to supply one', () => {
+  // Null rather than a guess: this module is loaded by the renderer, which has
+  // no architecture to build a URL from.
+  assert.equal(coreFor('n64')?.buildbotUrl, null)
+})
+
+test('the emulators that ship their own cores ask for none', () => {
+  // RetroDECK and EmuDeck run libretro cores too, but both install them with
+  // the distribution — there is never one missing for RomMix to fetch.
+  for (const emulator of EMULATORS) {
+    if (emulator.id === 'retroarch') continue
+    assert.equal(emulator.core, undefined, `${emulator.id} declares a core to install`)
+  }
+})

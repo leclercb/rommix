@@ -72,6 +72,11 @@ interface AppState {
   refreshInstalled: () => Promise<void>
 
   runningRomId: number | null
+  /**
+   * What the launch is doing before the emulator is up — installing a missing
+   * core — or null when there is nothing to say and it is simply running.
+   */
+  runningStage: string | null
 
   route: Route
   navigate: (route: Route) => void
@@ -91,6 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [installed, setInstalled] = useState<InstalledRom[]>([])
   const [runningRomId, setRunningRomId] = useState<number | null>(null)
+  const [runningStage, setRunningStage] = useState<string | null>(null)
   const [history, setHistory] = useState<Route[]>([{ name: 'home' }])
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -185,9 +191,10 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [refreshInstalled, notify])
 
   useEffect(() => {
-    return window.rommix.game.onState((state) =>
+    return window.rommix.game.onState((state) => {
       setRunningRomId(state.running ? state.romId : null)
-    )
+      setRunningStage(state.running ? (state.stage ?? null) : null)
+    })
   }, [])
 
   // Anything that failed in the main process, whoever asked for it.
@@ -237,6 +244,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       installedIds,
       refreshInstalled,
       runningRomId,
+      runningStage,
       route,
       navigate,
       goBack,
@@ -253,6 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       installedIds,
       refreshInstalled,
       runningRomId,
+      runningStage,
       route,
       navigate,
       goBack,

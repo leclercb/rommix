@@ -238,6 +238,7 @@ export const emudeck: EmulatorDescriptor = {
   id: 'emudeck',
   name: 'EmuDeck',
   dispatch: 'rommix',
+  frontend: true,
   // What "EmuDeck is installed" means: the launcher scripts are there. Not
 
   // that the Emulation folder exists — that is created early in setup and left
@@ -314,6 +315,9 @@ export const emudeck: EmulatorDescriptor = {
   // Its Emulation/bios folder takes any firmware file, at the root.
   bios: undefined,
   biosStagingNote: undefined,
+  // Its installer downloads the cores along with RetroArch, so a system it
+  // claims to run is never a system whose core is missing.
+  core: undefined,
   setupNotes: [],
   env: undefined,
   open: ({ exec, installRef }) => [...exec, `${installRef}/${EMUDECK_FRONTEND}`],

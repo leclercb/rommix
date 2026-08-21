@@ -40,6 +40,26 @@ export interface ConnectPayload {
 export interface GameState {
   running: boolean
   romId: number | null
+  /**
+   * What the launch is doing while the emulator is not up yet, ready to show,
+   * or null once it is running.
+   *
+   * A launch is normally instant enough to need no commentary. Installing a
+   * missing libretro core is the exception: it is a download of several
+   * megabytes between pressing Play and anything appearing, and without a word
+   * about it the front end looks hung at precisely the moment it is doing the
+   * work that stops the game from failing to start.
+   */
+  stage?: string | null
+}
+
+/** Progress of a libretro core download, while a launch waits on it. */
+export interface CoreProgress {
+  /** The core's own name, e.g. `Mupen64Plus-Next`. */
+  core: string
+  receivedBytes: number
+  /** Zero when the server declares no length. */
+  totalBytes: number
 }
 
 /** Emitted while a long "check everything" pass is running. */
@@ -105,8 +125,18 @@ export interface RomMixBridge {
      * launch result carries the session's files instead of uploading them.
      */
     pushSelected(romId: number, paths: string[]): Promise<SaveSyncResult>
-    /** Delete one asset, from the server and from this device. */
-    remove(romId: number, kind: 'save' | 'state', id: number): Promise<void>
+    /**
+     * Delete one asset from every end that has it.
+     *
+     * `id` is RomM's, or null for a file only this device has — which is what
+     * `fileName` identifies, since such a row has no server id to name it by.
+     */
+    remove(
+      romId: number,
+      kind: 'save' | 'state',
+      id: number | null,
+      fileName: string
+    ): Promise<void>
   }
   bios: {
     /** Per platform: what is needed, what the server holds, what is in place. */

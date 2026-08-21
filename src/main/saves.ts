@@ -70,14 +70,6 @@ const STATE_PULL_LIMIT = 5
 /** Suffix marking a directory save carried as one archive. */
 const ARCHIVE_SUFFIX = '.rommix-save.zip'
 
-/**
- * The programs that run games through *other* emulators.
- *
- * They accept a save tagged with any of those, because the emulator underneath
- * is what will read it. A standalone emulator accepts only its own.
- */
-const FRONTENDS = new Set(['retrodeck', 'emudeck'])
-
 /** Everything needed to ask a descriptor where this game's saves are. */
 export interface SaveTarget {
   rom: RommRom
@@ -540,26 +532,39 @@ export class SaveSync {
   }
 
   /**
-   * Delete one asset from the server, and the copy on this device with it.
+   * Delete one asset from wherever it exists — the server, this device, or both.
    *
-   * Both, or neither is worth doing. RomMix pushes what a session wrote back to
-   * RomM, so a save deleted only on the server is uploaded again the next time
-   * the game is played — the delete would appear to work and then quietly undo
-   * itself. The local file goes first: if the server then refuses, the asset is
-   * still there to pull back, whereas the reverse order can lose both.
+   * Whichever ends hold it, because deleting one end alone does not stay
+   * deleted. RomMix pushes what a session wrote back to RomM, so a save removed
+   * only from the server is uploaded again the next time the game is played;
+   * and a pull brings a server copy back down over a file removed only here.
+   * The local file goes first: if the server then refuses, the asset is still
+   * there to pull back, whereas the reverse order can lose both.
+   *
+   * The asset is found by re-scanning rather than by trusting what the caller
+   * passed. `id` identifies a row RomM knows about; a row only this device has
+   * is identified by name, and the path it turns out to have is this side's to
+   * decide — the renderer names a file, never a location to delete.
    */
   async deleteAsset(
     romId: number,
     kind: 'save' | 'state',
-    id: number,
+    id: number | null,
+    fileName: string,
     local?: SaveTarget
   ): Promise<void> {
     const assets = await this.listAssets(romId, local)
-    const asset = assets.find((item) => item.kind === kind && item.id === id)
+    const asset = assets.find(
+      (item) =>
+        item.kind === kind &&
+        (id === null ? item.id === null && item.fileName === fileName : item.id === id)
+    )
+    if (!asset) throw new Error(`${fileName} is no longer there to delete`)
 
-    if (asset?.localPath) await rm(asset.localPath, { force: true, recursive: true })
-    if (kind === 'save') await this.client.deleteSaves([id])
-    else await this.client.deleteStates([id])
+    if (asset.localPath) await rm(asset.localPath, { force: true, recursive: true })
+    if (asset.id === null) return
+    if (kind === 'save') await this.client.deleteSaves([asset.id])
+    else await this.client.deleteStates([asset.id])
   }
 
   /**
@@ -574,16 +579,16 @@ export class SaveSync {
    *   would ignore saves uploaded through RomM's own web UI. The newer-wins
    *   rule and the `.rommix-bak` copy still stand behind it.
    * - the tag is this emulator.
-   * - the tag is the emulator this frontend dispatched to, which is what
-   *   RomMix itself sends for a save written under RetroDECK or EmuDeck.
+   * - the tag is the emulator a frontend dispatched to, which is what RomMix
+   *   itself sends for a save written under one.
    */
   private accepts(target: SaveTarget, tag: string | null): boolean {
     if (!tag) return true
     if (tag.toLowerCase() === target.emulator.id.toLowerCase()) return true
-    // A frontend hands games to standalone emulators, and a save tagged with
-    // one of those is exactly what the emulator underneath will look for. What
-    // makes a frontend a frontend is that it offers a choice of them.
-    return FRONTENDS.has(target.emulator.id)
+    // A frontend hands games to other emulators, so a save tagged with one of
+    // those is exactly what the emulator underneath will look for. Which
+    // programs those are is theirs to declare, not this file's to list.
+    return emulatorById(target.emulator.id)?.frontend === true
   }
 
   private async pullKind(

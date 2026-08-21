@@ -166,10 +166,10 @@ function RunningOverlay(): JSX.Element {
   return (
     <Overlay title="Game running">
       <p className="muted">
-        The emulator has focus. Quit it to come back to RomMix
+        The emulator has focus. Quit it to come back
         {settings?.confirmSavePush
           ? ' — RomMix will ask what to send to RomM.'
-          : ' — your saves are synced to RomM automatically when it closes.'}
+          : ' — saves sync to RomM automatically.'}
       </p>
       <div className="btn-row">
         <FocusButton

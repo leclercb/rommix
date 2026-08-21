@@ -1,5 +1,5 @@
 import { coreForSystem } from '../../systems.ts'
-import { libretroSavePaths, readRetroArchConfig } from '../libretro.ts'
+import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { baseName, directory, joinPath, perRom, shared } from '../savepaths.ts'
 import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
 
@@ -406,7 +406,7 @@ export function retroDeckSavePaths(ctx: SaveContext): SavePaths {
    * the difference between finding a save and creating an empty directory
    * beside it.
    */
-  const config = readRetroArchConfig(
+  const config = readLibretroConfig(
     ctx.env,
     ctx.configDir ? [joinPath(ctx.configDir, 'retroarch', 'retroarch.cfg')] : [],
     ctx.home

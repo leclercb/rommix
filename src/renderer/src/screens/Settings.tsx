@@ -148,13 +148,13 @@ export function SettingsScreen(): JSX.Element {
       <h2 className="section-title">Save sync</h2>
       <Toggle
         label="Download newer saves before playing"
-        hint="A remote save replaces a local one only when it is strictly newer, and the local file is kept as *.rommix-bak."
+        hint="Only when strictly newer. The local file is kept as *.rommix-bak."
         on={settings.syncSavesDown}
         onToggle={() => void saveSettings({ syncSavesDown: !settings.syncSavesDown })}
       />
       <Toggle
         label="Upload saves after playing"
-        hint="Only files the session actually wrote are sent back to RomM."
+        hint="Only what the session wrote is sent."
         on={settings.syncSavesUp}
         onToggle={() => void saveSettings({ syncSavesUp: !settings.syncSavesUp })}
       />
@@ -168,16 +168,15 @@ export function SettingsScreen(): JSX.Element {
       <h2 className="section-title">Downloads</h2>
       <Toggle
         label="Ask before deleting a downloaded game"
-        hint="Uninstall is a focused button one A press from removing a multi-gigabyte file."
+        hint="Uninstall is one A press from deleting a multi-gigabyte file."
         on={settings.confirmUninstall}
         onToggle={() => void saveSettings({ confirmUninstall: !settings.confirmUninstall })}
       />
 
       <h2 className="section-title">RomMix folder</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        Everything RomMix owns lives here — settings, your RomM credentials, the index of downloaded
-        games, and any emulator RomMix installed for you. Moving this one folder moves the whole
-        installation.
+        Settings, credentials, the download index, and any emulator RomMix installed. Move this
+        folder to move the whole installation.
       </p>
       <div className="form">
         <TextField

@@ -287,12 +287,61 @@ export interface BiosContext {
  */
 export type BiosTarget = string | null
 
+/** What a descriptor is told in order to name the core a launch needs. */
+export type CoreContext = Pick<SaveContext, 'system' | 'home' | 'configDir' | 'env'>
+
+/**
+ * A libretro core a launch needs and the install does not ship.
+ *
+ * RetroArch's packages contain no cores at all — its flatpak carries 291 core
+ * *info* files and not one `.so` — and a missing core is not fetched on demand
+ * either: `-L` naming a core that is not on disk is a fatal error, not a
+ * download. The only thing that installs one is a user walking RetroArch's
+ * Online Updater menu, which is exactly the trip to a second program that a
+ * Big Picture front end exists to avoid. So RomMix installs the core itself,
+ * and this is what it needs to know to do it.
+ */
+export interface RequiredCore {
+  /** Core file base name without `_libretro.so` — e.g. `mupen64plus_next`. */
+  readonly id: string
+  /** What the core calls itself, for messages — e.g. `Mupen64Plus-Next`. */
+  readonly name: string
+  /** The directory the emulator loads cores from. */
+  readonly dir: string
+  /** The file inside it, which is `<id>_libretro.so`. */
+  readonly fileName: string
+  /**
+   * Where the libretro buildbot publishes builds for this machine, with a
+   * trailing slash; `<buildbotUrl><fileName>.zip` is the archive.
+   *
+   * Read from `core_updater_buildbot_cores_url`, which RetroArch writes for the
+   * platform it is running on and is therefore already correct. Null when no
+   * config has been written yet, and the installer supplies a default — this
+   * module is loaded by the renderer, which has no `process.arch` to build one
+   * from.
+   */
+  readonly buildbotUrl: string | null
+}
+
 export interface EmulatorDescriptor {
   // -- identity ------------------------------------------------------------------
 
   readonly id: EmulatorId
   readonly name: string
   readonly dispatch: EmulatorDispatch
+  /**
+   * True when this program runs games through other emulators rather than
+   * emulating anything itself.
+   *
+   * What it decides is whose saves are readable. A standalone emulator accepts
+   * only saves tagged with its own name; a frontend accepts any tag, because
+   * the emulator underneath is what will open the file.
+   *
+   * Not derivable from `dispatch`, which answers a different question — who
+   * picks the emulator, not whether there is one underneath. RetroDECK picks
+   * for itself and EmuDeck lets RomMix pick, and both are frontends.
+   */
+  readonly frontend: boolean
 
   // -- finding and installing it -------------------------------------------------
 
@@ -399,6 +448,24 @@ export interface EmulatorDescriptor {
    * installed. Shown on the BIOS screen beside the folder they went to.
    */
   readonly biosStagingNote: string | undefined
+
+  // -- cores ---------------------------------------------------------------------
+
+  /**
+   * The core this game needs, for an emulator that loads its emulation rather
+   * than containing it.
+   *
+   * Beside `bios` because it is the same kind of obligation — a file that has
+   * to be in place before the game will start — and the same kind of answer: a
+   * question per game, because which core runs a system is not something a
+   * single value per emulator can hold.
+   *
+   * Only standalone RetroArch answers. RetroDECK and EmuDeck run libretro cores
+   * too, but both ship the cores with the distribution, so there is never one
+   * missing for RomMix to fetch. Null means no core is mapped to this system —
+   * the same condition `launch` returns null for.
+   */
+  readonly core: ((ctx: CoreContext) => RequiredCore | null) | undefined
 
   // -- what the user has to do themselves ----------------------------------------
 

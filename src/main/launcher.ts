@@ -1,7 +1,10 @@
 import { spawn } from 'node:child_process'
 import { emulatorById } from '@config/emulators'
+import type { ResolvedInstall } from '@config/emulators'
+import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
-import { execPrefix } from './host'
+import { installCore, missingCore } from './cores'
+import { execPrefix, stopFlatpakApp } from './host'
 import type { RommClient } from './romm'
 import type { SaveSync } from './saves'
 import type { Store } from './store'
@@ -22,6 +25,77 @@ interface LaunchOptions {
   emulator: EmulatorState
   /** Which of the emulator's launch variants to use, when it offers several. */
   variant?: string
+  /**
+   * Told what the launch is doing while the emulator is not up yet.
+   *
+   * A callback rather than an event sent from here, because the launcher has no
+   * window to send to; the caller that raised `game:state` is the one that can
+   * put this on screen.
+   */
+  onStage?: (stage: string | null) => void
+}
+
+/**
+ * How long after the spawn a non-zero exit is still read as "it never started".
+ *
+ * Emulators are not consistent about their exit code on an ordinary quit — a
+ * few return non-zero after a perfectly good session — so a bare exit code
+ * cannot decide this on its own. What it can be paired with is the clock: a
+ * process that is gone this quickly showed the user nothing, whatever it
+ * returned, and a session someone actually played lasted longer than any
+ * startup failure does.
+ */
+const STARTUP_MS = 5000
+
+/**
+ * How the emulator's process ended.
+ *
+ * Two answers rather than one string, because they lead to opposite handling
+ * and conflating them is what makes either one dangerous. An emulator that
+ * never started has no session to account for and the launch failed. An
+ * emulator that ran and then exited oddly has written save files, and treating
+ * its parting complaint as a failure would abandon them unsent — the exit code
+ * would cost the user the very session it was reporting on.
+ */
+interface ExitReport {
+  /** Why the emulator never got going, or null when it ran. */
+  startupError: string | null
+  /** Something it complained about, worth repeating but not worth failing on. */
+  warning: string | null
+}
+
+/**
+ * The lines an emulator marked as its own errors, or null when it marked none.
+ *
+ * Emulators log their whole run, so the tail is usually shader compilation and
+ * audio device names — true, and no use to anyone reading a notification. The
+ * lines that say what went wrong announce themselves, and the ones here all use
+ * the same few words to do it.
+ */
+function flaggedLines(output: string): string | null {
+  const flagged = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /\berror\b|\bfatal\b/i.test(line))
+    .slice(-3)
+  return flagged.length ? flagged.join(' ') : null
+}
+
+/** The last of whatever the emulator said, for one that flags nothing. */
+function tailOf(output: string): string | null {
+  const lines = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-3)
+  return lines.length ? lines.join(' ') : null
+}
+
+/** The core download, as a line to put under the Play button. */
+function stageFor(progress: CoreProgress): string {
+  const done = `Installing the ${progress.core} core`
+  if (!progress.totalBytes) return `${done}…`
+  return `${done}… ${Math.round((progress.receivedBytes / progress.totalBytes) * 100)}%`
 }
 
 export class Launcher {
@@ -104,6 +178,29 @@ export class Launcher {
     this.current = session
 
     try {
+      /**
+       * Install the core the emulator is about to be told to load.
+       *
+       * Before the save pull rather than after, because a launch that cannot
+       * happen should not have moved the save files first — and this is the one
+       * step that fails outright: an emulator handed a core that is not there
+       * dies before it opens a window, which is not a state worth reaching on
+       * purpose.
+       */
+      try {
+        const core = await missingCore(emulator, system)
+        if (core) {
+          options.onStage?.(`Installing the ${core.name} core…`)
+          await installCore(core, (progress: CoreProgress) => options.onStage?.(stageFor(progress)))
+        }
+      } catch (cause) {
+        return failure((cause as Error).message, command)
+      } finally {
+        options.onStage?.(null)
+      }
+
+      if (session.stopped) return failure('Stopped before the game started', command)
+
       // Pull remote saves before the emulator opens them. A failure here is
       // reported but does not block play — the local save is still valid.
       let pullError: string | null = null
@@ -123,11 +220,14 @@ export class Launcher {
       // granularity.
       const since = startedAt.getTime() - 1000
 
-      const exitError = await this.run(argv, session, emulatorById(emulator.id)?.env)
+      const exit = await this.run(argv, session, emulator.install, emulatorById(emulator.id)?.env)
       const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
 
-      if (exitError) {
-        return { ...failure(exitError, command), playSeconds }
+      // Only a failure to start ends the launch here. An emulator that ran and
+      // then exited badly still wrote save files, and returning before the push
+      // would lose the session in the course of reporting on it.
+      if (exit.startupError) {
+        return { ...failure(exit.startupError, command), playSeconds }
       }
 
       let uploadedSaves = 0
@@ -169,12 +269,20 @@ export class Launcher {
 
       await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
 
-      const warnings = [pullError, pushError].filter(Boolean)
+      // The emulator's own complaint and the sync's are separate subjects, so
+      // they are said separately rather than run together under one heading
+      // that would only fit one of them.
+      const syncWarnings = [pullError, pushError].filter(Boolean)
+      const notes = [
+        exit.warning,
+        syncWarnings.length ? `Save sync warning: ${syncWarnings.join('; ')}` : null
+      ].filter(Boolean)
+
       return {
         ok: true,
         emulator: emulator.id,
         command,
-        error: warnings.length ? `Save sync warning: ${warnings.join('; ')}` : null,
+        error: notes.length ? notes.join(' ') : null,
         uploadedSaves,
         uploadedStates,
         pendingPush: pendingPush && pendingPush.files.length > 0 ? pendingPush : null,
@@ -188,15 +296,16 @@ export class Launcher {
   }
 
   /**
-   * Spawn and await the process. Resolves to an error string, or null on
-   * success. The session's `kill` is repointed at the process, so `stop`
-   * signals it from here on; clearing the session is `launch`'s job.
+   * Spawn and await the process, and say how it ended. The session's `kill` is
+   * repointed at the process, so `stop` signals it from here on; clearing the
+   * session is `launch`'s job.
    */
   private run(
     argv: string[],
     session: { kill: () => void },
+    install: ResolvedInstall | null,
     env: Readonly<Record<string, string>> = {}
-  ): Promise<string | null> {
+  ): Promise<ExitReport> {
     return new Promise((resolvePromise) => {
       const [cmd, ...args] = argv
       const child = spawn(cmd, args, {
@@ -205,24 +314,67 @@ export class Launcher {
         env: { ...process.env, ...env }
       })
 
-      let stderr = ''
-      child.stderr?.on('data', (chunk: Buffer) => {
+      /**
+       * Both streams, because which one carries the reason is not something
+       * the emulator agrees with us about: RetroArch logs its whole run —
+       * including the `[ERROR]` line naming the fatal problem — to stdout, and
+       * reading stderr alone means watching it die and reporting nothing.
+       */
+      let output = ''
+      const collect = (chunk: Buffer): void => {
         // Keep only the tail; emulators are chatty and we just want the reason.
-        stderr = (stderr + chunk.toString()).slice(-4000)
-      })
+        output = (output + chunk.toString()).slice(-8000)
+      }
+      child.stdout?.on('data', collect)
+      child.stderr?.on('data', collect)
 
-      session.kill = () => child.kill('SIGTERM')
+      const startedAt = Date.now()
+      let signalled = false
+      session.kill = () => {
+        signalled = true
+        // A flatpak has to be stopped through flatpak: the process spawned here
+        // is only a client of it, and signalling that one is what the close
+        // button used to do — nothing. Anything else was spawned directly and a
+        // signal reaches it.
+        if (install?.kind === 'flatpak') void stopFlatpakApp(install.ref)
+        else child.kill('SIGTERM')
+      }
 
       child.on('error', (err) => {
-        resolvePromise(`Could not start the emulator: ${err.message}`)
+        resolvePromise({
+          startupError: `Could not start the emulator: ${err.message}`,
+          warning: null
+        })
       })
 
-      child.on('close', (code) => {
-        // Emulators exit 0 on a clean quit. A non-zero code with no output
-        // usually means the user killed it, which is not an error worth showing.
-        if (code === 0 || code === null) return resolvePromise(null)
-        const detail = stderr.trim().split('\n').slice(-3).join(' ').trim()
-        resolvePromise(detail ? `Emulator exited with code ${code}: ${detail}` : null)
+      child.on('close', (code, signal) => {
+        const clean = { startupError: null, warning: null }
+        if (code === 0) return resolvePromise(clean)
+        // Stopped from RomMix, or killed from outside. Either way somebody
+        // asked for this and it is not a failure to report back to them.
+        if (signalled || signal) return resolvePromise(clean)
+
+        // Long enough to have been a session, so whatever the code meant, the
+        // emulator ran and may have written saves. Anything it flagged is worth
+        // passing on; it is not worth throwing the session away over.
+        if (Date.now() - startedAt >= STARTUP_MS) {
+          const flagged = flaggedLines(output)
+          return resolvePromise({
+            startupError: null,
+            warning: flagged ? `The emulator reported: ${flagged}` : null
+          })
+        }
+
+        // Gone before it could have shown the user anything. This is the launch
+        // that silently did nothing — a missing libretro core is exactly this
+        // shape — so it is reported even when the emulator explained nothing.
+        const detail = flaggedLines(output) ?? tailOf(output)
+        return resolvePromise({
+          startupError: detail
+            ? `The emulator quit immediately: ${detail}`
+            : `The emulator quit immediately (code ${code}).`,
+          warning: null
+        })
       })
     })
   }

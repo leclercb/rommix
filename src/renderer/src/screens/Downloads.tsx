@@ -321,7 +321,7 @@ export function DownloadsScreen(): JSX.Element {
         <Overlay title="Uninstall this game?">
           <p className="muted">
             {confirming.fileName} will be deleted from {confirming.path.replace(/\/[^/]*$/, '')}.
-            Your saves on RomM are not touched, and you can download it again at any time.
+            Your saves on RomM are kept.
           </p>
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setConfirming(null)} autoFocus>

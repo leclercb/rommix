@@ -341,7 +341,7 @@ export function registerIpc(rommix: RomMixApp): void {
 
     const rom = await client.rom(romId)
 
-    rommix.send('game:state', { running: true, romId })
+    rommix.send('game:state', { running: true, romId, stage: null })
     try {
       return await launcher.launch({
         rom,
@@ -350,10 +350,14 @@ export function registerIpc(rommix: RomMixApp): void {
         romPath: await downloads.launchTarget(installed),
         system: installed.system,
         emulator,
-        variant: chosen
+        variant: chosen,
+        // Re-sent as the same "running" state it already is, so the screen has
+        // one thing to read rather than two that could disagree about whether a
+        // game is up.
+        onStage: (stage) => rommix.send('game:state', { running: true, romId, stage })
       })
     } finally {
-      rommix.send('game:state', { running: false, romId: null })
+      rommix.send('game:state', { running: false, romId: null, stage: null })
     }
   })
 
@@ -406,17 +410,23 @@ export function registerIpc(rommix: RomMixApp): void {
   )
 
   /**
-   * Delete one save or state, from the server and from this device.
+   * Delete one save or state from every end that has it.
    *
-   * Both: RomMix uploads what a session wrote, so a save removed only from the
-   * server comes back the next time the game is played, and the delete would
-   * appear to work and then undo itself.
+   * Both ends, because one alone does not stay deleted: RomMix uploads what a
+   * session wrote, so a save removed only from the server comes back the next
+   * time the game is played. `id` is null for a file only this device has,
+   * which has no server copy to remove and is named instead.
    */
   handle(
     'saves:delete',
-    async (romId: number, kind: 'save' | 'state', id: number): Promise<void> => {
+    async (
+      romId: number,
+      kind: 'save' | 'state',
+      id: number | null,
+      fileName: string
+    ): Promise<void> => {
       const local = await saveContext(romId).catch(() => null)
-      await saveSync.deleteAsset(romId, kind, id, local ?? undefined)
+      await saveSync.deleteAsset(romId, kind, id, fileName, local ?? undefined)
     }
   )
 

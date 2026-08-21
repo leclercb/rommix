@@ -1,8 +1,7 @@
 import { coreForSystem, systemsWithCore } from '../../systems.ts'
-import { libretroSavePaths, readRetroArchConfig } from '../libretro.ts'
+import { libretroCore, libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { joinPath } from '../savepaths.ts'
-import type { SaveContext } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { CoreContext, EmulatorDescriptor, RequiredCore } from '../types.ts'
 
 const RETROARCH_APP_ID = 'org.libretro.RetroArch'
 
@@ -15,7 +14,7 @@ const RETROARCH_APP_ID = 'org.libretro.RetroArch'
  * where RomMix found the flatpak but the user also has a native RetroArch whose
  * config is the populated one.
  */
-function configCandidates(ctx: SaveContext): readonly string[] {
+function configCandidates(ctx: CoreContext): readonly string[] {
   return [
     joinPath(ctx.configDir, 'retroarch', 'retroarch.cfg'),
     joinPath(ctx.home, '.config', 'retroarch', 'retroarch.cfg')
@@ -38,6 +37,7 @@ export const retroarch: EmulatorDescriptor = {
   id: 'retroarch',
   name: 'RetroArch',
   dispatch: 'rommix',
+  frontend: false,
   install: [
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
     { kind: 'binary', names: ['retroarch'] }
@@ -72,15 +72,29 @@ export const retroarch: EmulatorDescriptor = {
   saves: (ctx) =>
     libretroSavePaths(
       ctx,
-      readRetroArchConfig(ctx.env, configCandidates(ctx), ctx.home),
+      readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
       coreForSystem(ctx.system),
       { saves: ctx.paths.saves, states: ctx.paths.states }
     ),
   // Its system folder takes any firmware file dropped in.
   bios: undefined,
   biosStagingNote: undefined,
-  // Cores are installed from RetroArch's own Online Updater, which it will
-  // prompt for; nothing here needs saying in advance.
+  /**
+   * The core for this system, and the folder RetroArch will look for it in.
+   *
+   * From `libretro_directory` rather than the templated `dirs`, because that is
+   * the directory RetroArch searches when `launch` names a core by file name —
+   * install it anywhere else and the bare name resolves to nothing, which is
+   * the fatal "path is not set" this exists to prevent.
+   */
+  core: (ctx: CoreContext): RequiredCore | null =>
+    libretroCore(
+      readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
+      coreForSystem(ctx.system),
+      joinPath(ctx.configDir, 'retroarch', 'cores') || null
+    ),
+  // Nothing: the one setup step RetroArch really needs — a core for the system
+  // being played — RomMix now performs itself, from `core` above.
   setupNotes: [],
   env: undefined,
   // `exec` alone starts RetroArch with no content.

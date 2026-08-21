@@ -1,18 +1,25 @@
 import { baseName, joinPath, perRom } from './savepaths.ts'
 import type { SaveContext, SaveLocation, SavePaths } from './savepaths.ts'
+import type { RequiredCore } from './types.ts'
 
 /**
- * Where RetroArch puts saves, worked out the way RetroArch works it out.
+ * The libretro layer: where a core keeps its saves, and which core to load.
  *
- * Three programs in this registry end up running libretro cores — standalone
- * RetroArch, RetroDECK, and EmuDeck through its `retroarch.sh` — and all three
- * inherit whatever the user's `retroarch.cfg` says. That file is the authority
- * and none of it is guessable: RetroDECK ships `sort_savefiles_by_content` on,
- * EmuDeck ships every sort flag off, and stock RetroArch defaults to off but
- * the setting is one menu entry away.
+ * Shared rather than filed under one emulator because more than one program in
+ * this registry runs libretro cores, and every one of them inherits the same
+ * `retroarch.cfg` and the same rules from it. Putting this in any single
+ * emulator's folder would make the other two import from it, which is worse
+ * than a shared module: it would say the behaviour belongs to that emulator
+ * when it belongs to libretro.
  *
- * The rule is transcribed from `runloop_path_set_redirect()` in RetroArch's
- * `runloop.c`:
+ * So nothing here names an emulator or branches on one. A caller supplies the
+ * config files to read and the core to run, and gets back an answer derived
+ * only from those — which is what lets three descriptors with three different
+ * layouts share it, and what keeps the emulator-specific part in the folder of
+ * the emulator it is specific to.
+ *
+ * The redirect rule is transcribed from `runloop_path_set_redirect()` in
+ * libretro's reference frontend (`runloop.c`):
  *
  *     dir = savefile_directory
  *         + (sort_savefiles_by_content ? "/" + parent_dir_name(content) : "")
@@ -22,13 +29,13 @@ import type { SaveContext, SaveLocation, SavePaths } from './savepaths.ts'
  * from `fill_pathname_parent_dir_name`, so it is the name of the directory the
  * ROM *sits in* — which equals the ES-DE system only because ROMs normally live
  * at `roms/<system>/game.ext`. Install a multi-file game into
- * `roms/<system>/<Game Name>/` and RetroArch writes to `saves/<Game Name>/`
+ * `roms/<system>/<Game Name>/` and the save goes to `saves/<Game Name>/`
  * instead. And `library_name` is the name the core reports for itself, not its
  * file name: `genesis_plus_gx_libretro.so` calls itself "Genesis Plus GX".
  */
 
 /** Config values that decide where a libretro save lands. */
-export interface RetroArchConfig {
+export interface LibretroConfig {
   savefileDir: string | null
   savestateDir: string | null
   sortSavefilesByCore: boolean
@@ -39,10 +46,18 @@ export interface RetroArchConfig {
   savestatesInContentDir: boolean
   /** Core last loaded, from `libretro_path`, without the `_libretro.so`. */
   activeCore: string | null
+  /** The directory cores are loaded from, from `libretro_directory`. */
+  coresDir: string | null
+  /**
+   * The buildbot directory new cores come from, with a trailing slash, from
+   * `core_updater_buildbot_cores_url`. Written for the platform it is running
+   * on, so it already spells out the right architecture.
+   */
+  buildbotUrl: string | null
 }
 
-/** What RetroArch assumes when the config says nothing. All sorting is off. */
-const RETROARCH_DEFAULTS: RetroArchConfig = {
+/** What the config not saying means. All sorting is off. */
+const LIBRETRO_DEFAULTS: LibretroConfig = {
   savefileDir: null,
   savestateDir: null,
   sortSavefilesByCore: false,
@@ -51,10 +66,12 @@ const RETROARCH_DEFAULTS: RetroArchConfig = {
   sortSavestatesByContent: false,
   savefilesInContentDir: false,
   savestatesInContentDir: false,
-  activeCore: null
+  activeCore: null,
+  coresDir: null,
+  buildbotUrl: null
 }
 
-const BOOL_KEYS: Readonly<Record<string, keyof RetroArchConfig>> = {
+const BOOL_KEYS: Readonly<Record<string, keyof LibretroConfig>> = {
   sort_savefiles_enable: 'sortSavefilesByCore',
   sort_savefiles_by_content_enable: 'sortSavefilesByContent',
   sort_savestates_enable: 'sortSavestatesByCore',
@@ -64,19 +81,18 @@ const BOOL_KEYS: Readonly<Record<string, keyof RetroArchConfig>> = {
 }
 
 /**
- * Read the first `retroarch.cfg` that exists out of `candidates`.
+ * Read the first config that exists out of `candidates`, which the caller names.
  *
- * `retroarch.cfg` is `key = "value"`, one per line. Anything the file does not
- * mention keeps RetroArch's own default rather than becoming null: a config
- * written before a setting existed means "off", which is exactly what RetroArch
- * will do with it.
+ * The format is `key = "value"`, one per line. A key the file omits keeps the
+ * default rather than becoming null: a config written before a setting existed
+ * means "off", which is what the frontend will do with it.
  */
-export function readRetroArchConfig(
+export function readLibretroConfig(
   env: SaveContext['env'],
   candidates: readonly string[],
   home: string
-): RetroArchConfig {
-  const config: RetroArchConfig = { ...RETROARCH_DEFAULTS }
+): LibretroConfig {
+  const config: LibretroConfig = { ...LIBRETRO_DEFAULTS }
 
   for (const candidate of candidates) {
     const text = env.text(candidate)
@@ -97,14 +113,19 @@ export function readRetroArchConfig(
       }
       if (key === 'savefile_directory') config.savefileDir = expandHome(value, home)
       else if (key === 'savestate_directory') config.savestateDir = expandHome(value, home)
-      else if (key === 'libretro_path' && value && value !== 'default') {
+      else if (key === 'libretro_directory') config.coresDir = expandHome(value, home)
+      else if (key === 'core_updater_buildbot_cores_url' && value) {
+        // A trailing slash so a file name can simply be appended. One is
+        // normally written, but the setting is user-editable.
+        config.buildbotUrl = value.endsWith('/') ? value : `${value}/`
+      } else if (key === 'libretro_path' && value && value !== 'default') {
         config.activeCore = baseName(value)
           .replace(/\.(so|dll|dylib)$/i, '')
           .replace(/_libretro$/, '')
       }
     }
-    // The first config that exists is the one RetroArch reads; a second is a
-    // different install's, and merging the two would describe neither.
+    // The first that exists is the one being read; a second is a different
+    // install's, and merging the two would describe neither.
     return config
   }
   return config
@@ -121,8 +142,8 @@ function expandHome(value: string, home: string): string | null {
  * name RomMix uses in `systems.ts`.
  *
  * Only consulted when the user has turned "sort saves into folders by core
- * name" on, which is neither RetroArch's default nor RetroDECK's nor EmuDeck's.
- * A core missing from here is not a failure: the location falls back to the
+ * name" on, which no frontend here ships as its default. A core missing from
+ * this table is not a failure: the location falls back to the
  * unsorted directory and keeps the sorted one as a search path, so a save that
  * is really in a folder named after the core is still found on push — it just
  * is not created by a pull, which is the right way round. Writing a save into a
@@ -185,7 +206,39 @@ export function coreLibraryName(core: string | null): string | null {
 }
 
 /**
- * Apply RetroArch's redirect rule for one kind of save data.
+ * The core file a libretro launch needs, and where it has to be.
+ *
+ * `libretro_directory` is the authority for the same reason the save settings
+ * are: it is the directory the emulator will actually search, and writing the
+ * core anywhere else installs it where nothing looks. `fallbackDir` covers an
+ * install that has never written a config, where the caller's templated
+ * directories are all there is.
+ *
+ * Null when the config names no directory and there is no fallback either —
+ * there is nowhere to put a core, so there is nothing to promise.
+ */
+export function libretroCore(
+  config: LibretroConfig,
+  core: string | null,
+  fallbackDir: string | null
+): RequiredCore | null {
+  if (!core) return null
+  const dir = config.coresDir ?? fallbackDir
+  if (!dir) return null
+
+  return {
+    id: core,
+    // The core's own name where it is known, which is what its Online Updater
+    // entry and its save folder are both called; the file name otherwise.
+    name: coreLibraryName(core) ?? core,
+    dir,
+    fileName: `${core}_libretro.so`,
+    buildbotUrl: config.buildbotUrl
+  }
+}
+
+/**
+ * Apply the redirect rule above for one kind of save data.
  *
  * `canonical` is where a pull writes and a push looks first; `search` carries
  * the alternative that exists only because the core folder name may be wrong.
@@ -216,13 +269,13 @@ function locate(
  * Both save locations for a libretro run, from a config that has already been
  * read.
  *
- * `core` is the core RomMix named on the command line where it names one; the
- * config's `libretro_path` is the fallback, which is what RetroDECK and EmuDeck
- * leave behind after a launch they made themselves.
+ * `core` is the one the caller named on the command line where it named one;
+ * the config's `libretro_path` is the fallback, left behind by a frontend that
+ * chose the core itself.
  */
 export function libretroSavePaths(
   ctx: SaveContext,
-  config: RetroArchConfig,
+  config: LibretroConfig,
   core: string | null,
   fallback: { saves: string | null; states: string | null }
 ): SavePaths {

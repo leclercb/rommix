@@ -68,6 +68,7 @@ export const retrodeck: EmulatorDescriptor = {
   id: 'retrodeck',
   name: 'RetroDECK',
   dispatch: 'self',
+  frontend: true,
   install: [{ kind: 'flatpak', appId: RETRODECK_APP_ID }],
   homepage: 'https://retrodeck.net',
   systems: [...new Set([...systemsWithCore(), ...RETRODECK_STANDALONE_SYSTEMS])],
@@ -133,6 +134,9 @@ export const retrodeck: EmulatorDescriptor = {
    */
   bios: retroDeckBiosDir,
   biosStagingNote: undefined,
+  // Cores ship inside the RetroDECK flatpak, and which one runs a system is
+  // ES-DE's decision rather than RomMix's — there is nothing to install.
+  core: undefined,
   // Everything RetroDECK needs it does in its own first-run setup.
   setupNotes: [],
   env: undefined,

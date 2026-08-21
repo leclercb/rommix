@@ -87,6 +87,84 @@ export async function flatpakInstalled(appId: string): Promise<boolean> {
   return (await flatpakLocation(appId)) != null
 }
 
+/** How long a flatpak app gets to quit on its own before it is killed. */
+const QUIT_GRACE_MS = 5000
+
+/** The sandbox process of each running instance of this application. */
+async function sandboxPids(appId: string): Promise<number[]> {
+  const out = await runHost(['flatpak', 'ps', '--columns=application,child-pid'])
+  return (out ?? '')
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .filter(([app]) => app === appId)
+    .map(([, pid]) => Number(pid))
+    .filter((pid) => Number.isInteger(pid) && pid > 0)
+}
+
+/** Every process descended from `roots`, from one snapshot of the process table. */
+function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
+  const children = new Map<number, number[]>()
+  for (const line of psOutput.split('\n')) {
+    const [pid, ppid] = line.trim().split(/\s+/).map(Number)
+    if (!Number.isInteger(pid) || !Number.isInteger(ppid)) continue
+    children.set(ppid, [...(children.get(ppid) ?? []), pid])
+  }
+
+  const found: number[] = []
+  const queue = [...roots]
+  while (queue.length) {
+    for (const child of children.get(queue.shift()!) ?? []) {
+      // A cycle is impossible in a process tree, but a corrupt parse should not
+      // become an infinite loop.
+      if (found.includes(child)) continue
+      found.push(child)
+      queue.push(child)
+    }
+  }
+  return found
+}
+
+/**
+ * Stop a running flatpak application, letting it save first.
+ *
+ * `flatpak kill` is the documented way and the fallback here, but it SIGKILLs:
+ * the emulator dies without writing the save it was holding, which for a
+ * front end whose whole job is moving saves around is the wrong default.
+ *
+ * A signal cannot simply be sent to the process RomMix spawned either. `flatpak
+ * run` hands off to bubblewrap and the application ends up parented to the
+ * session, so the spawned process is a bystander and bubblewrap forwards
+ * nothing — which is why the close button did nothing at all. The application's
+ * own processes are visible on the host, though, and SIGTERM to those is an
+ * ordinary quit that RetroArch and the rest handle by shutting down cleanly.
+ *
+ * Returns false when the application was not running.
+ */
+export async function stopFlatpakApp(appId: string): Promise<boolean> {
+  const sandboxes = await sandboxPids(appId)
+  if (sandboxes.length === 0) return false
+
+  // The sandbox process itself is bubblewrap, which would tear the sandbox down
+  // around an application still trying to write. Its descendants are the
+  // application.
+  const ps = await runHost(['ps', '-eo', 'pid=,ppid='])
+  const targets = descendantsOf(ps ?? '', sandboxes)
+  if (targets.length > 0) {
+    await runHost(['kill', '-TERM', ...targets.map(String)])
+  }
+
+  const deadline = Date.now() + QUIT_GRACE_MS
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    if ((await sandboxPids(appId)).length === 0) return true
+  }
+
+  // It ignored the request, or there was nothing under the sandbox to ask.
+  // Being stuck in an emulator with no way back is worse than a lost save.
+  await runHost(['flatpak', 'kill', appId])
+  return true
+}
+
 /**
  * Absolute path of the first of these executables found on the host's PATH.
  *

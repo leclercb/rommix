@@ -59,8 +59,8 @@ const bridge: RomMixBridge = {
     pushPreview: (romId: number) => ipcRenderer.invoke('saves:pushPreview', romId),
     pushSelected: (romId: number, paths: string[]) =>
       ipcRenderer.invoke('saves:pushSelected', romId, paths),
-    remove: (romId: number, kind: 'save' | 'state', id: number) =>
-      ipcRenderer.invoke('saves:delete', romId, kind, id)
+    remove: (romId: number, kind: 'save' | 'state', id: number | null, fileName: string) =>
+      ipcRenderer.invoke('saves:delete', romId, kind, id, fileName)
   },
   bios: {
     list: () => ipcRenderer.invoke('bios:list'),

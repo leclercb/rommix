@@ -1,5 +1,5 @@
 import { coreForSystem } from '../../systems.ts'
-import { libretroSavePaths, readRetroArchConfig } from '../libretro.ts'
+import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { joinPath, perRom, shared } from '../savepaths.ts'
 import { switchSavePaths } from '../switch-saves.ts'
 import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
@@ -84,7 +84,7 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
   retroarch: (ctx, root) =>
     libretroSavePaths(
       ctx,
-      readRetroArchConfig(
+      readLibretroConfig(
         ctx.env,
         [
           joinPath(

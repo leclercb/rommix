@@ -27,6 +27,7 @@ export const eden: EmulatorDescriptor = {
   id: 'eden',
   name: 'Eden',
   dispatch: 'rommix',
+  frontend: false,
   install: [
     // Listed first so a packaged build is preferred if one ever appears; today
     // only the AppImage pattern matches anything.
@@ -95,6 +96,8 @@ export const eden: EmulatorDescriptor = {
    */
   bios: ({ fileName, paths }) => (fileName.toLowerCase().endsWith('.keys') ? paths.bios : null),
   biosStagingNote: 'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
+  // Eden is one emulator, not a core loader.
+  core: undefined,
   /**
    * What is left for the user once RomMix has done what it can — kept to two
    * lines, since the BIOS screen already explains for every Switch emulator

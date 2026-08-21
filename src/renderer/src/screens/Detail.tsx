@@ -78,6 +78,32 @@ const SYNC_BADGES: Record<
 }
 
 /**
+ * Which ends of the sync a row's Delete button would clear.
+ *
+ * Named on the button itself rather than left to the confirmation dialog. The
+ * two ends are the whole subject of this tab — every badge above is about which
+ * of them is ahead — so a button that just says "Delete" is the one control
+ * here that does not say which end it means, and the answer changes per row.
+ */
+type DeleteScope = 'both' | 'remote' | 'local'
+
+function deleteScopeOf(asset: SaveAsset): DeleteScope {
+  if (asset.id === null) return 'local'
+  return asset.localPath ? 'both' : 'remote'
+}
+
+/**
+ * What each scope is called. `where` completes both the button — `Delete
+ * {where}` — and the dialog's question, so the two cannot drift apart.
+ */
+const DELETE_SCOPES: Record<DeleteScope, { where: string; warning: string }> = {
+  both: { where: 'everywhere', warning: 'Deleting one alone does not stick.' },
+  // The badge on the row already says it is not on this device.
+  remote: { where: 'from RomM', warning: '' },
+  local: { where: 'from this device', warning: 'There is no copy on RomM.' }
+}
+
+/**
  * A single game: artwork, metadata, and the actions that matter — download it,
  * play it, remove it.
  */
@@ -90,6 +116,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     navigate,
     notify,
     refreshInstalled,
+    runningStage,
     saveSettings,
     settings
   } = useApp()
@@ -382,26 +409,18 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   }
 
   /**
-   * Remove one save or state from the server.
+   * Remove one save or state from every end that has it.
    *
-   * The server's copy only. The local file is what the emulator loads, and
-   * deleting that alongside would turn clearing out old backups into losing the
-   * save currently being played — so a game still on this device can simply be
-   * pushed back up afterwards.
+   * Which ends those are is the row's business, not this function's: the main
+   * process re-scans and clears whatever it finds, so the scope computed here
+   * is only what the button and the dialog say it will be.
    */
   const deleteAsset = async (asset: SaveAsset): Promise<void> => {
     setDeletingAsset(null)
-    // A row RomM does not have is not offered a Delete button; this is the
-    // same fact stated where the id is used.
-    if (asset.id === null) return
     setBusy(true)
     try {
-      await window.rommix.saves.remove(romId, asset.kind, asset.id)
-      notify(
-        asset.localPath
-          ? `${asset.fileName} deleted from RomM and this device`
-          : `${asset.fileName} deleted from RomM`
-      )
+      await window.rommix.saves.remove(romId, asset.kind, asset.id, asset.fileName)
+      notify(`${asset.fileName} deleted ${DELETE_SCOPES[deleteScopeOf(asset)].where}`)
       await loadAssets()
     } catch {
       // Reported centrally.
@@ -543,7 +562,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
             disabled={busy || running}
             autoFocus
           >
-            {running ? 'Running…' : 'Play'}
+            {/* The stage where there is one: between pressing Play and the
+                emulator appearing there can be a core to download, and a button
+                that only says "Running…" through it looks stuck. */}
+            {running ? (runningStage ?? 'Running…') : 'Play'}
           </FocusButton>
         ) : active ? (
           <FocusButton
@@ -707,8 +729,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       {choosing ? (
         <Overlay title={`How should ${choosing.system} games run?`}>
           <p className="muted">
-            {choosing.emulatorName} can run this platform in more than one way, and which is best
-            depends on the game. RomMix remembers your answer for {choosing.system} — change it
+            {choosing.emulatorName} offers several. Remembered for {choosing.system} — change it
             later with Run with…
           </p>
           <div className="btn-row">
@@ -733,15 +754,19 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
       ) : null}
 
       {deletingAsset ? (
-        <Overlay title={`Delete this ${deletingAsset.kind} from RomM?`}>
+        <Overlay
+          title={`Delete this ${deletingAsset.kind} ${
+            DELETE_SCOPES[deleteScopeOf(deletingAsset)].where
+          }?`}
+        >
           <p className="muted">
-            {deletingAsset.fileName} will be removed from RomM
+            {/* The title says the scope; this names the file and the folder it
+                is actually in. */}
+            {deletingAsset.fileName} —{deletingAsset.id !== null ? ' RomM' : ''}
+            {deletingAsset.id !== null && deletingAsset.localPath ? ' and' : ''}
             {deletingAsset.localPath
-              ? ` and from this device (${deletingAsset.localPath})`
-              : ''}.{' '}
-            {deletingAsset.localPath
-              ? 'Both, because a save left on disk is uploaded again the next time you play — deleting only the server copy would undo itself.'
-              : 'This device does not have a copy of it.'}
+              ? ` ${deletingAsset.localPath.replace(/\/[^/]*$/, '')}`
+              : ''}. {DELETE_SCOPES[deleteScopeOf(deletingAsset)].warning}
           </p>
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setDeletingAsset(null)} autoFocus>
@@ -752,7 +777,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
               variant="danger"
               onSelect={() => void deleteAsset(deletingAsset)}
             >
-              Delete from RomM
+              Delete {DELETE_SCOPES[deleteScopeOf(deletingAsset)].where}
             </FocusButton>
           </div>
         </Overlay>
@@ -762,7 +787,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <Overlay title="Uninstall this game?">
           <p className="muted">
             {entry.fileName} will be deleted from {entry.path.replace(/\/[^/]*$/, '')}. Your saves
-            on RomM are not touched, and you can download it again at any time.
+            on RomM are kept.
           </p>
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setConfirmingRemoval(false)} autoFocus>
@@ -978,16 +1003,15 @@ function SavesTab({
               {asset.fromThisDevice === false ? ' · another device' : ''}
               {at ? ` · ${new Date(at).toLocaleString()}` : ''}
             </span>
-            {/* Only what RomM holds can be deleted from RomM. A file that has
-                never been uploaded has nothing there to remove, and deleting
-                the copy the emulator is using is not what this button means. */}
-            {asset.id !== null ? (
-              <span className="asset__actions">
-                <FocusButton icon="delete" variant="danger" onSelect={() => onDelete(asset)}>
-                  Delete
-                </FocusButton>
-              </span>
-            ) : null}
+            {/* Every row, and the label names the ends it clears. A button
+                present on some rows and missing from others reads as an
+                inconsistency to work out rather than as the fact it was: that
+                there was no server copy to remove. */}
+            <span className="asset__actions">
+              <FocusButton icon="delete" variant="danger" onSelect={() => onDelete(asset)}>
+                Delete {DELETE_SCOPES[deleteScopeOf(asset)].where}
+              </FocusButton>
+            </span>
           </li>
         )
       })}

@@ -26,6 +26,7 @@ export const shadps4: EmulatorDescriptor = {
   id: 'shadps4',
   name: 'shadPS4',
   dispatch: 'rommix',
+  frontend: false,
   install: [
     { kind: 'flatpak', appId: 'net.shadps4.shadPS4' },
     { kind: 'binary', names: ['shadps4'] },
@@ -69,6 +70,8 @@ export const shadps4: EmulatorDescriptor = {
   saves: shadPs4SavePaths,
   bios: undefined,
   biosStagingNote: undefined,
+  // shadPS4 is one emulator, not a core loader.
+  core: undefined,
   /**
    * shadPS4 scans folders it has been told about, and RomMix's is not one of
    * them until the user says so.

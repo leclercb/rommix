@@ -40,6 +40,15 @@ export const example: EmulatorDescriptor = {
    * RetroArch is plainly a frontend for cores, and is still 'rommix'.
    */
   dispatch: 'rommix',
+  /**
+   * True when this program runs games through other emulators instead of
+   * emulating anything itself — RetroDECK and EmuDeck, and nothing else today.
+   *
+   * It decides whose saves this program is allowed to load: a frontend accepts
+   * a save tagged with any emulator, because one of them is what will open it.
+   * Answer it here rather than anywhere else having to keep a list.
+   */
+  frontend: false,
 
   // -- finding and installing it -------------------------------------------------
 
@@ -281,6 +290,20 @@ export const example: EmulatorDescriptor = {
    * meaningful for an emulator whose `bios` refuses something.
    */
   biosStagingNote: undefined,
+
+  // -- cores ---------------------------------------------------------------------
+
+  /**
+   * The core this game needs, for an emulator that loads its emulation from a
+   * plugin rather than containing it. `undefined` for almost everything: only
+   * standalone RetroArch has cores that its own install does not ship, and
+   * RomMix downloads the missing one before the game starts rather than letting
+   * the emulator die on a core that is not there.
+   *
+   * Answer with the file, the directory the emulator will search for it, and
+   * where builds for this machine are published — see `libretroCore`.
+   */
+  core: undefined,
 
   // -- what the user has to do themselves ----------------------------------------
 

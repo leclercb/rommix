@@ -183,11 +183,12 @@ export { retrodeck, RETRODECK_APP_ID } from './retrodeck/index.ts'
 export { retroDeckComponent } from './retrodeck/saves.ts'
 export { emuDeckSaveFolder } from './emudeck/saves.ts'
 export { switchTitleId, switchProfileDir } from './switch-saves.ts'
-export { coreLibraryName, readRetroArchConfig } from './libretro.ts'
+export { coreLibraryName, readLibretroConfig } from './libretro.ts'
 export { baseName, dirName, joinPath } from './savepaths.ts'
 export { SAVE_CONVENTIONS } from './saves.ts'
 
 export type {
+  CoreContext,
   DirBase,
   DirSpec,
   EmulationPaths,
@@ -201,6 +202,7 @@ export type {
   LayoutDiscovery,
   LayoutSource,
   ReleaseSource,
+  RequiredCore,
   ResolvedInstall,
   SaveFileConventions
 } from './types.ts'
