@@ -49,6 +49,14 @@
   <url type="bugtracker">https://github.com/leclercb/rommix/issues</url>
 
   <releases>
+    <release version="0.3.0" date="2026-08-23">
+      <description>
+        <ul>
+          <li>Fix host env leak, improve navigation, add setup wizard, rom storage choice, support link</li>
+          <li>Improve website, fix retrodeck launcher</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-08-22">
       <description>
         <ul>
