@@ -37,14 +37,18 @@ interface LaunchOptions {
 }
 
 /**
- * How long after the spawn a non-zero exit is still read as "it never started".
+ * How long after the spawn an exit is still read as "it never started".
  *
  * Emulators are not consistent about their exit code on an ordinary quit — a
- * few return non-zero after a perfectly good session — so a bare exit code
- * cannot decide this on its own. What it can be paired with is the clock: a
- * process that is gone this quickly showed the user nothing, whatever it
- * returned, and a session someone actually played lasted longer than any
- * startup failure does.
+ * few return non-zero after a perfectly good session, and a launcher that
+ * dispatches to one reports its *own* success rather than the emulator's, so
+ * zero does not mean a game ran either. RetroDECK is the second kind: asked to
+ * start a game it cannot start, it says so on stdout and exits 0.
+ *
+ * So the exit code cannot decide this on its own. What it can be paired with is
+ * the clock: a process that is gone this quickly showed the user nothing,
+ * whatever it returned, and a session someone actually played lasted longer
+ * than any startup failure does.
  */
 const STARTUP_MS = 5000
 
@@ -419,10 +423,6 @@ export class Launcher {
         const exit = { pid: child.pid ?? null, code, signal, ms: ranMs, signalled }
 
         const clean = { startupError: null, warning: null }
-        if (code === 0) {
-          log.info('emulator', 'exited cleanly', exit)
-          return resolvePromise(clean)
-        }
         // Stopped from RomMix, or killed from outside. Either way somebody
         // asked for this and it is not a failure to report back to them.
         if (signalled || signal) {
@@ -431,9 +431,14 @@ export class Launcher {
         }
 
         // Long enough to have been a session, so whatever the code meant, the
-        // emulator ran and may have written saves. Anything it flagged is worth
-        // passing on; it is not worth throwing the session away over.
+        // emulator ran and may have written saves.
         if (ranMs >= STARTUP_MS) {
+          if (code === 0) {
+            log.info('emulator', 'exited cleanly', exit)
+            return resolvePromise(clean)
+          }
+          // Anything it flagged is worth passing on; it is not worth throwing
+          // the session away over.
           const flagged = flaggedLines(output)
           log.warn('emulator', 'exited non-zero after a real session', { ...exit, flagged })
           return resolvePromise({
@@ -458,7 +463,11 @@ export class Launcher {
         return resolvePromise({
           startupError: detail
             ? `The emulator quit immediately: ${detail}`
-            : `The emulator quit immediately (code ${code}).`,
+            : code === 0
+              ? // Zero is the least informative thing an exit can say, and
+                // quoting it invites the reply that nothing went wrong.
+                'The emulator quit immediately.'
+              : `The emulator quit immediately (code ${code}).`,
           warning: null
         })
       })

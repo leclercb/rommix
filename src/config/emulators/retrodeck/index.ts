@@ -6,6 +6,16 @@ import type { EmulatorDescriptor } from '../types.ts'
 export const RETRODECK_APP_ID = 'net.retrodeck.retrodeck'
 
 /**
+ * Where RetroDECK keeps its libretro cores, inside its own sandbox.
+ *
+ * A path into another application would normally be RomMix's business to read
+ * rather than to know, but this one is not being used to find anything — it is
+ * handed straight back to RetroDECK, which is where the value came from. See
+ * `env` below for why it has to be handed back at all.
+ */
+const RETRODECK_CORES_DIR = '/app/retrodeck/components/retroarch/rd_extras/cores'
+
+/**
  * Systems RetroDECK covers with a bundled standalone emulator rather than
  * through libretro.
  *
@@ -139,7 +149,24 @@ export const retrodeck: EmulatorDescriptor = {
   core: undefined,
   // Everything RetroDECK needs it does in its own first-run setup.
   setupNotes: [],
-  env: undefined,
+  /**
+   * Works around a RetroDECK bug that breaks every libretro launch through its
+   * command line — which is the only way in RomMix has.
+   *
+   * Its `run_game.sh` expands the `%CORE_RETROARCH%` placeholder in the ES-DE
+   * command to `$ra_cores_path`, a variable it never assigns. The value is
+   * meant to arrive from the `paths` block of `retrodeck.json`, which RetroDECK
+   * loads into the environment key by key, but nothing writes that key — so on
+   * an install whose config lacks it the placeholder expands to nothing and
+   * RetroArch is told to load `/mgba_libretro.so`. It cannot, and RetroDECK
+   * exits 0 as though the game had been played.
+   *
+   * Setting the variable ourselves is the whole fix: the loader only overwrites
+   * keys the config actually has, so an install that does define it is left
+   * alone. It reaches RetroDECK's sandbox as `flatpak run --env` — see
+   * `execPrefix`. Removable once RetroDECK assigns it; harmless until then.
+   */
+  env: { ra_cores_path: RETRODECK_CORES_DIR },
   // `exec` alone opens RetroDECK's own frontend.
   open: undefined,
   launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath]

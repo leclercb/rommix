@@ -4,8 +4,8 @@ A Big Picture–style front end for your own [RomM](https://romm.app) server.
 
 Browse your library like a console dashboard, download games into your emulator's
 ROM folder, launch them, and sync saves and save states back to RomM when you
-quit. Built for a TV or a handheld: fullscreen, driven entirely by a controller,
-at home under gamescope or launched from Steam.
+quit. Built for a desktop, a handheld or a TV: fullscreen, driven entirely by a
+controller, at home under gamescope or launched from Steam.
 
 **[rommix on the web →](https://leclercb.github.io/rommix/)** — what it is, and a
 [live demo](https://leclercb.github.io/rommix/demo/) of the interface running in

@@ -278,9 +278,15 @@ test('Eden declares the environment it needs to open a window at all', () => {
   assert.equal(eden.env?.I_WANT_A_BROKEN_WAYLAND_UI, '1')
 })
 
+test('RetroDECK is told where its own cores are, because it does not tell itself', () => {
+  // Its run_game.sh expands %CORE_RETROARCH% to a variable nothing assigns, so
+  // without this every libretro game is launched as `-L /<core>.so` and dies.
+  assert.equal(retrodeck.env?.ra_cores_path, '/app/retrodeck/components/retroarch/rd_extras/cores')
+})
+
 test('an emulator with nothing to declare has no environment', () => {
-  assert.equal(retrodeck.env, undefined)
   assert.equal(retroarch.env, undefined)
+  assert.equal(emudeck.env, undefined)
 })
 
 test('an emulator whose folders the user chose says where that choice is written', () => {

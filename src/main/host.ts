@@ -254,9 +254,17 @@ export function execPrefix(
   install: ResolvedInstall,
   env: Readonly<Record<string, string>> = {}
 ): string[] {
+  const passed = Object.entries(env).map(([key, value]) => `--env=${key}=${value}`)
+
+  // A flatpak emulator gets a sandbox of its own, and setting a variable on the
+  // process that calls `flatpak run` does not put it inside that one — flatpak
+  // decides what crosses the boundary, and an emulator that needs a variable to
+  // start would not see it. `--env` is the way in, and it belongs before the
+  // application id: after it, flatpak passes it to the application as an
+  // ordinary argument.
   const argv =
     install.kind === 'flatpak'
-      ? ['flatpak', 'run', install.ref]
+      ? ['flatpak', 'run', ...passed, install.ref]
       : install.kind === 'scripts'
         ? []
         : [install.ref]
@@ -264,9 +272,11 @@ export function execPrefix(
 
   // flatpak-spawn starts a *fresh* process on the host and does not carry our
   // environment across, so anything the emulator needs has to be passed
-  // explicitly. Outside the sandbox the spawn options handle it instead.
-  const passed = Object.entries(env).map(([key, value]) => `--env=${key}=${value}`)
-  return ['flatpak-spawn', '--host', ...passed, ...argv]
+  // explicitly. Outside the sandbox the spawn options handle it instead. A
+  // flatpak install is already covered above, at the boundary that matters;
+  // repeating it here would only set it on the `flatpak run` client.
+  const spawned = install.kind === 'flatpak' ? [] : passed
+  return ['flatpak-spawn', '--host', ...spawned, ...argv]
 }
 
 /**

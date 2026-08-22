@@ -1,10 +1,18 @@
 <!doctype html>
 <!--
-  The RomMix landing page: what it is, and a way into the demo beside it.
+  The RomMix landing page: what it is, where it runs, and a way into the demo
+  beside it.
 
-  One file, no build step and nothing fetched from anywhere — `scripts/build-site.sh`
-  copies this next to the browser build of the renderer, which is what `Open the
-  demo` points at. Its palette is the app's own, from `src/renderer/src/styles.css`.
+  One file, no build step and no script — `scripts/build-site.sh` copies this
+  next to the browser build of the renderer, which is what `Open the demo`
+  points at. Its palette and its mark are the app's own, from
+  `src/renderer/src/styles.css` and `src/renderer/src/components.tsx`.
+
+  The artwork under `./demo/art/` is the same cover art the demo shows: the
+  homebrew library from RomM's public demo, copied there by the preview build
+  (`publicDir` in `vite.web.config.ts`). So this page only has its pictures once
+  both halves are assembled — open `out/site/index.html`, not `site/index.html`.
+  Missing covers fall back to the empty-cover gradient the app itself draws.
 -->
 <html lang="en">
   <head>
@@ -13,11 +21,11 @@
     <title>RomMix — a Big Picture front end for RomM</title>
     <meta
       name="description"
-      content="Browse your RomM library like a console dashboard, download games into your emulator's ROM folder, launch them, and sync saves back when you quit."
+      content="Browse your RomM library like a console dashboard on a desktop, a handheld or a television: download games into your emulator's ROM folder, launch them, and sync saves back when you quit."
     />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d13'/%3E%3Cpath d='M9 21v-10h6a3 3 0 0 1 0 6h-2l4 4' stroke='%235ac8fa' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='23' cy='13' r='2' fill='%235ac8fa'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230b0d13'/%3E%3Crect x='40' y='82' width='48' height='24' rx='6' fill='%231f7fae'/%3E%3Crect x='22' y='22' width='84' height='68' rx='11' fill='%235ac8fa'/%3E%3Crect x='32' y='32' width='64' height='38' rx='7' fill='%230b0d13'/%3E%3Crect x='50' y='48.5' width='28' height='5' fill='%237ad6ff' opacity='.4'/%3E%3Cg fill='none' stroke='%237ad6ff' stroke-width='4'%3E%3Ccircle cx='50' cy='51' r='9'/%3E%3Ccircle cx='78' cy='51' r='9'/%3E%3C/g%3E%3C/svg%3E"
     />
 
     <style>
@@ -25,6 +33,7 @@
         --bg: #0b0d13;
         --bg-raised: #151a24;
         --bg-hover: #1e2532;
+        --surface: rgba(255, 255, 255, 0.04);
         --border: rgba(255, 255, 255, 0.09);
         --text: #f2f5fa;
         --text-dim: #9aa4b8;
@@ -34,6 +43,8 @@
         --accent-contrast: #04121b;
         --radius: 12px;
         --radius-lg: 18px;
+        /* The empty cover, as the app draws it: what a missing image degrades to. */
+        --cover-empty: linear-gradient(150deg, #202836, #131821);
         color-scheme: dark;
       }
 
@@ -108,23 +119,28 @@
         background:
           radial-gradient(900px 420px at 18% -10%, rgba(90, 200, 250, 0.16), transparent 70%),
           var(--bg);
-        padding: 96px 0 72px;
+        padding: 88px 0 72px;
       }
 
       .brand {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-weight: 700;
-        font-size: 1.05rem;
-        letter-spacing: 0.02em;
-        color: var(--text-dim);
+        font-weight: 750;
+        font-size: 1.2rem;
+        letter-spacing: -0.01em;
         margin-bottom: 40px;
       }
 
       .brand svg {
-        width: 30px;
-        height: 30px;
+        width: 34px;
+        height: 34px;
+        filter: drop-shadow(0 3px 10px rgba(90, 200, 250, 0.3));
+      }
+
+      /* The wordmark as the app's own bar draws it: one word, two colours. */
+      .brand span {
+        color: var(--accent);
       }
 
       header h1 {
@@ -139,11 +155,41 @@
         margin-top: 20px;
       }
 
+      /* Where it runs, said once in a line before the page says it in pictures. */
+      .where {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 22px;
+        margin-top: 24px;
+        color: var(--text-faint);
+        font-size: 0.8rem;
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .where span {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .where svg {
+        width: 17px;
+        height: 17px;
+        stroke: var(--accent);
+        stroke-width: 1.8;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
       .actions {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
-        margin-top: 32px;
+        margin-top: 30px;
       }
 
       .button {
@@ -184,52 +230,499 @@
       /* -- the mock --------------------------------------------------------- */
 
       /*
-       * A sketch of the interface rather than a screenshot: a shelf of covers
-       * under a row of tabs, which is what the Home screen is. Drawn in CSS
-       * because the demo next door is the real thing, and a stale screenshot
-       * would be the only part of this page that could go out of date.
+       * The Home screen, rebuilt in CSS around the demo library's own artwork:
+       * the bar, the hero for the game you last played, and a shelf under it
+       * with one cover focused. Not a screenshot, because the demo next door is
+       * the real thing and a stale picture would be the only part of this page
+       * that could go out of date — but the same games, the same covers and the
+       * same layout, down to the ring and the lift focus draws.
        */
       .mock {
         margin-top: 56px;
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
         background: var(--bg-raised);
-        padding: 22px;
         overflow: hidden;
         box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
       }
 
-      .mock-tabs {
-        display: flex;
-        gap: 22px;
-        font-size: 0.86rem;
-        font-weight: 600;
-        color: var(--text-faint);
-        margin-bottom: 22px;
+      .mock-bar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 20px;
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.28);
       }
 
-      .mock-tabs span:first-child {
+      .mock-brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 750;
+        font-size: 0.95rem;
+      }
+
+      .mock-brand svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .mock-brand span {
         color: var(--accent);
       }
 
-      .mock-shelf {
+      .mock-nav {
         display: flex;
+        gap: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-faint);
+      }
+
+      .mock-nav span {
+        padding: 6px 13px;
+        border-radius: 9px;
+        border-bottom: 2px solid transparent;
+      }
+
+      .mock-nav .on {
+        color: var(--text);
+        background: var(--surface);
+        border-bottom-color: var(--accent);
+      }
+
+      .mock-status {
+        justify-self: end;
+        text-align: right;
+        font-size: 0.72rem;
+        line-height: 1.35;
+        color: var(--text-faint);
+      }
+
+      .mock-status b {
+        display: block;
+        color: var(--text-dim);
+      }
+
+      .mock-body {
+        position: relative;
+        padding: 22px 22px 24px;
+      }
+
+      /* The colour of the game, not a picture of it — the app's own backdrop. */
+      .mock-wash {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+
+      .mock-wash img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.15);
+        filter: blur(34px) saturate(1.25);
+        opacity: 0.38;
+      }
+
+      .mock-wash::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(
+            180deg,
+            rgba(21, 26, 36, 0.55),
+            rgba(21, 26, 36, 0.15) 40%,
+            var(--bg-raised)
+          ),
+          linear-gradient(90deg, rgba(21, 26, 36, 0.72), transparent 60%);
+      }
+
+      .mock-hero {
+        position: relative;
+        display: grid;
+        grid-template-columns: 132px 1fr;
+        gap: 22px;
+        align-items: end;
+      }
+
+      .mock-hero-art {
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        object-fit: cover;
+        border-radius: var(--radius);
+        background: var(--cover-empty);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+      }
+
+      .mock-reason {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .mock-title {
+        font-size: clamp(1.5rem, 4vw, 2.1rem);
+        font-weight: 780;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        margin: 6px 0 10px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-bottom: 10px;
+      }
+
+      .chips span {
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        font-size: 0.74rem;
+        color: var(--text-dim);
+      }
+
+      .mock-summary {
+        color: var(--text-dim);
+        font-size: 0.86rem;
+        line-height: 1.5;
+        margin: 0;
+        max-width: 60ch;
+      }
+
+      .shelf-title {
+        position: relative;
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 26px 0 12px;
+      }
+
+      .mock-shelf {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
         gap: 14px;
       }
 
-      .mock-shelf i {
-        display: block;
-        flex: 1;
-        aspect-ratio: 3 / 4;
-        border-radius: 8px;
-        background: linear-gradient(160deg, hsl(var(--h) 55% 42%), hsl(var(--h) 60% 16%));
+      .mock-shelf figure {
+        position: relative;
+        margin: 0;
+        transition: transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
       }
 
-      /* Focus, as the app draws it: a ring and a lift. */
-      .mock-shelf i:nth-child(2) {
-        outline: 3px solid var(--accent);
-        outline-offset: 3px;
-        transform: translateY(-6px);
+      .mock-shelf img {
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        object-fit: cover;
+        border-radius: 10px;
+        background: var(--cover-empty);
+        display: block;
+      }
+
+      /* Title over platform, both on one line each: the tile is narrow and a
+         wrapped name would push the row below it out of line. */
+      .mock-shelf figcaption {
+        margin-top: 8px;
+        line-height: 1.35;
+      }
+
+      .mock-shelf figcaption > * {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .mock-shelf figcaption span {
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+
+      .mock-shelf figcaption b {
+        font-weight: 500;
+        font-size: 0.7rem;
+        color: var(--text-faint);
+      }
+
+      /* Focus, as the app draws it: the tile grows and takes the ring. */
+      .mock-shelf .focused {
+        transform: scale(1.07);
+        z-index: 2;
+      }
+
+      .mock-shelf .focused img {
+        box-shadow:
+          0 0 0 3px var(--accent),
+          0 12px 34px rgba(0, 0, 0, 0.65);
+      }
+
+      /* A dot on a cover means the game is on this device. Drawn on the figure,
+         an image having no box of its own to hang a pseudo-element from. */
+      .mock-shelf .here::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55);
+      }
+
+      .hintbar {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        margin-top: 22px;
+        color: var(--text-faint);
+        font-size: 0.78rem;
+      }
+
+      .hintbar b {
+        display: inline-block;
+        min-width: 20px;
+        margin-right: 7px;
+        padding: 1px 6px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--text-dim);
+        text-align: center;
+        font-size: 0.72rem;
+      }
+
+      @media (max-width: 760px) {
+        .mock-nav span:nth-child(n + 4),
+        .mock-status,
+        .mock-summary,
+        .mock-shelf figure:nth-child(n + 5) {
+          display: none;
+        }
+
+        .mock-shelf {
+          grid-template-columns: repeat(4, 1fr);
+        }
+
+        .mock-hero {
+          grid-template-columns: 96px 1fr;
+        }
+      }
+
+      /* -- where it runs ---------------------------------------------------- */
+
+      .devices {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 34px 26px;
+        margin-top: 44px;
+      }
+
+      .device {
+        margin: 0;
+      }
+
+      /*
+       * Three shapes around one screen. The frames are drawn here rather than
+       * photographed because the point is the proportion — the same shelf at
+       * arm's length, in your hands, and across a room — and a real television
+       * in a stock photo would say less about the interface than the covers do.
+       */
+      .device__frame {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        border: 1px solid var(--border);
+        background: #05070c;
+      }
+
+      .device__screen {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      /* The interface at a distance: the bar, and a shelf running off the right
+         edge as it does in the app, where a row is longer than the screen. */
+      .mini-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 7px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.35);
+        flex: none;
+      }
+
+      .mini-bar .mark {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        background: var(--accent);
+        margin-right: 3px;
+      }
+
+      .mini-bar .tab {
+        height: 4px;
+        width: 16px;
+        border-radius: 999px;
+        background: var(--text-faint);
+        opacity: 0.5;
+      }
+
+      .mini-bar .tab.on {
+        background: var(--accent);
+        opacity: 1;
+      }
+
+      .mini-row {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px;
+        overflow: hidden;
+      }
+
+      /* Sized against the screen's width, so the row is never taller than the
+         space under the bar however the frame is scaled. */
+      .mini-row img {
+        flex: none;
+        width: 23%;
+        aspect-ratio: 3 / 4;
+        object-fit: cover;
+        border-radius: 4px;
+        background: var(--cover-empty);
+      }
+
+      .mini-row .focused {
+        box-shadow: 0 0 0 2px var(--accent);
+      }
+
+      /* A monitor: 16:10, on a neck and a foot. */
+      .device--desktop .device__frame {
+        max-width: 260px;
+        padding: 8px 8px 10px;
+        border-radius: 10px;
+      }
+
+      .device--desktop .device__screen {
+        aspect-ratio: 16 / 10;
+        border-radius: 4px;
+      }
+
+      .device__stand {
+        margin: 0 auto;
+        background: var(--bg-hover);
+      }
+
+      .device--desktop .device__stand {
+        width: 14px;
+        height: 16px;
+      }
+
+      .device--desktop .device__foot {
+        width: 84px;
+        height: 6px;
+        margin: 0 auto;
+        border-radius: 999px;
+        background: var(--bg-hover);
+      }
+
+      /* A handheld: the screen between two grips, with a pad and four buttons. */
+      .device--handheld .device__frame {
+        max-width: 290px;
+        padding: 10px 34px;
+        border-radius: 30px;
+        position: relative;
+      }
+
+      .device--handheld .device__screen {
+        aspect-ratio: 16 / 10;
+        border-radius: 6px;
+      }
+
+      /* Held nearer than the other two, so its covers are drawn larger. */
+      .device--handheld .mini-row img {
+        width: 30%;
+      }
+
+      .device--handheld .device__frame::before,
+      .device--handheld .device__frame::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 2px solid var(--bg-hover);
+      }
+
+      .device--handheld .device__frame::before {
+        left: 9px;
+      }
+
+      .device--handheld .device__frame::after {
+        right: 9px;
+        border: none;
+        background:
+          radial-gradient(circle at 50% 12%, var(--bg-hover) 3px, transparent 3px),
+          radial-gradient(circle at 50% 88%, var(--bg-hover) 3px, transparent 3px),
+          radial-gradient(circle at 12% 50%, var(--bg-hover) 3px, transparent 3px),
+          radial-gradient(circle at 88% 50%, var(--bg-hover) 3px, transparent 3px);
+      }
+
+      /* A television: 16:9, thin bezel, two feet. */
+      .device--tv .device__frame {
+        max-width: 300px;
+        padding: 5px;
+        border-radius: 6px;
+      }
+
+      .device--tv .device__screen {
+        aspect-ratio: 16 / 9;
+        border-radius: 2px;
+      }
+
+      /* Furthest away, so the shelf shows more of itself. */
+      .device--tv .mini-row img {
+        width: 20%;
+      }
+
+      .device--tv .device__stand {
+        width: 90px;
+        height: 5px;
+        border-radius: 999px;
+        margin-top: 7px;
+      }
+
+      .device figcaption {
+        margin-top: 22px;
+      }
+
+      .device h3 {
+        font-size: 1.05rem;
+        margin-bottom: 8px;
+      }
+
+      .device p {
+        color: var(--text-dim);
+        font-size: 0.95rem;
+        margin: 0;
       }
 
       /* -- feature grid ----------------------------------------------------- */
@@ -345,28 +838,64 @@
     <header>
       <div class="wrap">
         <div class="brand">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="8" fill="#151a24" />
-            <path
-              d="M9 21v-10h6a3 3 0 0 1 0 6h-2l4 4"
-              stroke="#5ac8fa"
-              stroke-width="2.4"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <circle cx="23" cy="13" r="2" fill="#5ac8fa" />
+          <!-- The app's own mark: a cartridge whose label is a cassette. -->
+          <svg viewBox="22 22 84 84" aria-hidden="true">
+            <defs>
+              <linearGradient id="mark" x1="0" y1="0" x2="0.6" y2="1">
+                <stop offset="0" stop-color="#7ad6ff" />
+                <stop offset="1" stop-color="#2aa9e0" />
+              </linearGradient>
+            </defs>
+            <rect x="40" y="82" width="48" height="24" rx="6" fill="#2aa9e0" opacity="0.75" />
+            <g fill="#0b0d13" opacity="0.55">
+              <rect x="48" y="94" width="6" height="10" rx="2" />
+              <rect x="61" y="94" width="6" height="10" rx="2" />
+              <rect x="74" y="94" width="6" height="10" rx="2" />
+            </g>
+            <rect x="22" y="22" width="84" height="68" rx="11" fill="url(#mark)" />
+            <rect x="32" y="32" width="64" height="38" rx="7" fill="#0b0d13" />
+            <rect x="50" y="48.5" width="28" height="5" fill="#5ac8fa" opacity="0.4" />
+            <g fill="none" stroke="#5ac8fa" stroke-width="4">
+              <circle cx="50" cy="51" r="9" />
+              <circle cx="78" cy="51" r="9" />
+            </g>
+            <circle cx="50" cy="51" r="2.5" fill="#5ac8fa" />
+            <circle cx="78" cy="51" r="2.5" fill="#5ac8fa" />
+            <rect x="36" y="76" width="56" height="4" rx="2" fill="#0b0d13" opacity="0.5" />
           </svg>
-          RomMix
+          Rom<span>Mix</span>
         </div>
 
-        <h1>Your RomM library, on the television.</h1>
+        <h1>Your RomM library, on the big screen.</h1>
 
         <p class="lede">
-          A Big Picture&ndash;style front end for your own
-          <a href="https://romm.app">RomM</a> server. Browse like a console dashboard, download a
-          game into your emulator's ROM folder, play it, and let the saves go back to RomM when you
-          quit.
+          A Big Picture&ndash;style front end for your own <a href="https://romm.app">RomM</a>
+          server. Browse it like a console dashboard, send a game to your emulator's ROM folder,
+          play it, and let your saves go back to RomM when you quit.
+        </p>
+
+        <p class="where">
+          <span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="13" rx="2" />
+              <path d="M9 21h6M12 17v4" />
+            </svg>
+            Desktop
+          </span>
+          <span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="6" width="20" height="12" rx="4" />
+              <path d="M7 10v4M5 12h4M16 11h.01M18.5 13.5h.01" />
+            </svg>
+            Handheld
+          </span>
+          <span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="5" width="20" height="13" rx="2" />
+              <path d="M7 21h10" />
+            </svg>
+            Television
+          </span>
         </p>
 
         <div class="actions">
@@ -378,24 +907,177 @@
         <p class="note">
           The demo is the real interface, browsing the homebrew library from
           <a href="https://demo.romm.app">RomM's public demo</a>: no server, no emulator, nothing
-          installed. Arrow keys, Enter and Escape — or a controller, if one is plugged in.
+          installed. Drive it with the arrow keys, Enter and Escape, with a mouse, or with a
+          controller if one is plugged in.
         </p>
 
         <div class="mock" aria-hidden="true">
-          <div class="mock-tabs">
-            <span>Home</span><span>Library</span><span>Downloads</span><span>BIOS</span>
+          <div class="mock-bar">
+            <div class="mock-brand">
+              <svg viewBox="22 22 84 84">
+                <rect x="40" y="82" width="48" height="24" rx="6" fill="#2aa9e0" opacity="0.75" />
+                <rect x="22" y="22" width="84" height="68" rx="11" fill="#5ac8fa" />
+                <rect x="32" y="32" width="64" height="38" rx="7" fill="#0b0d13" />
+                <rect x="50" y="48.5" width="28" height="5" fill="#5ac8fa" opacity="0.4" />
+                <g fill="none" stroke="#5ac8fa" stroke-width="4">
+                  <circle cx="50" cy="51" r="9" />
+                  <circle cx="78" cy="51" r="9" />
+                </g>
+              </svg>
+              Rom<span>Mix</span>
+            </div>
+            <div class="mock-nav">
+              <span class="on">Home</span><span>Library</span><span>Downloads</span><span>BIOS</span
+              ><span>Settings</span>
+            </div>
+            <div class="mock-status"><b>player</b>romm.lan</div>
           </div>
-          <div class="mock-shelf">
-            <i style="--h: 208"></i>
-            <i style="--h: 264"></i>
-            <i style="--h: 12"></i>
-            <i style="--h: 154"></i>
-            <i style="--h: 42"></i>
-            <i style="--h: 320"></i>
+
+          <div class="mock-body">
+            <div class="mock-wash"><img src="./demo/art/175-shot0.webp" alt="" /></div>
+
+            <div class="mock-hero">
+              <img class="mock-hero-art" src="./demo/art/175-big.webp" alt="" />
+              <div>
+                <div class="mock-reason">Continue playing</div>
+                <div class="mock-title">Cave Story</div>
+                <div class="chips">
+                  <span>Sega Mega Drive/Genesis</span><span>2019</span><span>Adventure</span
+                  ><span>Platform</span>
+                </div>
+                <p class="mock-summary">
+                  A rewrite of the freeware Cave Story for the Mega Drive, built on SGDK: an
+                  amnesiac soldier, a city of rabbits, and a doctor collecting them.
+                </p>
+              </div>
+            </div>
+
+            <div class="shelf-title">Ready to play</div>
+            <div class="mock-shelf">
+              <figure>
+                <img src="./demo/art/169-small.webp" alt="" />
+                <figcaption><span>Demons of Asteborg</span><b>Mega Drive</b></figcaption>
+              </figure>
+              <figure class="focused here">
+                <img src="./demo/art/123-small.webp" alt="" />
+                <figcaption><span>Battle Kid</span><b>NES</b></figcaption>
+              </figure>
+              <figure>
+                <img src="./demo/art/77-small.webp" alt="" />
+                <figcaption><span>Tobu Tobu Girl</span><b>Game Boy</b></figcaption>
+              </figure>
+              <figure class="here">
+                <img src="./demo/art/163-small.webp" alt="" />
+                <figcaption><span>Super Boss Gaiden</span><b>SNES</b></figcaption>
+              </figure>
+              <figure>
+                <img src="./demo/art/137-small.webp" alt="" />
+                <figcaption><span>The Legends of Owlia</span><b>NES</b></figcaption>
+              </figure>
+              <figure>
+                <img src="./demo/art/139-small.webp" alt="" />
+                <figcaption><span>Beneath a Steel Sky</span><b>ScummVM</b></figcaption>
+              </figure>
+            </div>
+
+            <div class="hintbar">
+              <span><b>A</b>Open</span>
+              <span><b>Y</b>Search</span>
+              <span><b>B</b>Back</span>
+            </div>
           </div>
         </div>
       </div>
     </header>
+
+    <section>
+      <div class="wrap">
+        <h2>Desktop, handheld, television</h2>
+        <p>
+          One build for all three. RomMix opens fullscreen and every screen in it is reachable on a
+          D-pad, so the machine it runs on changes little more than how far away you are sitting.
+        </p>
+
+        <div class="devices">
+          <figure class="device device--desktop">
+            <div class="device__frame" aria-hidden="true">
+              <div class="device__screen">
+                <div class="mini-bar">
+                  <span class="mark"></span><span class="tab on"></span><span class="tab"></span
+                  ><span class="tab"></span><span class="tab"></span>
+                </div>
+                <div class="mini-row">
+                  <img src="./demo/art/175-small.webp" alt="" loading="lazy" />
+                  <img class="focused" src="./demo/art/169-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/123-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/77-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/163-small.webp" alt="" loading="lazy" />
+                </div>
+              </div>
+            </div>
+            <div class="device__stand"></div>
+            <div class="device__foot"></div>
+            <figcaption>
+              <h3>At the desk</h3>
+              <p>
+                One <code>flatpak run</code> on any Linux desktop. Keyboard and mouse work as well
+                as a pad — which is how most people set it up, long before it reaches a television.
+              </p>
+            </figcaption>
+          </figure>
+
+          <figure class="device device--handheld">
+            <div class="device__frame" aria-hidden="true">
+              <div class="device__screen">
+                <div class="mini-bar">
+                  <span class="mark"></span><span class="tab on"></span><span class="tab"></span
+                  ><span class="tab"></span>
+                </div>
+                <div class="mini-row">
+                  <img src="./demo/art/137-small.webp" alt="" loading="lazy" />
+                  <img class="focused" src="./demo/art/139-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/149-small.webp" alt="" loading="lazy" />
+                </div>
+              </div>
+            </div>
+            <figcaption>
+              <h3>In your hands</h3>
+              <p>
+                On a Steam Deck or any handheld running Linux: add RomMix to Steam as a non-Steam
+                game and it starts in game mode with the built-in pad already driving it.
+              </p>
+            </figcaption>
+          </figure>
+
+          <figure class="device device--tv">
+            <div class="device__frame" aria-hidden="true">
+              <div class="device__screen">
+                <div class="mini-bar">
+                  <span class="mark"></span><span class="tab on"></span><span class="tab"></span
+                  ><span class="tab"></span><span class="tab"></span><span class="tab"></span>
+                </div>
+                <div class="mini-row">
+                  <img src="./demo/art/123-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/163-small.webp" alt="" loading="lazy" />
+                  <img class="focused" src="./demo/art/175-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/169-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/77-small.webp" alt="" loading="lazy" />
+                  <img src="./demo/art/139-small.webp" alt="" loading="lazy" />
+                </div>
+              </div>
+            </div>
+            <div class="device__stand"></div>
+            <figcaption>
+              <h3>Across the room</h3>
+              <p>
+                Under gamescope, laid out for 1080p and drawn at double size on a 4K panel so it
+                still reads from the sofa. Sign in by scanning a code with your phone.
+              </p>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
 
     <section>
       <div class="wrap">
@@ -407,38 +1089,24 @@
 
         <div class="grid">
           <div class="card">
-            <h3>Driven by a controller</h3>
+            <h3>Downloads where the emulator looks</h3>
             <p>
-              Fullscreen, ten feet away: the whole app is navigable on a D-pad, under gamescope or
-              added to Steam as a non-Steam game.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Downloads into the right folder</h3>
-            <p>
-              A game lands in its emulator's own library, so it is still there when you start that
-              emulator yourself and ES-DE scrapes it as usual.
+              A game lands in its emulator's own ROM folder, SD card included — so it is still there
+              when you start that emulator yourself and ES-DE scrapes it as usual.
             </p>
           </div>
           <div class="card">
             <h3>Saves that follow you</h3>
             <p>
-              Newer saves come down before you play and go back up when you quit, with a per-game
-              tab showing which side is ahead.
+              Newer saves and save states come down before you play and go back up when you quit. A
+              per-game tab shows which side is ahead, and pulls or pushes by hand.
             </p>
           </div>
           <div class="card">
             <h3>BIOS from your own server</h3>
             <p>
               Per platform: what is needed, what RomM holds and what the emulator already has — then
-              the missing files are put in place.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Sign in from the couch</h3>
-            <p>
-              Show a code and a QR, approve it in RomM from a phone, and nothing secret is typed on
-              a television keyboard.
+              the missing files are put in place. Nothing is fetched from anywhere else.
             </p>
           </div>
           <div class="card">
@@ -446,6 +1114,20 @@
             <p>
               A cue+bin or a multi-disc set is unpacked into a folder of its own, and the emulator
               is handed the <code>.m3u</code>, not the <code>.bin</code>.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Sign in from the couch</h3>
+            <p>
+              RomMix shows a code and a QR. Approve it in RomM from your phone, and nothing secret
+              is typed on a television keyboard.
+            </p>
+          </div>
+          <div class="card">
+            <h3>It installs the emulators too</h3>
+            <p>
+              RetroDECK, RetroArch and shadPS4 come from Flathub, Eden from its own releases, all
+              from Settings. Start with RetroDECK if you have none.
             </p>
           </div>
         </div>
@@ -456,9 +1138,10 @@
       <div class="wrap">
         <h2>The emulators it drives</h2>
         <p>
-          Five, and RomMix installs the ones that can be installed. RetroDECK and EmuDeck are front
-          ends carrying a dozen emulators each, so a game goes to whichever one that system is
-          configured for; the other three run what they run.
+          Five. RetroDECK and EmuDeck are front ends carrying a dozen emulators each, so a game goes
+          to whichever one that system is configured for; RetroArch runs the libretro core RomMix
+          names for the system; Eden and shadPS4 each run one console and nothing else. Settings
+          &rarr; Platforms shows what every system resolves to, and lets you change it.
         </p>
 
         <div class="scroll">
@@ -506,10 +1189,11 @@
       <div class="wrap">
         <h2>Getting it</h2>
         <p>
-          Linux with <code>flatpak</code>, a RomM server at version 5 or newer, and at least one of
-          the emulators above. Download the bundle from the
-          <a href="https://github.com/leclercb/rommix/releases">releases page</a>
-          and install it for your user.
+          Linux with <code>flatpak</code>, a RomM server at version 5 or newer that you can reach,
+          and one of the emulators above — RomMix installs any of them but EmuDeck itself. Download
+          the bundle from the
+          <a href="https://github.com/leclercb/rommix/releases">releases page</a> and install it for
+          your user.
         </p>
 
         <pre><code><b>flatpak</b> remote-add --user --if-not-exists \
@@ -520,7 +1204,8 @@
 <b>gamescope</b> -f -- flatpak run be.bl_it.RomMix  <span># on a TV</span></code></pre>
 
         <p class="note">
-          There is no Flathub package yet, and the
+          On a handheld, add that first command to Steam as a non-Steam game instead. There is no
+          Flathub package yet, and the
           <a href="https://github.com/leclercb/rommix#readme">README</a> covers building it
           yourself, the permissions it needs and what to do when an emulator will not start.
         </p>
@@ -537,11 +1222,11 @@
           <a href="https://romm.app">RomM</a>
         </div>
         RomMix is MIT-licensed, and is not affiliated with, endorsed by or connected to RomM, any
-        emulator it launches, or any console maker or game publisher. It ships no games: the demo
-        borrows the library from
+        emulator it launches, or any console maker or game publisher. It ships no games: the covers
+        on this page and the library in the demo come from
         <a href="https://demo.romm.app">RomM's own public demo</a>, which is homebrew and freeware
-        throughout, and each game's cover art and name belong to whoever made it. RomMix shows you
-        what is on a server you run yourself.
+        throughout, and each game's art and name belong to whoever made it. RomMix shows you what is
+        on a server you run yourself.
       </div>
     </footer>
   </body>
