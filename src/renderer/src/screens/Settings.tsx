@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useEffect, useState } from 'react'
+import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import {
   orderedEmulators,
   emulatorById,
@@ -21,18 +21,33 @@ import type {
   RootLocation
 } from '@shared/types'
 import {
+  Choice,
   FocusButton,
   Hints,
   Overlay,
-  SegmentedControl,
+  RomStorageChoice,
+  ScanToOpen,
   Spinner,
   PlatformIcon,
   TextField,
-  formatBytes
+  Toggle,
+  UI_SCALES,
+  formatBytes,
+  uiScaleChoice,
+  type UiScaleChoice
 } from '../components'
 import { Icon, type IconName } from '../icons'
 import { useGamepadName } from '../input/focus'
 import { useApp } from '../state'
+
+/**
+ * Where to send someone who wants to say thank you.
+ *
+ * A QR code first and a browser second, in that order: RomMix is driven from a
+ * sofa, and on a gamescope session there may be no browser for a link to open
+ * into at all.
+ */
+export const SUPPORT_URL = 'https://buymeacoffee.com/leclercb'
 
 /**
  * Settings and the pre-flight check.
@@ -47,11 +62,68 @@ export function SettingsScreen(): JSX.Element {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
   const [root, setRoot] = useState<RootLocation | null>(null)
   const [rootDraft, setRootDraft] = useState('')
+  const [rechecking, setRechecking] = useState(false)
+  const [supporting, setSupporting] = useState(false)
+  const [askingChange, setAskingChange] = useState(false)
+  /**
+   * The half-finished emulator change waiting on an answer.
+   *
+   * A promise resolver rather than a stored action, so the two callers — the
+   * reorder buttons and the per-platform cycle — keep their own logic and only
+   * hand this the question. See `EmulatorChangeNotice`.
+   */
+  const changeAnswer = useRef<((allowed: boolean) => void) | null>(null)
   const controller = useGamepadName()
+
+  const dismissed = settings?.dismissedNotices ?? []
+
+  const confirmEmulatorChange = useCallback((): Promise<boolean> => {
+    if (dismissed.includes(EMULATOR_CHANGE_NOTICE)) return Promise.resolve(true)
+    setAskingChange(true)
+    return new Promise<boolean>((resolve) => {
+      changeAnswer.current = resolve
+    })
+  }, [dismissed])
+
+  const settleEmulatorChange = (allowed: boolean, dontAskAgain = false): void => {
+    setAskingChange(false)
+    if (dontAskAgain && !dismissed.includes(EMULATOR_CHANGE_NOTICE)) {
+      void saveSettings({ dismissedNotices: [...dismissed, EMULATOR_CHANGE_NOTICE] })
+    }
+    changeAnswer.current?.(allowed)
+    changeAnswer.current = null
+  }
 
   useEffect(() => {
     void window.rommix.system.diagnostics().then(setDiagnostics)
   }, [])
+
+  /**
+   * Run the pre-flight check again, and say what it found.
+   *
+   * The button used to replace the report silently, which on a machine where
+   * nothing had changed was indistinguishable from a button that does nothing —
+   * the same list of notes, redrawn. The count is the part that answers "did
+   * that do anything", so the notification leads with it.
+   */
+  const recheck = async (): Promise<void> => {
+    setRechecking(true)
+    try {
+      const report = await window.rommix.system.diagnostics()
+      setDiagnostics(report)
+      const problems = report.notes.length
+      notify(
+        problems === 0
+          ? 'Checked — everything looks ready to play'
+          : `Checked — ${problems} thing${problems === 1 ? '' : 's'} to sort out`,
+        problems === 0 ? 'ok' : 'warn'
+      )
+    } catch {
+      // Reported centrally on `app:error`.
+    } finally {
+      setRechecking(false)
+    }
+  }
 
   useEffect(() => {
     void window.rommix.system.root().then((value) => {
@@ -124,6 +196,32 @@ export function SettingsScreen(): JSX.Element {
         onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
       />
 
+      <h2 className="section-title">Games on disk</h2>
+      <RomStorageChoice
+        value={settings.romStorage}
+        onChange={(next) => {
+          if (next === settings.romStorage) return
+          void saveSettings({ romStorage: next }).then(() =>
+            notify(
+              next === 'rommix'
+                ? 'New downloads go to the RomMix folder — add it to each emulator'
+                : "New downloads go to each emulator's own folder",
+              'warn'
+            )
+          )
+        }}
+      />
+      {/* The folder to add to Eden, RetroArch and the rest. Only worth naming
+          where it is the one being used — otherwise it is a path to a folder
+          nothing writes to. */}
+      {settings.romStorage === 'rommix' && root ? (
+        <p className="faint" style={{ fontSize: 14 }}>
+          Games are written to {root.current}/roms/&lt;system&gt;. Games already downloaded into an
+          emulator&apos;s own folder stay there and are offered for download again; switch back and
+          they reappear.
+        </p>
+      ) : null}
+
       <h2 className="section-title">Emulators</h2>
       <p className="faint" style={{ fontSize: 14 }}>
         What RomMix found on this machine, and how many platforms each one covers. The order is the
@@ -134,6 +232,7 @@ export function SettingsScreen(): JSX.Element {
       <EmulatorList
         diagnostics={diagnostics}
         notify={notify}
+        confirmChange={confirmEmulatorChange}
         onInstalled={() => {
           void window.rommix.system.diagnostics().then(setDiagnostics)
         }}
@@ -149,6 +248,7 @@ export function SettingsScreen(): JSX.Element {
         chosen={settings.systemEmulators}
         diagnostics={diagnostics}
         overrides={settings.systemOverrides}
+        confirmChange={confirmEmulatorChange}
         onChoose={(next) => {
           void saveSettings({ systemEmulators: next }).then(async () =>
             setDiagnostics(await window.rommix.system.diagnostics())
@@ -249,17 +349,23 @@ export function SettingsScreen(): JSX.Element {
           )}
 
           <div className="btn-row">
-            <FocusButton
-              icon="refresh"
-              onSelect={() => {
-                void window.rommix.system.diagnostics().then(setDiagnostics)
-              }}
-            >
-              Re-run check
+            <FocusButton icon="refresh" disabled={rechecking} onSelect={() => void recheck()}>
+              {rechecking ? 'Checking…' : 'Re-run check'}
             </FocusButton>
           </div>
         </>
       )}
+
+      <h2 className="section-title">Support RomMix</h2>
+      <p className="faint" style={{ fontSize: 14 }}>
+        RomMix is free and always will be. If it saved you an afternoon of wiring emulators
+        together, you can buy me a coffee.
+      </p>
+      <div className="btn-row">
+        <FocusButton icon="coffee" onSelect={() => setSupporting(true)}>
+          Buy me a coffee
+        </FocusButton>
+      </div>
 
       <h2 className="section-title">Application</h2>
       <div className="btn-row">
@@ -273,6 +379,37 @@ export function SettingsScreen(): JSX.Element {
           Quit RomMix
         </FocusButton>
       </div>
+
+      {askingChange ? (
+        <EmulatorChangeNotice
+          sharedRoms={settings.romStorage === 'rommix'}
+          onConfirm={(dontAskAgain) => settleEmulatorChange(true, dontAskAgain)}
+          onCancel={() => settleEmulatorChange(false)}
+        />
+      ) : null}
+
+      {supporting ? (
+        <Overlay title="Buy me a coffee">
+          <p className="muted">
+            Scan this with your phone, or open it in a browser on this machine.
+          </p>
+          <ScanToOpen url={SUPPORT_URL} />
+          <div className="btn-row">
+            <FocusButton icon="keep" onSelect={() => setSupporting(false)} autoFocus>
+              Close
+            </FocusButton>
+            <FocusButton
+              icon="homepage"
+              onSelect={() => {
+                setSupporting(false)
+                void window.rommix.system.openExternal(SUPPORT_URL)
+              }}
+            >
+              Open in a browser
+            </FocusButton>
+          </div>
+        </Overlay>
+      ) : null}
 
       <Hints
         items={[
@@ -387,14 +524,18 @@ function Path({
 function EmulatorList({
   diagnostics,
   notify,
+  confirmChange,
   onInstalled
 }: {
   diagnostics: DiagnosticsReport | null
   notify: ReturnType<typeof useApp>['notify']
+  /** Ask before a change that costs a re-download. Resolves false on cancel. */
+  confirmChange: () => Promise<boolean>
   onInstalled: () => void
 }): JSX.Element {
   const { settings, saveSettings, refreshInstalled } = useApp()
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
+  const [running, setRunning] = useState<EmulatorId | null>(null)
   const [flatpakBusy, setFlatpakBusy] = useState<EmulatorId | null>(null)
   const [flatpakLine, setFlatpakLine] = useState<string | null>(null)
   /**
@@ -417,6 +558,11 @@ function EmulatorList({
     const from = ids.indexOf(id)
     const to = from + delta
     if (from < 0 || to < 0 || to >= ids.length) return
+
+    // Asked before anything is written: this reorders which emulator answers
+    // for every platform both cover, which is a re-download of their games and
+    // a reinstall of their BIOS. See `EmulatorChangeNotice`.
+    if (!(await confirmChange())) return
     ;[ids[from], ids[to]] = [ids[to], ids[from]]
     await saveSettings({ emulatorPriority: ids })
     // The probe has re-run in the main process by the time this returns, and
@@ -424,6 +570,7 @@ function EmulatorList({
     // platform, and which downloads that emulator can actually see.
     onInstalled()
     await refreshInstalled()
+    notify(`${emulatorById(id)?.name ?? id} moved ${delta < 0 ? 'up' : 'down'}`)
   }
 
   /**
@@ -436,12 +583,19 @@ function EmulatorList({
    * usable.
    */
   const run = async (id: EmulatorId, name: string): Promise<void> => {
+    setRunning(id)
     try {
+      // This waits a couple of seconds now: the main process holds the answer
+      // back until the emulator has either survived long enough to count as
+      // started or quit with something to say about why. So the button says
+      // "Starting…" rather than looking wedged.
       await window.rommix.system.runEmulator(id)
       notify(`${name} started`)
       onInstalled()
     } catch {
-      // Reported centrally on `app:error`.
+      // Reported centrally on `app:error`, in the emulator's own words.
+    } finally {
+      setRunning(null)
     }
   }
 
@@ -473,6 +627,11 @@ function EmulatorList({
     setRootDraft(null)
     onInstalled()
     await refreshInstalled()
+    notify(
+      trimmed
+        ? `${emulatorById(id)?.name ?? id} will be read from ${trimmed}`
+        : `${emulatorById(id)?.name ?? id} folder found automatically again`
+    )
   }
 
   /**
@@ -493,6 +652,10 @@ function EmulatorList({
     try {
       await window.rommix.system.installEmulatorFlatpak(descriptor.id)
       onInstalled()
+      notify(`${descriptor.name} installed`)
+    } catch {
+      // Reported centrally on `app:error`; this only keeps the success
+      // notification from firing over a failed install.
     } finally {
       setFlatpakBusy(null)
       setFlatpakLine(null)
@@ -637,9 +800,10 @@ function EmulatorList({
                 <FocusButton
                   icon="play"
                   variant="ghost"
+                  disabled={running !== null}
                   onSelect={() => void run(descriptor.id, descriptor.name)}
                 >
-                  Run
+                  {running === descriptor.id ? 'Starting…' : 'Run'}
                 </FocusButton>
               ) : (
                 /* One button whatever the emulator offers — how it gets here is
@@ -736,8 +900,10 @@ function EmulatorList({
           emulatorId={installing}
           onClose={() => setInstalling(null)}
           onInstalled={() => {
+            const name = emulatorById(installing)?.name ?? installing
             setInstalling(null)
             onInstalled()
+            notify(`${name} installed`)
           }}
         />
       ) : null}
@@ -862,11 +1028,14 @@ function PlatformList({
   chosen,
   diagnostics,
   overrides,
+  confirmChange,
   onChoose
 }: {
   chosen: Record<string, EmulatorId>
   diagnostics: DiagnosticsReport | null
   overrides: Record<string, string>
+  /** Ask before a change that costs a re-download. Resolves false on cancel. */
+  confirmChange: () => Promise<boolean>
   onChoose: (next: Record<string, EmulatorId>) => void
 }): JSX.Element {
   // The same order the Emulators list is showing, so "Default" here names the
@@ -918,12 +1087,27 @@ function PlatformList({
         // 'default' first, then every emulator that runs this system.
         const cycle: (EmulatorId | null)[] = [null, ...candidates.map((c) => c.id)]
 
-        const advance = (): void => {
+        /**
+         * Step to the next candidate, asking first.
+         *
+         * Only once per run of presses: the cycle is how this control is
+         * driven, and a dialog between every step would make walking past
+         * "Default" to the third emulator three confirmations of the same
+         * change. The question is asked when the platform leaves the emulator
+         * it is on now, and the answer holds for as long as the cycling lasts.
+         */
+        const advance = async (): Promise<void> => {
           const index = cycle.indexOf(current ?? null)
           const next = cycle[(index + 1) % cycle.length]
           const updated = { ...chosen }
           if (next === null) delete updated[system]
           else updated[system] = next
+
+          // Nothing to warn about when the emulator does not actually change —
+          // stepping from "Default" onto the emulator that was already the
+          // default writes a preference and moves no files.
+          const after = next ?? fallback
+          if (after !== effective && !(await confirmChange())) return
           onChoose(updated)
         }
 
@@ -956,7 +1140,7 @@ function PlatformList({
                 icon="emulator"
                 variant="ghost"
                 disabled={candidates.length === 0}
-                onSelect={advance}
+                onSelect={() => void advance()}
               >
                 {effective ? (emulatorById(effective)?.name ?? effective) : 'None'}
                 {current == null && effective ? ' (default)' : ''}
@@ -970,84 +1154,55 @@ function PlatformList({
 }
 
 /**
- * A labelled setting with its own On/Off control, rather than the label
- * smuggled into the text of one of the options.
- */
-function Toggle({
-  label,
-  hint,
-  on,
-  onToggle
-}: {
-  label: string
-  hint?: string
-  on: boolean
-  onToggle: () => void
-}): JSX.Element {
-  return (
-    <div className="setting">
-      <div className="setting__text">
-        <div className="setting__label">{label}</div>
-        {hint ? <div className="setting__hint">{hint}</div> : null}
-      </div>
-      <SegmentedControl<'on' | 'off'>
-        value={on ? 'on' : 'off'}
-        onChange={(next) => {
-          if ((next === 'on') !== on) onToggle()
-        }}
-        options={[
-          { value: 'on', label: 'On' },
-          { value: 'off', label: 'Off' }
-        ]}
-      />
-    </div>
-  )
-}
-
-/** The same row as `Toggle`, for a setting with more than two answers. */
-function Choice<T extends string>({
-  label,
-  hint,
-  value,
-  options,
-  onChange
-}: {
-  label: string
-  hint?: string
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (value: T) => void
-}): JSX.Element {
-  return (
-    <div className="setting">
-      <div className="setting__text">
-        <div className="setting__label">{label}</div>
-        {hint ? <div className="setting__hint">{hint}</div> : null}
-      </div>
-      <SegmentedControl<T> value={value} options={options} onChange={onChange} />
-    </div>
-  )
-}
-
-/**
- * The scales offered, as the strings the segmented control switches on.
+ * What changing the emulator for a platform actually costs, and the two ways
+ * of agreeing to it.
  *
- * A short list of round numbers rather than a slider: this is a control being
- * driven from a sofa, and every value between 100% and 200% that anyone would
- * actually stop at is here. `auto` is 0 in settings — see `Settings.uiScale`.
+ * Every emulator keeps its own BIOS folder, its own save tree, and — unless
+ * games live in RomMix's shared folder — its own copy of every ROM. None of
+ * that follows the platform across, so a reorder that looks like a preference
+ * is in fact a re-download. Said before it happens rather than discovered
+ * afterwards as a library that has apparently emptied itself.
+ *
+ * Dismissible, because someone arranging five emulators will see this five
+ * times and the second time it is already noise.
  */
-type UiScaleChoice = 'auto' | '1' | '1.25' | '1.5' | '2'
-
-const UI_SCALES: { value: UiScaleChoice; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: '1', label: '100%' },
-  { value: '1.25', label: '125%' },
-  { value: '1.5', label: '150%' },
-  { value: '2', label: '200%' }
-]
-
-/** The stored number as one of the offered choices, falling back to Auto. */
-function uiScaleChoice(scale: number): UiScaleChoice {
-  const match = UI_SCALES.find((option) => option.value === String(scale))
-  return match ? match.value : 'auto'
+function EmulatorChangeNotice({
+  sharedRoms,
+  onConfirm,
+  onCancel
+}: {
+  sharedRoms: boolean
+  onConfirm: (dontAskAgain: boolean) => void
+  onCancel: () => void
+}): JSX.Element {
+  return (
+    <Overlay title="Change which emulator runs this?">
+      <p className="muted">
+        Each emulator keeps its own files, and nothing moves across when you change one:
+      </p>
+      <ul className="notice__list muted">
+        <li>BIOS files have to be installed again for the new emulator.</li>
+        <li>
+          {sharedRoms
+            ? 'Games stay where they are — they are in RomMix’s own folder, which you point every emulator at.'
+            : 'Downloaded games stay in the old emulator’s folder and have to be downloaded again.'}
+        </li>
+        <li>Saves live in the old emulator&apos;s tree. Pull them from RomM after the change.</li>
+      </ul>
+      <div className="btn-row">
+        <FocusButton icon="confirm" variant="primary" onSelect={() => onConfirm(false)} autoFocus>
+          Change it
+        </FocusButton>
+        <FocusButton icon="hide" onSelect={() => onConfirm(true)}>
+          Change it, don&apos;t ask again
+        </FocusButton>
+        <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
+          Cancel
+        </FocusButton>
+      </div>
+    </Overlay>
+  )
 }
+
+/** The dismissal key for `EmulatorChangeNotice`, in `Settings.dismissedNotices`. */
+const EMULATOR_CHANGE_NOTICE = 'emulator-change'

@@ -1,10 +1,42 @@
-import { type JSX, useEffect, useRef, useState } from 'react'
-import type { AuthMode, RommDeviceAuthInit } from '@shared/types'
-import { FocusButton, Hints, Overlay, QrCode, SegmentedControl, TextField } from '../components'
+import { type JSX, type ReactNode, useEffect, useRef, useState } from 'react'
+import type { AuthMode, RomStorage, RommDeviceAuthInit } from '@shared/types'
+import { useAction } from '../input/focus'
+import {
+  Choice,
+  FocusButton,
+  Hints,
+  Overlay,
+  QrCode,
+  RomStorageChoice,
+  SegmentedControl,
+  TextField,
+  UI_SCALES,
+  uiScaleChoice,
+  type UiScaleChoice
+} from '../components'
 import { useApp } from '../state'
 
 /**
- * The server connection screen.
+ * The steps of first-run setup, in order.
+ *
+ * Only two questions come before the server, and both earn their place by being
+ * awkward to change *after* it. Scale is the one setting that decides whether
+ * the next screen can be read at all from a sofa — asking it after the library
+ * has loaded means asking it in text the user may not be able to see. And where
+ * ROMs go decides where every download lands, so answering it later means
+ * answering it with games already on disk in the other place.
+ *
+ * Everything else RomMix can be told stays in Settings. A wizard is a tax on
+ * the first five minutes, and it is only worth charging for the questions whose
+ * answers are expensive to revise.
+ */
+type SetupStep = 'scale' | 'storage' | 'server'
+
+const SETUP_STEPS: readonly SetupStep[] = ['scale', 'storage', 'server']
+
+/**
+ * The server connection screen, and — on a fresh installation — the two
+ * questions in front of it.
  *
  * Three ways in, in the order they suit a controller:
  *
@@ -14,7 +46,7 @@ import { useApp } from '../state'
  *  - Username and password: the OAuth2 password grant.
  */
 export function ConnectScreen(): JSX.Element {
-  const { refreshStatus, navigate, notify, status } = useApp()
+  const { refreshStatus, navigate, notify, status, settings, saveSettings } = useApp()
 
   const [baseUrl, setBaseUrl] = useState(status?.baseUrl ?? '')
   const [mode, setMode] = useState<AuthMode>('device')
@@ -25,9 +57,37 @@ export function ConnectScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [pairing, setPairing] = useState<RommDeviceAuthInit | null>(null)
 
+  /**
+   * Which page of setup is showing.
+   *
+   * Started from `setupComplete` rather than from "is a server configured":
+   * signing out clears the server, and someone who has used RomMix for months
+   * should be put back on the connect form, not walked through a page asking
+   * how large they would like the text. Held as state so `null` — settings not
+   * loaded yet — resolves once and does not then flip the page underneath
+   * somebody mid-answer.
+   */
+  const [step, setStep] = useState<SetupStep | null>(null)
+  useEffect(() => {
+    if (settings && step === null) setStep(settings.setupComplete ? 'server' : 'scale')
+  }, [settings, step])
+
+  // Inside setup, B steps back a page — the same thing the Back button does, so
+  // the two agree. Outside it this screen is the bottom of the stack and B does
+  // nothing, which is what the shell already leaves it as.
+  useAction(
+    'back',
+    () => setStep('storage'),
+    step === 'server' && settings?.setupComplete === false
+  )
+
   const finish = async (): Promise<void> => {
     const next = await refreshStatus()
     if (next.connected) {
+      // Recorded on the way through rather than at the end of the wizard: the
+      // point of the flag is that these questions are asked once, and reaching
+      // a working library is the moment that becomes true.
+      if (settings && !settings.setupComplete) await saveSettings({ setupComplete: true })
       notify(`Connected to RomM as ${next.user?.username ?? 'user'}`)
       navigate({ name: 'home' })
     }
@@ -58,9 +118,57 @@ export function ConnectScreen(): JSX.Element {
     }
   }
 
+  // Nothing at all until the stored settings have arrived: a flash of the
+  // wizard in front of someone who finished it a year ago is worse than a beat
+  // of blank screen.
+  if (!settings || step === null) return <div className="content" />
+
+  const wizard = !settings.setupComplete
+  const stepNumber = SETUP_STEPS.indexOf(step) + 1
+  const at = (next: SetupStep): void => setStep(next)
+
+  if (step === 'scale') {
+    return (
+      <SetupPage
+        step={stepNumber}
+        title="How big should RomMix be?"
+        subtitle="Auto follows the screen — twice the size on a 4K television. Pick a size you can read from wherever you sit; you can change it later in Settings."
+        onNext={() => at('storage')}
+      >
+        <Choice<UiScaleChoice>
+          label="Scale"
+          hint="The whole interface, not just the text."
+          value={uiScaleChoice(settings.uiScale)}
+          options={UI_SCALES}
+          onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
+        />
+      </SetupPage>
+    )
+  }
+
+  if (step === 'storage') {
+    return (
+      <SetupPage
+        step={stepNumber}
+        title="Where should downloaded games go?"
+        subtitle="This decides where every ROM lands, so it is far easier to answer now than once there are games on disk in the other place."
+        onBack={() => at('scale')}
+        onNext={() => at('server')}
+      >
+        <RomStorageChoice
+          value={settings.romStorage}
+          onChange={(next: RomStorage) => void saveSettings({ romStorage: next })}
+        />
+      </SetupPage>
+    )
+  }
+
   return (
     <div className="content">
-      <h1 className="page-title">Connect to RomM</h1>
+      <h1 className="page-title">
+        {wizard ? <span className="setup__step">Step {stepNumber} of 3</span> : null}
+        Connect to RomM
+      </h1>
       <p className="page-subtitle">
         Point RomMix at your RomM server to browse and download your library.
       </p>
@@ -114,6 +222,13 @@ export function ConnectScreen(): JSX.Element {
         {error ? <div className="notice notice--error">{error}</div> : null}
 
         <div className="btn-row">
+          {/* Only during setup: outside it there is no page behind this one,
+              and B is already bound to leaving the screen everywhere else. */}
+          {wizard ? (
+            <FocusButton icon="previous" variant="ghost" onSelect={() => at('storage')}>
+              Back
+            </FocusButton>
+          ) : null}
           {mode === 'device' ? (
             <FocusButton
               icon="connect"
@@ -156,6 +271,67 @@ export function ConnectScreen(): JSX.Element {
         items={[
           { key: 'A', label: 'Select' },
           { key: '↕', label: 'Navigate' }
+        ]}
+      />
+    </div>
+  )
+}
+
+/**
+ * One page of first-run setup: a question, its control, and the way onwards.
+ *
+ * The two ends of the button row are deliberately the same shape as every other
+ * screen's — back on the left, the thing you came to press on the right — so a
+ * wizard does not become a fourth navigation model to learn. There is no Skip:
+ * both questions have a default already selected, so Next *is* the skip.
+ */
+function SetupPage({
+  step,
+  title,
+  subtitle,
+  onBack,
+  onNext,
+  children
+}: {
+  step: number
+  title: string
+  subtitle: string
+  onBack?: () => void
+  onNext: () => void
+  children: ReactNode
+}): JSX.Element {
+  // B goes back a page rather than out of the app: on the first page there is
+  // nowhere behind, which is what leaving it unbound means.
+  useAction('back', () => onBack?.(), Boolean(onBack))
+
+  return (
+    <div className="content">
+      <h1 className="page-title">
+        <span className="setup__step">
+          Step {step} of {SETUP_STEPS.length}
+        </span>
+        {title}
+      </h1>
+      <p className="page-subtitle">{subtitle}</p>
+
+      {children}
+
+      <div className="btn-row">
+        {onBack ? (
+          <FocusButton icon="previous" variant="ghost" onSelect={onBack}>
+            Back
+          </FocusButton>
+        ) : null}
+        <FocusButton icon="next" variant="primary" onSelect={onNext} autoFocus>
+          Next
+        </FocusButton>
+      </div>
+
+      <Hints
+        items={[
+          { key: 'A', label: 'Select' },
+          { key: '↕', label: 'Navigate' },
+          ...(onBack ? [{ key: 'B', label: 'Back' }] : [])
         ]}
       />
     </div>

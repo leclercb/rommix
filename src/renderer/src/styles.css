@@ -185,12 +185,28 @@ input {
   min-width: 0;
 }
 
+/* Text then mark, the marks lining up on the bar's right edge. `min-width: 0`
+   on the text so a long username ellipsises rather than pushing its icon off
+   the end of the row. */
 .topbar__user,
 .topbar__host {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
   max-width: 30ch;
+  white-space: nowrap;
+}
+
+.topbar__user > span,
+.topbar__host > span {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.topbar__user svg,
+.topbar__host svg {
+  opacity: 0.8;
 }
 
 .topbar__user {
@@ -299,6 +315,19 @@ input {
 .page-subtitle {
   color: var(--text-dim);
   margin: 0 0 26px;
+}
+
+/* "Step 2 of 3", above the question rather than beside it: it is a position in
+   a sequence, not part of what is being asked. Same treatment as the hero's
+   reason line, which does the same job over the same kind of title. */
+.setup__step {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
 }
 
 .section-title {

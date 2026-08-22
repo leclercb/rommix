@@ -7,10 +7,13 @@ import {
   Building2,
   Check,
   ChevronDown,
+  ChevronLeft,
   Clock,
+  Coffee,
   EyeOff,
   ChevronRight,
   CircleAlert,
+  CircleUser,
   Disc3,
   Download,
   Eraser,
@@ -38,6 +41,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Server,
   Settings,
   Sparkles,
   Star,
@@ -124,7 +128,16 @@ export const ICONS = {
   /** A moment in time: when something was last done. */
   time: Clock,
   /** The per-system folder a download lands in, as opposed to its full path. */
-  systemFolder: FolderTree
+  systemFolder: FolderTree,
+  /** Who is signed in. */
+  user: CircleUser,
+  /** The RomM instance this library comes from. */
+  server: Server,
+  /** Supporting the project. */
+  coffee: Coffee,
+  /** A step of a several-page flow. */
+  previous: ChevronLeft,
+  next: ChevronRight
 } as const
 
 export type IconName = keyof typeof ICONS

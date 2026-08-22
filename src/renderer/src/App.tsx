@@ -86,14 +86,27 @@ export function App(): JSX.Element {
             />
           </nav>
 
+          {/* The mark sits after the text rather than before it, because this
+              block is right-aligned: leading icons would leave the two glyphs
+              in a ragged column against the words, while trailing ones line up
+              against the edge the whole bar ends on. */}
           <div className="topbar__status">
             {status?.connected ? (
               <>
-                <span className="topbar__user">{status.user?.username}</span>
-                <span className="topbar__host">{hostOf(status.baseUrl)}</span>
+                <span className="topbar__user">
+                  <span>{status.user?.username}</span>
+                  <Icon name="user" size={15} />
+                </span>
+                <span className="topbar__host">
+                  <span>{hostOf(status.baseUrl)}</span>
+                  <Icon name="server" size={15} />
+                </span>
               </>
             ) : (
-              'Not connected'
+              <span className="topbar__host">
+                <span>Not connected</span>
+                <Icon name="warn" size={15} />
+              </span>
             )}
           </div>
         </header>
@@ -177,7 +190,7 @@ function NavItem({
  * and the saves it wrote are still uploaded.
  */
 function RunningOverlay(): JSX.Element {
-  const { settings, runningStage } = useApp()
+  const { settings, runningStage, notify } = useApp()
 
   if (runningStage) {
     return (
@@ -200,7 +213,14 @@ function RunningOverlay(): JSX.Element {
         <FocusButton
           icon="cancel"
           variant="danger"
-          onSelect={() => void window.rommix.game.stop()}
+          onSelect={() => {
+            // Said because the request is not the outcome: RomMix asks the
+            // emulator to quit and gives it five seconds to save before killing
+            // it, so this overlay stays up for a moment afterwards and would
+            // otherwise look like a button that did nothing.
+            notify('Asking the emulator to quit…', 'warn')
+            void window.rommix.game.stop()
+          }}
           autoFocus
         >
           Close the emulator

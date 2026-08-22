@@ -248,7 +248,16 @@ export function DownloadsScreen(): JSX.Element {
               <div className="btn-row">
                 <FocusButton
                   icon="clear"
-                  onSelect={() => void window.rommix.downloads.clearFinished()}
+                  onSelect={() => {
+                    // Counted before the call: the list is what is about to be
+                    // emptied, and afterwards there is nothing left to count.
+                    const cleared = finished.length
+                    void window.rommix.downloads
+                      .clearFinished()
+                      .then(() =>
+                        notify(`${cleared} finished transfer${cleared === 1 ? '' : 's'} cleared`)
+                      )
+                  }}
                 >
                   Clear finished
                 </FocusButton>

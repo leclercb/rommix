@@ -21,6 +21,7 @@ export function BiosScreen(): JSX.Element {
   const [report, setReport] = useState<BiosReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [rechecking, setRechecking] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
@@ -31,6 +32,37 @@ export function BiosScreen(): JSX.Element {
       setError((cause as Error).message)
     }
   }, [])
+
+  /**
+   * The Re-check button: the same load, with an answer.
+   *
+   * Silent before, which on a machine where nothing had changed was
+   * indistinguishable from a button that does nothing — the identical list,
+   * redrawn. What the check *concluded* is the part worth saying, so the
+   * notification is the count rather than "done".
+   */
+  const recheck = async (): Promise<void> => {
+    setRechecking(true)
+    try {
+      const next = await window.rommix.bios.list()
+      setReport(next)
+      setError(null)
+      const outstanding = next.platforms.reduce(
+        (count, platform) => count + platform.items.filter((item) => !item.installed).length,
+        0
+      )
+      notify(
+        outstanding === 0
+          ? 'Checked — every BIOS file is in place'
+          : `Checked — ${outstanding} file${outstanding === 1 ? '' : 's'} still missing`,
+        outstanding === 0 ? 'ok' : 'warn'
+      )
+    } catch (cause) {
+      setError((cause as Error).message)
+    } finally {
+      setRechecking(false)
+    }
+  }
 
   useEffect(() => {
     void load()
@@ -97,8 +129,16 @@ export function BiosScreen(): JSX.Element {
         <h1 className="page-title">BIOS</h1>
         <div className="notice notice--error">{error}</div>
         <div className="btn-row">
-          <FocusButton icon="refresh" onSelect={() => void load()} autoFocus>
-            Try again
+          {/* The same call the Re-check button makes, so a retry that works
+              says so — otherwise a second failure redraws an identical error
+              and the button looks inert. */}
+          <FocusButton
+            icon="refresh"
+            onSelect={() => void recheck()}
+            disabled={rechecking}
+            autoFocus
+          >
+            {rechecking ? 'Trying…' : 'Try again'}
           </FocusButton>
         </div>
       </div>
@@ -148,8 +188,12 @@ export function BiosScreen(): JSX.Element {
         >
           {fetchable === 0 ? 'Nothing to install' : 'Install all'}
         </FocusButton>
-        <FocusButton icon="refresh" onSelect={() => void load()} disabled={busy !== null}>
-          Re-check
+        <FocusButton
+          icon="refresh"
+          onSelect={() => void recheck()}
+          disabled={busy !== null || rechecking}
+        >
+          {rechecking ? 'Checking…' : 'Re-check'}
         </FocusButton>
       </div>
 

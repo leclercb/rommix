@@ -86,6 +86,8 @@ interface FocusableEntry {
   layer: number
   /** Which region of the screen this belongs to. See `FocusZone`. */
   zone: string
+  /** The run it belongs to, or '' for none. See `FocusGroup`. */
+  group: string
 }
 
 interface FocusContextValue {
@@ -143,9 +145,34 @@ const LayerContext = createContext(0)
  */
 const ZoneContext = createContext('root')
 
+/**
+ * A run of focusables that is entered at a known place rather than wherever the
+ * geometry happens to point.
+ *
+ * Zones settle where a press *leaves* one region for another; this settles
+ * where it *lands* inside the region it arrives in. The two are different
+ * problems, and the home screen is where the second one shows: the hero spans
+ * the page, so its centre column is somewhere around the fourth card of the
+ * shelf below it, and Down off the hero picks that card — a different one on
+ * every library, for a reason nothing on screen explains. A shelf that has been
+ * scrolled sideways is worse again, because the card nearest that column is
+ * then whatever the scroll position left there.
+ *
+ * So a group is entered at its first item, or — once it has been visited — at
+ * the item last left in it, which is the answer a shelf that was scrolled
+ * halfway along actually wants. Movement *within* a group is untouched: Left
+ * and Right walk it one card at a time exactly as before.
+ */
+const GroupContext = createContext('')
+
 /** Mark a subtree as one navigable region. */
 export function FocusZone({ id, children }: { id: string; children: ReactNode }): JSX.Element {
   return <ZoneContext.Provider value={id}>{children}</ZoneContext.Provider>
+}
+
+/** Mark a subtree as one run entered at a fixed point. See `GroupContext`. */
+export function FocusGroup({ id, children }: { id: string; children: ReactNode }): JSX.Element {
+  return <GroupContext.Provider value={id}>{children}</GroupContext.Provider>
 }
 
 interface Rect {
@@ -181,6 +208,44 @@ function scrollParentOf(element: HTMLElement): HTMLElement | null {
   return null
 }
 
+/** The same, for the sideways axis: the shelf a card sits in. */
+function horizontalScrollParentOf(element: HTMLElement): HTMLElement | null {
+  let node = element.parentElement
+  while (node) {
+    const overflow = getComputedStyle(node).overflowX
+    if ((overflow === 'auto' || overflow === 'scroll') && node.scrollWidth > node.clientWidth) {
+      return node
+    }
+    node = node.parentElement
+  }
+  return null
+}
+
+/**
+ * Bring the card its own shelf is hiding into view.
+ *
+ * Done as its own step because the vertical pass below can return early — a
+ * shelf near the top of the page snaps the page to the top and stops there, and
+ * on the home screen that is the first two shelves. Walking right along one of
+ * them then moved the highlight onto cards off the right-hand edge and never
+ * scrolled to them, which reads as focus simply disappearing.
+ */
+function revealAcross(element: HTMLElement): void {
+  const shelf = horizontalScrollParentOf(element)
+  if (!shelf) return
+
+  const card = element.getBoundingClientRect()
+  const view = shelf.getBoundingClientRect()
+  // A margin so the card that is *next* is visible too: a highlight flush
+  // against the edge gives no sense of what walking further would reach.
+  const margin = card.width * 0.75
+  if (card.left - margin < view.left) {
+    shelf.scrollBy({ left: card.left - margin - view.left, behavior: 'smooth' })
+  } else if (card.right + margin > view.right) {
+    shelf.scrollBy({ left: card.right + margin - view.right, behavior: 'smooth' })
+  }
+}
+
 /**
  * Bring a newly focused element into view, snapping to the ends of the page.
  *
@@ -188,6 +253,8 @@ function scrollParentOf(element: HTMLElement): HTMLElement | null {
  * thousand rows, and this runs on every press of a held direction.
  */
 function revealElement(element: HTMLElement): void {
+  revealAcross(element)
+
   const scroller = scrollParentOf(element)
   if (scroller) {
     // Where the element sits inside the scrolled content, not the viewport.
@@ -205,7 +272,10 @@ function revealElement(element: HTMLElement): void {
       return
     }
   }
-  element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  // `inline: 'nearest'` because the sideways axis was settled above, and
+  // 'center' would fight it — re-centring every card of a shelf as focus walks
+  // along it, which slides the whole row under a highlight that never moves.
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
 }
 
 /**
@@ -355,6 +425,11 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const zoneMemory = useRef(new Map<string, string>())
   /** The zone focus is in, kept where a removed element cannot take it away. */
   const lastZone = useRef('root')
+  /**
+   * Where focus last was in each group, so a shelf is re-entered where it was
+   * left rather than at whatever card the column happens to point at.
+   */
+  const groupMemory = useRef(new Map<string, string>())
 
   focusedRef.current = focusedId
 
@@ -373,6 +448,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     focusedRef.current = id
     zoneMemory.current.set(entry.zone, id)
     lastZone.current = entry.zone
+    if (entry.group) groupMemory.current.set(entry.group, id)
     setFocusedId(id)
     revealElement(entry.element)
   }, [])
@@ -425,6 +501,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     if (first) {
       zoneMemory.current.set(first.zone, first.id)
       lastZone.current = first.zone
+      if (first.group) groupMemory.current.set(first.group, first.id)
     }
     setFocusedId(first?.id ?? null)
   }, [setFocus, visibleEntries])
@@ -486,6 +563,49 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       }
 
       /**
+       * Where a press that arrives in a *different* group actually lands.
+       *
+       * The geometry picked a member of that group; which member is not the
+       * geometry's business, because the whole point of a group is that it is
+       * entered at a stated place. Where it was left if it has been visited,
+       * its first item otherwise.
+       *
+       * "First" is document order rather than the left-most rect: a shelf runs
+       * to several hundred cards once it has paged a few times, and measuring
+       * all of them on every press of a held direction is exactly the cost the
+       * rest of this file avoids. `compareDocumentPosition` answers from the
+       * tree and forces no layout — registration order would have been cheaper
+       * still, but a shelf that re-sorts keeps its nodes and only moves them,
+       * so the order things registered in stops matching the order they are
+       * drawn in.
+       *
+       * Sideways moves are exempt. Left and Right off the end of a shelf are
+       * how you reach the buttons beside a row, and rewriting those to the head
+       * of whatever they reached would make the two directions disagree about
+       * where they went.
+       */
+      const landing = (id: string): string => {
+        if (!vertical) return id
+        const group = entries.current.get(id)?.group
+        if (!group || group === current.group) return id
+
+        const remembered = groupMemory.current.get(group)
+        if (remembered && candidates.some((entry) => entry.id === remembered)) return remembered
+
+        let first: FocusableEntry | null = null
+        for (const candidate of candidates) {
+          if (candidate.group !== group) continue
+          const before =
+            first === null ||
+            (first.element.compareDocumentPosition(candidate.element) &
+              Node.DOCUMENT_POSITION_PRECEDING) !==
+              0
+          if (before) first = candidate
+        }
+        return first?.id ?? id
+      }
+
+      /**
        * Off the edge of this zone and into the next one that way.
        *
        * Where it lands is where you last were in that zone — the bar remembers
@@ -524,10 +644,14 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
 
       if (!target) return
 
-      applyFocus(target)
+      const arrived = landing(target)
+      applyFocus(arrived)
       // A horizontal move re-anchors on where it landed, so the next vertical
-      // run travels down the new column rather than the one before it.
-      if (!vertical) anchor.current = null
+      // run travels down the new column rather than the one before it. So does
+      // entering a group at its own head: the column the run was travelling
+      // down is not the one focus is in any more, and carrying it further would
+      // aim the next press back at where the run started.
+      if (!vertical || arrived !== target) anchor.current = null
     },
     [applyFocus, setFocus, visibleEntries]
   )
@@ -697,6 +821,7 @@ export function useFocusable(options: {
   const { register, focusedId, setFocus, reportAction } = useFocusContext()
   const layer = useContext(LayerContext)
   const zone = useContext(ZoneContext)
+  const group = useContext(GroupContext)
   const ref = useRef<HTMLElement | null>(null)
   const idRef = useRef<string>('')
   if (!idRef.current) idRef.current = `focusable-${nextId++}`
@@ -713,9 +838,10 @@ export function useFocusable(options: {
       element: ref.current,
       onSelect: () => selectRef.current?.(),
       layer,
-      zone
+      zone,
+      group
     })
-  }, [enabled, id, register, layer, zone])
+  }, [enabled, id, register, layer, zone, group])
 
   useEffect(() => {
     if (autoFocus && enabled) setFocus(id)

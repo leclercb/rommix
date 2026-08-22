@@ -109,6 +109,7 @@ const bridge: RomMixBridge = {
       path ? `rommix-img://asset/?p=${encodeURIComponent(path)}` : null,
     toggleFullscreen: () => ipcRenderer.invoke('system:toggleFullscreen'),
     quit: () => ipcRenderer.invoke('system:quit'),
+    openExternal: (url: string) => ipcRenderer.invoke('system:openExternal', url),
     onError: (listener: (message: string) => void) => subscribe<string>('app:error', listener)
   }
 }

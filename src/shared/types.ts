@@ -277,6 +277,35 @@ export type { SaveEnvironment } from '../config/emulators/savepaths.ts'
 
 import type { EmulatorId, EmulatorState } from '../config/emulators/types.ts'
 
+/**
+ * Where downloaded games are written.
+ *
+ * `emulator` puts each game in the ROM folder of whichever emulator runs its
+ * platform. That is what makes a download visible in the emulator's own game
+ * list when it is started outside RomMix, and it is why a platform pointed at a
+ * different emulator stops counting as downloaded — the file is still there,
+ * in a tree the new emulator never reads.
+ *
+ * `rommix` puts everything in one tree inside RomMix's folder, which the user
+ * adds to each emulator's game directories once. It costs that setup step and
+ * buys two things back: changing which emulator runs a platform moves nothing
+ * and re-downloads nothing, and a game can be fetched for a platform that has
+ * no emulator installed at all — a Switch library is worth having on disk
+ * before Eden is.
+ */
+export type RomStorage = 'emulator' | 'rommix'
+
+/**
+ * The `InstalledRom.emulatorId` recorded for a game in RomMix's shared tree.
+ *
+ * Not an emulator, on purpose: with shared storage there may not be one — the
+ * whole point is that a Switch game can be downloaded before Eden is installed.
+ * A sentinel rather than an empty string so the index has something to compare
+ * against when the setting changes, and the detail screen has something to
+ * print.
+ */
+export const SHARED_LIBRARY = 'rommix:shared'
+
 export interface Settings {
   /**
    * ES-DE system -> emulator id: which emulator runs each platform.
@@ -321,6 +350,18 @@ export interface Settings {
    * written before an emulator existed does not hide it.
    */
   emulatorPriority: EmulatorId[]
+  /** Where downloaded games are written. See `RomStorage`. */
+  romStorage: RomStorage
+  /**
+   * True once the first-run wizard has been completed.
+   *
+   * Separate from "is there a server configured", which is what the connect
+   * screen used to infer this from. Signing out clears the server and would
+   * otherwise put someone who has been using RomMix for months back through a
+   * page asking how big they would like the text — the wizard is about choices
+   * made once, not about being disconnected.
+   */
+  setupComplete: boolean
   /** Pull newer saves down from RomM before launching. */
   syncSavesDown: boolean
   /** Push saves/states back to RomM after the game exits. */

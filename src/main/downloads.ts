@@ -6,6 +6,7 @@ import { basename, dirname, extname, join } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
+import { SHARED_LIBRARY } from '@shared/types'
 import type {
   DownloadItem,
   EmulatorState,
@@ -15,6 +16,7 @@ import type {
 } from '@shared/types'
 import { log } from './log'
 import { RommClient, RommError } from './romm'
+import { rootPaths } from './root'
 import { extractZip, isZip } from './zip'
 import type { Store } from './store'
 
@@ -22,12 +24,17 @@ import type { Store } from './store'
  * Downloads ROMs from RomM into the library, and reconciles the library with
  * what is already on disk.
  *
- * Layout is `<the emulator's own ROM folder>/<es-de system>/<file>`. The root
- * comes from the emulator that runs the platform, so a game stays visible to
- * that emulator when it is started on its own. The system directory is not
- * cosmetic either: RetroDECK infers which emulator to use by matching the
+ * Layout is `<a ROM root>/<es-de system>/<file>`. The system directory is not
+ * cosmetic: RetroDECK infers which emulator to use by matching the
  * `roms/<system>/` path segment, so a correctly placed file needs no further
  * hints — and ES-DE scrapes the same layout.
+ *
+ * Which root, though, is the user's choice — see `RomStorage`. It is either the
+ * ROM folder of the emulator that runs the platform, which keeps the game
+ * visible to that emulator when it is started on its own, or RomMix's own
+ * shared tree, which keeps it in one place no matter which emulator is in
+ * charge. Both go through `plan`, and the rest of this file does not care which
+ * was chosen.
  *
  * Transfers run one at a time. Parallel ROM downloads mostly just make each
  * one slower and thrash the disk on a handheld, and a serial queue keeps the
@@ -262,21 +269,35 @@ export class DownloadManager extends EventEmitter {
     return this.queue.map((item) => ({ ...item }))
   }
 
+  /** True when downloads go to RomMix's own shared tree. See `RomStorage`. */
+  private get shared(): boolean {
+    return this.store.settings.romStorage === 'rommix'
+  }
+
   /**
-   * Is this entry a copy the emulator now in charge of its platform cannot see?
+   * Is this entry a copy that is no longer where RomMix would look for it?
    *
-   * Each emulator keeps its games in its own tree, so pointing a platform at a
-   * different emulator does not move anything — the file stays where it was,
-   * in a folder the new emulator never looks at. Continuing to show the game
-   * as downloaded would leave the user with a Play button that launches an
-   * emulator against a ROM outside its library, or nothing to press to get a
-   * copy where it now belongs.
+   * With per-emulator storage each emulator keeps its games in its own tree, so
+   * pointing a platform at a different emulator does not move anything — the
+   * file stays where it was, in a folder the new emulator never looks at.
+   * Continuing to show the game as downloaded would leave the user with a Play
+   * button that launches an emulator against a ROM outside its library, or
+   * nothing to press to get a copy where it now belongs.
    *
    * A *missing* emulator is not a changed one: with nothing installed for the
    * platform there is no new answer, so the entry is left alone rather than
    * making an unplugged Steam Deck look like it lost its library.
+   *
+   * Shared storage removes the question entirely — one tree, whoever is in
+   * charge — so the only thing that can be stale there is a game downloaded
+   * under the *other* setting, and vice versa. Switching the setting therefore
+   * hides the old copies rather than deleting them, and switching back brings
+   * them straight home; `adopt` finds whichever set is in the right place now.
    */
   isStale(entry: InstalledRom): boolean {
+    if (this.shared) return entry.emulatorId !== SHARED_LIBRARY
+    if (entry.emulatorId === SHARED_LIBRARY) return true
+
     const current = this.getEmulator(entry.system)
     if (!current) return false
     return current.id !== entry.emulatorId
@@ -321,7 +342,20 @@ export class DownloadManager extends EventEmitter {
     }
 
     const emulator = this.getEmulator(system)
-    if (!emulator) {
+
+    /**
+     * The tree this game belongs in, and what to record it under.
+     *
+     * With shared storage an emulator is welcome but not required: the folder
+     * is RomMix's own, so there is somewhere to put the game whether or not
+     * anything can yet play it — which is the whole point of the setting.
+     * Per-emulator storage has no such answer, because the destination *is* the
+     * emulator, so a missing one is a refusal rather than a fallback.
+     */
+    const library = ((): { root: string | null; emulatorId: string } => {
+      if (this.shared) return { root: rootPaths().roms, emulatorId: SHARED_LIBRARY }
+      if (emulator) return { root: emulator.paths.roms, emulatorId: emulator.id }
+
       // Named from the registry rather than written out, so this cannot go on
       // recommending an emulator RomMix no longer ships a descriptor for.
       const covers = emulatorsForSystem(system)
@@ -331,24 +365,28 @@ export class DownloadManager extends EventEmitter {
         `No installed emulator can run "${system}".` +
           (covers ? ` Install ${covers}, then try again.` : '')
       )
-    }
-    // The emulator's own ROM folder, so a game stays visible to that emulator
-    // when it is started outside RomMix. Every descriptor declares one, so this
-    // is only null when the emulator was never probed.
-    const root = emulator.paths.roms
-    if (!root) {
-      throw new RommError(`RomMix does not know where ${emulator.name} keeps its games`)
+    })()
+
+    // Every descriptor declares a ROM folder, so this is only null when the
+    // emulator was found but never probed.
+    if (!library.root) {
+      throw new RommError(
+        `RomMix does not know where ${emulator?.name ?? 'RomMix'} keeps its games`
+      )
     }
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a
     // zip and are unpacked into their own directory — unless the emulator
     // reads its library flat, in which case a folder is a place its game list
     // will never look and the files go loose into the system folder instead.
-    const flat = emulatorById(emulator.id)?.flatLibrary === true
+    // With no emulator at all there is nothing making that demand, and a
+    // directory is the shape that keeps a disc set together for whichever one
+    // arrives later.
+    const flat = emulator ? emulatorById(emulator.id)?.flatLibrary === true : false
     const asDirectory = rom.has_multiple_files && !flat
-    const dir = join(root, system)
+    const dir = join(library.root, system)
     const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, installName(rom))
-    return { dir, path, system, emulatorId: emulator.id, asDirectory, flat }
+    return { dir, path, system, emulatorId: library.emulatorId, asDirectory, flat }
   }
 
   enqueue(rom: RommRom): DownloadItem {

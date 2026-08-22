@@ -1,8 +1,15 @@
 import { type JSX, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import qrcode from 'qrcode-generator'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
-import { FocusLayer, useAction, useFocusable, useFocusContext, useKeyLabel } from './input/focus'
-import type { InstalledRom, RommRom } from '@shared/types'
+import {
+  FocusGroup,
+  FocusLayer,
+  useAction,
+  useFocusable,
+  useFocusContext,
+  useKeyLabel
+} from './input/focus'
+import type { InstalledRom, RommRom, RomStorage } from '@shared/types'
 import { Icon, type IconName } from './icons'
 
 /** Shared presentational pieces for the 10-foot UI. */
@@ -316,6 +323,11 @@ export function GameCard({
  * row itself rather than the viewport, because this scroller moves sideways
  * independently of the page — and the margin is horizontal so the next batch
  * is requested while the end of the shelf is still off to the right.
+ *
+ * A focus group, keyed by the shelf's own title: walking down onto a shelf
+ * arrives at its first card, or at the card last left on it, rather than at
+ * whichever one happens to sit under the column the press came down. See
+ * `FocusGroup`.
  */
 export function GameRow({
   title,
@@ -354,20 +366,22 @@ export function GameRow({
   return (
     <section>
       <h2 className="section-title">{title}</h2>
-      <div className="row" ref={rowRef}>
-        {tiles.map((tile) => (
-          <GameCard
-            key={tile.romId}
-            tile={tile}
-            installed={installedIds.has(tile.romId)}
-            onSelect={() => onSelect(tile)}
-            showPlatform
-          />
-        ))}
-        {onEndReached ? (
-          <div className="row__sentinel" ref={sentinelRef} aria-hidden="true" />
-        ) : null}
-      </div>
+      <FocusGroup id={`shelf:${title}`}>
+        <div className="row" ref={rowRef}>
+          {tiles.map((tile) => (
+            <GameCard
+              key={tile.romId}
+              tile={tile}
+              installed={installedIds.has(tile.romId)}
+              onSelect={() => onSelect(tile)}
+              showPlatform
+            />
+          ))}
+          {onEndReached ? (
+            <div className="row__sentinel" ref={sentinelRef} aria-hidden="true" />
+          ) : null}
+        </div>
+      </FocusGroup>
     </section>
   )
 }
@@ -727,6 +741,142 @@ function TabButton({
       {label}
       {badge != null ? <span className="tab__badge">{badge}</span> : null}
     </button>
+  )
+}
+
+/**
+ * A labelled setting with its own On/Off control, rather than the label
+ * smuggled into the text of one of the options.
+ */
+export function Toggle({
+  label,
+  hint,
+  on,
+  onToggle
+}: {
+  label: string
+  hint?: string
+  on: boolean
+  onToggle: () => void
+}): JSX.Element {
+  return (
+    <div className="setting">
+      <div className="setting__text">
+        <div className="setting__label">{label}</div>
+        {hint ? <div className="setting__hint">{hint}</div> : null}
+      </div>
+      <SegmentedControl<'on' | 'off'>
+        value={on ? 'on' : 'off'}
+        onChange={(next) => {
+          if ((next === 'on') !== on) onToggle()
+        }}
+        options={[
+          { value: 'on', label: 'On' },
+          { value: 'off', label: 'Off' }
+        ]}
+      />
+    </div>
+  )
+}
+
+/** The same row as `Toggle`, for a setting with more than two answers. */
+export function Choice<T extends string>({
+  label,
+  hint,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  hint?: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}): JSX.Element {
+  return (
+    <div className="setting">
+      <div className="setting__text">
+        <div className="setting__label">{label}</div>
+        {hint ? <div className="setting__hint">{hint}</div> : null}
+      </div>
+      <SegmentedControl<T> value={value} options={options} onChange={onChange} />
+    </div>
+  )
+}
+
+/**
+ * The scales offered, as the strings the segmented control switches on.
+ *
+ * A short list of round numbers rather than a slider: this is a control being
+ * driven from a sofa, and every value between 100% and 200% that anyone would
+ * actually stop at is here. `auto` is 0 in settings — see `Settings.uiScale`.
+ *
+ * Here rather than beside the Settings screen because the first-run wizard asks
+ * the same question, and two lists of scales would drift apart.
+ */
+export type UiScaleChoice = 'auto' | '1' | '1.25' | '1.5' | '2'
+
+export const UI_SCALES: { value: UiScaleChoice; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '1', label: '100%' },
+  { value: '1.25', label: '125%' },
+  { value: '1.5', label: '150%' },
+  { value: '2', label: '200%' }
+]
+
+/** The stored number as one of the offered choices, falling back to Auto. */
+export function uiScaleChoice(scale: number): UiScaleChoice {
+  const match = UI_SCALES.find((option) => option.value === String(scale))
+  return match ? match.value : 'auto'
+}
+
+/**
+ * Where downloaded games go. Asked in Settings and again by the first-run
+ * wizard, which is the only reason it is a component rather than two lines.
+ */
+export function RomStorageChoice({
+  value,
+  onChange
+}: {
+  value: RomStorage
+  onChange: (value: RomStorage) => void
+}): JSX.Element {
+  return (
+    <Choice<RomStorage>
+      label="Where downloaded games go"
+      hint={
+        value === 'rommix'
+          ? 'One folder for everything, which each emulator has to be pointed at once. Changing emulator moves nothing, and a game can be downloaded before anything that runs it is installed.'
+          : "Each emulator's own ROM folder, so games show up in its list when you start it yourself. Changing emulator for a platform means downloading its games again."
+      }
+      value={value}
+      options={[
+        { value: 'emulator', label: "Each emulator's folder" },
+        { value: 'rommix', label: 'RomMix folder' }
+      ]}
+      onChange={onChange}
+    />
+  )
+}
+
+/**
+ * A web address to open away from the television.
+ *
+ * The QR code is the control, not the decoration: RomMix is driven from a sofa,
+ * where a phone is the browser that is actually to hand — and under gamescope
+ * there is frequently no other one to open at all. The address is printed under
+ * it for anyone typing it somewhere else.
+ */
+export function ScanToOpen({ url, size = 200 }: { url: string; size?: number }): JSX.Element {
+  return (
+    <>
+      <div className="pair-qr">
+        <QrCode value={url} size={size} />
+      </div>
+      <p className="muted" style={{ textAlign: 'center', wordBreak: 'break-all' }}>
+        {url}
+      </p>
+    </>
   )
 }
 

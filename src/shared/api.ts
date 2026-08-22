@@ -195,6 +195,8 @@ export interface RomMixBridge {
     imageUrl(path: string | null): string | null
     toggleFullscreen(): Promise<boolean>
     quit(): Promise<void>
+    /** Open an http(s) address in the desktop's browser. Nothing else is allowed. */
+    openExternal(url: string): Promise<void>
     /**
      * Every failed call across this bridge, reported centrally.
      *

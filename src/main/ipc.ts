@@ -1,4 +1,4 @@
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import type { ConnectPayload } from '@shared/api'
 import {
   EMULATORS,
@@ -32,7 +32,7 @@ import type { SaveTarget } from './saves'
 import { canSpawnHost, inFlatpak, installFlatpak, isWritable } from './host'
 import { log } from './log'
 import { fetchReleases, installAsset } from './releases'
-import { defaultRoot, relocateRoot, resolveRoot } from './root'
+import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from './root'
 import { RommError, normaliseBaseUrl } from './romm'
 
 /**
@@ -541,7 +541,11 @@ export function registerIpc(rommix: RomMixApp): void {
       'emulatorPriority' in patch ||
       'emulatorRoots' in patch ||
       'systemEmulators' in patch ||
-      'systemOverrides' in patch
+      'systemOverrides' in patch ||
+      // Moving the whole library between the emulators' trees and RomMix's own
+      // changes where every game is looked for, so every entry's answer to "is
+      // this here" is decided afresh.
+      'romStorage' in patch
     ) {
       // Reordering counts: the emulator now in charge of a platform keeps its
       // games in its own tree, so a copy downloaded for the previous one is in
@@ -645,18 +649,20 @@ export function registerIpc(rommix: RomMixApp): void {
       }
     }
 
-    // Each emulator keeps its games in its own tree, so writability is checked
-    // per emulator — one unwritable folder is a real failure even when the
-    // others are fine, and naming it is the difference between a fixable
-    // message and "download failed".
+    // Whichever tree downloads actually go to. With shared storage that is one
+    // folder for the lot; otherwise it is one per emulator, and each is checked
+    // separately — one unwritable folder is a real failure even when the others
+    // are fine, and naming it is the difference between a fixable message and
+    // "download failed".
+    const shared = store.settings.romStorage === 'rommix'
+    const romRoots = shared
+      ? [{ name: 'RomMix', path: rootPaths().roms }]
+      : emulators
+          .filter((emulator) => emulator.available && emulator.paths.roms)
+          .map((emulator) => ({ name: emulator.name, path: emulator.paths.roms as string }))
+
     const writable = await Promise.all(
-      emulators
-        .filter((emulator) => emulator.available && emulator.paths.roms)
-        .map(async (emulator) => ({
-          name: emulator.name,
-          path: emulator.paths.roms as string,
-          ok: await isWritable(emulator.paths.roms)
-        }))
+      romRoots.map(async (root) => ({ ...root, ok: await isWritable(root.path) }))
     )
     for (const entry of writable.filter((e) => !e.ok)) {
       notes.push(
@@ -665,6 +671,18 @@ export function registerIpc(rommix: RomMixApp): void {
       )
     }
     const romsWritable = writable.every((entry) => entry.ok)
+
+    // The one setup step shared storage adds, and the one that makes it look
+    // broken when it is skipped: the game downloads, RomMix reports it as
+    // installed, and the emulator's own list is empty because nobody told it
+    // where to look. Named here rather than in each descriptor's `setupNotes`,
+    // which are fixed text and cannot know which way this setting is pointed.
+    if (shared && emulators.some((emulator) => emulator.available)) {
+      notes.push(
+        `Games are downloaded to ${rootPaths().roms}. Add that folder to each emulator's own ` +
+          'game directories, or they will not list what RomMix has downloaded.'
+      )
+    }
 
     // The whole picture in one place, since this is the report a person is
     // looking at when they decide the log is worth reading.
@@ -746,4 +764,25 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('system:toggleFullscreen', () => rommix.toggleFullscreen())
   handle('system:quit', () => app.quit())
+
+  /**
+   * Hand a web address to whatever the desktop opens links with.
+   *
+   * Restricted to http and https: this is a hole from the renderer straight out
+   * to the desktop's URL handlers, and those cover a great deal more than the
+   * web — `file:`, `.desktop` actions, anything a scheme has been registered
+   * for. The renderer only ever passes RomMix's own constants, so a scheme
+   * check costs nothing and stops the call being useful to anything else.
+   *
+   * A companion to the QR code rather than a replacement for it: on the couch
+   * there is often no browser to open, and on gamescope there is nowhere for
+   * one to appear.
+   */
+  handle('system:openExternal', async (url: string): Promise<void> => {
+    if (!/^https?:\/\//i.test(url)) {
+      throw new RommError('RomMix only opens web addresses')
+    }
+    log.info('app', 'opening a link in the desktop browser', { url })
+    await shell.openExternal(url)
+  })
 }

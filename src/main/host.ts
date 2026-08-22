@@ -30,9 +30,16 @@ export function inFlatpak(): boolean {
  * `flatpak run` cannot be nested, so a sandboxed RomMix has to hop out via
  * flatpak-spawn (which needs --talk-name=org.freedesktop.Flatpak in the
  * manifest). Outside a sandbox the command is returned untouched.
+ *
+ * The environment is replaced rather than inherited — see `HOST_ENV_KEYS` for
+ * why, and note that it matters as much here as it does for an emulator.
+ * `flatpak install --user` writes into `$XDG_DATA_HOME/flatpak`, and inside
+ * this sandbox that variable names RomMix's own private data folder: with our
+ * environment forwarded, an emulator installed from Flathub landed somewhere
+ * only RomMix could see, and only for as long as RomMix was the one asking.
  */
 function hostCommand(argv: string[]): string[] {
-  return inFlatpak() ? ['flatpak-spawn', '--host', ...argv] : argv
+  return inFlatpak() ? ['flatpak-spawn', '--host', '--clear-env', ...hostEnvArgs(), ...argv] : argv
 }
 
 /** Real home directory, even from inside a sandbox where HOME is remapped. */
@@ -239,12 +246,101 @@ export async function findMatchingFile(
 }
 
 /**
+ * Variables worth carrying from our sandbox out to a host process.
+ *
+ * The allowlist exists because the *default* is the problem. `flatpak-spawn`
+ * copies the caller's whole environment to the host, and a sandbox's
+ * environment is not a description of the session — it is a description of the
+ * sandbox. Handed to a program running outside it, most of it is actively
+ * false.
+ *
+ * Everything on this list is a fact about the session that happens to be
+ * readable from in here, and is the same on both sides: which display server to
+ * talk to, whose home directory, what language to speak.
+ *
+ * What is deliberately absent is the rest, and one entry is worth naming.
+ * RomMix takes `--talk-name=org.freedesktop.Flatpak` rather than the whole
+ * session bus, so flatpak puts an xdg-dbus-proxy in front of us and sets
+ * `DBUS_SESSION_BUS_ADDRESS` to that proxy's socket — a socket that exists for
+ * this sandbox and nowhere else, carrying a policy that allows one name
+ * through. Leaking it is what made RetroDECK fail to start with "Could not
+ * activate remote peer 'org.freedesktop.portal.Desktop'": it inherited our
+ * filtered bus, could not reach the portal over it, and then could not get at
+ * the GPU either (`amdgpu_query_info(ACCEL_WORKING) failed (-13)`) before
+ * segfaulting. `DBUS_SESSION_BUS_ADDRESS` is rebuilt below from
+ * `XDG_RUNTIME_DIR`, which is where the real session bus is.
+ *
+ * The XDG base directories are the other trap: inside a flatpak
+ * `XDG_DATA_HOME` and friends point into `~/.var/app/be.bl_it.RomMix/`, so a
+ * host `flatpak run` inheriting them looks for the user's flatpak installation
+ * inside RomMix's private data folder and finds nothing there.
+ */
+const HOST_ENV_KEYS: readonly string[] = [
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'LANG',
+  'LANGUAGE',
+  'TZ',
+  'DISPLAY',
+  'XAUTHORITY',
+  'WAYLAND_DISPLAY',
+  'XDG_RUNTIME_DIR',
+  'XDG_SESSION_TYPE',
+  'XDG_SESSION_DESKTOP',
+  'XDG_CURRENT_DESKTOP',
+  'DESKTOP_SESSION'
+]
+
+/**
+ * A host process's PATH.
+ *
+ * Stated rather than inherited: ours begins with `/app/bin`, a directory that
+ * does not exist outside this sandbox, and the emulator would search it first.
+ */
+const HOST_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin'
+
+/**
+ * The environment to hand a process on the host, as `--env=` arguments.
+ *
+ * `overrides` are the emulator's own — see `EmulatorDescriptor.env` — and win,
+ * since they are the one part of this that was declared on purpose.
+ */
+function hostEnvArgs(overrides: Readonly<Record<string, string>> = {}): string[] {
+  const env: Record<string, string> = {}
+
+  for (const key of HOST_ENV_KEYS) {
+    const value = process.env[key]
+    // Every locale variable, without listing eleven of them by name.
+    if (value) env[key] = value
+  }
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith('LC_') && value) env[key] = value
+  }
+
+  env.PATH = `${realHome()}/.local/bin:${HOST_PATH}`
+
+  // The session bus, back where it actually is. Only when the runtime directory
+  // is known: guessing a socket path is worse than leaving the variable unset,
+  // which lets a client fall back to its own discovery.
+  const runtime = process.env.XDG_RUNTIME_DIR
+  if (runtime) env.DBUS_SESSION_BUS_ADDRESS = `unix:path=${runtime}/bus`
+
+  return Object.entries({ ...env, ...overrides }).map(([key, value]) => `--env=${key}=${value}`)
+}
+
+/**
  * argv prefix that starts a resolved install, from inside or outside a sandbox.
  *
  * An AppImage is executed directly, never through `appimage-run`: that helper
  * unpacks a squashfs payload, and an AppImage built with uruntime — as Eden's
  * is — carries DwarFS instead, so a perfectly good image fails to start. The
  * image's own runtime handles either format.
+ *
+ * A host that has wired the same helper in behind `execve` with binfmt_misc is
+ * out of reach from here — binfmt matches the file, not the way it was named —
+ * and is the host's to unregister.
  *
  * A `scripts` install has no single program — the launcher to run depends on
  * the system — so it gets the sandbox wrapping alone and the descriptor names
@@ -270,13 +366,14 @@ export function execPrefix(
         : [install.ref]
   if (!inFlatpak()) return argv
 
-  // flatpak-spawn starts a *fresh* process on the host and does not carry our
-  // environment across, so anything the emulator needs has to be passed
-  // explicitly. Outside the sandbox the spawn options handle it instead. A
-  // flatpak install is already covered above, at the boundary that matters;
-  // repeating it here would only set it on the `flatpak run` client.
-  const spawned = install.kind === 'flatpak' ? [] : passed
-  return ['flatpak-spawn', '--host', ...spawned, ...argv]
+  // `--clear-env` and then only what belongs out there. Without it flatpak-spawn
+  // copies our whole environment across and the emulator starts inside a
+  // description of somebody else's sandbox — see `HOST_ENV_KEYS`. The
+  // descriptor's own variables are folded in here for a non-flatpak install; a
+  // flatpak one has them above, at the boundary that matters, and repeating
+  // them would only set them on the `flatpak run` client.
+  const overrides = install.kind === 'flatpak' ? {} : env
+  return ['flatpak-spawn', '--host', '--clear-env', ...hostEnvArgs(overrides), ...argv]
 }
 
 /**

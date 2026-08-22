@@ -49,6 +49,11 @@ function defaultSettings(): Settings {
     emulatorRoots: {},
     systemOverrides: {},
     emulatorPriority: [],
+    // Each emulator's own folder: what RomMix has always done, so an existing
+    // installation reading these defaults for a key it has never stored finds
+    // its library exactly where it left it. The wizard asks new users.
+    romStorage: 'emulator',
+    setupComplete: false,
     syncSavesDown: true,
     syncSavesUp: true,
     confirmUninstall: true,

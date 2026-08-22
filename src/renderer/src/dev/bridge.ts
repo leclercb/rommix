@@ -308,6 +308,10 @@ const SETTINGS: Settings = {
   emulatorRoots: {},
   systemOverrides: {},
   emulatorPriority: [],
+  romStorage: 'emulator',
+  // The demo starts past the first-run wizard: it exists to show the app, and
+  // a preview that opens on "how big would you like the text" shows the setup.
+  setupComplete: true,
   syncSavesDown: true,
   syncSavesUp: true,
   confirmUninstall: true,
@@ -522,6 +526,12 @@ const bridge: RomMixBridge = {
     imageUrl: (path: string | null) => artFor(path),
     toggleFullscreen: () => later(false),
     quit: () => later(undefined),
+    // The preview is already in a browser, so the desktop's link handler is
+    // simply a new tab.
+    openExternal: (url: string) => {
+      window.open(url, '_blank', 'noopener')
+      return later(undefined)
+    },
     onError: noSubscription
   }
 }

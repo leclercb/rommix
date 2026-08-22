@@ -1,5 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
+import { emulatorById } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
+import { SHARED_LIBRARY } from '@shared/types'
 import type {
   BiosPlatform,
   InstalledRom,
@@ -227,10 +229,14 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const noticeKey = setup ? `setup:${setup.emulatorId}` : null
   const dismissed = !noticeKey || (settings?.dismissedNotices ?? []).includes(noticeKey)
   const dismissSetup = async (): Promise<void> => {
-    if (!noticeKey || dismissed) return
+    if (!setup || !noticeKey || dismissed) return
     await saveSettings({
       dismissedNotices: [...(settings?.dismissedNotices ?? []), noticeKey]
     })
+    // The notice vanishing is ambiguous on its own — dismissed, or scrolled
+    // past? — and it is dismissed for the *emulator*, which is wider than the
+    // game it was dismissed from and worth saying out loud.
+    notify(`Setup steps hidden for ${emulatorById(setup.emulatorId)?.name ?? setup.emulatorId}`)
   }
 
   /** How this game is named and pictured in a toast. */
@@ -458,7 +464,12 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
     const next = !favourite
     setFavourite(next)
     try {
-      setFavourite(await window.rommix.library.setFavourite(romId, next))
+      const settled = await window.rommix.library.setFavourite(romId, next)
+      setFavourite(settled)
+      // Said because the change is on the *server*: the filled heart only
+      // proves the button was pressed, and this is the confirmation that RomM
+      // and the Favourites shelf now agree with it.
+      notify(settled ? 'Added to favourites on RomM' : 'Removed from favourites', 'ok', subjectOf())
     } catch {
       setFavourite(!next)
     }
@@ -983,10 +994,19 @@ function Details({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.El
       value: entry ? (entry.isDirectory ? entry.path : entry.path.replace(/\/[^/]*$/, '')) : null
     },
     { icon: 'systemFolder', label: 'System folder', value: entry?.system ?? null },
-    // Which emulator's library holds this copy. It is the reason a game can be
-    // on disk and still offered as a download: pointing the platform elsewhere
-    // does not move the file.
-    { icon: 'emulator', label: 'Downloaded for', value: entry?.emulatorId ?? null },
+    // Which library holds this copy. It is the reason a game can be on disk and
+    // still offered as a download: pointing the platform at another emulator
+    // does not move the file. A game in the shared tree is not held for any
+    // emulator in particular, and says so.
+    {
+      icon: 'emulator',
+      label: 'Downloaded for',
+      value: !entry
+        ? null
+        : entry.emulatorId === SHARED_LIBRARY
+          ? "RomMix's own folder"
+          : (emulatorById(entry.emulatorId)?.name ?? entry.emulatorId)
+    },
     // What it takes up here, which is not the size on the chip beside the
     // cover: RomM sends a multi-file game as one zip and RomMix unpacks it.
     { icon: 'size', label: 'On disk', value: entry ? formatBytes(entry.sizeBytes) : null },

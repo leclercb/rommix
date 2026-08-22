@@ -103,6 +103,16 @@ function stageFor(progress: CoreProgress): string {
   return `${done}… ${Math.round((progress.receivedBytes / progress.totalBytes) * 100)}%`
 }
 
+/**
+ * How long an emulator started on its own gets to prove it is running.
+ *
+ * Shorter than `STARTUP_MS`, because nothing is riding on the answer: this is
+ * the Run button in Settings, and the user is watching it. A launch has save
+ * files to account for and can afford to be careful; this only has to decide
+ * whether to say "started" or to repeat what the emulator complained about.
+ */
+const OPEN_SETTLE_MS = 2500
+
 export class Launcher {
   /**
    * The session in progress, so a second launch can be refused.
@@ -487,14 +497,21 @@ export class Launcher {
   /**
    * Start an emulator with no game, from the button beside it in Settings.
    *
-   * Detached and unwaited, unlike a launch: this is for the setup work that
-   * only the emulator itself can do — running RetroDECK once so it creates its
-   * folders, adding a ROM directory in Eden, installing cores in RetroArch —
-   * and RomMix has no business blocking, syncing saves, or claiming a game is
-   * running while that happens. `unref` means quitting RomMix does not take
-   * the emulator with it.
+   * Detached, unlike a launch: this is for the setup work that only the
+   * emulator itself can do — running RetroDECK once so it creates its folders,
+   * adding a ROM directory in Eden, installing cores in RetroArch — and RomMix
+   * has no business syncing saves or claiming a game is running while that
+   * happens. `unref` means quitting RomMix does not take the emulator with it.
+   *
+   * It is not, however, unwatched. It used to be spawned with its output thrown
+   * away and nothing but an `error` listener, which fires only when the process
+   * could not be created at all — so an emulator that started and immediately
+   * died said nothing whatsoever, and Settings went on reporting "Eden started"
+   * over a window that never appeared. Anything that fails inside
+   * `OPEN_SETTLE_MS` is therefore reported, using the emulator's own words; the
+   * process is released as soon as it has survived that long.
    */
-  runEmulator(emulator: EmulatorState): string {
+  async runEmulator(emulator: EmulatorState): Promise<string> {
     const descriptor = emulatorById(emulator.id)
     if (!descriptor || !emulator.install) {
       throw new Error(`${emulator.name} is not installed`)
@@ -509,19 +526,82 @@ export class Launcher {
 
     const [cmd, ...args] = argv
     const child = spawn(cmd, args, {
-      stdio: 'ignore',
+      // Piped rather than ignored: the two lines saying why it died are the
+      // whole point of watching, and they go to these streams.
+      stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
       env: { ...process.env, ...(descriptor.env ?? {}) }
     })
-    // Nothing waits on this process, so the log is the only place its failure
-    // to start can be recorded at all.
-    child.on('error', (err) =>
-      log.error('emulator', 'could not be started on its own', err, {
-        emulator: emulator.id,
-        command
-      })
-    )
-    child.unref()
-    return command
+
+    let output = ''
+    const collect = (chunk: Buffer): void => {
+      output = (output + chunk.toString()).slice(-8000)
+    }
+    child.stdout?.on('data', collect)
+    child.stderr?.on('data', collect)
+
+    return new Promise<string>((resolvePromise, rejectPromise) => {
+      // Cleared by whichever of the three outcomes happens first, so a settled
+      // promise cannot be settled again by a later one.
+      let settled = false
+      const settle = (finish: () => void): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        finish()
+      }
+
+      const timer = setTimeout(
+        () =>
+          settle(() => {
+            // Still up, so it is the emulator's window now, and `unref` stops
+            // it holding RomMix open.
+            //
+            // The output goes on being read, though, and deliberately: an
+            // emulator's stdout is a pipe with a 64KB kernel buffer, and a
+            // reader that walks away leaves the emulator blocking on a write
+            // partway through a session. `collect` keeps only the tail, so
+            // draining it for hours costs nothing.
+            child.unref()
+            resolvePromise(command)
+          }),
+        OPEN_SETTLE_MS
+      )
+
+      child.on('error', (err) =>
+        settle(() => {
+          log.error('emulator', 'could not be started on its own', err, {
+            emulator: emulator.id,
+            command
+          })
+          rejectPromise(new Error(`Could not start ${emulator.name}: ${err.message}`))
+        })
+      )
+
+      child.on('close', (code, signal) =>
+        settle(() => {
+          // The same reading as a launch that quit immediately: whatever it
+          // flagged, or failing that the last thing it said. An emulator that
+          // exits this fast showed the user nothing, whatever its exit code —
+          // RetroDECK reports its own success rather than the game's.
+          const detail = flaggedLines(output) ?? tailOf(output)
+          log.error('emulator', 'quit immediately when started on its own', undefined, {
+            emulator: emulator.id,
+            command,
+            code,
+            signal,
+            detail,
+            output: output.slice(-2000)
+          })
+          rejectPromise(
+            new Error(
+              detail
+                ? `${emulator.name} quit immediately: ${detail}`
+                : `${emulator.name} quit immediately (code ${code}).`
+            )
+          )
+        })
+      )
+    })
   }
 }
