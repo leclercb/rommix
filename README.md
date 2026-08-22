@@ -9,7 +9,8 @@ at home under gamescope or launched from Steam.
 
 **[rommix on the web →](https://leclercb.github.io/rommix/)** — what it is, and a
 [live demo](https://leclercb.github.io/rommix/demo/) of the interface running in
-your browser against a small made-up library. Nothing is installed and no server
+your browser, browsing the homebrew library from
+[RomM's public demo](https://demo.romm.app). Nothing is installed and no server
 is involved: it is the front end alone, for looking at rather than using.
 
 ---
@@ -354,11 +355,20 @@ feature list in the metainfo.
 `npm run preview:web` serves the renderer as an ordinary web page, for looking at
 the front end where starting Electron is not worth it — a headless box, or a
 remote session. There is no preload script in a browser, so
-`src/renderer/src/dev/bridge.ts` answers every call from a small library held in
+`src/renderer/src/dev/bridge.ts` answers every call from a library held in
 memory. It is a mannequin: nothing is persisted, nothing reaches a RomM server,
 and anything that would touch a disk or an emulator reports plausible success
 without doing it. The module is behind the `VITE_WEB_PREVIEW` flag that
 `vite.web.config.ts` sets, so it is never part of a shipped bundle.
+
+That library is `src/renderer/src/dev/library.ts`, a transcript of
+[RomM's own public demo](https://demo.romm.app) — 25 games across 13 systems,
+with the metadata and the cover art that server holds, which is homebrew and
+freeware throughout and so can be shown in public. The art lives in
+`demo/`, deliberately outside `src/`: it is the preview build's
+`publicDir`, because anything the renderer _imports_ is emitted into the
+application build as well, whether or not the code importing it survives
+tree-shaking.
 
 ```bash
 npm run build:site     # out/site: the landing page, with the preview in demo/

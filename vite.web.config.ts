@@ -45,7 +45,8 @@ function demoLabels(): Plugin {
           // phone showing the whole layout scaled down beats one showing a
           // corner of it at full size.
           '    <meta name="description" content="The RomMix interface, running against ' +
-          'an invented library. No server, no emulator and no games are involved." />\n' +
+          'the homebrew library from RomM&#39;s public demo. No server and no emulator ' +
+          'are involved, and nothing is downloaded." />\n' +
           '    <meta name="robots" content="noindex" />'
       )
   }
@@ -77,6 +78,17 @@ export default defineConfig({
    * every screen is a state of one document.
    */
   base: './',
+  /**
+   * The demo library's cover art, copied beside the page rather than imported.
+   *
+   * It has to be outside `src/renderer` — anything the renderer imports is
+   * emitted into the *application* build too, because Vite writes an asset out
+   * while transforming the module that references it, whether or not the branch
+   * importing that module survives. 2.8 MB of homebrew covers in the flatpak is
+   * a poor trade for a demo page, so `library.ts` names these by URL and only
+   * this config knows where they are.
+   */
+  publicDir: resolve('demo'),
   resolve: {
     alias: {
       '@renderer': resolve('src/renderer/src'),

@@ -1,9 +1,9 @@
+import { artFor, PLATFORMS, ROMS as LIBRARY } from './library'
 import type { RomMixBridge } from '@shared/api'
 import type {
   BiosPlatform,
   DownloadItem,
   InstalledRom,
-  RommPlatform,
   RommRom,
   RomQuery,
   SaveAsset,
@@ -11,12 +11,16 @@ import type {
 } from '@shared/types'
 
 /**
- * A `window.rommix` for the browser — `npm run preview:web` only.
+ * A `window.rommix` for the browser — `npm run preview:web` and the demo
+ * published beside the site.
  *
  * There is no preload script outside Electron, so the front end would fail on
- * its first call. This answers every one of them from a small library held in
- * memory, which is enough to look at every screen: shelves, a grid, a game with
- * artwork and saves, a queue with a transfer running in it.
+ * its first call. This answers every one of them from the library in
+ * `library.ts`, which is a transcript of RomM's own public demo server: 25
+ * homebrew and freeware games across 13 systems, with their real metadata and
+ * their real cover art. A front end for a ROM library is judged on how a real
+ * library looks in it, and an invented one flatters the layout — every title the
+ * same length, every cover the same shape.
  *
  * It is a mannequin, not a simulator. Nothing is persisted, nothing reaches a
  * RomM server, and the actions that would touch a disk or an emulator report
@@ -28,296 +32,119 @@ import type {
  */
 
 // ---------------------------------------------------------------------------
-// Placeholder artwork
-// ---------------------------------------------------------------------------
-
-/** A stable hue per asset, so a game keeps its colours across a reload. */
-function hueOf(seed: string): number {
-  let hash = 0
-  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) % 360
-  return hash
-}
-
-/**
- * Stand-in art as a data URI.
- *
- * Two bands of colour and a couple of shapes rather than a flat rectangle: the
- * banner on the detail screen blurs whatever it is given, and a flat fill blurs
- * into nothing at all — which would make a broken backdrop and a working one
- * look identical.
- */
-function placeholderArt(seed: string, label: string): string {
-  const hue = hueOf(seed)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="0.7" y2="1">
-      <stop offset="0" stop-color="hsl(${hue} 55% 42%)"/>
-      <stop offset="1" stop-color="hsl(${(hue + 48) % 360} 60% 16%)"/>
-    </linearGradient></defs>
-    <rect width="300" height="400" fill="url(#g)"/>
-    <circle cx="232" cy="86" r="74" fill="hsl(${(hue + 190) % 360} 70% 62%)" opacity="0.5"/>
-    <rect x="-20" y="250" width="340" height="60" fill="hsl(${hue} 80% 70%)" opacity="0.25"/>
-    <text x="150" y="215" fill="#fff" opacity="0.92" font-family="sans-serif"
-      font-size="26" font-weight="700" text-anchor="middle">${label}</text>
-  </svg>`
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-}
-
-// ---------------------------------------------------------------------------
 // The library
 // ---------------------------------------------------------------------------
 
-const PLATFORMS: RommPlatform[] = [
-  {
-    id: 1,
-    slug: 'snes',
-    fs_slug: 'snes',
-    name: 'Super Nintendo Entertainment System',
-    display_name: 'Super Nintendo',
-    custom_name: null,
-    rom_count: 3,
-    fs_size_bytes: 12_500_000,
-    url_logo: null,
-    missing_from_fs: false
+/**
+ * A game with nothing known about it, which the harvested library has none of:
+ * every row on RomM's demo is scraped and carries art. The detail screen has a
+ * banner that has to survive having no artwork to draw and a Details tab that
+ * has to admit it knows nothing, and those two states are only reachable from an
+ * entry like this one — so it is invented, and named so that nobody mistakes it
+ * for something that was on the server.
+ */
+const UNMATCHED: RommRom = {
+  id: 9001,
+  name: 'Untitled Homebrew Demo',
+  slug: null,
+  summary: null,
+  platform_id: 9,
+  platform_slug: 'nes',
+  platform_fs_slug: 'nes',
+  platform_display_name: 'Nintendo Entertainment System',
+  fs_name: 'untitled-demo.nes',
+  fs_name_no_ext: 'untitled-demo',
+  fs_name_no_tags: 'untitled-demo',
+  fs_extension: 'nes',
+  fs_path: 'roms/nes',
+  fs_size_bytes: 32_768,
+  path_cover_small: null,
+  path_cover_large: null,
+  url_cover: null,
+  path_video: null,
+  regions: [],
+  languages: [],
+  tags: [],
+  revision: null,
+  crc_hash: null,
+  md5_hash: null,
+  sha1_hash: null,
+  has_simple_single_file: true,
+  has_nested_single_file: false,
+  has_multiple_files: false,
+  missing_from_fs: false,
+  metadatum: {
+    genres: [],
+    franchises: [],
+    companies: [],
+    game_modes: [],
+    age_ratings: [],
+    player_count: '1',
+    first_release_date: null,
+    average_rating: null
   },
-  {
-    id: 2,
-    slug: 'ps',
-    fs_slug: 'psx',
-    name: 'Sony PlayStation',
-    display_name: 'PlayStation',
-    custom_name: null,
-    rom_count: 2,
-    fs_size_bytes: 1_400_000_000,
-    url_logo: null,
-    missing_from_fs: false
+  rom_user: {
+    id: 9001,
+    rom_id: 9001,
+    last_played: null,
+    now_playing: false,
+    backlogged: false,
+    hidden: false,
+    rating: 0,
+    difficulty: 0,
+    completion: 0,
+    status: null
   },
-  {
-    id: 3,
-    slug: 'switch',
-    fs_slug: 'switch',
-    name: 'Nintendo Switch',
-    display_name: 'Nintendo Switch',
-    custom_name: null,
-    rom_count: 1,
-    fs_size_bytes: 14_000_000_000,
-    url_logo: null,
-    missing_from_fs: false
-  }
-]
-
-/** Everything a `RommRom` needs, so a sample only states what makes it itself. */
-function game(seed: Partial<RommRom> & Pick<RommRom, 'id' | 'name' | 'platform_id'>): RommRom {
-  const platform = PLATFORMS.find((item) => item.id === seed.platform_id) ?? PLATFORMS[0]
-  const stem = (seed.name ?? 'game').toLowerCase().replace(/[^a-z0-9]+/g, '-')
-
-  return {
-    slug: stem,
-    summary: null,
-    platform_slug: platform.slug,
-    platform_fs_slug: platform.fs_slug,
-    platform_display_name: platform.display_name,
-    fs_name: `${seed.name}.rom`,
-    fs_name_no_ext: seed.name ?? '',
-    fs_name_no_tags: seed.name ?? '',
-    fs_extension: 'rom',
-    fs_path: `${platform.fs_slug}/${seed.name}.rom`,
-    fs_size_bytes: 4_194_304,
-    path_cover_small: `covers/${stem}-small.png`,
-    path_cover_large: `covers/${stem}.png`,
-    url_cover: null,
-    path_video: null,
-    regions: [],
-    languages: [],
-    tags: [],
-    revision: null,
-    crc_hash: null,
-    md5_hash: null,
-    sha1_hash: null,
-    has_simple_single_file: true,
-    has_nested_single_file: false,
-    has_multiple_files: false,
-    missing_from_fs: false,
-    metadatum: {
-      genres: [],
-      franchises: [],
-      companies: [],
-      game_modes: [],
-      age_ratings: [],
-      player_count: '1',
-      first_release_date: null,
-      average_rating: null
-    },
-    rom_user: {
-      id: seed.id,
-      rom_id: seed.id,
-      last_played: null,
-      now_playing: false,
-      backlogged: false,
-      hidden: false,
-      rating: 0,
-      difficulty: 0,
-      completion: 0,
-      status: null
-    },
-    files: [
-      {
-        id: seed.id * 10,
-        rom_id: seed.id,
-        file_name: `${seed.name}.rom`,
-        file_path: platform.fs_slug,
-        file_size_bytes: 4_194_304,
-        full_path: `${platform.fs_slug}/${seed.name}.rom`,
-        category: null
-      }
-    ],
-    merged_screenshots: [`screenshots/${stem}-1.png`, `screenshots/${stem}-2.png`],
-    created_at: '2026-01-14T09:00:00Z',
-    updated_at: '2026-08-02T18:20:00Z',
-    ...seed
-  }
+  files: [],
+  merged_screenshots: [],
+  created_at: '2026-08-18T20:11:00Z',
+  updated_at: '2026-08-18T20:11:00Z'
 }
 
-/**
- * Deliberately uneven. One game has everything RomM can hold and one has almost
- * nothing, because those are the two ends the detail screen has to survive: a
- * full banner with a rating, a region and three genres, and a homebrew ROM
- * matched to no provider at all, whose banner has no artwork to draw.
- */
+/** Cave Story, which the Home screen shows as the game last played. */
+const CAVE_STORY = 175
+
 const ROMS: RommRom[] = [
-  game({
-    id: 1,
-    name: 'Chrono Trigger',
-    platform_id: 1,
-    summary:
-      'A party of travellers meets across four eras to stop a catastrophe none of them witnessed. ' +
-      'Battles happen on the field rather than a separate screen, and the ending you reach depends ' +
-      'on when you choose to face the thing at the end of it.',
-    fs_size_bytes: 4_194_304,
-    regions: ['USA'],
-    languages: ['English'],
-    revision: '1.1',
-    tags: ['!'],
-    metadatum: {
-      genres: ['Role-playing', 'Adventure'],
-      franchises: ['Chrono'],
-      companies: ['Square'],
-      game_modes: ['Single player'],
-      age_ratings: ['Everyone'],
-      player_count: '1',
-      first_release_date: 794_448_000,
-      average_rating: 92
-    },
-    rom_user: {
-      id: 1,
-      rom_id: 1,
-      last_played: '2026-08-19T21:40:00Z',
-      now_playing: false,
-      backlogged: false,
-      hidden: false,
-      rating: 0,
-      difficulty: 0,
-      completion: 0,
-      status: null
-    }
-  }),
-  game({
-    id: 2,
-    name: 'Metal Gear Solid',
-    platform_id: 2,
-    summary: 'A infiltration of a nuclear disposal facility, told largely over the radio.',
-    fs_size_bytes: 687_865_856,
-    regions: ['Europe'],
-    languages: ['English', 'French', 'German'],
-    metadatum: {
-      genres: ['Action', 'Stealth'],
-      franchises: ['Metal Gear'],
-      companies: ['Konami'],
-      game_modes: ['Single player'],
-      age_ratings: ['Mature'],
-      player_count: '1',
-      first_release_date: 907_200_000,
-      average_rating: 89
-    }
-  }),
-  game({
-    id: 3,
-    name: 'Super Metroid',
-    platform_id: 1,
-    summary: 'A planet mapped by walking into every wall until one of them opens.',
-    regions: ['Japan', 'USA'],
-    metadatum: {
-      genres: ['Platform', 'Adventure'],
-      franchises: ['Metroid'],
-      companies: ['Nintendo', 'Intelligent Systems'],
-      game_modes: ['Single player'],
-      age_ratings: ['Everyone'],
-      player_count: '1',
-      first_release_date: 764_121_600,
-      average_rating: 94
-    }
-  }),
-  game({
-    id: 4,
-    name: 'Super Mario World',
-    platform_id: 1,
-    fs_size_bytes: 524_288,
-    metadatum: {
-      genres: ['Platform'],
-      franchises: ['Super Mario'],
-      companies: ['Nintendo'],
-      game_modes: ['Single player', 'Multiplayer'],
-      age_ratings: ['Everyone'],
-      player_count: '2',
-      first_release_date: 659_836_800,
-      average_rating: 91
-    }
-  }),
-  // A large, slow download, which is what the Switch row is here to draw. The
-  // title is deliberately not a Nintendo first-party one: this is a public demo
-  // page, and a Switch emulator shown downloading Nintendo's own game is the one
-  // pairing that has actually been litigated over.
-  game({
-    id: 5,
-    name: 'The Witcher 3: Wild Hunt',
-    platform_id: 3,
-    summary: 'A hundred hours of contract work, most of it about people rather than monsters.',
-    fs_size_bytes: 14_495_514_624,
-    metadatum: {
-      genres: ['Role-playing'],
-      franchises: ['The Witcher'],
-      companies: ['CD Projekt Red'],
-      game_modes: ['Single player'],
-      age_ratings: ['Mature'],
-      player_count: '1',
-      first_release_date: 1_571_097_600,
-      average_rating: 94
-    }
-  }),
-  // No artwork, no metadata, no summary: the game the banner has to fall back
-  // on, and the Details tab has to admit it knows nothing about.
-  game({
-    id: 6,
-    name: 'Untitled Homebrew Demo',
-    platform_id: 1,
-    fs_size_bytes: 32_768,
-    path_cover_small: null,
-    path_cover_large: null,
-    merged_screenshots: []
-  })
+  ...LIBRARY.map((rom) =>
+    rom.id === CAVE_STORY
+      ? { ...rom, rom_user: { ...rom.rom_user, last_played: '2026-08-19T21:40:00Z' } }
+      : rom
+  ),
+  UNMATCHED
 ]
 
 const romById = (id: number): RommRom => ROMS.find((rom) => rom.id === id) ?? ROMS[0]
 
-const INSTALLED: InstalledRom[] = [1, 3, 6].map((id) => {
+/** ES-DE system folder per RomM platform, for the paths shown on screen. */
+const SYSTEMS: Readonly<Record<string, string>> = {
+  atari2600: 'atari2600',
+  atari7800: 'atari7800',
+  c64: 'c64',
+  dos: 'dos',
+  gamegear: 'gamegear',
+  gb: 'gb',
+  gba: 'gba',
+  gbc: 'gbc',
+  genesis: 'genesis',
+  nes: 'nes',
+  scummvm: 'scummvm',
+  sms: 'mastersystem',
+  snes: 'snes'
+}
+
+const systemOf = (rom: RommRom): string => SYSTEMS[rom.platform_slug] ?? rom.platform_fs_slug
+
+const INSTALLED: InstalledRom[] = [CAVE_STORY, 137, 86].map((id) => {
   const rom = romById(id)
+  const system = systemOf(rom)
   return {
     romId: id,
-    path: `/home/deck/retrodeck/roms/snes/${rom.fs_name}`,
-    launchPath: `/home/deck/retrodeck/roms/snes/${rom.fs_name}`,
+    path: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`,
+    launchPath: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`,
     name: rom.name ?? rom.fs_name,
     coverPath: rom.path_cover_small,
     files: [rom.fs_name],
-    system: 'snes',
+    system,
     platformName: rom.platform_display_name,
     fileName: rom.fs_name,
     sizeBytes: rom.fs_size_bytes,
@@ -328,55 +155,31 @@ const INSTALLED: InstalledRom[] = [1, 3, 6].map((id) => {
 })
 
 /** A queue with one of everything, so the Downloads screen has all its rows. */
-const DOWNLOADS: DownloadItem[] = [
-  {
-    romId: 2,
-    name: 'Metal Gear Solid',
-    coverPath: romById(2).path_cover_small,
-    system: 'psx',
-    platformName: 'PlayStation',
-    state: 'downloading',
-    receivedBytes: 262_144_000,
-    totalBytes: 687_865_856,
-    error: null,
-    targetPath: '/home/deck/retrodeck/roms/psx/Metal Gear Solid.chd'
-  },
-  {
-    romId: 5,
-    name: 'The Witcher 3: Wild Hunt',
-    coverPath: romById(5).path_cover_small,
-    system: 'switch',
-    platformName: 'Nintendo Switch',
-    state: 'queued',
-    receivedBytes: 0,
-    totalBytes: 14_495_514_624,
-    error: null,
-    targetPath: '/home/deck/Emulation/roms/switch/witcher3.nsp'
-  },
-  {
-    romId: 1,
-    name: 'Chrono Trigger',
-    coverPath: romById(1).path_cover_small,
-    system: 'snes',
-    platformName: 'Super Nintendo',
-    state: 'done',
-    receivedBytes: 4_194_304,
-    totalBytes: 4_194_304,
-    error: null,
-    targetPath: '/home/deck/retrodeck/roms/snes/Chrono Trigger.sfc'
-  },
-  {
-    romId: 4,
-    name: 'Super Mario World',
-    coverPath: romById(4).path_cover_small,
-    system: 'snes',
-    platformName: 'Super Nintendo',
-    state: 'error',
-    receivedBytes: 0,
-    totalBytes: 524_288,
-    error: 'The server closed the connection before the file was complete.',
-    targetPath: '/home/deck/retrodeck/roms/snes/Super Mario World.sfc'
+function queued(id: number, state: DownloadItem['state'], received: number): DownloadItem {
+  const rom = romById(id)
+  const system = systemOf(rom)
+  return {
+    romId: id,
+    name: rom.name ?? rom.fs_name,
+    coverPath: rom.path_cover_small,
+    system,
+    platformName: rom.platform_display_name,
+    state,
+    receivedBytes: received,
+    totalBytes: rom.fs_size_bytes,
+    error:
+      state === 'error' ? 'The server closed the connection before the file was complete.' : null,
+    targetPath: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`
   }
+}
+
+const DOWNLOADS: DownloadItem[] = [
+  // Beneath a Steel Sky is 72 MB, which is the only game here big enough for a
+  // progress bar to be worth drawing.
+  queued(139, 'downloading', 27_000_000),
+  queued(169, 'queued', 0),
+  queued(CAVE_STORY, 'done', romById(CAVE_STORY).fs_size_bytes),
+  queued(77, 'error', 0)
 ]
 
 /** One row of every sync state, which is the whole subject of the Saves tab. */
@@ -384,10 +187,10 @@ const SAVES: SaveAsset[] = [
   {
     id: 11,
     kind: 'save',
-    fileName: 'Chrono Trigger.srm',
+    fileName: 'cavestory.srm',
     sizeBytes: 8192,
-    emulator: 'snes9x',
-    localPath: '/home/deck/retrodeck/saves/snes/Chrono Trigger.srm',
+    emulator: 'genesis_plus_gx',
+    localPath: '/home/deck/retrodeck/saves/genesis/cavestory.srm',
     localModifiedAt: '2026-08-19T21:58:00Z',
     fromThisDevice: true,
     updatedAt: '2026-08-19T21:59:00Z',
@@ -396,10 +199,10 @@ const SAVES: SaveAsset[] = [
   {
     id: null,
     kind: 'state',
-    fileName: 'Chrono Trigger.state1',
+    fileName: 'cavestory.state1',
     sizeBytes: 401_408,
-    emulator: 'snes9x',
-    localPath: '/home/deck/retrodeck/states/snes/Chrono Trigger.state1',
+    emulator: 'genesis_plus_gx',
+    localPath: '/home/deck/retrodeck/states/genesis/cavestory.state1',
     localModifiedAt: '2026-08-20T22:04:00Z',
     fromThisDevice: null,
     updatedAt: null,
@@ -408,9 +211,9 @@ const SAVES: SaveAsset[] = [
   {
     id: 13,
     kind: 'save',
-    fileName: 'Chrono Trigger (handheld).srm',
+    fileName: 'cavestory (handheld).srm',
     sizeBytes: 8192,
-    emulator: 'snes9x',
+    emulator: 'genesis_plus_gx',
     localPath: null,
     localModifiedAt: null,
     fromThisDevice: false,
@@ -423,22 +226,19 @@ const SAVES: SaveAsset[] = [
  * The BIOS situation, with the file names and notes RomMix genuinely knows —
  * `BIOS_REQUIREMENTS` in `@config/bios` is where these come from.
  *
- * Arranged so the screen has one of each state to draw: a required file that is
- * missing and fetchable, an optional one already in place, a file the server
- * does not hold at all, a console whose BIOS is a dump RomMix cannot name and so
- * carries a setup note, one staged into RomMix's own folder rather than the
- * emulator's, and a platform that needs nothing — which the screen drops, since
- * a console with nothing to say should not take a row.
- *
- * The missing `scph5501.bin` is also what raises the warning on the detail page
- * of a PlayStation game: that path reads this same list.
+ * Thinner than the screen can render, and honestly so: this library is homebrew
+ * for thirteen 8- and 16-bit systems, and only two of them take a BIOS file at
+ * all. The states that need a console RomMix cannot place a dump for, or a file
+ * staged into RomMix's own folder because the emulator's tree cannot be written
+ * into, belong to the Switch and the PS3 and are not reachable from here. They
+ * are worth seeing in the real app rather than inventing a platform for.
  */
 const BIOS: BiosPlatform[] = [
   {
-    platformId: 2,
-    platformSlug: 'ps',
-    platformName: 'PlayStation',
-    system: 'psx',
+    platformId: 6,
+    platformSlug: 'gba',
+    platformName: 'Game Boy Advance',
+    system: 'gba',
     emulatorId: 'retrodeck',
     emulatorName: 'RetroDECK',
     biosDir: '/home/deck/retrodeck/bios',
@@ -447,74 +247,39 @@ const BIOS: BiosPlatform[] = [
     setupNote: null,
     items: [
       {
-        fileName: 'scph5500.bin',
-        note: 'PlayStation BIOS — Japan',
+        fileName: 'gba_bios.bin',
+        note: 'Game Boy Advance BIOS — improves accuracy',
         required: false,
         installed: false,
         dir: '/home/deck/retrodeck/bios',
         staged: false,
         firmwareId: 501,
-        sizeBytes: 524_288,
+        sizeBytes: 16_384,
         verified: true
-      },
-      {
-        fileName: 'scph5501.bin',
-        note: 'PlayStation BIOS — North America',
-        required: true,
-        installed: false,
-        dir: '/home/deck/retrodeck/bios',
-        staged: false,
-        firmwareId: 502,
-        sizeBytes: 524_288,
-        verified: true
-      },
-      {
-        fileName: 'scph5502.bin',
-        note: 'PlayStation BIOS — Europe',
-        required: false,
-        installed: true,
-        dir: '/home/deck/retrodeck/bios',
-        staged: false,
-        firmwareId: 503,
-        sizeBytes: 524_288,
-        verified: false
       }
     ]
   },
   {
-    platformId: 3,
-    platformSlug: 'switch',
-    platformName: 'Nintendo Switch',
-    system: 'switch',
-    emulatorId: 'eden',
-    emulatorName: 'Eden',
-    biosDir: '/home/deck/.local/share/eden/keys',
-    stagingNote:
-      'title.keys was put in RomMix’s own folder: Eden reads keys from its data directory, ' +
-      'which RomMix cannot write into while it is running. Copy it across and restart Eden.',
+    platformId: 2,
+    platformSlug: 'atari7800',
+    platformName: 'Atari 7800',
+    system: 'atari7800',
+    emulatorId: 'retrodeck',
+    emulatorName: 'RetroDECK',
+    biosDir: '/home/deck/retrodeck/bios',
+    stagingNote: null,
     blockedReason: null,
-    setupNote: 'The Switch needs prod.keys and a firmware dump from a console.',
+    setupNote: null,
     items: [
       {
-        fileName: 'prod.keys',
-        note: 'Console master keys — nothing decrypts without them',
-        required: true,
+        fileName: '7800 BIOS (U).rom',
+        note: 'Atari 7800 BIOS — North America',
+        required: false,
         installed: true,
-        dir: '/home/deck/.local/share/eden/keys',
+        dir: '/home/deck/retrodeck/bios',
         staged: false,
-        firmwareId: null,
-        sizeBytes: 219_136,
-        verified: false
-      },
-      {
-        fileName: 'title.keys',
-        note: 'Per-title keys, for installed games, updates and DLC',
-        required: true,
-        installed: false,
-        dir: '/home/deck/.local/share/rommix/bios/switch',
-        staged: true,
-        firmwareId: 504,
-        sizeBytes: 41_216,
+        firmwareId: 502,
+        sizeBytes: 4096,
         verified: false
       }
     ]
@@ -522,10 +287,10 @@ const BIOS: BiosPlatform[] = [
   // Nothing needed, nothing to say. Present because the real report carries
   // every platform on the server, and dropped by the screen itself.
   {
-    platformId: 1,
-    platformSlug: 'snes',
-    platformName: 'Super Nintendo',
-    system: 'snes',
+    platformId: 9,
+    platformSlug: 'nes',
+    platformName: 'Nintendo Entertainment System',
+    system: 'nes',
     emulatorId: 'retrodeck',
     emulatorName: 'RetroDECK',
     biosDir: '/home/deck/retrodeck/bios',
@@ -548,6 +313,7 @@ const SETTINGS: Settings = {
   confirmUninstall: true,
   confirmSavePush: false,
   dismissedNotices: [],
+  // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,
   deviceId: 'web-preview',
   deviceName: 'RomMix @ web preview'
@@ -565,14 +331,14 @@ function later<T>(value: T, ms = 220): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
-const favourites = new Set<number>([3])
+const favourites = new Set<number>([123])
 
 const bridge: RomMixBridge = {
   server: {
     status: () =>
       later({
         connected: true,
-        baseUrl: 'https://romm.example.org',
+        baseUrl: 'https://demo.romm.app',
         user: {
           id: 1,
           username: 'preview',
@@ -626,7 +392,7 @@ const bridge: RomMixBridge = {
     onAdopted: noSubscription
   },
   saves: {
-    list: (romId: number) => later(romId === 1 ? SAVES : []),
+    list: (romId: number) => later(romId === CAVE_STORY ? SAVES : []),
     pull: () => later({ saves: 1, states: 0, skippedReason: null }, 600),
     push: () => later({ saves: 1, states: 1, skippedReason: null }, 600),
     pushPreview: () =>
@@ -634,16 +400,16 @@ const bridge: RomMixBridge = {
         files: [
           {
             kind: 'save' as const,
-            fileName: 'Chrono Trigger.srm',
-            path: '/home/deck/retrodeck/saves/snes/Chrono Trigger.srm',
+            fileName: 'cavestory.srm',
+            path: '/home/deck/retrodeck/saves/genesis/cavestory.srm',
             sizeBytes: 8192,
             modifiedAt: '2026-08-19T21:58:00Z',
-            emulator: 'snes9x',
+            emulator: 'genesis_plus_gx',
             isDirectory: false,
             replaces: {
               sizeBytes: 8192,
               updatedAt: '2026-08-19T21:59:00Z',
-              emulator: 'snes9x',
+              emulator: 'genesis_plus_gx',
               fromThisDevice: true
             }
           }
@@ -689,44 +455,33 @@ const bridge: RomMixBridge = {
   },
   downloads: {
     list: () => later(DOWNLOADS),
-    start: (romId: number) => {
-      const rom = romById(romId)
-      return later({
-        romId,
-        name: rom.name ?? rom.fs_name,
-        coverPath: rom.path_cover_small,
-        system: 'snes',
-        platformName: rom.platform_display_name,
-        state: 'queued' as const,
-        receivedBytes: 0,
-        totalBytes: rom.fs_size_bytes,
-        error: null,
-        targetPath: `/home/deck/retrodeck/roms/snes/${rom.fs_name}`
-      })
-    },
+    start: (romId: number) => later(queued(romId, 'queued', 0)),
     cancel: () => later(undefined),
     clearFinished: () => later(undefined),
     uninstall: () => later(undefined),
     onUpdate: noSubscription
   },
   game: {
-    variants: (romId: number) =>
-      later({
-        system: 'snes',
+    variants: (romId: number) => {
+      const rom = romById(romId)
+      const system = systemOf(rom)
+      return later({
+        system,
         emulatorId: 'retrodeck',
         emulatorName: 'RetroDECK',
         setupNotes: [],
-        // Two answers for one game only, so both the "Run with" button and its
-        // absence can be seen.
+        // Two answers for the Mega Drive only, so both the "Run with" button
+        // and its absence can be seen. Both are cores RetroDECK really ships.
         options:
-          romId === 1
+          system === 'genesis'
             ? [
-                { id: 'snes9x', label: 'Snes9x' },
-                { id: 'bsnes', label: 'bsnes', note: 'more accurate, heavier' }
+                { id: 'genesis_plus_gx', label: 'Genesis Plus GX' },
+                { id: 'picodrive', label: 'PicoDrive', note: 'faster, less accurate' }
               ]
-            : [{ id: 'snes9x', label: 'Snes9x' }],
+            : [{ id: 'default', label: 'RetroDECK’s choice' }],
         chosen: null
-      }),
+      })
+    },
     launch: () => Promise.reject(new Error('There is no emulator in the web preview')),
     stop: () => later(undefined),
     onState: noSubscription
@@ -745,8 +500,9 @@ const bridge: RomMixBridge = {
         canSpawnHost: false,
         emulators: [],
         romsWritable: true,
-        // Named as it would be on a real install; the preview writes no log.
-        logPath: '~/rommix/logs/rommix.log',
+        // Named the way the real report names it, though nothing writes to it:
+        // the panel shows the path so a bug report can quote it.
+        logPath: '~/.local/share/rommix/logs/rommix.log',
         notes: ['This is the web preview: nothing was actually checked.']
       }),
     root: () =>
@@ -758,21 +514,12 @@ const bridge: RomMixBridge = {
     setRoot: () => Promise.reject(new Error('Not available in the web preview')),
     restart: () => later(undefined),
     /**
-     * Console logos resolve to null so the app falls back to its own platform
-     * badge — the short code on a generated colour — rather than showing five
-     * identical placeholder squares where the consoles should be. Everything
-     * else gets art keyed to its path.
+     * Cover art and screenshots resolve to the copies bundled with the preview;
+     * anything else — the console logos RomMix would fetch from the server's own
+     * icon set — resolves to null, so the app falls back to its platform badge
+     * rather than drawing thirteen broken images.
      */
-    imageUrl: (path: string | null) => {
-      if (!path) return null
-      if (path.includes('/assets/platforms/')) return null
-      const name =
-        path
-          .split('/')
-          .pop()
-          ?.replace(/\.[a-z]+$/i, '') ?? path
-      return placeholderArt(path, name.slice(0, 22))
-    },
+    imageUrl: (path: string | null) => artFor(path),
     toggleFullscreen: () => later(false),
     quit: () => later(undefined),
     onError: noSubscription
