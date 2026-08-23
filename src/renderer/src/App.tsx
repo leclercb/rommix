@@ -1,6 +1,6 @@
 import type { JSX, Ref } from 'react'
 import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon, Spinner } from './components'
-import { FocusZone, useAction, useFocusable } from './input/focus'
+import { FocusZone, useAction, useFocusable, useKeyLabel, useSuspendGamepad } from './input/focus'
 import { Icon, type IconName } from './icons'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
@@ -22,6 +22,11 @@ export function App(): JSX.Element {
   // X / Start opens Settings: on a console this button is the menu, and
   // Settings is where every switch in RomMix lives.
   useAction('menu', () => navigate({ name: 'settings' }), route.name !== 'settings')
+
+  // While an emulator is up, the pad belongs to the game and not to us. Here
+  // rather than inside the overlay so it holds for the whole session, including
+  // the moment before the overlay has mounted.
+  useSuspendGamepad(runningRomId !== null)
 
   if (route.name === 'connect') {
     return (
@@ -187,10 +192,12 @@ function NavItem({
  *
  * The close button is the way back from an emulator that has hung or opened
  * off-screen: it asks the process to quit, so the session still ends normally
- * and the saves it wrote are still uploaded.
+ * and the saves it wrote are still uploaded. It cannot be reached with the pad,
+ * which the game has for the duration — holding Start is the way in, and is
+ * what `useSuspendGamepad` lets through.
  */
 function RunningOverlay(): JSX.Element {
-  const { settings, runningStage, notify } = useApp()
+  const { settings, runningStage } = useApp()
 
   if (runningStage) {
     return (
@@ -209,24 +216,46 @@ function RunningOverlay(): JSX.Element {
           ? ' — RomMix will ask what to send to RomM.'
           : ' — saves sync to RomM automatically.'}
       </p>
+      <RunningActions />
+    </Overlay>
+  )
+}
+
+/**
+ * The way out, inside the overlay rather than beside it.
+ *
+ * A child component because `useAction` registers on the layer it is *called*
+ * from, and `Overlay` raises the layer for its children only — called from
+ * `RunningOverlay` the handler would sit on the layer below, where `fireAction`
+ * never looks while the overlay is up.
+ */
+function RunningActions(): JSX.Element {
+  const { notify } = useApp()
+  const keyLabel = useKeyLabel()
+
+  const stop = (): void => {
+    // Said because the request is not the outcome: RomMix asks the emulator to
+    // quit and gives it five seconds to save before killing it, so this overlay
+    // stays up for a moment afterwards and would otherwise look like a button
+    // that did nothing.
+    notify('Asking the emulator to quit…', 'warn')
+    void window.rommix.game.stop()
+  }
+
+  // The one press that reaches RomMix while a game has the pad.
+  useAction('menu', stop)
+
+  return (
+    <>
+      <p className="muted">Hold {keyLabel('START')} to close it from here.</p>
       <div className="btn-row">
-        <FocusButton
-          icon="cancel"
-          variant="danger"
-          onSelect={() => {
-            // Said because the request is not the outcome: RomMix asks the
-            // emulator to quit and gives it five seconds to save before killing
-            // it, so this overlay stays up for a moment afterwards and would
-            // otherwise look like a button that did nothing.
-            notify('Asking the emulator to quit…', 'warn')
-            void window.rommix.game.stop()
-          }}
-          autoFocus
-        >
+        {/* Not autofocused: the pad cannot reach it while a game is running, and
+            a focused danger button nothing can press only looks armed. */}
+        <FocusButton icon="cancel" variant="danger" onSelect={stop}>
           Close the emulator
         </FocusButton>
       </div>
-    </Overlay>
+    </>
   )
 }
 

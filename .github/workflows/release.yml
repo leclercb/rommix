@@ -82,10 +82,17 @@ jobs:
       - run: npm run build
       - run: npm run package
 
+      # Shipped beside the image, not inside it: it is what Steam's shortcut
+      # points at, and the AppImage cannot set the variable that makes itself
+      # launchable from Steam. See packaging/rommix-steam.sh.
+      - run: cp packaging/rommix-steam.sh dist/
+
       - uses: actions/upload-artifact@v7
         with:
           name: appimage
-          path: dist/*.AppImage
+          path: |
+            dist/*.AppImage
+            dist/rommix-steam.sh
           if-no-files-found: error
 
   release:
@@ -109,7 +116,9 @@ jobs:
       - name: Publish the release
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/*.AppImage
+          files: |
+            dist/*.AppImage
+            dist/rommix-steam.sh
           name: RomMix ${{ github.ref_name }}
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
@@ -122,6 +131,18 @@ jobs:
             ./${{ needs.build.outputs.image }}
             ```
 
-            To add it to Steam, add the AppImage as a non-Steam game. It has to
-            be the emulator's parent process for Steam to manage the window it
-            opens, so do not wrap it in anything that re-launches it elsewhere.
+            ### From Steam
+
+            Download `rommix-steam.sh` as well, keep it beside the AppImage, and
+            add **the script** as the non-Steam game:
+
+            ```bash
+            chmod +x ${{ needs.build.outputs.image }} rommix-steam.sh
+            ```
+
+            Steam launches a game with `PR_SET_NO_NEW_PRIVS`, under which the
+            kernel ignores the setuid bit — so `fusermount` cannot mount and an
+            AppImage started directly by Steam never unpacks itself. The script
+            unpacks it instead. It still `exec`s the image, so RomMix stays the
+            emulator's parent process, which is what lets Steam manage the
+            window the emulator opens.

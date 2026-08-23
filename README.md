@@ -71,15 +71,33 @@ npm run appimage        # writes dist/RomMix-<version>-x86_64.AppImage
 gamescope -f -- ./RomMix-x86_64.AppImage    # gamescope session
 ```
 
-**From Steam:** add the AppImage as a non-Steam game. RomMix starts fullscreen
-and is fully navigable with a controller, so Big Picture needs no extra setup.
+### From Steam
 
-Add the image itself, or a script that `exec`s it — not anything that hands it
-off to another process. RomMix has to remain the emulator's parent, because
-Steam tags the windows of the process tree it launched and a gamescope session
-only focuses a window Steam has tagged. An emulator started outside that tree
-runs perfectly well on a display you cannot reach: RomMix keeps focus, and the
-game is missing from Steam's window switcher.
+Download `rommix-steam.sh` from the same release, keep it **beside** the
+AppImage, and add the _script_ as the non-Steam game:
+
+```bash
+chmod +x RomMix-<version>-x86_64.AppImage rommix-steam.sh
+```
+
+RomMix starts fullscreen and is fully navigable with a controller, so Big
+Picture needs no other setup.
+
+The script exists because Steam launches a game with `PR_SET_NO_NEW_PRIVS`, and
+the kernel ignores the setuid bit on anything started that way. `fusermount` is
+setuid, so an AppImage launched straight from Steam cannot mount itself and dies
+with `Cannot mount AppImage` before RomMix runs at all. This is a property of
+how Steam launches things, not of any one distribution. The script sets
+`APPIMAGE_EXTRACT_AND_RUN`, which unpacks to a temporary directory instead and
+needs no privileges.
+
+It `exec`s the AppImage rather than starting it and waiting, which matters:
+RomMix has to remain the emulator's parent process, because Steam tags the
+windows of the tree it launched and a gamescope session only focuses a window
+Steam has tagged. An emulator started outside that tree runs perfectly well on a
+display you cannot reach — RomMix keeps focus, and the game is missing from
+Steam's window switcher. Anything you put in front of RomMix has to preserve
+that, so `exec` rather than launch-and-return.
 
 > **Why not a flatpak?** That is exactly what RomMix used to ship as, and it is
 > what caused the problem above. A sandboxed application cannot start a program
@@ -268,36 +286,47 @@ Settings → **Pre-flight check** names the common problems, and **Re-run check*
 re-tests after you fix one.
 
 **RomMix does not start at all, or the Steam shortcut appears to do nothing**
-Run it from a terminal — an AppImage that cannot start says why there and
-nowhere else. Two failures look identical from the couch:
+Run it from a terminal first — an AppImage that cannot start says why there and
+nowhere else. If it starts from a terminal but not from Steam, look in
+`~/.local/share/Steam/logs/console-linux.txt`, which is where Steam keeps what
+the shortcut printed.
 
-`Cannot mount AppImage, please check your FUSE setup` with
-`No suitable fusermount binary found on the $PATH`. The AppImage runtime mounts
-itself with FUSE, and Steam hands a launched shortcut a rewritten `PATH`. On
-NixOS `fusermount3` is a setuid wrapper in `/run/wrappers/bin`, which is not on
-that PATH, so it works from a terminal and fails from Steam. Name the binary
-outright instead of relying on PATH:
+`mount failed: Operation not permitted`, or `No suitable fusermount binary
+found on the $PATH`. **This one is not distribution-specific.** Steam launches a
+game with `PR_SET_NO_NEW_PRIVS`, and the kernel ignores the setuid bit on any
+process started that way — so `fusermount` cannot mount anything and the
+AppImage never unpacks itself. No `PATH` or `FUSERMOUNT_PROG` value changes
+that. Use `rommix-steam.sh` from the release and point the shortcut at it — see
+[From Steam](#from-steam).
+
+`error while loading shared libraries: libnspr4.so` (or `libglib-2.0.so.0`).
+The distribution does not ship the libraries an unpatched binary expects, which
+on a normal Debian, Ubuntu or Fedora install it does. On NixOS it needs
+answering **twice**, because Steam runs games inside its own FHS environment
+where `/lib64/ld-linux-x86-64.so.2` is the real glibc loader rather than
+nix-ld's shim — so `programs.nix-ld` fixes a terminal launch and does nothing at
+all for a Steam one:
 
 ```nix
-environment.variables.FUSERMOUNT_PROG = "${config.security.wrapperDir}/fusermount3";
-```
-
-`error while loading shared libraries: libglib-2.0.so.0`. The distribution does
-not have the libraries an unpatched binary expects, which on NixOS is the normal
-state of affairs. Enable `programs.nix-ld` and _append_ Electron's libraries to
-it — appending because assigning the option replaces nixpkgs' own default set,
-which would fix RomMix and break every other AppImage on the machine:
-
-```nix
+# For running RomMix directly. Appended, because assigning this option replaces
+# nixpkgs' own default set and would break every other AppImage on the machine.
 programs.nix-ld.enable = true;
 programs.nix-ld.libraries =
-  options.programs.nix-ld.libraries.default
-  ++ (with pkgs; [
-    alsa-lib at-spi2-core cairo cups dbus expat fontconfig freetype glib gtk3
-    libdrm libgbm libglvnd libx11 libxcb libxcomposite libxcursor libxdamage
-    libxext libxfixes libxi libxkbcommon libxrandr libxrender libxshmfence
-    libxtst nspr nss pango
-  ]);
+  options.programs.nix-ld.libraries.default ++ electronLibraries;
+
+# For running it from Steam.
+programs.steam.extraPackages = electronLibraries;
+```
+
+where `electronLibraries` is, with `pkgs`:
+
+```nix
+[
+  alsa-lib at-spi2-core cairo cups dbus expat fontconfig freetype glib gtk3
+  libdrm libgbm libglvnd libx11 libxcb libxcomposite libxcursor libxdamage
+  libxext libxfixes libxi libxkbcommon libxrandr libxrender libxshmfence
+  libxtst nspr nss pango
+]
 ```
 
 Also on NixOS: leave `programs.appimage.binfmt` off. It routes every AppImage

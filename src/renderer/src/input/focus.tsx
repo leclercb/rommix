@@ -111,6 +111,8 @@ interface FocusContextValue {
   focusedAction: string | null
   /** Called by the focused element to say what it does. */
   reportAction(label: string | null): void
+  /** See `useSuspendGamepad`. */
+  setInputSuspended(suspended: boolean): void
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
@@ -715,7 +717,17 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     }
   }, [noteInput])
 
-  useGamepad(move, fireAction, activate, noteInput)
+  /**
+   * Whether an emulator has the screen, in which case the pad is not ours.
+   *
+   * Only the gamepad is suspended. Keyboard and mouse are delivered as events
+   * and so already follow window focus — an emulator that has focus gets the
+   * keystrokes and RomMix never sees them. The Gamepad API is polled instead,
+   * which is why it needs telling. See the poll in `useGamepad`.
+   */
+  const [inputSuspended, setInputSuspended] = useState(false)
+
+  useGamepad(move, fireAction, activate, noteInput, inputSuspended)
   useKeyboard(move, fireAction, activate, noteInput)
 
   const value = useMemo<FocusContextValue>(
@@ -728,7 +740,8 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       onAction,
       inputKind,
       focusedAction,
-      reportAction
+      reportAction,
+      setInputSuspended
     }),
     [
       register,
@@ -739,7 +752,8 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       onAction,
       inputKind,
       focusedAction,
-      reportAction
+      reportAction,
+      setInputSuspended
     ]
   )
 
@@ -866,6 +880,28 @@ export function useFocusable(options: {
   }
 }
 
+/**
+ * Hand the pad over to something else for as long as `suspended` is true.
+ *
+ * For the one case RomMix has: an emulator is on screen, and every button the
+ * player presses is meant for the game. The Gamepad API does not know that —
+ * it reports button state to whoever polls, focused or not — so it has to be
+ * told, and the running overlay's autofocused Close button is otherwise one A
+ * press away for the whole session.
+ *
+ * Holding Start still reaches RomMix, as the way out of an emulator that has
+ * hung. See `SUSPENDED_HOLD_MS`.
+ */
+export function useSuspendGamepad(suspended: boolean): void {
+  const { setInputSuspended } = useFocusContext()
+  useEffect(() => {
+    setInputSuspended(suspended)
+    // Released on unmount so a screen torn down mid-session cannot leave the
+    // pad switched off.
+    return () => setInputSuspended(false)
+  }, [suspended, setInputSuspended])
+}
+
 /** Register a handler for a controller action while the component is mounted. */
 export function useAction(action: Action, handler: () => void, enabled = true): void {
   const { onAction } = useFocusContext()
@@ -922,25 +958,43 @@ const AXIS_DEADZONE = 0.55
 const REPEAT_DELAY_MS = 400
 const REPEAT_INTERVAL_MS = 90
 
+/**
+ * How long Start must be held to reach RomMix while an emulator has the screen.
+ *
+ * Long enough that no game's own use of Start can trip it, short enough to be
+ * an obvious deliberate act when the emulator has hung and this is the only way
+ * out. The game sees the press either way — it will open its own pause menu, and
+ * that is fine.
+ */
+const SUSPENDED_HOLD_MS = 1500
+
 function useGamepad(
   move: (direction: Direction) => void,
   fireAction: (action: Action) => void,
   activate: () => void,
-  noteInput: (kind: InputKind) => void
+  noteInput: (kind: InputKind) => void,
+  suspended: boolean
 ): void {
   const moveRef = useRef(move)
   const actionRef = useRef(fireAction)
   const activateRef = useRef(activate)
   const noteRef = useRef(noteInput)
+  // Read inside the poll rather than closed over: the loop is started once and
+  // must not be torn down and rebuilt every time a game starts or stops.
+  const suspendedRef = useRef(suspended)
   moveRef.current = move
   actionRef.current = fireAction
   activateRef.current = activate
   noteRef.current = noteInput
+  suspendedRef.current = suspended
 
   useEffect(() => {
     let frame = 0
     // Per-control state so a held stick repeats but a tap fires once.
     const held = new Map<string, { since: number; last: number }>()
+    /** When Start went down while suspended, and whether the hold has fired. */
+    let holdSince: number | null = null
+    let holdFired = false
 
     const edge = (key: string, pressed: boolean, rawFire: () => void, repeats: boolean): void => {
       // Reported here rather than at each call site: every path that reaches a
@@ -981,6 +1035,40 @@ function useGamepad(
         const mapped = pad.mapping === 'standard'
         const hatX = mapped ? 0 : (pad.axes[UNMAPPED.HAT_X] ?? 0)
         const hatY = mapped ? 0 : (pad.axes[UNMAPPED.HAT_Y] ?? 0)
+        const start = button(BUTTON.START) || (!mapped && button(UNMAPPED.START))
+
+        /**
+         * An emulator owns the screen, so the pad is the emulator's.
+         *
+         * The Gamepad API is *polled*, not delivered: `navigator.getGamepads()`
+         * reports button state whoever happens to hold window focus, so without
+         * this every press meant for the game was also read here — and since the
+         * running overlay autofocuses its Close button, pressing A in a game
+         * quit the game.
+         *
+         * The one way through is Start held down, which is the way back from an
+         * emulator that has hung or opened off-screen. Everything else is
+         * dropped, including the held state behind it: a direction still down
+         * when the game exits must not resume repeating into the library.
+         */
+        if (suspendedRef.current) {
+          held.clear()
+          if (!start) {
+            holdSince = null
+            holdFired = false
+          } else {
+            const now = performance.now()
+            if (holdSince === null) holdSince = now
+            else if (!holdFired && now - holdSince >= SUSPENDED_HOLD_MS) {
+              holdFired = true
+              noteRef.current('gamepad')
+              actionRef.current('menu')
+            }
+          }
+          break
+        }
+        holdSince = null
+        holdFired = false
 
         edge(
           'up',
@@ -1013,12 +1101,7 @@ function useGamepad(
         edge('y', button(BUTTON.Y), () => actionRef.current('search'), false)
         edge('lb', button(BUTTON.LB), () => actionRef.current('tabLeft'), false)
         edge('rb', button(BUTTON.RB), () => actionRef.current('tabRight'), false)
-        edge(
-          'start',
-          button(BUTTON.START) || (!mapped && button(UNMAPPED.START)),
-          () => actionRef.current('menu'),
-          false
-        )
+        edge('start', start, () => actionRef.current('menu'), false)
 
         // One connected pad drives the UI; a second would double every input.
         break
