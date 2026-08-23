@@ -34,11 +34,11 @@
     "yauzl": "^3.2.0"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
+    "@types/node": "^26.2.0",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@types/yauzl": "^3.4.0",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.1.0",
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
@@ -48,7 +48,7 @@
     "react-dom": "^19.0.0",
     "release-it": "^21.0.2",
     "typescript": "^7.0.2",
-    "vite": "^7.3.6"
+    "vite": "^8.2.2"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,
