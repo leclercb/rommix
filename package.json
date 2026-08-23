@@ -20,7 +20,8 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
-    "appimage": "npm run build && electron-builder --linux AppImage",
+    "package": "electron-builder --linux AppImage --publish never",
+    "appimage": "npm run build && npm run package",
     "release": "release-it"
   },
   "dependencies": {

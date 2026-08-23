@@ -75,10 +75,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-      # `npm run appimage` runs the build first; this is the same thing, split so
-      # a failing bundle and a failing package are separate red steps.
+      # `npm run appimage` is these two together; they are split so that a
+      # failing bundle and a failing package are separate red steps. The
+      # `--publish never` that matters lives in the `package` script, so it
+      # cannot be forgotten here — see package.json.
       - run: npm run build
-      - run: npx electron-builder --linux AppImage
+      - run: npm run package
 
       - uses: actions/upload-artifact@v7
         with:
