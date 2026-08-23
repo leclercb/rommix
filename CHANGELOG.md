@@ -4,6 +4,12 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.4.1 — 2026-08-23
+
+- Add steam launcher script
+- Update troubleshooting area of readme
+- Update troubleshooting area of readme
+
 ## 0.4.0 — 2026-08-23
 
 - Fix appimage creation in workflow
