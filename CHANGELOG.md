@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.5.0 — 2026-08-23
+
+- Code audit, improve tests and documentation
+
 ## 0.4.2 — 2026-08-23
 
 - Add collection write scope to romm, fix rom file to run, allow exit from shortcuts
