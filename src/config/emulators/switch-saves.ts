@@ -1,3 +1,4 @@
+import { SWITCH_CONTAINERS } from '../romfiles.ts'
 import { directory, joinPath } from './savepaths.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 
@@ -58,18 +59,17 @@ function baseTitleId(raw: string): string {
 }
 
 /**
- * The container formats a Switch game is actually shipped in.
+ * Is this a container, and so worth reading a header from?
  *
- * What decides whether the header is worth reading. The alternative — reading
- * every file and skipping the ones that look like playlists — gets the test
- * backwards: it has to be extended for every new kind of pointer file, and
- * until it is, that file is scanned as though it were a ROM.
+ * The alternative — reading every file and skipping the ones that look like
+ * playlists — gets the test backwards: it has to be extended for every new kind
+ * of pointer file, and until it is, that file is scanned as though it were a
+ * ROM. The formats themselves are listed with the rest of what RomMix knows
+ * about ROM files, since the launch rule needs the same list.
  */
-const ROM_EXTENSIONS = ['.nsp', '.xci', '.nsz', '.xcz']
-
 function isRomContainer(path: string): boolean {
   const lower = path.toLowerCase()
-  return ROM_EXTENSIONS.some((extension) => lower.endsWith(extension))
+  return SWITCH_CONTAINERS.some((extension) => lower.endsWith(extension))
 }
 
 /**
@@ -116,10 +116,13 @@ function declaredTitleId(env: SaveEnvironment, romPath: string): string | null {
  * The id behind a file that points at ROMs rather than being one.
  *
  * RomM exposes a game shipped as several files — a base game and its update —
- * as an `.m3u`, and that playlist is what gets launched. Each line naming a
- * container is asked in turn and the first that answers wins; since every entry
- * belongs to one game, an update's id normalises to the same base folder the
- * game itself uses.
+ * as an `.m3u` listing them. That playlist is not what RomMix launches: a
+ * Switch emulator has no loader for one, so `chooseLaunchFile` picks the base
+ * container instead. It can still be what an entry recorded before that rule
+ * *points at*, and it is a perfectly good source of the id either way — each
+ * line naming a container is asked in turn and the first that answers wins,
+ * and since every entry belongs to one game, an update's id normalises to the
+ * same base folder the game itself uses.
  */
 function referencedTitleId(env: SaveEnvironment, pointerPath: string): string | null {
   const text = env.text(pointerPath)

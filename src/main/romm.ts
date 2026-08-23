@@ -34,6 +34,10 @@ import type { Store } from './store'
 /**
  * Scopes RomMix needs: browse the library, sync saves, record play state, and
  * read the BIOS files the server holds.
+ *
+ * `collections.write` is what favouriting costs. RomM has no per-ROM favourite
+ * flag — see `setFavourite` — so the star writes a collection, and without the
+ * scope every press comes back 403 from a token that looks otherwise healthy.
  */
 export const REQUIRED_SCOPES = [
   'me.read',
@@ -42,6 +46,7 @@ export const REQUIRED_SCOPES = [
   'roms.user.write',
   'platforms.read',
   'collections.read',
+  'collections.write',
   'assets.read',
   'assets.write',
   'devices.read',

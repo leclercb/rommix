@@ -81,6 +81,8 @@ interface AppState {
   route: Route
   navigate: (route: Route) => void
   goBack: () => void
+  /** Whether there is a screen behind this one. See `App`, where B runs out. */
+  canGoBack: boolean
 
   toasts: Toast[]
   notify: (message: string, tone?: Toast['tone'], subject?: ToastSubject) => void
@@ -142,6 +144,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const goBack = useCallback((): void => {
     setHistory((current) => (current.length > 1 ? current.slice(0, -1) : current))
   }, [])
+
+  const canGoBack = history.length > 1
 
   // Initial load: decide between the connect screen and the library.
   useEffect(() => {
@@ -248,6 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       route,
       navigate,
       goBack,
+      canGoBack,
       toasts,
       notify
     }),
@@ -265,6 +270,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       route,
       navigate,
       goBack,
+      canGoBack,
       toasts,
       notify
     ]

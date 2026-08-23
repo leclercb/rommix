@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { basename, dirname, extname, join } from 'node:path'
-import { chooseLaunchFile } from '@shared/gamefiles'
+import { chooseLaunchFile, isLaunchable } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import { SHARED_LIBRARY } from '@shared/types'
@@ -58,17 +58,19 @@ async function directorySize(path: string): Promise<number> {
  * disk, and descends through the single wrapper folder that archives so often
  * add.
  */
-async function pickLaunchFile(dir: string): Promise<string | null> {
+async function pickLaunchFile(dir: string, system: string): Promise<string | null> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name)
   const subdirs = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
 
-  if (files.length === 0 && subdirs.length === 1) return pickLaunchFile(join(dir, subdirs[0]))
+  if (files.length === 0 && subdirs.length === 1) {
+    return pickLaunchFile(join(dir, subdirs[0]), system)
+  }
 
   const sized = await Promise.all(
     files.map(async (name) => ({ name, sizeBytes: (await stat(join(dir, name))).size }))
   )
-  const chosen = chooseLaunchFile(sized)
+  const chosen = chooseLaunchFile(sized, system)
   return chosen ? join(dir, chosen) : null
 }
 
@@ -110,6 +112,7 @@ async function unpack(
   rom: RommRom,
   archivePath: string,
   systemDir: string,
+  system: string,
   targetPath: string,
   asDirectory: boolean,
   flat = false
@@ -158,7 +161,7 @@ async function unpack(
       const sized = await Promise.all(
         moved.map(async (name) => ({ name, sizeBytes: (await stat(join(systemDir, name))).size }))
       )
-      const chosen = chooseLaunchFile(sized) ?? moved[0]
+      const chosen = chooseLaunchFile(sized, system) ?? moved[0]
       const launchPath = join(systemDir, chosen)
       return {
         path: launchPath,
@@ -177,7 +180,7 @@ async function unpack(
 
   return {
     path: dirTarget,
-    launchPath: (await pickLaunchFile(dirTarget)) ?? dirTarget,
+    launchPath: (await pickLaunchFile(dirTarget, system)) ?? dirTarget,
     sizeBytes: await directorySize(dirTarget),
     isDirectory: true
   }
@@ -549,7 +552,7 @@ export class DownloadManager extends EventEmitter {
         item.state = 'extracting'
         this.emitUpdate()
         log.info('download', 'extracting the archive', { romId: rom.id, from: downloadTo })
-        installed = await unpack(rom, downloadTo, dir, path, asDirectory, flat)
+        installed = await unpack(rom, downloadTo, dir, system, path, asDirectory, flat)
       } else {
         installed = {
           path,
@@ -664,7 +667,7 @@ export class DownloadManager extends EventEmitter {
         adopted.push(
           await this.recordInstalled(rom, target.system, target.emulatorId, {
             path,
-            launchPath: isDirectory ? ((await pickLaunchFile(path)) ?? path) : path,
+            launchPath: isDirectory ? ((await pickLaunchFile(path, target.system)) ?? path) : path,
             sizeBytes: isDirectory
               ? await directorySize(path).catch(() => 0)
               : ((await stat(path).catch(() => null))?.size ?? 0),
@@ -694,7 +697,7 @@ export class DownloadManager extends EventEmitter {
               sizeBytes: (await stat(join(target.dir, name)).catch(() => null))?.size ?? 0
             }))
           )
-          const launch = join(target.dir, chooseLaunchFile(sized) ?? found[0])
+          const launch = join(target.dir, chooseLaunchFile(sized, target.system) ?? found[0])
           adopted.push(
             await this.recordInstalled(rom, target.system, target.emulatorId, {
               path: launch,
@@ -809,12 +812,29 @@ export class DownloadManager extends EventEmitter {
    *
    * An entry whose recorded file has since gone is resolved from disk instead,
    * so a game whose directory was reorganised does not have to be downloaded
-   * again to become playable.
+   * again to become playable. The same for one whose recorded file is not a
+   * thing this system can be handed at all: the index keeps whatever the rule
+   * said on the day of the download, and a Switch game installed before the
+   * playlist stopped winning has an `.m3u` written into it that Eden cannot
+   * load. Choosing again from disk fixes those without a reinstall.
    */
   async launchTarget(entry: InstalledRom): Promise<string> {
-    if (existsSync(entry.launchPath)) return entry.launchPath
-    if (!entry.isDirectory) return entry.path
-    return (await pickLaunchFile(entry.path)) ?? entry.path
+    if (existsSync(entry.launchPath) && isLaunchable(entry.launchPath, entry.system)) {
+      return entry.launchPath
+    }
+    if (entry.isDirectory) return (await pickLaunchFile(entry.path, entry.system)) ?? entry.path
+
+    // Loose in the system folder: the game is the files the entry lists, not
+    // the directory it shares with every other game on the platform.
+    const dir = dirname(entry.path)
+    const sized = await Promise.all(
+      entry.files.map(async (name) => ({
+        name,
+        sizeBytes: (await stat(join(dir, name)).catch(() => null))?.size ?? 0
+      }))
+    )
+    const chosen = chooseLaunchFile(sized, entry.system)
+    return chosen ? join(dir, chosen) : entry.path
   }
 
   /**

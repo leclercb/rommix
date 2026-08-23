@@ -95,6 +95,17 @@ interface FocusContextValue {
   focusedId: string | null
   setFocus(id: string): void
   move(direction: Direction): void
+  /**
+   * Send focus into a zone by name, as `move` cannot: a button that says "go to
+   * the menu" is not a direction, and from the middle of a library the menu is
+   * not the thing lying that way.
+   *
+   * False when focus is already in that zone, or the zone has nothing to focus.
+   * The caller is asking to *enter* it, so being there already is an answer and
+   * not a failure — it is what lets a second press of the same button mean the
+   * next thing.
+   */
+  enterZone(zone: string): boolean
   activate(): void
   /** Subscribe to a non-directional action. Returns an unsubscribe function. */
   onAction(action: Action, handler: () => void, layer: number): () => void
@@ -463,6 +474,26 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     [applyFocus]
   )
 
+  /** See `enterZone` on the context. */
+  const enterZone = useCallback(
+    (zone: string): boolean => {
+      const current = focusedRef.current ? entries.current.get(focusedRef.current) : undefined
+      if (current?.zone === zone) return false
+
+      // Only what the active layer can reach: with an overlay up, the bar
+      // behind it is not somewhere focus is allowed to go.
+      const visible = visibleEntries().filter((entry) => entry.zone === zone)
+      if (visible.length === 0) return false
+
+      // Where the zone was left, exactly as walking back into it would land —
+      // one button and one stick should not disagree about where the menu is.
+      const remembered = zoneMemory.current.get(zone)
+      setFocus(visible.find((entry) => entry.id === remembered)?.id ?? visible[0].id)
+      return true
+    },
+    [setFocus, visibleEntries]
+  )
+
   /**
    * Recompute which layer owns the input, and make sure focus is on it.
    *
@@ -736,6 +767,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       focusedId,
       setFocus,
       move,
+      enterZone,
       activate,
       onAction,
       inputKind,
@@ -748,6 +780,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       focusedId,
       setFocus,
       move,
+      enterZone,
       activate,
       onAction,
       inputKind,

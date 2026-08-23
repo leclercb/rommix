@@ -1,6 +1,13 @@
-import type { JSX, Ref } from 'react'
+import { useCallback, useState, type JSX, type Ref } from 'react'
 import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon, Spinner } from './components'
-import { FocusZone, useAction, useFocusable, useKeyLabel, useSuspendGamepad } from './input/focus'
+import {
+  FocusZone,
+  useAction,
+  useFocusable,
+  useFocusContext,
+  useKeyLabel,
+  useSuspendGamepad
+} from './input/focus'
 import { Icon, type IconName } from './icons'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
@@ -13,11 +20,28 @@ import { SettingsScreen } from './screens/Settings'
 
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
-  const { route, goBack, navigate, downloads, runningRomId, toasts, status } = useApp()
+  const { route, goBack, canGoBack, navigate, downloads, runningRomId, toasts, status } = useApp()
+  const { enterZone } = useFocusContext()
+  const [confirmingQuit, setConfirmingQuit] = useState(false)
 
-  // B / Escape goes back everywhere except the connect screen, where there is
-  // nothing behind us.
-  useAction('back', goBack, route.name !== 'connect')
+  /**
+   * B / Escape, and what it means once the history runs out.
+   *
+   * Going back is the whole of it while there is somewhere to go. On the first
+   * screen there is not, and a button that does nothing is a button the player
+   * assumes is broken — so it climbs instead, the way every console does it:
+   * out of the page to the menu, and from the menu out of RomMix. Quitting is
+   * asked rather than done, because the same press arrives there by accident.
+   */
+  const back = useCallback((): void => {
+    if (canGoBack) return goBack()
+    if (enterZone('nav')) return
+    setConfirmingQuit(true)
+  }, [canGoBack, goBack, enterZone])
+
+  // Everywhere except the connect screen, which has neither a history nor a
+  // menu bar to climb into.
+  useAction('back', back, route.name !== 'connect')
 
   // X / Start opens Settings: on a console this button is the menu, and
   // Settings is where every switch in RomMix lives.
@@ -121,8 +145,37 @@ export function App(): JSX.Element {
         <Screen route={route} />
       </FocusZone>
 
+      {confirmingQuit ? (
+        <Overlay title="Quit RomMix?">
+          <QuitActions onCancel={() => setConfirmingQuit(false)} />
+        </Overlay>
+      ) : null}
+
       {runningRomId !== null ? <RunningOverlay /> : null}
       <Toasts toasts={toasts} />
+    </div>
+  )
+}
+
+/**
+ * The two answers to "Quit RomMix?".
+ *
+ * A child of the overlay for the reason `RunningActions` is: `useAction`
+ * registers on the layer it is called from, and only inside `Overlay` is that
+ * the layer the dialog is on. B here means "no" — the same button that opened
+ * the dialog closes it, so a press too many lands back where it started.
+ */
+function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
+  useAction('back', onCancel)
+
+  return (
+    <div className="btn-row">
+      <FocusButton icon="keep" onSelect={onCancel} autoFocus>
+        Stay
+      </FocusButton>
+      <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
+        Quit RomMix
+      </FocusButton>
     </div>
   )
 }

@@ -83,7 +83,7 @@ function useShelf(query: RomQuery): Shelf {
 const READY_TO_PLAY_SHELF = 30
 
 export function HomeScreen(): JSX.Element {
-  const { installed, installedIds, navigate } = useApp()
+  const { installed, installedIds, navigate, canGoBack } = useApp()
 
   /**
    * The games on this device, newest install first.
@@ -195,7 +195,9 @@ export function HomeScreen(): JSX.Element {
         items={[
           { key: 'A', label: 'Open' },
           { key: 'Y', label: 'Search' },
-          { key: 'B', label: 'Back' }
+          // Nothing behind this screen means B is the way up rather than back:
+          // to the menu, and from there out of RomMix. See `App`.
+          { key: 'B', label: canGoBack ? 'Back' : 'Menu' }
         ]}
       />
     </div>
