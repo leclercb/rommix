@@ -53,8 +53,10 @@ function demoLabels(): Plugin {
 }
 
 /**
- * The renderer on its own, in a browser — `npm run preview:web` to look at it
+ * The renderer on its own, in a browser — `npm run preview:app` to look at it
  * here, `npm run build:site` to produce the copy published on GitHub Pages.
+ * (`npm run preview:web` is the other one: the whole site, landing page
+ * included, built and served as it is published.)
  *
  * Serving it is for looking at the front end on a machine with no compositor: a
  * headless server, or a session where starting Electron is not worth it.

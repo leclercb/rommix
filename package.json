@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
-    "preview:web": "vite --config vite.web.config.ts",
+    "preview:app": "vite --config vite.web.config.ts",
+    "preview:web": "npm run build:site && vite preview --outDir out/site --host --port 5274",
     "build:site": "./scripts/build-site.sh",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",

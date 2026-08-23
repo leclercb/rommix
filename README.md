@@ -21,13 +21,13 @@ is involved: it is the front end alone, for looking at rather than using.
 - **A RomM server** you can reach, version 5.x or newer, with an account on it.
 - **At least one emulator.** These are the five RomMix knows how to drive:
 
-  | Emulator      | Covers                                    | Comes from                                  |
-  | ------------- | ----------------------------------------- | ------------------------------------------- |
-  | **RetroDECK** | 79 systems, the NES to the PS3            | Flathub, installed from Settings            |
-  | **EmuDeck**   | 74 systems, the NES to the Switch and 360 | Its own installer — see [EmuDeck](#emudeck) |
-  | **RetroArch** | 69 systems, one libretro core each        | Flathub, installed from Settings            |
-  | **Eden**      | Nintendo Switch                           | Its own releases, downloaded from Settings  |
-  | **shadPS4**   | PlayStation 4                             | Flathub or its releases, from Settings      |
+  | Emulator      | Covers                                    | Automatic installation supported              |
+  | ------------- | ----------------------------------------- | --------------------------------------------- |
+  | **RetroDECK** | 79 systems, the NES to the PS3            | ✅ Flatpak                                    |
+  | **EmuDeck**   | 74 systems, the NES to the Switch and 360 | ❌ Its own installer, see [EmuDeck](#emudeck) |
+  | **RetroArch** | 69 systems, one libretro core each        | ✅ Flatpak                                    |
+  | **Eden**      | Nintendo Switch                           | ✅ AppImage                                   |
+  | **shadPS4**   | PlayStation 4                             | ✅ Flatpak and AppImage                       |
 
   RetroDECK and EmuDeck are front ends rather than emulators: each carries a
   dozen of its own — Dolphin, DuckStation, PCSX2, RPCS3, melonDS, Cemu, Ryujinx
@@ -334,7 +334,8 @@ with `ROMMIX_LOG=debug`; `ROMMIX_LOG=off` writes nothing at all.
 npm install
 npx install-electron   # Electron 43 no longer fetches its binary on install
 npm run dev            # against a live RomM server on your desktop
-npm run preview:web    # the front end alone, in a browser, on :5273
+npm run preview:app    # the front end alone, in a browser, on :5273
+npm run preview:web    # the whole public site, built and served, on :5274
 npm run typecheck
 npm test
 npm run flatpak        # build and install the flatpak
@@ -352,7 +353,7 @@ feature list in the metainfo.
 
 ### The web preview and the site
 
-`npm run preview:web` serves the renderer as an ordinary web page, for looking at
+`npm run preview:app` serves the renderer as an ordinary web page, for looking at
 the front end where starting Electron is not worth it — a headless box, or a
 remote session. There is no preload script in a browser, so
 `src/renderer/src/dev/bridge.ts` answers every call from a library held in
@@ -372,8 +373,13 @@ tree-shaking.
 
 ```bash
 npm run build:site     # out/site: the landing page, with the preview in demo/
-npx --yes serve out/site
+npm run preview:web    # the same, built and then served on :5274
 ```
+
+The landing page needs the built site rather than the raw file: its cover art
+and both of its links into the demo point at `./demo/`, which only exists once
+`build:site` has put it there. Opening `site/index.html` from disk shows the
+page with neither.
 
 That same preview is what is published at
 [leclercb.github.io/rommix/demo/](https://leclercb.github.io/rommix/demo/), beside

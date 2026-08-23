@@ -1,6 +1,6 @@
 /**
  * The demo library, harvested from RomM's own public demo at
- * https://demo.romm.app — `npm run preview:web` and the published demo only.
+ * https://demo.romm.app — `npm run preview:app` and the published demo only.
  *
  * Every game here is homebrew or freeware, because that is what RomM's demo
  * holds: Cave Story for the Mega Drive, Battle Kid, Beneath a Steel Sky, the

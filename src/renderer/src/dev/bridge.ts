@@ -11,7 +11,7 @@ import type {
 } from '@shared/types'
 
 /**
- * A `window.rommix` for the browser — `npm run preview:web` and the demo
+ * A `window.rommix` for the browser — `npm run preview:app` and the demo
  * published beside the site.
  *
  * There is no preload script outside Electron, so the front end would fail on
@@ -134,7 +134,33 @@ const SYSTEMS: Readonly<Record<string, string>> = {
 
 const systemOf = (rom: RommRom): string => SYSTEMS[rom.platform_slug] ?? rom.platform_fs_slug
 
-const INSTALLED: InstalledRom[] = [CAVE_STORY, 137, 86].map((id) => {
+/**
+ * What is on this machine, newest install first — the `Ready to play` shelf.
+ *
+ * The order is the timestamps, not the array: Home sorts the index by
+ * `installedAt` descending, so each entry carries its own rather than sharing
+ * one and leaving the shelf at the mercy of a stable sort.
+ *
+ * Seven systems in seven rows, which is the point of the list: the shelf is the
+ * one place a mixed library is seen all at once, and a set that was three games
+ * on three Nintendo systems showed none of that. Cave Story is last because it
+ * is the hero above the shelf, and a game shown twice at the top of the screen
+ * reads as a bug.
+ *
+ * Nothing here is in the download queue below: a game cannot be both on disk
+ * and still arriving.
+ */
+const INSTALLED: InstalledRom[] = (
+  [
+    [169, '2026-08-21T19:42:00Z'],
+    [123, '2026-08-21T18:10:00Z'],
+    [77, '2026-08-20T22:05:00Z'],
+    [163, '2026-08-20T14:30:00Z'],
+    [137, '2026-08-19T20:55:00Z'],
+    [139, '2026-08-19T09:15:00Z'],
+    [CAVE_STORY, '2026-08-18T20:11:00Z']
+  ] as const
+).map(([id, installedAt]) => {
   const rom = romById(id)
   const system = systemOf(rom)
   return {
@@ -148,7 +174,7 @@ const INSTALLED: InstalledRom[] = [CAVE_STORY, 137, 86].map((id) => {
     platformName: rom.platform_display_name,
     fileName: rom.fs_name,
     sizeBytes: rom.fs_size_bytes,
-    installedAt: '2026-08-18T20:11:00Z',
+    installedAt,
     isDirectory: false,
     emulatorId: 'retrodeck'
   }
@@ -174,12 +200,14 @@ function queued(id: number, state: DownloadItem['state'], received: number): Dow
 }
 
 const DOWNLOADS: DownloadItem[] = [
-  // Beneath a Steel Sky is 72 MB, which is the only game here big enough for a
-  // progress bar to be worth drawing.
-  queued(139, 'downloading', 27_000_000),
-  queued(169, 'queued', 0),
-  queued(CAVE_STORY, 'done', romById(CAVE_STORY).fs_size_bytes),
-  queued(77, 'error', 0)
+  // Four games none of which are in `INSTALLED`, the finished one excepted:
+  // that is what `done` means, and it is why Beneath a Steel Sky is on the
+  // shelf above. At 69 MB it is also the only game here big enough to have been
+  // worth watching arrive, so it is the one the queue remembers.
+  queued(83, 'downloading', 1_500_000),
+  queued(144, 'queued', 0),
+  queued(139, 'done', romById(139).fs_size_bytes),
+  queued(95, 'error', 0)
 ]
 
 /** One row of every sync state, which is the whole subject of the Saves tab. */
@@ -335,7 +363,14 @@ function later<T>(value: T, ms = 220): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
-const favourites = new Set<number>([123])
+/**
+ * Someone's picks, which is a shelf of its own on Home.
+ *
+ * Five games on five systems, of which only Cave Story and Battle Kid are also
+ * on disk — so the shelf is not a second copy of `Ready to play`, and the dot
+ * that marks a downloaded game means something, three of these lacking it.
+ */
+const favourites = new Set<number>([175, 123, 149, 99, 54])
 
 const bridge: RomMixBridge = {
   server: {
