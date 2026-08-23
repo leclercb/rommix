@@ -1,0 +1,42 @@
+name: Emulator or platform support
+description: An emulator RomMix should drive, or a platform that resolves wrongly
+labels: [emulator]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything RomMix knows about emulators and platforms lives in
+        `src/config/`, and adding to it is a self-contained change — see
+        [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md). Patches very welcome.
+
+  - type: input
+    id: subject
+    attributes:
+      label: Which emulator or platform
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - An emulator RomMix does not know about
+        - A platform sent to the wrong emulator
+        - A platform RomMix has no folder mapping for
+        - Saves going to the wrong place
+        - A BIOS file placed where the emulator does not look
+    validations:
+      required: true
+
+  - type: textarea
+    id: detail
+    attributes:
+      label: What it should be instead
+      description: |
+        Where the emulator keeps its ROMs, saves and BIOS, and how it is started
+        from a command line. A link to the place its own documentation or source
+        says so is worth more than anything else here — RomMix's registry is
+        meant to agree with each emulator by construction rather than by guess.
+    validations:
+      required: true

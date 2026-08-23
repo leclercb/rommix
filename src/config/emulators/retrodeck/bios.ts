@@ -77,6 +77,14 @@ function entries(ctx: BiosContext, component: string): ManifestEntry[] {
  * list under `cores`, PCSX2 and Dolphin under `preset_actions`, MAME and
  * melonDS at the top level. Following the shape means a component that moves
  * its list, or a new one that puts it somewhere else again, still reads.
+ *
+ * Arrays are walked as well as objects. They were skipped, which quietly
+ * undercut the whole point: a `bios` list is only reachable if every container
+ * between it and the root happens to be an object, so a component that keeps
+ * its cores as a *list* of core objects — rather than a map keyed by name —
+ * yields nothing at all. The failure is silent and looks like success: every
+ * file falls back to the root of `bios/`, gets copied there, is reported as
+ * installed, and the emulator does not find it.
  */
 function read(text: string | null): ManifestEntry[] {
   if (!text) return []
@@ -89,9 +97,14 @@ function read(text: string | null): ManifestEntry[] {
 
   const found: ManifestEntry[] = []
   const walk = (node: unknown): void => {
-    if (Array.isArray(node)) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item)
+      return
+    }
     if (!node || typeof node !== 'object') return
     for (const [key, value] of Object.entries(node)) {
+      // The list itself, wherever it turned up. Not descended into: its entries
+      // are BIOS files, and a `bios` key inside one would not be another list.
       if (key === 'bios' && Array.isArray(value)) found.push(...(value as ManifestEntry[]))
       else walk(value)
     }

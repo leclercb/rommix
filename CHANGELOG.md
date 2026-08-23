@@ -12,7 +12,6 @@ releasing if you want prose instead. See [Releasing](README.md#releasing).
 
 - Add steam launcher script
 - Update troubleshooting area of readme
-- Update troubleshooting area of readme
 
 ## 0.4.0 — 2026-08-23
 

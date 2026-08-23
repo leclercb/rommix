@@ -208,6 +208,22 @@ interface Rect {
  */
 const SNAP_TO_EDGE_PX = 260
 
+/**
+ * How this page is allowed to scroll.
+ *
+ * Every focus move scrolls something, and on a grid of covers that is one
+ * animated slide per press of a held direction. For someone who has asked their
+ * system for reduced motion that is precisely the effect the setting exists to
+ * turn off — so the scrolling still happens, it simply arrives rather than
+ * travels.
+ *
+ * Read per call rather than cached: the preference can change while the app is
+ * open, and `matchMedia` is a property lookup.
+ */
+function scrollBehavior(): ScrollBehavior {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+}
+
 /** The nearest ancestor that actually scrolls, if there is one. */
 function scrollParentOf(element: HTMLElement): HTMLElement | null {
   let node = element.parentElement
@@ -253,9 +269,9 @@ function revealAcross(element: HTMLElement): void {
   // against the edge gives no sense of what walking further would reach.
   const margin = card.width * 0.75
   if (card.left - margin < view.left) {
-    shelf.scrollBy({ left: card.left - margin - view.left, behavior: 'smooth' })
+    shelf.scrollBy({ left: card.left - margin - view.left, behavior: scrollBehavior() })
   } else if (card.right + margin > view.right) {
-    shelf.scrollBy({ left: card.right + margin - view.right, behavior: 'smooth' })
+    shelf.scrollBy({ left: card.right + margin - view.right, behavior: scrollBehavior() })
   }
 }
 
@@ -277,18 +293,18 @@ function revealElement(element: HTMLElement): void {
     const bottom = top + element.offsetHeight
 
     if (top <= SNAP_TO_EDGE_PX) {
-      scroller.scrollTo({ top: 0, behavior: 'smooth' })
+      scroller.scrollTo({ top: 0, behavior: scrollBehavior() })
       return
     }
     if (bottom >= scroller.scrollHeight - SNAP_TO_EDGE_PX) {
-      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: scrollBehavior() })
       return
     }
   }
   // `inline: 'nearest'` because the sideways axis was settled above, and
   // 'center' would fight it — re-centring every card of a shelf as focus walks
   // along it, which slides the whole row under a highlight that never moves.
-  element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() })
 }
 
 /**
@@ -314,7 +330,10 @@ function scrollToEnd(element: HTMLElement, direction: 'up' | 'down'): boolean {
       : scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
   if (room <= 1) return false
 
-  scroller.scrollTo({ top: direction === 'up' ? 0 : scroller.scrollHeight, behavior: 'smooth' })
+  scroller.scrollTo({
+    top: direction === 'up' ? 0 : scroller.scrollHeight,
+    behavior: scrollBehavior()
+  })
   return true
 }
 

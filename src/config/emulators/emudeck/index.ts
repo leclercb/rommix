@@ -239,18 +239,14 @@ export const emudeck: EmulatorDescriptor = {
   name: 'EmuDeck',
   dispatch: 'rommix',
   frontend: true,
-  // What "EmuDeck is installed" means: the launcher scripts are there. Not
-
-  // that the Emulation folder exists — that is created early in setup and left
-
+  // What "EmuDeck is installed" means: the launcher scripts are there. Not that
+  // the Emulation folder exists — that is created early in setup and left
   // behind by an uninstall, whereas the launchers are what RomMix actually
-
   // runs. Where they are comes from the tools directory `layout` reads.
   install: [{ kind: 'scripts', dir: { from: 'tools', path: 'launchers' } }],
-  // RomMix cannot install EmuDeck: its own installer sets up a dozen emulators
-  // and asks a page of questions about how they should be configured.
-  // RomMix cannot install EmuDeck: its installer sets up a dozen emulators and
-  // asks the user a page of questions about how they want them configured.
+  // Only a homepage, because RomMix cannot install EmuDeck: its own installer
+  // sets up a dozen emulators and asks a page of questions about how they
+  // should be configured.
   homepage: 'https://www.emudeck.com',
   systems: Object.keys(EMUDECK_LAUNCHERS),
   variants: emuDeckLaunchers,

@@ -109,9 +109,9 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   switch: {
     /**
      * The keys are named here even though the Switch also carries a note,
-     * because
-     * they are the half of its setup that behaves like every other BIOS: two
-     * files, known names, which RomMix can both check for and copy into place.
+     * because they are the half of its setup that behaves like every other
+     * BIOS: two files, known names, which RomMix can both check for and copy
+     * into place.
      * Listing them turns "it needs a dump from a console" into something the
      * screens can be specific about — and lets a game's page say outright that
      * nothing will start, rather than leaving the user to discover it.

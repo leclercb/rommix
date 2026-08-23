@@ -10,7 +10,7 @@ export default {
     // The tag is public the moment it is pushed, and a red release build is not
     // something a fix can take back. CI runs these too; this is just the cheaper
     // place to find out.
-    'before:init': ['npm run format:check', 'npm run typecheck', 'npm test'],
+    'before:init': ['npm run format:check', 'npm run lint', 'npm run typecheck', 'npm test'],
 
     // Runs after package.json is bumped and before the release commit, so the
     // changelog entry lands in that same commit.

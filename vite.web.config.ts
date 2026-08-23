@@ -86,9 +86,9 @@ export default defineConfig({
    * It has to be outside `src/renderer` — anything the renderer imports is
    * emitted into the *application* build too, because Vite writes an asset out
    * while transforming the module that references it, whether or not the branch
-   * importing that module survives. 2.8 MB of homebrew covers in the flatpak is
-   * a poor trade for a demo page, so `library.ts` names these by URL and only
-   * this config knows where they are.
+   * importing that module survives. 2.8 MB of homebrew covers inside the shipped
+   * AppImage is a poor trade for a demo page, so `library.ts` names these by URL
+   * and only this config knows where they are.
    */
   publicDir: resolve('demo'),
   resolve: {

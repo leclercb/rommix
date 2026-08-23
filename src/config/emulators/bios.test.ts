@@ -165,6 +165,38 @@ test('a system RetroDECK runs with a standalone reads that component manifest', 
   assert.equal(dir, BIOS)
 })
 
+/**
+ * The same Dreamcast entry, reached through an array rather than a map.
+ *
+ * A component is free to list its cores instead of keying them by name, and the
+ * walk used to refuse to descend into arrays — so a manifest of this shape
+ * yielded no entries at all and every file fell back to the root of `bios/`.
+ * That is a silent wrong answer, not a visible failure: the file is copied,
+ * reported as installed, and the emulator never finds it.
+ */
+const ARRAY_MANIFEST = JSON.stringify({
+  somecomponent: {
+    cores: [
+      {
+        name: 'flycast',
+        bios: [{ filename: 'dc_boot.bin', system: 'dreamcast', paths: '$bios_path/dc' }]
+      }
+    ]
+  }
+})
+
+test('a bios list nested inside an array is still found', () => {
+  const dir = place(
+    retrodeck,
+    context({
+      system: 'dreamcast',
+      fileName: 'dc_boot.bin',
+      env: machine({ [manifest('retroarch')]: ARRAY_MANIFEST })
+    })
+  )
+  assert.equal(dir, `${BIOS}/dc`)
+})
+
 test('an unreadable manifest falls back to the BIOS folder rather than nowhere', () => {
   const dir = place(
     retrodeck,

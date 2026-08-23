@@ -2,7 +2,7 @@ import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { joinPath, perRom, shared } from '../savepaths.ts'
 import { switchSavePaths } from '../switch-saves.ts'
-import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
+import type { SaveContext, SavePaths } from '../savepaths.ts'
 
 /**
  * Where EmuDeck's emulators keep their saves.
@@ -216,16 +216,4 @@ export function emuDeckSavePaths(ctx: SaveContext, script: string): SavePaths {
   // Tagged with the emulator underneath, not with EmuDeck: the file is a
   // Dolphin or DuckStation save and stays readable as one.
   return { ...paths, emulator: folder.toLowerCase() }
-}
-
-/** Exported for the registry test, which checks every launcher resolves. */
-export function emuDeckSaveRoots(
-  saves: string,
-  script: string
-): {
-  root: string
-  saves: SaveLocation | null
-} {
-  const root = joinPath(saves, emuDeckSaveFolder(script))
-  return { root, saves: perRom(joinPath(root, 'saves')) }
 }

@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync, renameSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { rootPaths } from './root'
+import { rootPaths } from './root.ts'
 
 /**
  * RomMix's own log file.

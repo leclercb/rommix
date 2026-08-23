@@ -80,6 +80,17 @@ interface AppState {
 
   route: Route
   navigate: (route: Route) => void
+  /**
+   * Go somewhere and throw the history away.
+   *
+   * For the two moves that mean "start again" rather than "go deeper": arriving
+   * at the library once signed in, and leaving it once signed out. Pushing
+   * those leaves the screen behind reachable with B — a connected user one
+   * press away from the sign-in form they just finished with — and it also
+   * hides the behaviour `App.back` is built around, where running out of
+   * history is what makes B climb into the menu and then offer to quit.
+   */
+  replace: (route: Route) => void
   goBack: () => void
   /** Whether there is a screen behind this one. See `App`, where B runs out. */
   canGoBack: boolean
@@ -139,6 +150,10 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const navigate = useCallback((next: Route): void => {
     setHistory((current) => [...current, next])
+  }, [])
+
+  const replace = useCallback((next: Route): void => {
+    setHistory([next])
   }, [])
 
   const goBack = useCallback((): void => {
@@ -251,6 +266,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       runningStage,
       route,
       navigate,
+      replace,
       goBack,
       canGoBack,
       toasts,
@@ -269,6 +285,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       runningStage,
       route,
       navigate,
+      replace,
       goBack,
       canGoBack,
       toasts,

@@ -5,9 +5,9 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@shared/types'
-import { log } from './log'
-import { rootPaths } from './root'
-import { extractZip, isZip } from './zip'
+import { log } from './log.ts'
+import { rootPaths } from './root.ts'
+import { extractZip, isZip } from './zip.ts'
 
 /**
  * Installing an emulator that ships as a loose download rather than a package.
@@ -23,6 +23,43 @@ export function managedEmulatorDir(id: string): string {
   return join(rootPaths().emulators, id)
 }
 
+/**
+ * Architecture tokens as they appear in a release asset's file name, keyed by
+ * Node's name for the machine RomMix is running on.
+ *
+ * Eden publishes ten Linux AppImages per release — `amd64` and `aarch64`, plus
+ * `legacy`, `rog-ally` and `steamdeck`, each in two flavours — and the pattern
+ * in its descriptor matches every one of them. On x86_64 that puts two ARM
+ * builds in the picker, and choosing one is not a visible mistake: the image
+ * downloads, is made executable, and is recorded in `settings.emulatorPaths`,
+ * after which the emulator reports itself installed and every launch dies with
+ * an exec format error nothing on screen connects to the download.
+ */
+const ARCH_TOKENS: Readonly<Record<string, RegExp>> = {
+  x64: /x86[_-]?64|amd64|\bx64\b/i,
+  arm64: /aarch64|arm64/i,
+  arm: /armv7|armhf/i
+}
+
+/**
+ * Can this machine run that asset?
+ *
+ * By exclusion rather than by requirement: an asset naming a *different*
+ * architecture is dropped, and one naming none is kept. shadPS4's Linux release
+ * is `shadps4-linux-sdl-<date>-<sha>.zip`, with no architecture anywhere in the
+ * name because only one is published — so a rule demanding a positive match
+ * would leave that picker empty. Eden's builds do name theirs, which is the
+ * case this exists for.
+ */
+export function builtForThisMachine(assetName: string): boolean {
+  const mine = ARCH_TOKENS[process.arch]
+  // An architecture RomMix has no token for cannot judge anything, and offering
+  // every build beats offering none.
+  if (!mine) return true
+  if (mine.test(assetName)) return true
+  return !Object.values(ARCH_TOKENS).some((pattern) => pattern.test(assetName))
+}
+
 /** Subset of the Forgejo release payload RomMix reads. */
 interface ForgejoRelease {
   tag_name?: string
@@ -34,14 +71,20 @@ interface ForgejoRelease {
 }
 
 /**
- * List releases, keeping only assets that can actually be run.
+ * List releases, keeping only assets that can actually be run *here* — the
+ * right kind of file, and the right architecture.
  *
  * Releases whose asset list ends up empty are dropped: on Linux that is every
- * macOS/Windows-only or Android-only release, and offering a version with
- * nothing to install behind it is just a dead end in the menu.
+ * macOS/Windows-only or Android-only release, and on ARM every project that
+ * ships x86_64 alone. Offering a version with nothing installable behind it is
+ * just a dead end in the menu.
  */
 export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRelease[]> {
-  const response = await fetch(`${source.api}?limit=20`, {
+  // Both spellings, because the two hosts disagree and neither minds the other:
+  // Forgejo reads `limit`, GitHub reads `per_page` and ignores `limit` — which
+  // is why the shadPS4 list used to come back at GitHub's default page size
+  // whatever this asked for. An unknown query parameter is discarded by both.
+  const response = await fetch(`${source.api}?limit=20&per_page=20`, {
     headers: { Accept: 'application/json' }
   })
   if (!response.ok) {
@@ -62,7 +105,9 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
           (asset): asset is { name: string; browser_download_url: string; size?: number } =>
             typeof asset.name === 'string' &&
             typeof asset.browser_download_url === 'string' &&
-            isInstallableAsset(asset.name, source)
+            isInstallableAsset(asset.name, source) &&
+            // Here rather than in the renderer, which has no `process.arch`.
+            builtForThisMachine(asset.name)
         )
         .map((asset) => ({
           name: asset.name,

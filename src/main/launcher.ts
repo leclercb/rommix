@@ -3,12 +3,12 @@ import { emulatorById } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
-import { installCore, missingCore } from './cores'
-import { execPrefix, stopFlatpakApp } from './host'
-import { log } from './log'
-import type { RommClient } from './romm'
-import type { SaveSync } from './saves'
-import type { Store } from './store'
+import { installCore, missingCore } from './cores.ts'
+import { execPrefix, stopFlatpakApp } from './host.ts'
+import { log } from './log.ts'
+import type { RommClient } from './romm.ts'
+import type { SaveSync } from './saves.ts'
+import type { Store } from './store.ts'
 
 /**
  * Launches a downloaded ROM and waits for it to exit.

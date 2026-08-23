@@ -1,15 +1,15 @@
 import { BrowserWindow, protocol, screen, shell } from 'electron'
 import { join } from 'node:path'
 import { resolveEmulator } from '@config/emulators'
-import { BiosManager } from './bios'
-import { DownloadManager } from './downloads'
-import { detectEmulators } from './emulators'
-import { Launcher } from './launcher'
-import { log } from './log'
-import { RommClient } from './romm'
-import { SaveSync } from './saves'
-import { rootPaths } from './root'
-import { Store } from './store'
+import { BiosManager } from './bios.ts'
+import { DownloadManager } from './downloads.ts'
+import { detectEmulators } from './emulators.ts'
+import { Launcher } from './launcher.ts'
+import { log } from './log.ts'
+import { RommClient } from './romm.ts'
+import { SaveSync } from './saves.ts'
+import { rootPaths } from './root.ts'
+import { Store } from './store.ts'
 import type { EmulatorState } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
@@ -98,7 +98,11 @@ export class RomMixApp {
       fullscreen: true,
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
-        sandbox: false,
+        // The preload reaches for `contextBridge` and `ipcRenderer` and nothing
+        // else, both of which a sandboxed preload has — so there is no reason
+        // to leave Node's module system inside the process that shares an
+        // address space with the page.
+        sandbox: true,
         contextIsolation: true,
         nodeIntegration: false
       }

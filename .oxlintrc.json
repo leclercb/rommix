@@ -1,0 +1,99 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  // oxlint rather than ESLint, and originally not by preference: no published
+  // typescript-eslint supports TypeScript 7, which this project is on — every
+  // version including the alphas caps its peer at `<6.1.0`. oxlint parses
+  // TypeScript itself, needs no parser plugin, and carries its own ports of the
+  // two rules that actually matter here.
+  //
+  // TODO: revisit once typescript-eslint supports TypeScript 7 — check
+  // https://github.com/typescript-eslint/typescript-eslint/issues for the
+  // tracking issue, or simply whether its `typescript` peer range has moved
+  // past `<6.1.0`.
+  //
+  // Revisit, not switch. oxlint has since earned its place on its own terms: it
+  // runs in well under a second on the whole tree where ESLint with type-aware
+  // rules takes tens, it needed no parser or plugin wiring, and it found two
+  // real stale-dependency bugs the first time it ran. The case for going back
+  // would have to be a specific rule this cannot express — a type-aware one
+  // like `no-floating-promises`, which needs the compiler and which oxlint
+  // therefore cannot port. If that day comes, the honest answer may be both:
+  // oxlint for the fast pass every commit, ESLint for a type-aware pass in CI.
+  // What is *not* a reason to switch is that ESLint is the more usual choice.
+  "plugins": ["react", "typescript", "oxc", "unicorn", "import"],
+
+  "categories": {
+    // Things that are wrong, not things that are unfashionable. `style` and
+    // `pedantic` are deliberately absent: Prettier already settles formatting,
+    // and a linter that also has opinions about phrasing is one people learn to
+    // run with `--quiet`.
+    "correctness": "error",
+    "suspicious": "error"
+  },
+
+  "env": { "browser": true, "es2024": true, "node": true },
+  "settings": { "react": { "version": "19.0" } },
+
+  "rules": {
+    // The two this was installed for. A stale dependency array is the one class
+    // of React bug that is invisible in review and reproducible only sometimes.
+    "react/exhaustive-deps": "error",
+    "react/rules-of-hooks": "error",
+
+    // The automatic JSX runtime is on (`"jsx": "react-jsx"`), so React is not a
+    // name any component needs in scope.
+    "react/react-in-jsx-scope": "off",
+    // Superseded by `exhaustive-deps` above, which reports the same finding in
+    // the vocabulary the React documentation uses.
+    "react/exhaustive-effect-dependencies": "off",
+    // Resetting state when the thing a screen is *about* changes — a new ROM id
+    // on the detail screen — is exactly what this rule objects to and exactly
+    // what those effects are for.
+    "react/set-state-in-effect": "off",
+
+    // Sequential awaits are the design, not an oversight: the download queue
+    // runs one transfer at a time on purpose, firmware is fetched in small
+    // batches so a server with forty platforms is not hit with forty
+    // connections, and the filesystem walks are bounded and ordered.
+    "no-await-in-loop": "off",
+    // Every `sort` in this codebase is on an array built a line earlier for the
+    // purpose; copying it again buys nothing.
+    "unicorn/no-array-sort": "off",
+    // Small helpers are declared next to their only caller because that is
+    // where they are legible, not to be memoised.
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-useless-fallback-in-spread": "off",
+    "oxc/no-map-spread": "off",
+    // `import qrcode from 'qrcode-generator'` — the package's default export is
+    // the function, and there is nothing confusing about calling it by its own
+    // name.
+    "import/no-named-as-default": "off",
+    // `import './styles.css'` is the whole point of that line, and the ambient
+    // Vite types are what make it legal.
+    "import/no-unassigned-import": "off",
+
+    "typescript/no-explicit-any": "error"
+  },
+
+  "overrides": [
+    {
+      // `export {}` is what makes a `.d.ts` a module, which is what lets it
+      // carry a `declare global` block. Removing the braces removes the
+      // declaration's reason to exist.
+      "files": ["src/preload/index.d.ts"],
+      "rules": { "unicorn/require-module-specifiers": "off" }
+    },
+    {
+      // The focus engine keeps a ref mirroring the focused id and reads it
+      // during render on purpose: the alternative is re-registering every
+      // focusable on every focus change, which is the cost the whole module is
+      // arranged to avoid. The lazy `useRef` id init this also flags is the
+      // documented React pattern for a stable per-instance identity.
+      "files": ["src/renderer/src/input/focus.tsx"],
+      "rules": { "react/refs": "off" }
+    }
+  ],
+
+  "ignorePatterns": ["out", "dist", "node_modules", "demo", "site"]
+}

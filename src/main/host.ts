@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { APPIMAGE_SEARCH_DIRS } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
-import { log } from './log'
+import { log } from './log.ts'
 
 /**
  * Talking to the machine RomMix is installed on. Nothing here knows about any
@@ -75,11 +75,6 @@ export async function flatpakLocation(appId: string): Promise<string | null> {
   return path ? path : null
 }
 
-/** Is this flatpak application installed? */
-export async function flatpakInstalled(appId: string): Promise<boolean> {
-  return (await flatpakLocation(appId)) != null
-}
-
 /** How long a flatpak app gets to quit on its own before it is killed. */
 const QUIT_GRACE_MS = 5000
 
@@ -95,7 +90,7 @@ async function sandboxPids(appId: string): Promise<number[]> {
 }
 
 /** Every process descended from `roots`, from one snapshot of the process table. */
-function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
+export function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
   const children = new Map<number, number[]>()
   for (const line of psOutput.split('\n')) {
     const [pid, ppid] = line.trim().split(/\s+/).map(Number)
@@ -115,6 +110,31 @@ function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
     }
   }
   return found
+}
+
+/**
+ * SIGTERM a list of processes, one at a time.
+ *
+ * `process.kill` rather than the `kill` program: it is one fewer binary to
+ * assume exists, it has no argv-length ceiling, and — the reason that matters —
+ * each process reports its own outcome. `kill(1)` collapses every failure into
+ * one exit code, so "the app already quit" and "those processes are not yours"
+ * were indistinguishable, and both looked like nothing had happened.
+ *
+ * A process that has already gone (`ESRCH`) is the ordinary case and not worth
+ * a line: the tree is read from one snapshot, and an emulator shutting down
+ * takes its children with it while this is still walking the list.
+ */
+function signal(pids: readonly number[]): void {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGTERM')
+    } catch (cause) {
+      const code = (cause as NodeJS.ErrnoException).code
+      if (code === 'ESRCH') continue
+      log.warn('host', 'could not signal a process', { pid, code: code ?? null })
+    }
+  }
 }
 
 /**
@@ -150,7 +170,7 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
   const ps = await run(['ps', '-eo', 'pid=,ppid='])
   const targets = [...descendantsOf(ps ?? '', sandboxes), ...sandboxes]
   log.info('host', 'asking a flatpak app to quit', { appId, sandboxes, targets })
-  await run(['kill', '-TERM', ...targets.map(String)])
+  signal(targets)
 
   const deadline = Date.now() + QUIT_GRACE_MS
   while (Date.now() < deadline) {
@@ -255,25 +275,85 @@ export function execPrefix(
   return install.kind === 'scripts' ? [] : [install.ref]
 }
 
+/** The remote every emulator RomMix installs comes from. */
+const FLATHUB_REMOTE = 'flathub'
+const FLATHUB_REPO = 'https://dl.flathub.org/repo/flathub.flatpakrepo'
+
+/**
+ * Is Flathub configured for the user installation RomMix installs into?
+ *
+ * Separate from "is flatpak installed", because the two fail for different
+ * reasons and only one of them is obvious. Debian, Ubuntu and Arch install the
+ * flatpak package with no remotes at all, and Fedora ships a Flathub that is
+ * filtered until the user enables it — so a machine can answer yes to flatpak
+ * and still have nowhere to install RetroDECK from.
+ *
+ * `--user` on the query as well as on the install: a remote added system-wide
+ * is not necessarily one a user installation can resolve, and reporting on a
+ * different installation than the one that will be used is worse than not
+ * reporting at all.
+ */
+export async function flathubConfigured(): Promise<boolean> {
+  const out = await run(['flatpak', 'remotes', '--user', '--columns=name'], 5000)
+  return (out ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .includes(FLATHUB_REMOTE)
+}
+
+/**
+ * Add the Flathub remote to the user installation, unless it is already there.
+ *
+ * `--if-not-exists` makes this a no-op on the overwhelming majority of machines,
+ * which is why it is simply done rather than asked about. It is also the whole
+ * fix for the most likely first-run failure RomMix has: without it, "Install
+ * RetroDECK" on a stock Debian or Fedora ends in a raw flatpak error about an
+ * unknown remote, on a machine whose pre-flight check has just said flatpak is
+ * available.
+ */
+async function ensureFlathub(onLine: (line: string) => void): Promise<void> {
+  if (await flathubConfigured()) return
+  onLine('Adding the Flathub remote…')
+  log.info('host', 'flathub is not configured for the user installation, adding it')
+
+  const added = await run([
+    'flatpak',
+    'remote-add',
+    '--user',
+    '--if-not-exists',
+    FLATHUB_REMOTE,
+    FLATHUB_REPO
+  ])
+  if (added === null) {
+    throw new Error(
+      'Could not add the Flathub remote. Add it by hand with:  flatpak remote-add ' +
+        `--user --if-not-exists ${FLATHUB_REMOTE} ${FLATHUB_REPO}`
+    )
+  }
+  log.info('host', 'flathub remote added', { remote: FLATHUB_REMOTE })
+}
+
 /**
  * Install a flatpak from Flathub, reporting progress lines as they arrive.
  *
  * `--user` keeps it out of the system installation, which would need a polkit
- * prompt RomMix cannot answer from a fullscreen UI.
+ * prompt RomMix cannot answer from a fullscreen UI — and is why the remote has
+ * to be present in that same user installation first. See `ensureFlathub`.
  */
-export function installFlatpak(appId: string, onLine: (line: string) => void): Promise<void> {
+export async function installFlatpak(appId: string, onLine: (line: string) => void): Promise<void> {
+  if (!/^[A-Za-z0-9._-]+$/.test(appId)) {
+    throw new Error(`Refusing to install a suspicious app id: ${appId}`)
+  }
+  await ensureFlathub(onLine)
+
   return new Promise((resolvePromise, rejectPromise) => {
-    if (!/^[A-Za-z0-9._-]+$/.test(appId)) {
-      rejectPromise(new Error(`Refusing to install a suspicious app id: ${appId}`))
-      return
-    }
     const [cmd, ...args] = [
       'flatpak',
       'install',
       '--user',
       '--noninteractive',
       '--assumeyes',
-      'flathub',
+      FLATHUB_REMOTE,
       appId
     ]
 

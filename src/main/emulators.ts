@@ -11,9 +11,9 @@ import type {
   ResolvedInstall
 } from '@config/emulators'
 import type { Settings } from '@shared/types'
-import { log } from './log'
-import { managedEmulatorDir } from './releases'
-import { rootPaths } from './root'
+import { log } from './log.ts'
+import { managedEmulatorDir } from './releases.ts'
+import { rootPaths } from './root.ts'
 import {
   binaryPath,
   findAppImage,
@@ -22,7 +22,7 @@ import {
   realHome,
   xdgConfigHome,
   xdgDataHome
-} from './host'
+} from './host.ts'
 
 /**
  * Probing the machine for the emulators in the registry.
@@ -163,11 +163,53 @@ function readConfigValues(path: string, source: LayoutSource): Map<string, strin
   for (const line of text.split('\n')) {
     const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
     if (!match) continue
-    // Quotes and a leading $HOME are both things these files carry.
-    const value = match[2].trim().replace(/^["']|["']$/g, '')
-    if (value) values.set(match[1], value.replace(/^\$HOME|^~/, realHome()))
+    const raw = match[2].trim().replace(/^["']|["']$/g, '')
+    if (!raw) continue
+    const value = expandShell(raw, values)
+    // A value still naming something unresolved is dropped rather than used: a
+    // ROM folder called `$emulationPath` is worse than no ROM folder, because
+    // the second is reported and the first is silently created.
+    if (value !== null) values.set(match[1], value)
   }
   return values
+}
+
+/**
+ * Expand the variable references a shell settings file may carry.
+ *
+ * These files are *sourced* by the emulator's own scripts, so every form the
+ * shell understands is legal in them — and EmuDeck's `settings.sh` really does
+ * write `romsPath="$emulationPath/roms"` rather than a literal path. Handling
+ * only a leading `$HOME` left that as the string `$emulationPath/roms`, which
+ * then became a directory of that name.
+ *
+ * Only backward references are resolved, which is what sourcing does too: a
+ * name is whatever it was last assigned above this line. `HOME` is supplied
+ * from the environment because the file does not assign it. Anything left
+ * unresolved makes the whole value null rather than a path with a `$` in it.
+ */
+export function expandShell(value: string, known: ReadonlyMap<string, string>): string | null {
+  const home = realHome()
+  let unresolved = false
+
+  const expanded = value
+    // `~` is only a home reference at the very front, which is also the only
+    // place a shell expands it.
+    .replace(/^~(?=\/|$)/, home)
+    .replace(
+      /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
+      (_match, braced, bare) => {
+        const name = (braced ?? bare) as string
+        const found = name === 'HOME' ? home : known.get(name)
+        if (found === undefined) {
+          unresolved = true
+          return ''
+        }
+        return found
+      }
+    )
+
+  return unresolved ? null : expanded
 }
 
 /**

@@ -18,8 +18,8 @@ import type {
   RommUser,
   RomQuery
 } from '@shared/types'
-import { log } from './log'
-import type { Store } from './store'
+import { log } from './log.ts'
+import type { Store } from './store.ts'
 
 /**
  * Client for the RomM 5.1.0 REST API.

@@ -1,0 +1,48 @@
+# Dependency updates, weekly.
+#
+# Grouped rather than one pull request per package: this project has a handful
+# of direct dependencies and a very long transitive tail, and a queue of thirty
+# single-package bumps is a queue nobody reads. Each group lands as one PR that
+# CI either passes or does not.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Electron and its packager move together and are the pair most likely to
+      # need a look rather than a merge — a major Electron is a new Chromium.
+      electron:
+        patterns:
+          - electron
+          - electron-builder
+          - electron-vite
+      # Everything that only runs at build or test time.
+      tooling:
+        patterns:
+          - '@types/*'
+          - '@vitejs/*'
+          - vite
+          - typescript
+          - prettier
+          - oxlint
+          - release-it
+      # Shipped inside the AppImage.
+      runtime:
+        patterns:
+          - react
+          - react-dom
+          - lucide-react
+          - qrcode-generator
+          - yauzl
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'

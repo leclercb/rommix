@@ -1,5 +1,13 @@
 import { useCallback, useState, type JSX, type Ref } from 'react'
-import { CoverArt, FocusButton, Logo, Overlay, PlatformIcon, Spinner } from './components'
+import {
+  CoverArt,
+  FocusButton,
+  Logo,
+  Overlay,
+  PlatformIcon,
+  QuitOverlay,
+  Spinner
+} from './components'
 import {
   FocusZone,
   useAction,
@@ -145,37 +153,10 @@ export function App(): JSX.Element {
         <Screen route={route} />
       </FocusZone>
 
-      {confirmingQuit ? (
-        <Overlay title="Quit RomMix?">
-          <QuitActions onCancel={() => setConfirmingQuit(false)} />
-        </Overlay>
-      ) : null}
+      {confirmingQuit ? <QuitOverlay onCancel={() => setConfirmingQuit(false)} /> : null}
 
       {runningRomId !== null ? <RunningOverlay /> : null}
       <Toasts toasts={toasts} />
-    </div>
-  )
-}
-
-/**
- * The two answers to "Quit RomMix?".
- *
- * A child of the overlay for the reason `RunningActions` is: `useAction`
- * registers on the layer it is called from, and only inside `Overlay` is that
- * the layer the dialog is on. B here means "no" — the same button that opened
- * the dialog closes it, so a press too many lands back where it started.
- */
-function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
-  useAction('back', onCancel)
-
-  return (
-    <div className="btn-row">
-      <FocusButton icon="keep" onSelect={onCancel} autoFocus>
-        Stay
-      </FocusButton>
-      <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
-        Quit RomMix
-      </FocusButton>
     </div>
   )
 }

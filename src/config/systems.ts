@@ -67,7 +67,8 @@ export interface SystemInfo {
 /**
  * Every system RomMix knows: 195 of them, one per row.
  *
- * 119 of them have a RomM platform behind them and 69 have a libretro core;
+ * 118 of them have a RomM platform behind them — 119 slugs, the Neo Geo
+ * answering to two — and 69 have a libretro core;
  * the rest carry an empty slug list and no core. They are still listed, because
  * `resolveSystem` accepts a RomM slug that happens to already be an ES-DE name,
  * a user override can name any of them, and `isKnownSystem` is what decides

@@ -184,7 +184,13 @@ test('RetroArch is launched with the core mapped for the system', () => {
     system: 'snes',
     romPath: '/roms/snes/game.sfc'
   })
-  assert.deepEqual(argv, ['/usr/bin/retroarch', '-L', 'snes9x_libretro.so', '/roms/snes/game.sfc'])
+  assert.deepEqual(argv, [
+    '/usr/bin/retroarch',
+    '-f',
+    '-L',
+    'snes9x_libretro.so',
+    '/roms/snes/game.sfc'
+  ])
 })
 
 test('Eden is started fullscreen, with the ROM named by -g', () => {
@@ -579,7 +585,14 @@ test("shadPS4 is launched on the game directory's eboot, not on the largest file
     system: 'ps4',
     romPath: '/roms/ps4/CUSA12345/data.psarc'
   })
-  assert.deepEqual(argv, ['flatpak', 'run', 'net.shadps4.shadPS4', '/roms/ps4/CUSA12345/eboot.bin'])
+  assert.deepEqual(argv, [
+    'flatpak',
+    'run',
+    'net.shadps4.shadPS4',
+    '-f',
+    'true',
+    '/roms/ps4/CUSA12345/eboot.bin'
+  ])
 })
 
 test('shadPS4 passes an eboot and a package through as they are', () => {
@@ -593,11 +606,18 @@ test('shadPS4 passes an eboot and a package through as they are', () => {
 
   assert.deepEqual(run('/roms/ps4/CUSA12345/eboot.bin'), [
     '/usr/bin/shadps4',
+    '-f',
+    'true',
     '/roms/ps4/CUSA12345/eboot.bin'
   ])
   // A package is shadPS4's to install; rewriting it to an eboot that does not
   // exist yet would turn "install this" into "file not found".
-  assert.deepEqual(run('/roms/ps4/game.pkg'), ['/usr/bin/shadps4', '/roms/ps4/game.pkg'])
+  assert.deepEqual(run('/roms/ps4/game.pkg'), [
+    '/usr/bin/shadps4',
+    '-f',
+    'true',
+    '/roms/ps4/game.pkg'
+  ])
 })
 
 test('shadPS4 runs the PlayStation 4 and nothing else', () => {

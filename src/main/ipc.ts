@@ -27,13 +27,13 @@ import type {
   SaveSyncResult,
   Settings
 } from '@shared/types'
-import type { RomMixApp } from './app'
-import type { SaveTarget } from './saves'
-import { flatpakAvailable, installFlatpak, isWritable } from './host'
-import { log } from './log'
-import { fetchReleases, installAsset } from './releases'
-import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from './root'
-import { RommError, normaliseBaseUrl } from './romm'
+import type { RomMixApp } from './app.ts'
+import type { SaveTarget } from './saves.ts'
+import { flatpakAvailable, flathubConfigured, installFlatpak, isWritable } from './host.ts'
+import { log } from './log.ts'
+import { builtForThisMachine, fetchReleases, installAsset } from './releases.ts'
+import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from './root.ts'
+import { RommError, normaliseBaseUrl } from './romm.ts'
 
 /**
  * IPC surface. Every handler is wrapped so a thrown error crosses the bridge as
@@ -90,7 +90,11 @@ function handler(report: (message: string) => void) {
           cause instanceof RommError ? cause.message : ((cause as Error).message ?? String(cause))
         log.error('ipc', `✗ ${channel}`, cause, { ms: took() })
         report(message)
-        throw new Error(message)
+        // The message is what crosses the bridge — Electron serialises nothing
+        // else — but `cause` keeps the original stack attached on this side, so
+        // an unhandled rejection in the main process still names where it came
+        // from rather than pointing back at this line.
+        throw new Error(message, { cause })
       }
     })
   }
@@ -602,6 +606,13 @@ export function registerIpc(rommix: RomMixApp): void {
     if (!isInstallableAsset(asset.name, source)) {
       throw new RommError(`${asset.name} is not something RomMix can run`)
     }
+    // Re-checked rather than trusted: the list this came from was filtered, but
+    // an emulator installed for the wrong architecture is recorded in settings
+    // and then reports itself present, so the failure surfaces at every launch
+    // instead of here.
+    if (!builtForThisMachine(asset.name)) {
+      throw new RommError(`${asset.name} is not built for this machine (${process.arch})`)
+    }
 
     log.info('emulator', 'installing a release asset', {
       emulator: id,
@@ -623,6 +634,9 @@ export function registerIpc(rommix: RomMixApp): void {
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
     const emulators = await rommix.refreshEmulators()
     const hasFlatpak = await flatpakAvailable()
+    // Only worth asking when there is a flatpak to ask: without the command the
+    // answer is no for a reason the line above already gives.
+    const hasFlathub = hasFlatpak ? await flathubConfigured() : false
     const notes: string[] = []
 
     // Said before "no emulator found", which is what it causes: RetroDECK,
@@ -633,6 +647,17 @@ export function registerIpc(rommix: RomMixApp): void {
       notes.push(
         'flatpak is not installed, so RomMix cannot find or install the emulators that are ' +
           'distributed that way. Install it from your distribution, then re-run this check.'
+      )
+    } else if (!hasFlathub) {
+      // Said rather than left to fail: on a distribution that ships flatpak
+      // without remotes, every emulator below reads "not installed" and the
+      // line above reads "yes", which points at nothing. RomMix adds the remote
+      // when an install is pressed, so this is a heads-up and not a blocker.
+      notes.push(
+        'Flathub is not set up for your user, so there is nowhere to install the flatpak ' +
+          'emulators from yet. RomMix adds it the first time you install one, or you can add ' +
+          'it yourself with: flatpak remote-add --user --if-not-exists flathub ' +
+          'https://dl.flathub.org/repo/flathub.flatpakrepo'
       )
     }
     if (!emulators.some((emulator) => emulator.available)) {
@@ -692,6 +717,7 @@ export function registerIpc(rommix: RomMixApp): void {
     // looking at when they decide the log is worth reading.
     log.info('diagnostics', 'pre-flight check', {
       flatpakAvailable: hasFlatpak,
+      flathubConfigured: hasFlathub,
       available: emulators.filter((emulator) => emulator.available).map((emulator) => emulator.id),
       romsWritable,
       notes
@@ -699,6 +725,7 @@ export function registerIpc(rommix: RomMixApp): void {
 
     return {
       flatpakAvailable: hasFlatpak,
+      flathubConfigured: hasFlathub,
       emulators,
       romsWritable,
       logPath: log.path(),
@@ -747,6 +774,16 @@ export function registerIpc(rommix: RomMixApp): void {
     const target = next.trim()
     if (!target.startsWith('/')) {
       throw new RommError('The RomMix folder must be an absolute path')
+    }
+    // `ROMMIX_HOME` wins over the pointer file — see `resolveRoot` — so writing
+    // one here would copy the configuration across, report success, and then be
+    // ignored on the next launch. Settings already disables the button; this is
+    // the same rule where it is actually enforceable.
+    if (process.env.ROMMIX_HOME?.trim()) {
+      throw new RommError(
+        'ROMMIX_HOME is set, and it overrides the folder chosen here. Unset it and restart ' +
+          'RomMix to move the folder from Settings.'
+      )
     }
     // Copies the configuration across and repoints; the move only takes effect
     // once Electron restarts, since userData is fixed before the app starts.

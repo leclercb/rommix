@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
-import { log } from './log'
+import { log } from './log.ts'
 
 /**
  * On-disk state for RomMix.

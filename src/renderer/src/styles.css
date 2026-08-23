@@ -1373,13 +1373,32 @@ input {
   padding: var(--safe-y) var(--safe-x);
 }
 
+/*
+ * Three quarters of the screen, not a fixed 620px.
+ *
+ * What a dialog holds here is mostly file names — release assets, saves about
+ * to be pushed, the folder a game will be deleted from — and those are long,
+ * unbreakable and the whole reason the dialog is on screen. At 620px they
+ * ellipsised, which turns "confirm this" into "confirm something".
+ *
+ * A share of the viewport rather than a wider fixed number because the viewport
+ * is not a fixed thing: `applyUiScale` renders at 2× on a 4K panel, so the page
+ * is 1920 CSS pixels wide there and 1280 on a laptop. `vw` is measured after
+ * that zoom, so 75% stays three quarters of what the user can see either way.
+ * The cap keeps a very wide monitor from producing a line of text nobody can
+ * track back to its start.
+ */
 .overlay__panel {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 34px 38px;
-  max-width: 620px;
-  width: 100%;
+  width: 75vw;
+  max-width: 1100px;
+  /* Never so tall that the buttons leave the screen: the panel scrolls inside
+     itself, and the safe-area padding on `.overlay` is what it stops short of. */
+  max-height: calc(100vh - var(--safe-y) * 2);
+  overflow-y: auto;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 
@@ -1863,4 +1882,111 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Release picker
+ * ------------------------------------------------------------------------- */
+
+/*
+ * The two steps of installing an emulator build: a version, then a file.
+ *
+ * Rows rather than the `.btn-row` of buttons this used to be. A button sizes
+ * itself to its label and sits beside its neighbours, which for filenames of
+ * fifty near-identical characters produced a wrapped thicket nobody could
+ * compare. A row per option gives each one the full width and puts the part
+ * that differs — the end of the name — in the same place every time.
+ */
+.release-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 20px;
+}
+
+.release {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.release[data-focused='true'] {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.release__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.release__name {
+  font-size: 17px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/*
+ * A filename, which is the whole content of the decision.
+ *
+ * Wrapped rather than ellipsised, and broken anywhere: these run past fifty
+ * characters and differ only near the end, so truncation removes exactly the
+ * part being chosen between. `monospace` because the difference between two of
+ * them is a word in the middle, and a column that lines up is what makes that
+ * findable at a glance.
+ */
+.release__name--file {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.release__meta {
+  margin-top: 3px;
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------------------------
+ * Reduced motion
+ * ------------------------------------------------------------------------- */
+
+/*
+ * What is left when the system has asked for less movement.
+ *
+ * Last in the file so it wins on equal specificity, and written against the two
+ * things that actually move rather than as a blanket `* { animation: none }`:
+ * the focus ring's grow-and-settle, which fires on every press of a held
+ * direction, and the spinner, which runs for as long as a page is loading.
+ *
+ * Nothing is hidden and nothing stops working — the highlight still lands on
+ * the focused element and the spinner is still visibly a spinner. The scrolling
+ * that goes with a focus move is handled in `input/focus.tsx`, which reads the
+ * same preference: the page still moves, it simply arrives instead of
+ * travelling.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0s;
+  }
+
+  .spinner {
+    /* Stepped rather than stopped: a still ring is indistinguishable from a
+       decoration, and "is it loading" is the one question it exists to answer. */
+    animation: spin 2400ms steps(8) infinite;
+  }
+
+  .download__fill {
+    transition: none;
+  }
 }

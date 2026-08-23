@@ -3,10 +3,10 @@ import { join } from 'node:path'
 import { biosFor } from '@config/bios'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
-import { realHome } from './host'
-import { log } from './log'
-import { rootPaths } from './root'
-import { fileSystemEnvironment } from './saveenv'
+import { realHome } from './host.ts'
+import { log } from './log.ts'
+import { rootPaths } from './root.ts'
+import { fileSystemEnvironment } from './saveenv.ts'
 import type {
   BiosItem,
   BiosPlatform,
@@ -17,8 +17,8 @@ import type {
   RommPlatform,
   SaveEnvironment
 } from '@shared/types'
-import { RommClient, RommError } from './romm'
-import type { Store } from './store'
+import { RommClient, RommError } from './romm.ts'
+import type { Store } from './store.ts'
 
 /**
  * BIOS files: what each platform needs, what the RomM server holds, and what is

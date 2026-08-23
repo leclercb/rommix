@@ -12,12 +12,12 @@ import type {
   SaveSyncResult,
   SaveSyncState
 } from '@shared/types'
-import type { RommClient } from './romm'
-import type { Store } from './store'
-import { realHome } from './host'
-import { log } from './log'
-import { fileSystemEnvironment } from './saveenv'
-import { extractZip, zipDirectory } from './zip'
+import type { RommClient } from './romm.ts'
+import type { Store } from './store.ts'
+import { realHome } from './host.ts'
+import { log } from './log.ts'
+import { fileSystemEnvironment } from './saveenv.ts'
+import { extractZip, zipDirectory } from './zip.ts'
 
 /**
  * Two-way save and save-state sync between RomM and the local emulator tree.
@@ -132,7 +132,7 @@ function looseStem(value: string): string {
 }
 
 /** Does a save file's name identify it as this ROM's? */
-function stemMatches(fileStem: string, romStem: string): boolean {
+export function stemMatches(fileStem: string, romStem: string): boolean {
   const file = normaliseStem(fileStem)
   const rom = normaliseStem(romStem)
   if (file && rom && (file.startsWith(rom) || rom.startsWith(file))) return true
@@ -877,7 +877,7 @@ export class SaveSync {
  * server tells us, and it is also what a pull would do with it, so the badge
  * does not promise something the buttons would contradict.
  */
-function syncStateOf(
+export function syncStateOf(
   localMtimeMs: number | null,
   remoteUpdatedAt: string,
   fromThisDevice: boolean | null

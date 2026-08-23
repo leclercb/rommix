@@ -733,6 +733,17 @@ export interface DiagnosticsReport {
    * a reason nothing else on the screen would explain.
    */
   flatpakAvailable: boolean
+  /**
+   * Whether Flathub is a remote of the *user* installation, which is the one
+   * RomMix installs into.
+   *
+   * A separate answer from `flatpakAvailable` because it fails separately and
+   * far less visibly: Debian, Ubuntu and Arch ship flatpak with no remotes, and
+   * Fedora's Flathub is filtered until enabled. On any of those, every emulator
+   * reports itself missing while the row above says flatpak is fine. RomMix adds
+   * the remote itself on first install; this is what says so before then.
+   */
+  flathubConfigured: boolean
   emulators: EmulatorState[]
   /** True when every installed emulator's ROM folder can be written to. */
   romsWritable: boolean

@@ -1,8 +1,8 @@
 import { BrowserWindow, app, protocol } from 'electron'
-import { IMAGE_SCHEME, RomMixApp } from './app'
-import { registerIpc } from './ipc'
-import { log, logSession } from './log'
-import { ensureRoot } from './root'
+import { IMAGE_SCHEME, RomMixApp } from './app.ts'
+import { registerIpc } from './ipc.ts'
+import { log, logSession } from './log.ts'
+import { ensureRoot } from './root.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -82,13 +82,6 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc(rommix)
     rommix.createWindow()
     log.info('app', 'ready', { ms: took() })
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        log.info('app', 'activated with no window, opening one')
-        rommix.createWindow()
-      }
-    })
   })
 
   app.on('second-instance', () => {

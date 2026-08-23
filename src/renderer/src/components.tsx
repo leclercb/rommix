@@ -358,6 +358,10 @@ export function GameRow({
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
+    // `tiles.length` is not read in the effect and is here on purpose: the
+    // sentinel does not move when a page is appended, so without re-observing,
+    // an intersection that is still true after the shelf grows never fires
+    // again and the row stops paging.
   }, [onEndReached, tiles.length])
 
   // After the hooks: bailing earlier would call a different number of them.
@@ -434,6 +438,48 @@ export function Overlay({ title, children }: { title: string; children: ReactNod
         <h2 className="overlay__title">{title}</h2>
         <FocusLayer>{children}</FocusLayer>
       </div>
+    </div>
+  )
+}
+
+/**
+ * "Quit RomMix?", asked the same way wherever it is asked from.
+ *
+ * Here rather than in `App` because the connect screen asks it too, and that
+ * screen is imported *by* `App` — a copy in each would be two dialogs to keep
+ * in step, and importing one from the other would be a cycle.
+ *
+ * It matters most on the connect screen, which has no menu bar to climb into
+ * and nothing behind it: without this, B there does nothing and a controller
+ * has no way out of RomMix at all until a server has been configured.
+ */
+export function QuitOverlay({ onCancel }: { onCancel: () => void }): JSX.Element {
+  return (
+    <Overlay title="Quit RomMix?">
+      <QuitActions onCancel={onCancel} />
+    </Overlay>
+  )
+}
+
+/**
+ * The two answers.
+ *
+ * A child of the overlay rather than part of it: `useAction` registers on the
+ * layer it is *called* from, and only inside `Overlay` is that the layer the
+ * dialog is on. B here means "no" — the same button that opened the dialog
+ * closes it, so a press too many lands back where it started.
+ */
+function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
+  useAction('back', onCancel)
+
+  return (
+    <div className="btn-row">
+      <FocusButton icon="keep" onSelect={onCancel} autoFocus>
+        Stay
+      </FocusButton>
+      <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
+        Quit RomMix
+      </FocusButton>
     </div>
   )
 }
@@ -616,13 +662,29 @@ function IconImage({
   label: string
   size: number
 }): JSX.Element {
-  const sources = useMemo(() => {
-    const names = [...new Set(candidates.filter((name): name is string => Boolean(name)))]
-    return names
-      .flatMap((name) => PLATFORM_ICON_PATHS.map((path) => path.replace('{name}', name)))
-      .map((path) => window.rommix.system.imageUrl(path))
-      .filter((url): url is string => url !== null)
-  }, [candidates.join('|')])
+  /**
+   * The candidate names as one string, so the memo below has a dependency it
+   * can actually be given.
+   *
+   * `candidates` is built inline by every caller and is therefore a new array
+   * on every render — memoising against it would recompute each time, and
+   * memoising against `candidates.join('|')` is an expression rather than a
+   * value, which is the shape no dependency checker can verify. Joining first
+   * costs one pass over at most two short strings. A platform slug never
+   * contains a pipe, so the split below is exact.
+   */
+  const names = [...new Set(candidates.filter((name): name is string => Boolean(name)))].join('|')
+
+  const sources = useMemo(
+    () =>
+      names
+        .split('|')
+        .filter(Boolean)
+        .flatMap((name) => PLATFORM_ICON_PATHS.map((path) => path.replace('{name}', name)))
+        .map((path) => window.rommix.system.imageUrl(path))
+        .filter((url): url is string => url !== null),
+    [names]
+  )
 
   const cacheKey = sources.join('|')
   const cached = resolvedIcons.get(cacheKey)
@@ -878,6 +940,43 @@ export function ScanToOpen({ url, size = 200 }: { url: string; size?: number }):
       </p>
     </>
   )
+}
+
+/**
+ * Dates and times, always on a 24-hour clock.
+ *
+ * The locale is still the user's — month order, separators and the names of the
+ * months all follow it — but the clock does not. `hourCycle: 'h23'` rather than
+ * `hour12: false`, which in some locales resolves to the h24 cycle and prints
+ * midnight as 24:00.
+ *
+ * Built once. `Intl.DateTimeFormat` is expensive to construct and these run per
+ * row, on lists that can be hundreds of saves long.
+ */
+const DATE_TIME = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  hourCycle: 'h23'
+})
+
+const DATE_ONLY = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' })
+
+/**
+ * An ISO timestamp as a date and a 24-hour time, or null when it is not one.
+ *
+ * Null rather than "Invalid Date": every caller is describing a file or a
+ * release, and a row that cannot say when is better off saying nothing there.
+ */
+export function formatDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const at = new Date(iso)
+  return Number.isNaN(at.getTime()) ? null : DATE_TIME.format(at)
+}
+
+/** A date with no time of day, for a release year rather than a file's mtime. */
+export function formatDate(value: Date | number | string): string | null {
+  const at = new Date(value)
+  return Number.isNaN(at.getTime()) ? null : DATE_ONLY.format(at)
 }
 
 /** Human-readable byte size. */

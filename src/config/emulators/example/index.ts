@@ -7,7 +7,7 @@ import type { EmulatorDescriptor } from '../types.ts'
  *
  * This is documentation that the compiler checks. It is a real
  * `EmulatorDescriptor`, so adding a field to the interface breaks this file
- * along with the four live ones — which is the point. It is deliberately **not**
+ * along with the five live ones — which is the point. It is deliberately **not**
  * in `EMULATORS`, so nothing here is ever probed, launched or offered to the
  * user; copy it to `src/config/emulators/<your emulator>/index.ts`, delete the
  * branches that do not apply, and add the export to `index.ts`.

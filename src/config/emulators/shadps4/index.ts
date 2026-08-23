@@ -92,7 +92,14 @@ export const shadps4: EmulatorDescriptor = {
    */
   launch: ({ exec, romPath }) => {
     const name = baseName(romPath).toLowerCase()
-    if (name === 'eboot.bin' || name.endsWith('.pkg')) return [...exec, romPath]
-    return [...exec, joinPath(dirName(romPath), 'eboot.bin')]
+    const game =
+      name === 'eboot.bin' || name.endsWith('.pkg')
+        ? romPath
+        : joinPath(dirName(romPath), 'eboot.bin')
+    // `-f true`, not a bare `-f`: shadPS4's fullscreen option takes an explicit
+    // `true`/`false` rather than being a switch, unlike RetroArch's and Eden's.
+    // Worth knowing if a future release changes it — a value where none is
+    // expected becomes a second positional argument, and the launch fails.
+    return [...exec, '-f', 'true', game]
   }
 }

@@ -5,7 +5,7 @@ import { dirname, join, normalize, resolve, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 import yauzl from 'yauzl'
-import { log } from './log'
+import { log } from './log.ts'
 
 /**
  * Reading and writing zip archives.
@@ -30,7 +30,17 @@ const deflate = promisify(deflateRaw)
 // Reading
 // ---------------------------------------------------------------------------
 
-/** Reject absolute paths and `..` segments from zip entries (zip-slip). */
+/**
+ * Reject absolute paths and `..` segments from zip entries (zip-slip).
+ *
+ * Belt and braces, and known to be: yauzl validates entry names as it reads the
+ * central directory and refuses backslashes, drive letters, a leading `/` and
+ * any `..` segment — so in practice a hostile archive is rejected before this
+ * is reached, and the whole extraction fails rather than one entry being
+ * skipped. This stays because it is the only guard that does not depend on
+ * yauzl's defaults staying as they are, and because "the reader happens to
+ * check" is not where a path traversal defence belongs.
+ */
 function safeJoin(root: string, entryName: string): string | null {
   const cleaned = entryName.replace(/\\/g, '/').replace(/^\/+/, '')
   const target = resolve(root, normalize(cleaned))
@@ -71,9 +81,10 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
       zipfile.on('entry', (entry) => {
         const target = safeJoin(root, entry.fileName)
         if (!target) {
-          // Refuse to write outside the destination and keep going. Logged
-          // because a zip trying to escape its destination is either a corrupt
-          // archive or a hostile one, and both are worth knowing about.
+          // Refuse the entry and carry on with the rest. Only reachable for a
+          // name yauzl's own validation let through — it rejects the ordinary
+          // traversal forms first, and that aborts the archive — so anything
+          // arriving here is a shape nobody anticipated and worth a line.
           log.warn('zip', 'refused an entry pointing outside the destination', {
             archive: zipPath,
             entry: entry.fileName

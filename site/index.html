@@ -1093,6 +1093,13 @@
 
       /* -- install ---------------------------------------------------------- */
 
+      /* A second heading inside one band, for the part of `Getting it` that is
+         its own procedure rather than another paragraph of it. */
+      .subhead {
+        font-size: 1.12rem;
+        margin: 40px 0 10px;
+      }
+
       pre {
         margin: 32px 0 0;
         padding: 20px;
@@ -1556,8 +1563,8 @@
             <figcaption>
               <h3>In your hands</h3>
               <p>
-                On a Steam Deck or any handheld running Linux: add RomMix to Steam as a non-Steam
-                game and it starts in game mode with the built-in pad already driving it.
+                On a Steam Deck or any handheld running Linux: add the launcher script to Steam as a
+                non-Steam game and it starts in game mode with the built-in pad already driving it.
               </p>
             </figcaption>
           </figure>
@@ -1732,18 +1739,32 @@
         <h2>Getting it</h2>
         <p>
           Linux, a RomM server at version 5 or newer that you can reach, and one of the emulators
-          above — RomMix installs any of them but EmuDeck itself. Download the AppImage from the
-          <a href="https://github.com/leclercb/rommix/releases">releases page</a> and run it.
-          Nothing to install, and no permissions to grant.
+          above — RomMix installs any of them but EmuDeck itself. Download the AppImage for your
+          machine from the
+          <a href="https://github.com/leclercb/rommix/releases">releases page</a> —
+          <code>x86_64</code> for an ordinary PC or a Steam Deck, <code>arm64</code> for an ARM
+          handheld — and run it. Nothing to install, and no permissions to grant.
         </p>
 
         <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage
+<b>./RomMix</b>-&lt;version&gt;-x86_64.AppImage</code></pre>
 
-<b>./RomMix</b>-&lt;version&gt;-x86_64.AppImage                  <span># desktop</span>
-<b>gamescope</b> -f -- ./RomMix-&lt;version&gt;-x86_64.AppImage  <span># on a TV</span></code></pre>
+        <h3 class="subhead">From Steam, on a handheld</h3>
+        <p>
+          Download <code>rommix-steam.sh</code> from the same release, keep it
+          <strong>beside</strong> the AppImage, and add <strong>the script</strong> as the non-Steam
+          game — not the AppImage itself.
+        </p>
+
+        <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage rommix-steam.sh</code></pre>
 
         <p class="note">
-          On a handheld, add the AppImage to Steam as a non-Steam game instead. The
+          Steam launches a game with <code>PR_SET_NO_NEW_PRIVS</code>, and the kernel ignores the
+          setuid bit on anything started that way — so <code>fusermount</code> cannot mount, and an
+          AppImage added to Steam directly dies with <em>Cannot mount AppImage</em> before RomMix
+          runs at all. The script unpacks it to a temporary directory instead, and still
+          <code>exec</code>s it, which is what keeps RomMix the emulator's parent process so
+          gamescope will focus the game's window. The
           <a href="https://github.com/leclercb/rommix#readme">README</a> covers building it yourself
           and what to do when an emulator will not start.
         </p>

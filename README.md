@@ -17,8 +17,11 @@ is involved: it is the front end alone, for looking at rather than using.
 
 ## Requirements
 
-- **Linux**. `flatpak` too, if you want the emulators that are packaged that
-  way — RetroDECK, RetroArch and shadPS4. RomMix itself needs neither.
+- **Linux**, on x86_64 or arm64. `flatpak` too, if you want the emulators that
+  are packaged that way — RetroDECK, RetroArch and shadPS4. RomMix itself needs
+  neither. RomMix adds the Flathub remote for your user the first time you
+  install one of them, so a distribution that ships flatpak with no remotes
+  configured needs nothing done by hand.
 - **A RomM server** you can reach, version 5.x or newer, with an account on it.
 - **At least one emulator.** These are the five RomMix knows how to drive:
 
@@ -47,22 +50,29 @@ is involved: it is the front end alone, for looking at rather than using.
 
 ## Install
 
-Download `RomMix-<version>-x86_64.AppImage` from
-[Releases](https://github.com/leclercb/rommix/releases):
+Download the AppImage for your machine from
+[Releases](https://github.com/leclercb/rommix/releases) — `x86_64` for an
+ordinary PC or a Steam Deck, `arm64` for an ARM handheld or single-board
+machine. `uname -m` says which you are on.
 
 ```bash
 chmod +x RomMix-<version>-x86_64.AppImage
 ./RomMix-<version>-x86_64.AppImage
 ```
 
-Or build it yourself, which needs Node 20.19+ or 22.12+:
+Or build it yourself, which needs Node 22.15 or newer — that is what `npm test`
+asks for, the suite running TypeScript through Node's own type stripping:
 
 ```bash
 git clone https://github.com/leclercb/rommix.git
 cd rommix
 npm install
-npm run appimage        # writes dist/RomMix-<version>-x86_64.AppImage
+npm run appimage        # writes dist/RomMix-<version>-<arch>.AppImage
 ```
+
+That builds for the machine you are on. `npm run package -- --arm64` targets the
+other one, though cross-packaging fetches a foreign Electron — CI builds each
+architecture on a runner of its own.
 
 ### Run it
 
@@ -339,6 +349,16 @@ Most of the emulators RomMix drives are packaged as flatpaks, so without the
 command none of them can be found or installed. Install it from your
 distribution and re-run the check.
 
+**"Flathub is not set up for your user"**
+A distribution can ship flatpak with no remotes at all — Debian, Ubuntu and Arch
+do — or with Flathub filtered until you enable it, as Fedora does. Then every
+emulator reads "not installed" while the flatpak row says yes. RomMix adds the
+remote itself the first time you install an emulator; to do it by hand:
+
+```bash
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
 **"… has not been run yet, so its folders do not exist"**
 Press **Run** beside it in Settings → Emulators, let it start, then re-run the
 check.
@@ -406,10 +426,30 @@ npx install-electron   # Electron 43 no longer fetches its binary on install
 npm run dev            # against a live RomM server on your desktop
 npm run preview:app    # the front end alone, in a browser, on :5273
 npm run preview:web    # the whole public site, built and served, on :5274
+npm run format:check
+npm run lint
 npm run typecheck
 npm test
-npm run appimage       # build dist/RomMix-<version>-x86_64.AppImage
+npm run appimage       # build dist/RomMix-<version>-<arch>.AppImage
 ```
+
+Those four checks are what CI runs, in that order, on every push and pull
+request — and what `npm run release` refuses to cut a tag without.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the rest.
+
+The linter is [oxlint](https://oxc.rs) rather than ESLint, and not by
+preference: no published `typescript-eslint` supports TypeScript 7, which this
+project is on. oxlint parses TypeScript itself and carries the two rules that
+earn a linter its place here — `react/exhaustive-deps` and
+`react/rules-of-hooks`. Its configuration is [.oxlintrc.json](.oxlintrc.json),
+where every rule that is switched off says why.
+
+Tests run under `node --test`. `src/config/` and `src/shared/` are pure and test
+directly; `src/main/` needs two things Node does not supply on its own — the
+`@shared`/`@config` aliases, and a stand-in for `electron` — which is what
+[scripts/test-resolve.mjs](scripts/test-resolve.mjs) is. That is also why every
+relative import in `src/main/` carries an explicit `.ts`: the bundler does not
+mind either way, and without it the test runner cannot load the module at all.
 
 Instead of `npx install-electron` you can point `ELECTRON_EXEC_PATH` at a system
 Electron, which is what `.envrc` does here. Packaging is unaffected either way.
@@ -417,8 +457,16 @@ Electron, which is what `.envrc` does here. Packaging is unaffected either way.
 `src/config/` holds the platform table, the RomM slug mapping, the emulator
 registry, the BIOS requirements and the ROM-format tables. **Adding a system, a
 BIOS requirement or an emulator is a change in `src/config/` and nowhere else** —
-no code outside it names an emulator. The three lists that do are prose and have
+no code outside it names an emulator. The two lists that do are prose and have
 to be edited by hand: the table above and the one in `site/index.html`.
+
+For a new emulator, start from
+[src/config/emulators/example/index.ts](src/config/emulators/example/index.ts):
+a complete annotated descriptor that documents every field and every value it
+can take, and that the compiler checks along with the five real ones. Copy it to
+`src/config/emulators/<your emulator>/index.ts`, delete the branches that do not
+apply, and add it to the registry in
+[src/config/emulators/index.ts](src/config/emulators/index.ts).
 
 ### The web preview and the site
 
@@ -476,6 +524,18 @@ release commit a hand-written `## <version>` section in
 [CHANGELOG.md](CHANGELOG.md) first and its prose will be left alone. The date is
 stamped at release time either way, so whatever you write beside the version
 does not matter.
+
+---
+
+## Contributing
+
+[CONTRIBUTING.md](CONTRIBUTING.md) — how to get set up, what CI checks, and
+where each kind of change belongs. Adding an emulator or a platform is a
+self-contained change in `src/config/`.
+
+Security reports go through
+[private vulnerability reporting](https://github.com/leclercb/rommix/security/advisories/new)
+rather than a public issue — see [SECURITY.md](SECURITY.md).
 
 ---
 

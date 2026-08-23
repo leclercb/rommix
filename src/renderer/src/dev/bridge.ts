@@ -31,6 +31,18 @@ import type {
  * `vite.web.config.ts` sets, so it is never part of a shipped bundle.
  */
 
+/**
+ * The folder the real app keeps everything in, as `root.ts` resolves it with
+ * nothing configured.
+ *
+ * Written out rather than imported: `root.ts` is main-process code and reaches
+ * for `node:os`, which a browser build cannot take. Kept correct because this
+ * is the one path the demo prints, the README's "Where your files go" table
+ * names the same folder, and a demo quoting a different one is a documented
+ * answer contradicted by the thing that is supposed to be showing it.
+ */
+const PREVIEW_ROOT = '~/rommix'
+
 // ---------------------------------------------------------------------------
 // The library
 // ---------------------------------------------------------------------------
@@ -536,17 +548,19 @@ const bridge: RomMixBridge = {
     diagnostics: () =>
       later({
         flatpakAvailable: false,
+        flathubConfigured: false,
         emulators: [],
         romsWritable: true,
-        // Named the way the real report names it, though nothing writes to it:
-        // the panel shows the path so a bug report can quote it.
-        logPath: '~/.local/share/rommix/logs/rommix.log',
+        // The path the real app would print, though nothing writes to it here:
+        // the panel shows it so a bug report can quote it, and a demo quoting a
+        // folder RomMix does not use teaches the wrong one.
+        logPath: `${PREVIEW_ROOT}/logs/rommix.log`,
         notes: ['This is the web preview: nothing was actually checked.']
       }),
     root: () =>
       later({
-        current: '~/.local/share/rommix',
-        fallback: '~/.local/share/rommix',
+        current: PREVIEW_ROOT,
+        fallback: PREVIEW_ROOT,
         fromEnvironment: false
       }),
     setRoot: () => Promise.reject(new Error('Not available in the web preview')),

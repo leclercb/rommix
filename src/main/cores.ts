@@ -7,10 +7,10 @@ import { pipeline } from 'node:stream/promises'
 import { emulatorById } from '@config/emulators'
 import type { CoreContext, EmulatorState, RequiredCore } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
-import { realHome } from './host'
-import { log } from './log'
-import { fileSystemEnvironment } from './saveenv'
-import { extractZip } from './zip'
+import { realHome } from './host.ts'
+import { log } from './log.ts'
+import { fileSystemEnvironment } from './saveenv.ts'
+import { extractZip } from './zip.ts'
 
 /**
  * Installing the libretro core a game needs, before the game is started.

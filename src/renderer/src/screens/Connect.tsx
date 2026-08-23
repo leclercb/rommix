@@ -7,6 +7,7 @@ import {
   Hints,
   Overlay,
   QrCode,
+  QuitOverlay,
   RomStorageChoice,
   SegmentedControl,
   TextField,
@@ -46,7 +47,7 @@ const SETUP_STEPS: readonly SetupStep[] = ['scale', 'storage', 'server']
  *  - Username and password: the OAuth2 password grant.
  */
 export function ConnectScreen(): JSX.Element {
-  const { refreshStatus, navigate, notify, status, settings, saveSettings } = useApp()
+  const { refreshStatus, replace, notify, status, settings, saveSettings } = useApp()
 
   const [baseUrl, setBaseUrl] = useState(status?.baseUrl ?? '')
   const [mode, setMode] = useState<AuthMode>('device')
@@ -72,14 +73,24 @@ export function ConnectScreen(): JSX.Element {
     if (settings && step === null) setStep(settings.setupComplete ? 'server' : 'scale')
   }, [settings, step])
 
-  // Inside setup, B steps back a page — the same thing the Back button does, so
-  // the two agree. Outside it this screen is the bottom of the stack and B does
-  // nothing, which is what the shell already leaves it as.
-  useAction(
-    'back',
-    () => setStep('storage'),
-    step === 'server' && settings?.setupComplete === false
-  )
+  /**
+   * B, which means two things on this screen and used to mean neither.
+   *
+   * Inside setup it steps back a page, the same thing the Back button does, so
+   * the two agree. Outside it there is nowhere behind — this screen is the
+   * bottom of the stack and has no menu bar to climb into — so it offers to
+   * quit, which is what every console does when Back runs out. Before this it
+   * was simply unbound, leaving a controller with no way out of RomMix at all
+   * until a server had been configured.
+   *
+   * One binding rather than two: the shell deliberately leaves `back` alone on
+   * this route, and a second handler registered here would shadow this one.
+   */
+  const [confirmingQuit, setConfirmingQuit] = useState(false)
+  useAction('back', () => {
+    if (step === 'server' && settings?.setupComplete === false) setStep('storage')
+    else setConfirmingQuit(true)
+  })
 
   const finish = async (): Promise<void> => {
     const next = await refreshStatus()
@@ -89,7 +100,10 @@ export function ConnectScreen(): JSX.Element {
       // a working library is the moment that becomes true.
       if (settings && !settings.setupComplete) await saveSettings({ setupComplete: true })
       notify(`Connected to RomM as ${next.user?.username ?? 'user'}`)
-      navigate({ name: 'home' })
+      // Replaced rather than pushed: signing in is the start of a session, not
+      // a step into one. Pushed, the connect form stays one B press behind the
+      // home screen for the rest of the run.
+      replace({ name: 'home' })
     }
   }
 
@@ -251,6 +265,8 @@ export function ConnectScreen(): JSX.Element {
         </div>
       </div>
 
+      {confirmingQuit ? <QuitOverlay onCancel={() => setConfirmingQuit(false)} /> : null}
+
       {pairing ? (
         <PairingOverlay
           pairing={pairing}
@@ -270,7 +286,8 @@ export function ConnectScreen(): JSX.Element {
       <Hints
         items={[
           { key: 'A', label: 'Select' },
-          { key: '↕', label: 'Navigate' }
+          { key: '↕', label: 'Navigate' },
+          { key: 'B', label: wizard ? 'Back' : 'Quit' }
         ]}
       />
     </div>

@@ -5,6 +5,9 @@
   "license": "MIT",
   "author": "Benjamin Leclerc",
   "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=22.15"
+  },
   "desktopName": "be.bl_it.RomMix.desktop",
   "scripts": {
     "dev": "electron-vite dev",
@@ -15,9 +18,10 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "test": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test \"src/**/*.test.ts\"",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
     "package": "electron-builder --linux AppImage --publish never",
@@ -38,6 +42,7 @@
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "oxlint": "^1.79.0",
     "prettier": "^3.9.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -14,11 +14,11 @@ import type {
   LibrarySyncResult,
   RommRom
 } from '@shared/types'
-import { log } from './log'
-import { RommClient, RommError } from './romm'
-import { rootPaths } from './root'
-import { extractZip, isZip } from './zip'
-import type { Store } from './store'
+import { log } from './log.ts'
+import { RommClient, RommError } from './romm.ts'
+import { rootPaths } from './root.ts'
+import { extractZip, isZip } from './zip.ts'
+import type { Store } from './store.ts'
 
 /**
  * Downloads ROMs from RomM into the library, and reconciles the library with
@@ -40,6 +40,15 @@ import type { Store } from './store'
  * one slower and thrash the disk on a handheld, and a serial queue keeps the
  * progress UI honest.
  */
+
+/**
+ * How often byte progress is reported to the renderer.
+ *
+ * Four times a second: fast enough that a progress bar moves smoothly at any
+ * transfer speed, slow enough that a 4 GB ROM costs a few hundred IPC messages
+ * rather than the sixty-odd thousand one-per-chunk produced.
+ */
+const PROGRESS_INTERVAL_MS = 250
 
 /** Recursive directory size, used to record what an extracted game occupies. */
 async function directorySize(path: string): Promise<number> {
@@ -198,7 +207,7 @@ async function unpack(
  * same name: a multi-file game and a stray loose file can share a stem, and the
  * directory is the one that holds the game.
  */
-async function listDir(dir: string): Promise<DirListing> {
+export async function listDir(dir: string): Promise<DirListing> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const byStem = new Map<string, Dirent>()
   const byName = new Map<string, Dirent>()
@@ -237,13 +246,14 @@ interface DirListing {
  * emulator's game list is the most confusing state RomMix can leave behind.
  *
  * The name of the file inside the folder is the honest answer, and RomM sends
- * it on the detailed ROM. Falling back to `fs_name` covers the paged listing,
- * which does not include files unless asked.
+ * it on every ROM RomMix asks for: the detailed endpoint carries `files`
+ * always, and the paged listing is only ever requested with `with_files=true`.
+ * A game whose folder holds more than one file is a multi-file game and takes
+ * the directory path instead, so `fs_name` is the answer there.
  */
-function installName(rom: RommRom): string {
+export function installName(rom: RommRom): string {
   if (rom.fs_extension) return rom.fs_name
-  const files = rom.files ?? []
-  return files.length === 1 ? files[0].file_name : rom.fs_name
+  return rom.files.length === 1 ? rom.files[0].file_name : rom.fs_name
 }
 
 /** The one file an archive unpacked to, or null when it held more than one. */
@@ -259,6 +269,8 @@ export class DownloadManager extends EventEmitter {
   private readonly queue: DownloadItem[] = []
   private readonly controllers = new Map<number, AbortController>()
   private running = false
+  /** When the renderer was last told anything. See `throttledUpdate`. */
+  private lastEmit = 0
 
   constructor(
     private readonly store: Store,
@@ -453,7 +465,23 @@ export class DownloadManager extends EventEmitter {
   }
 
   private emitUpdate(): void {
+    this.lastEmit = Date.now()
     this.emit('update', this.items)
+  }
+
+  /**
+   * The same, but at most a few times a second.
+   *
+   * Only for byte progress, which arrives once per chunk of the transfer — tens
+   * of thousands of times for a large ROM. Each one copies the whole queue,
+   * crosses IPC and re-renders every screen reading the download list, and the
+   * bar it is driving cannot show the difference between one chunk and the next
+   * anyway. A state change still goes through `emitUpdate` directly, so the
+   * moment a download finishes or fails is never delayed.
+   */
+  private throttledUpdate(): void {
+    if (Date.now() - this.lastEmit < PROGRESS_INTERVAL_MS) return
+    this.emitUpdate()
   }
 
   /**
@@ -542,10 +570,14 @@ export class DownloadManager extends EventEmitter {
               total: progress.total
             })
           }
-          this.emitUpdate()
+          this.throttledUpdate()
         },
         controller.signal
       )
+      // The last chunk is almost never on a throttle boundary, so the final
+      // byte count has to be sent explicitly — otherwise a finished transfer
+      // can sit at 98% until the state change below redraws it.
+      this.emitUpdate()
 
       let installed: InstallResult
       if (asDirectory || (await isZip(downloadTo))) {

@@ -99,9 +99,20 @@ export const retroarch: EmulatorDescriptor = {
   env: undefined,
   // `exec` alone starts RetroArch with no content.
   open: undefined,
+  /**
+   * `-f` because RomMix is a front end for a television.
+   *
+   * RetroArch otherwise restores whatever window geometry its config remembers,
+   * which on a first run is a small window opening on top of RomMix's own
+   * fullscreen one — a game started from the couch lands in a corner. The flag
+   * is documented as "start the program in fullscreen regardless of config
+   * setting", takes no argument, and applies to that session only, so someone
+   * who prefers windowed play still has it when they start RetroArch
+   * themselves. The same reasoning as Eden's `-f`.
+   */
   launch: ({ exec, system, romPath }) => {
     const core = coreForSystem(system)
     if (!core) return null
-    return [...exec, '-L', `${core}_libretro.so`, romPath]
+    return [...exec, '-f', '-L', `${core}_libretro.so`, romPath]
   }
 }

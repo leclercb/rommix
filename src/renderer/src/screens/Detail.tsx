@@ -21,7 +21,9 @@ import {
   Spinner,
   PlatformIcon,
   Tabs,
-  formatBytes
+  formatBytes,
+  formatDate,
+  formatDateTime
 } from '../components'
 import { Icon, type IconName } from '../icons'
 import { useApp } from '../state'
@@ -180,14 +182,17 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
    * game is about to be started, and a missing BIOS is the most common reason
    * one refuses to — with a failure that says nothing about BIOS at all.
    */
+  // Read out before the effect so the effect closes over a number rather than
+  // over `rom` while claiming to depend on one field of it.
+  const platformId = rom?.platform_id ?? null
   useEffect(() => {
     setBios(null)
-    if (!rom) return
+    if (platformId === null) return
     void window.rommix.bios
-      .platform(rom.platform_id)
+      .platform(platformId)
       .then(setBios)
       .catch(() => setBios(null))
-  }, [rom?.platform_id])
+  }, [platformId])
 
   const entry: InstalledRom | undefined = installed.find((item) => item.romId === romId)
   const download = downloads.find((item) => item.romId === romId)
@@ -203,8 +208,13 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   // Settings while this screen is open.
   const [variants, setVariants] = useState<LaunchChoice['options']>([])
   const [setup, setSetup] = useState<{ emulatorId: string; notes: string[] } | null>(null)
+  // Read out before the effect, so what it depends on and what it closes over
+  // are the same three values. Depending on `entry?.emulatorId` while using
+  // `entry` is the shape that goes wrong quietly: the entry can be replaced by
+  // one the effect never re-runs for.
+  const installedFor = entry ? `${entry.emulatorId}:${entry.system}` : null
   useEffect(() => {
-    if (!entry) {
+    if (installedFor === null) {
       setVariants([])
       setSetup(null)
       return
@@ -219,7 +229,7 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         setVariants([])
         setSetup(null)
       })
-  }, [romId, entry?.emulatorId, entry?.system])
+  }, [romId, installedFor])
 
   /**
    * Dismissed per emulator, not per game: the steps are about setting the
@@ -954,8 +964,7 @@ type Fact = { icon: IconName; label: string; value: string | null }
 function Details({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
   const meta = rom.metadatum
   const list = (values: string[]): string | null => (values.length > 0 ? values.join(', ') : null)
-  const at = (value: string | null): string | null =>
-    value ? new Date(value).toLocaleString() : null
+  const at = (value: string | null): string | null => formatDateTime(value)
 
   const facts: Fact[] = [
     { icon: 'company', label: 'Company', value: list(meta.companies) },
@@ -963,11 +972,7 @@ function Details({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.El
     {
       icon: 'time',
       label: 'Released',
-      value: meta.first_release_date
-        ? new Date(meta.first_release_date * 1000).toLocaleDateString(undefined, {
-            dateStyle: 'long'
-          })
-        : null
+      value: meta.first_release_date ? formatDate(meta.first_release_date * 1000) : null
     },
     // Worth knowing before starting something with a second person in the room,
     // and the one pair of facts RomM holds that nothing else on this page shows.
@@ -1040,13 +1045,6 @@ function Details({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.El
 }
 
 /**
- * Saves and states held by RomM.
- *
- * Both kinds in one list rather than two: they answer the same question — what
- * of mine is on the server, and how recent is it — and a save and its state
- * from the same session belong next to each other.
- */
-/**
  * Exactly what a push is about to send, one row per file.
  *
  * The three things worth knowing before pressing send, in the order they
@@ -1087,7 +1085,7 @@ function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Element {
                   travels as one archive — worth saying, since the name above is
                   not a name anything on disk has. */}
                 {file.isDirectory ? ' · folder, sent as one zip' : ''} ·{' '}
-                {new Date(file.modifiedAt).toLocaleString()}
+                {formatDateTime(file.modifiedAt)}
               </span>
               <span className="asset__meta">
                 {file.replaces
@@ -1097,7 +1095,7 @@ function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Element {
                         : file.replaces.fromThisDevice === false
                           ? 'another device'
                           : (file.replaces.emulator ?? 'unknown')
-                    }, ${new Date(file.replaces.updatedAt).toLocaleString()}${
+                    }, ${formatDateTime(file.replaces.updatedAt)}${
                       stale ? ' · newer than this' : ''
                     }`
                   : 'New on RomM'}
@@ -1115,6 +1113,13 @@ function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Element {
   )
 }
 
+/**
+ * Saves and states held by RomM, and by this device.
+ *
+ * Both kinds in one list rather than two: they answer the same question — what
+ * of mine is on the server, and how recent is it — and a save and its state
+ * from the same session belong next to each other.
+ */
 function SavesTab({
   assets,
   entry,
@@ -1163,7 +1168,7 @@ function SavesTab({
                   thing to know about a save you did not expect to see. */}
               {asset.fromThisDevice === true ? ' · this device' : ''}
               {asset.fromThisDevice === false ? ' · another device' : ''}
-              {at ? ` · ${new Date(at).toLocaleString()}` : ''}
+              {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
             {/* Every row, and the label names the ends it clears. A button
                 present on some rows and missing from others reads as an

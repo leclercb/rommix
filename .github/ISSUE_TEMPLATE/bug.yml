@@ -1,0 +1,69 @@
+name: Bug report
+description: Something in RomMix does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Almost every failure in RomMix is environmental — an emulator that is not
+        where it says it is, a folder that cannot be written, a flatpak remote
+        that was never added. The pre-flight check and the log answer most of it
+        between them, so please start there.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: RomMix version
+      description: The AppImage's filename, or the version in Settings.
+      placeholder: RomMix-0.4.2-x86_64.AppImage
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and how you started RomMix
+      placeholder: Bazzite 41, from Steam in game mode
+    validations:
+      required: true
+
+  - type: dropdown
+    id: emulator
+    attributes:
+      label: Which emulator was involved
+      options:
+        - Not emulator-specific
+        - RetroDECK
+        - EmuDeck
+        - RetroArch
+        - Eden
+        - shadPS4
+    validations:
+      required: true
+
+  - type: textarea
+    id: preflight
+    attributes:
+      label: Pre-flight check
+      description: Settings → Pre-flight check. The rows and any notes under them.
+      render: text
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        `~/rommix/logs/rommix.log` — the part around the failure. Credentials are
+        stripped on the way in, so it is safe to paste as it is. If nothing there
+        explains it, re-run with `ROMMIX_LOG=debug`.
+      render: text
+    validations:
+      required: true
