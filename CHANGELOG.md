@@ -4,6 +4,12 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.4.0 — 2026-08-23
+
+- Fix appimage creation in workflow
+- Migrate from flatpak to appimage, add changelog
+- Improve website, remove host env vars, add preview:web and preview:app
+
 ## 0.3.0 — 2026-08-23
 
 - Fix host env leak, improve navigation, add setup wizard, rom storage choice, support link
