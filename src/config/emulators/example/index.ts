@@ -83,7 +83,7 @@ export const example: EmulatorDescriptor = {
    *         }
    *
    *   { kind: 'binary',   names: ['retroarch', 'retroarch-nightly'] }
-   *       Looked up on the host's PATH. Whatever put it there — a distro
+   *       Looked up on PATH. Whatever put it there — a distro
    *       package, a build — is not something RomMix can drive, so an
    *       emulator with only this is one the user installs themselves.
    *

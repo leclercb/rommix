@@ -29,7 +29,7 @@ import type {
 } from '@shared/types'
 import type { RomMixApp } from './app'
 import type { SaveTarget } from './saves'
-import { canSpawnHost, inFlatpak, installFlatpak, isWritable } from './host'
+import { flatpakAvailable, installFlatpak, isWritable } from './host'
 import { log } from './log'
 import { fetchReleases, installAsset } from './releases'
 import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from './root'
@@ -622,13 +622,17 @@ export function registerIpc(rommix: RomMixApp): void {
 
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
     const emulators = await rommix.refreshEmulators()
-    const spawn = await canSpawnHost()
+    const hasFlatpak = await flatpakAvailable()
     const notes: string[] = []
 
-    if (inFlatpak() && !spawn) {
+    // Said before "no emulator found", which is what it causes: RetroDECK,
+    // RetroArch and shadPS4 are all flatpaks, so without the command none of
+    // them can be found or installed, and every row below says "not installed"
+    // for a reason that is nowhere on the screen.
+    if (!hasFlatpak) {
       notes.push(
-        'flatpak-spawn cannot reach the host. RomMix needs --talk-name=org.freedesktop.Flatpak ' +
-          'to start an emulator; grant it with Flatseal.'
+        'flatpak is not installed, so RomMix cannot find or install the emulators that are ' +
+          'distributed that way. Install it from your distribution, then re-run this check.'
       )
     }
     if (!emulators.some((emulator) => emulator.available)) {
@@ -666,8 +670,8 @@ export function registerIpc(rommix: RomMixApp): void {
     )
     for (const entry of writable.filter((e) => !e.ok)) {
       notes.push(
-        `${entry.name}'s ROM folder ${entry.path} is not writable. Grant RomMix access to it ` +
-          '(--filesystem=home, or the SD card path) with Flatseal.'
+        `${entry.name}'s ROM folder ${entry.path} is not writable. Check its permissions, or ` +
+          'that the drive it is on is mounted.'
       )
     }
     const romsWritable = writable.every((entry) => entry.ok)
@@ -687,16 +691,14 @@ export function registerIpc(rommix: RomMixApp): void {
     // The whole picture in one place, since this is the report a person is
     // looking at when they decide the log is worth reading.
     log.info('diagnostics', 'pre-flight check', {
-      inFlatpak: inFlatpak(),
-      canSpawnHost: spawn,
+      flatpakAvailable: hasFlatpak,
       available: emulators.filter((emulator) => emulator.available).map((emulator) => emulator.id),
       romsWritable,
       notes
     })
 
     return {
-      inFlatpak: inFlatpak(),
-      canSpawnHost: spawn,
+      flatpakAvailable: hasFlatpak,
       emulators,
       romsWritable,
       logPath: log.path(),

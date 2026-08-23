@@ -1,7 +1,6 @@
 node_modules
 out
 dist
-build
-.flatpak-builder
+packaging/icon.png
 package-lock.json
 *.tsbuildinfo

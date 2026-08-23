@@ -1,13 +1,30 @@
-# electron-builder only produces the unpacked application tree; the flatpak
-# manifest is what actually packages RomMix. `--linux dir` gives us
-# dist/linux-unpacked/, which flatpak-builder copies into /app.
+# RomMix ships as an AppImage.
+#
+# Not a flatpak, and the reason is not packaging taste. A flatpak cannot start a
+# program on the host directly — it has to go out through `flatpak-spawn --host`,
+# which hands the process to flatpak's session helper. That reparenting puts the
+# emulator outside the process tree Steam launched, so under a gamescope session
+# Steam never tags its window with the STEAM_GAME atom, gamescope never lists the
+# window as focusable, and the game runs on a display nobody can reach: RomMix
+# keeps focus and the emulator is missing from Steam's window switcher.
+#
+# An AppImage is not a sandbox, so the emulator is an ordinary child process,
+# stays inside Steam's tree, and is tagged and focused like any other game. See
+# `execPrefix` in src/main/host.ts, which is now simply the program to run.
 appId: be.bl_it.RomMix
 productName: RomMix
 executableName: rommix
 
+# The modern AppImage runtime. Without this electron-builder takes its legacy
+# path, which produces an image whose runtime dlopens `libfuse.so.2` — a library
+# current distributions no longer ship, so the download dies on
+# "AppImages require FUSE to run" before Electron is reached at all.
+toolsets:
+  appimage: 1.0.3
+
 directories:
   output: dist
-  buildResources: build
+  buildResources: packaging
 
 files:
   - out/**/*
@@ -18,6 +35,42 @@ npmRebuild: false
 
 linux:
   target:
-    - dir
-  category: Game
+    - AppImage
+  # `Emulator` as well as `Game`, which is where a desktop menu files a launcher
+  # like this one. electron-builder appends the trailing semicolon.
+  category: Game;Emulator
+  # The desktop entry's Comment. Set here rather than under `desktop.entry`,
+  # which cannot reach it: electron-builder writes Comment *after* merging that
+  # map, from this field falling back to package.json's `description` — which is
+  # a sentence written for npm and far too long for a menu tooltip.
+  description: Browse, download and play your RomM library
   executableName: rommix
+  # packaging/icon.png, rasterised from packaging/icon.svg — the same drawing the
+  # `Logo` component redraws in the interface.
+  icon: packaging/icon.png
+  # Goes into the .desktop Exec line, not into the AppImage's own launcher, so
+  # this covers a desktop launch only — see `applyDisplayFlags` in
+  # src/main/index.ts for what a direct launch falls back to.
+  executableArgs:
+    - --ozone-platform-hint=auto
+  # The desktop entry, which used to be a file of its own beside the flatpak
+  # manifest. Everything electron-builder does not derive from the fields above
+  # is stated here, so there is one description of the application rather than
+  # two that can disagree.
+  desktop:
+    entry:
+      GenericName: RomM Game Launcher
+      Keywords: rom;romm;retro;emulator;retrodeck;retroarch;games;
+      PrefersNonDefaultGPU: 'true'
+  # StartupWMClass is deliberately absent above: electron-builder writes it
+  # from `desktopName` in package.json, which is also what Electron derives the
+  # window's own WM_CLASS from. Setting it by hand is how the two came to
+  # disagree — the entry claimed `RomMix` and the window said `rommix`, so no
+  # desktop could match a running window back to its launcher.
+  syncDesktopName: true
+
+appImage:
+  # `RomMix-0.3.0-x86_64.AppImage` — the version is what tells two downloads
+  # apart in a folder, and the architecture is what tells a user the file is for
+  # their machine.
+  artifactName: ${productName}-${version}-${arch}.AppImage

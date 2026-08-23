@@ -725,8 +725,14 @@ export interface RootLocation {
 
 /** Result of the pre-flight check shown on the Settings screen. */
 export interface DiagnosticsReport {
-  inFlatpak: boolean
-  canSpawnHost: boolean
+  /**
+   * Whether `flatpak` is on the machine at all.
+   *
+   * RomMix does not need it for itself, but most of the emulators it drives are
+   * distributed that way, and without it they all report themselves missing for
+   * a reason nothing else on the screen would explain.
+   */
+  flatpakAvailable: boolean
   emulators: EmulatorState[]
   /** True when every installed emulator's ROM folder can be written to. */
   romsWritable: boolean

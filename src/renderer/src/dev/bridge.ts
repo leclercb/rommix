@@ -535,8 +535,7 @@ const bridge: RomMixBridge = {
     onInstallProgress: noSubscription,
     diagnostics: () =>
       later({
-        inFlatpak: false,
-        canSpawnHost: false,
+        flatpakAvailable: false,
         emulators: [],
         romsWritable: true,
         // Named the way the real report names it, though nothing writes to it:

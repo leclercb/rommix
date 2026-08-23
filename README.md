@@ -17,7 +17,8 @@ is involved: it is the front end alone, for looking at rather than using.
 
 ## Requirements
 
-- **Linux**, with `flatpak`.
+- **Linux**. `flatpak` too, if you want the emulators that are packaged that
+  way — RetroDECK, RetroArch and shadPS4. RomMix itself needs neither.
 - **A RomM server** you can reach, version 5.x or newer, with an account on it.
 - **At least one emulator.** These are the five RomMix knows how to drive:
 
@@ -46,57 +47,55 @@ is involved: it is the front end alone, for looking at rather than using.
 
 ## Install
 
-Download `rommix-<version>-x86_64.flatpak` from
+Download `RomMix-<version>-x86_64.AppImage` from
 [Releases](https://github.com/leclercb/rommix/releases):
 
 ```bash
-flatpak remote-add --user --if-not-exists \
-  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./rommix-<version>-x86_64.flatpak
+chmod +x RomMix-<version>-x86_64.AppImage
+./RomMix-<version>-x86_64.AppImage
 ```
 
-Or build it yourself, which needs Node 20.19+ or 22.12+, `flatpak` and
-`flatpak-builder`:
+Or build it yourself, which needs Node 20.19+ or 22.12+:
 
 ```bash
 git clone https://github.com/leclercb/rommix.git
 cd rommix
 npm install
-./scripts/build-flatpak.sh
+npm run appimage        # writes dist/RomMix-<version>-x86_64.AppImage
 ```
-
-There is no Flathub package yet.
 
 ### Run it
 
 ```bash
-flatpak run be.bl_it.RomMix                    # desktop
-gamescope -f -- flatpak run be.bl_it.RomMix    # gamescope session
+./RomMix-x86_64.AppImage                    # desktop
+gamescope -f -- ./RomMix-x86_64.AppImage    # gamescope session
 ```
 
-**From Steam:** add `flatpak run be.bl_it.RomMix` as a non-Steam game. RomMix
-starts fullscreen and is fully navigable with a controller, so Big Picture needs
-no extra setup.
+**From Steam:** add the AppImage as a non-Steam game. RomMix starts fullscreen
+and is fully navigable with a controller, so Big Picture needs no extra setup.
+
+Add the image itself, or a script that `exec`s it — not anything that hands it
+off to another process. RomMix has to remain the emulator's parent, because
+Steam tags the windows of the process tree it launched and a gamescope session
+only focuses a window Steam has tagged. An emulator started outside that tree
+runs perfectly well on a display you cannot reach: RomMix keeps focus, and the
+game is missing from Steam's window switcher.
+
+> **Why not a flatpak?** That is exactly what RomMix used to ship as, and it is
+> what caused the problem above. A sandboxed application cannot start a program
+> on the host directly — it goes out through `flatpak-spawn --host`, which hands
+> the process to flatpak's session helper and so reparents it out of Steam's
+> tree. An AppImage is not a sandbox, so the emulator is an ordinary child
+> process and everything downstream of that just works.
 
 ### Permissions
 
-The build already asks for everything RomMix needs. If you tighten them later
-with Flatseal, these are the ones that matter:
+None. RomMix runs as an ordinary program with your own user's access, so there
+is nothing to grant and nothing to tighten.
 
-| Permission                            | Why                                                   |
-| ------------------------------------- | ----------------------------------------------------- |
-| `--talk-name=org.freedesktop.Flatpak` | Starting an emulator. Without it nothing will launch. |
-| `--filesystem=home`                   | Reading and writing ROMs, saves and BIOS files.       |
-| `--filesystem=/run/media`             | A ROM library on an SD card or external drive.        |
-| `--device=all`                        | Controller input. Without it the UI is keyboard-only. |
-| `--filesystem=/run/udev:ro`           | Controller input, again — see below.                  |
-
-Controllers need both of the last two. `--device=all` puts the pad in
-`/dev/input`, but Chromium decides which of those devices _is_ a pad by reading
-a property udev keeps in `/run/udev`. Without the second permission it can open
-every controller on the machine and recognises none of them, and the interface
-is keyboard-only with no error anywhere. Settings → **Pre-flight check** names
-the pad it can see, if any.
+Controllers need no setup either: Chromium reads them from `/dev/input`, and
+udev's device database is readable where any other program on the machine can
+read it. Settings → **Pre-flight check** names the pad it can see, if any.
 
 ---
 
@@ -268,17 +267,17 @@ folder, and RomMix hands the emulator the `.m3u` or `.cue` rather than the `.bin
 Settings → **Pre-flight check** names the common problems, and **Re-run check**
 re-tests after you fix one.
 
-**"flatpak-spawn cannot reach the host"**
-RomMix cannot start an emulator. Grant `--talk-name=org.freedesktop.Flatpak` in
-Flatseal.
+**"flatpak is not installed"**
+Most of the emulators RomMix drives are packaged as flatpaks, so without the
+command none of them can be found or installed. Install it from your
+distribution and re-run the check.
 
 **"… has not been run yet, so its folders do not exist"**
 Press **Run** beside it in Settings → Emulators, let it start, then re-run the
 check.
 
 **"The ROM folder is not writable"**
-Grant RomMix access to wherever your ROMs live. Home and `/run/media` are already
-allowed; anywhere else needs adding in Flatseal.
+Check the folder's permissions, and that the drive it is on is mounted.
 
 **"No installed emulator can run …"**
 Nothing here covers that platform. Settings → Platforms shows what each one
@@ -287,6 +286,12 @@ resolves to; Settings → Emulators shows what is installed.
 **"RomMix does not know which folder … maps to"**
 Add a `systemOverrides` entry, as above.
 
+**The game starts but RomMix keeps focus, and Steam does not list its window**
+Something is launching the emulator outside the process tree Steam started.
+A gamescope session only focuses a window Steam has tagged, and Steam only tags
+what it launched — so add the AppImage to Steam directly, or a script that
+`exec`s it, and nothing that hands it off to another process.
+
 **A game shows as not downloaded even though the file is there**
 Its platform is pointed at a different emulator now, and the file is in the
 previous one's library. Point it back, or download a copy for the new one.
@@ -294,9 +299,7 @@ previous one's library. Point it back, or download a copy for the new one.
 **The controller does nothing**
 Press a button on it and check Settings → **Pre-flight check**: Chromium hides
 pads from a page until one is used, so the name only appears after the first
-press. If it stays empty in the flatpak, the missing permission is
-`--filesystem=/run/udev:ro` — see [Permissions](#permissions). A pad named there
-but followed by `(unmapped)` is one Chromium does not recognise; the buttons
+press. A pad named there but followed by `(unmapped)` is one Chromium does not recognise; the buttons
 RomMix uses still work, and any that do not are worth reporting with that name.
 
 **The interface is tiny on a 4K television**
@@ -338,7 +341,7 @@ npm run preview:app    # the front end alone, in a browser, on :5273
 npm run preview:web    # the whole public site, built and served, on :5274
 npm run typecheck
 npm test
-npm run flatpak        # build and install the flatpak
+npm run appimage       # build dist/RomMix-<version>-x86_64.AppImage
 ```
 
 Instead of `npx install-electron` you can point `ELECTRON_EXEC_PATH` at a system
@@ -348,8 +351,7 @@ Electron, which is what `.envrc` does here. Packaging is unaffected either way.
 registry, the BIOS requirements and the ROM-format tables. **Adding a system, a
 BIOS requirement or an emulator is a change in `src/config/` and nowhere else** —
 no code outside it names an emulator. The three lists that do are prose and have
-to be edited by hand: the table above, the one in `site/index.html`, and the
-feature list in the metainfo.
+to be edited by hand: the table above and the one in `site/index.html`.
 
 ### The web preview and the site
 
@@ -397,21 +399,16 @@ npm run release -- --dry-run   # npm eats flags that come without the --
 ```
 
 [release-it](https://github.com/release-it/release-it) runs the checks, bumps the
-version, writes the metainfo changelog entry, commits, tags and pushes.
-[.github/workflows/flatpak.yml](.github/workflows/flatpak.yml) builds the flatpak
-on every push and, for a `v*` tag, publishes a release with the bundle attached.
+version, writes the [CHANGELOG.md](CHANGELOG.md) entry, commits, tags and pushes.
+[.github/workflows/release.yml](.github/workflows/release.yml) builds the AppImage
+on every push and, for a `v*` tag, publishes a release with the image attached.
 A version with a suffix — `0.2.0-rc1` — publishes as a pre-release.
 
 The changelog entry the hook writes falls back to commit subjects, so for a real
-release commit a hand-written `<release>` entry in
-`flatpak/be.bl_it.RomMix.metainfo.xml` first and its prose will be left alone.
-Its `date` is stamped at release time either way, so whatever you write there
+release commit a hand-written `## <version>` section in
+[CHANGELOG.md](CHANGELOG.md) first and its prose will be left alone. The date is
+stamped at release time either way, so whatever you write beside the version
 does not matter.
-
-> **On Flathub.** The manifest packages a prebuilt application tree, which
-> Flathub does not accept — submitting would mean vendoring the npm sources with
-> [`flatpak-node-generator`](https://github.com/flatpak/flatpak-builder-tools)
-> and building with `npm ci --offline`.
 
 ---
 

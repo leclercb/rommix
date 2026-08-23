@@ -441,7 +441,7 @@ export function Overlay({ title, children }: { title: string; children: ReactNod
 /**
  * The RomMix mark: a cartridge whose label is a cassette.
  *
- * The same drawing as the app icon (flatpak/be.bl_it.RomMix.svg) minus its dark
+ * The same drawing as the app icon (packaging/icon.svg) minus its dark
  * plate — the rail already supplies the ground, and a second rounded square
  * inside the chrome would read as a floating badge. Colours come from the
  * palette rather than the icon's literals, so the mark follows the theme.

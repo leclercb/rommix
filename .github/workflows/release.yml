@@ -1,0 +1,125 @@
+# Builds the AppImage on every push and pull request, and turns a `v*` tag into
+# a GitHub release with the image attached.
+#
+# One stage now that RomMix is not packaged as a flatpak: electron-builder takes
+# the bundle electron-vite produced and writes a single self-contained file.
+# There is no runtime to install, no remote to add, and nothing for the release
+# page to explain beyond "make it executable and run it".
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    # The release job names the file in its install instructions.
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # 24, not the 20/22 the README asks of a user: `npm test` runs the
+          # TypeScript tests through node's own type stripping.
+          node-version: 24
+          cache: npm
+
+      - name: Read the version
+        id: meta
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "image=RomMix-$version-x86_64.AppImage" >> "$GITHUB_OUTPUT"
+
+      # A tag names a version in three places, and only one of them is the tag.
+      # Catching a mismatch here costs seconds; catching it after publishing
+      # means deleting a release. The changelog entry matters as much as
+      # package.json: a release missing from it is a release nobody can read
+      # about.
+      - name: Check the tag against package.json and the changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version='${{ steps.meta.outputs.version }}'
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          if ! grep -qE "^## $version( |$)" CHANGELOG.md; then
+            echo "::error::no '## $version' section in CHANGELOG.md"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # The same gates `.release-it.js` runs before it will cut a tag, repeated
+      # here because a pull request never goes through release-it.
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+
+      # `npm run appimage` runs the build first; this is the same thing, split so
+      # a failing bundle and a failing package are separate red steps.
+      - run: npm run build
+      - run: npx electron-builder --linux AppImage
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: appimage
+          path: dist/*.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: appimage
+          path: dist
+
+      # generate_release_notes has GitHub write the changelog from the commits
+      # and pull requests since the last tag; `body` is prepended to it, which is
+      # where the part a release page actually needs — how to run the thing —
+      # goes. A tag like v0.2.0-rc1 is a pre-release; v0.2.0 is not.
+      - name: Publish the release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*.AppImage
+          name: RomMix ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          body: |
+            ### Run
+
+            ```bash
+            chmod +x ${{ needs.build.outputs.image }}
+            ./${{ needs.build.outputs.image }}
+            ```
+
+            To add it to Steam, add the AppImage as a non-Steam game. It has to
+            be the emulator's parent process for Steam to manage the window it
+            opens, so do not wrap it in anything that re-launches it elsewhere.

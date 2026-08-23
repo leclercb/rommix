@@ -5,6 +5,7 @@
   "license": "MIT",
   "author": "Benjamin Leclerc",
   "main": "./out/main/index.js",
+  "desktopName": "be.bl_it.RomMix.desktop",
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
@@ -19,7 +20,7 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
-    "flatpak": "./scripts/build-flatpak.sh",
+    "appimage": "npm run build && electron-builder --linux AppImage",
     "release": "release-it"
   },
   "dependencies": {

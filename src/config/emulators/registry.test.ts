@@ -510,20 +510,17 @@ test('every EmuDeck launcher names a real script and consumes the ROM', () => {
   }
 })
 
-test('the sandbox wrapping survives when the descriptor names its own program', () => {
-  // Inside a flatpak `exec` is the flatpak-spawn prefix with no program in it,
-  // and the launcher script has to land after it rather than in front.
+test('a scripts install builds its launcher path from the install ref', () => {
+  // `exec` is empty for a `scripts` install — there is no one program to start,
+  // so the descriptor names the script and it is the whole command.
   const argv = emudeck.launch({
-    exec: ['flatpak-spawn', '--host'],
+    exec: [],
     installRef: '/e/tools/launchers',
     system: 'psx',
     romPath: '/e/roms/psx/game.chd'
   })
-  assert.deepEqual(argv?.slice(0, 3), [
-    'flatpak-spawn',
-    '--host',
-    '/e/tools/launchers/duckstation.sh'
-  ])
+  assert.equal(argv?.[0], '/e/tools/launchers/duckstation.sh')
+  assert.ok(argv?.includes('/e/roms/psx/game.chd'), 'the ROM path is never passed')
 })
 
 test('EmuDeck opens its own frontend for the Run button', () => {

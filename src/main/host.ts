@@ -1,5 +1,4 @@
 import { execFile, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { access, constants, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -9,63 +8,49 @@ import type { ResolvedInstall } from '@config/emulators'
 import { log } from './log'
 
 /**
- * Talking to the machine RomMix is installed on, from either side of a flatpak
- * sandbox. Nothing here knows about any particular emulator — that is
- * `emulators.ts`.
+ * Talking to the machine RomMix is installed on. Nothing here knows about any
+ * particular emulator — that is `emulators.ts`.
+ *
+ * RomMix ships as an AppImage rather than a flatpak, so it is an ordinary
+ * process on an ordinary machine: it runs other programs by running them.
+ * Everything below is therefore about *other* applications' packaging — an
+ * emulator installed as a flatpak still has to be found, started and stopped
+ * through flatpak — and nothing about RomMix's own.
+ *
+ * That is a deliberate trade, not an accident of packaging. See
+ * electron-builder.yml: a sandboxed RomMix can only start a host program via
+ * `flatpak-spawn --host`, which reparents it onto flatpak's session helper and
+ * takes it out of the process tree Steam launched — and a gamescope session
+ * will not focus a window Steam has not tagged.
  */
 
 const execFileAsync = promisify(execFile)
 
-/**
- * True when RomMix is itself running inside a flatpak sandbox. Flatpak always
- * writes /.flatpak-info into the sandbox, and sets FLATPAK_ID.
- */
-export function inFlatpak(): boolean {
-  return Boolean(process.env.FLATPAK_ID) || existsSync('/.flatpak-info')
-}
-
-/**
- * Wrap a command so it runs on the host rather than inside our sandbox.
- *
- * `flatpak run` cannot be nested, so a sandboxed RomMix has to hop out via
- * flatpak-spawn (which needs --talk-name=org.freedesktop.Flatpak in the
- * manifest). Outside a sandbox the command is returned untouched.
- */
-function hostCommand(argv: string[]): string[] {
-  return inFlatpak() ? ['flatpak-spawn', '--host', ...argv] : argv
-}
-
-/** Real home directory, even from inside a sandbox where HOME is remapped. */
+/** The user's home directory. */
 export function realHome(): string {
-  // Inside a flatpak, HOME points at the sandboxed home only when the app has
-  // no home access; with --filesystem=home it is the actual user home.
   return process.env.HOME ?? homedir()
 }
 
 /**
- * XDG config and data roots on the *host*.
- *
- * XDG_CONFIG_HOME from the environment is deliberately ignored: inside our
- * sandbox it points at RomMix's own config directory, so using it would look
- * for another application's settings in entirely the wrong place.
+ * XDG config and data roots, for reading *other* applications' settings — where
+ * RetroArch keeps `retroarch.cfg`, where EmuDeck records its layout.
  */
 export function xdgConfigHome(): string {
-  return join(realHome(), '.config')
+  return process.env.XDG_CONFIG_HOME || join(realHome(), '.config')
 }
 
 export function xdgDataHome(): string {
-  return join(realHome(), '.local', 'share')
+  return process.env.XDG_DATA_HOME || join(realHome(), '.local', 'share')
 }
 
-async function runHost(argv: string[], timeoutMs = 8000): Promise<string | null> {
-  const [cmd, ...args] = hostCommand(argv)
+async function run(argv: string[], timeoutMs = 8000): Promise<string | null> {
+  const [cmd, ...args] = argv
   try {
     const { stdout } = await execFileAsync(cmd, args, { timeout: timeoutMs })
     return stdout
   } catch (cause) {
     // Null is an ordinary answer here — "no such flatpak", "not on PATH" — so
-    // this is debug rather than a warning. It is still the only place a
-    // flatpak-spawn that cannot reach the host at all announces itself.
+    // this is debug rather than a warning.
     log.debug('host', 'command failed', {
       command: argv.join(' '),
       reason: (cause as Error).message
@@ -75,7 +60,7 @@ async function runHost(argv: string[], timeoutMs = 8000): Promise<string | null>
 }
 
 /**
- * Where this flatpak is deployed on the host, or null when it is not installed.
+ * Where this flatpak is deployed, or null when it is not installed.
  *
  * The location doubles as the "is it installed" answer and as a way into the
  * application's own files — which matters for an emulator that ships
@@ -85,12 +70,12 @@ async function runHost(argv: string[], timeoutMs = 8000): Promise<string | null>
  * would otherwise know.
  */
 export async function flatpakLocation(appId: string): Promise<string | null> {
-  const out = await runHost(['flatpak', 'info', '--show-location', appId])
+  const out = await run(['flatpak', 'info', '--show-location', appId])
   const path = out?.trim().split('\n')[0]
   return path ? path : null
 }
 
-/** Is this flatpak application installed on the host? */
+/** Is this flatpak application installed? */
 export async function flatpakInstalled(appId: string): Promise<boolean> {
   return (await flatpakLocation(appId)) != null
 }
@@ -100,7 +85,7 @@ const QUIT_GRACE_MS = 5000
 
 /** The sandbox process of each running instance of this application. */
 async function sandboxPids(appId: string): Promise<number[]> {
-  const out = await runHost(['flatpak', 'ps', '--columns=application,child-pid'])
+  const out = await run(['flatpak', 'ps', '--columns=application,child-pid'])
   return (out ?? '')
     .split('\n')
     .map((line) => line.trim().split(/\s+/))
@@ -162,10 +147,10 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
   // signal, and the grace period would expire into a kill for no reason.
   // Signalling bubblewrap when it is not the application is harmless: it does
   // not forward, which is the whole reason the descendants are listed.
-  const ps = await runHost(['ps', '-eo', 'pid=,ppid='])
+  const ps = await run(['ps', '-eo', 'pid=,ppid='])
   const targets = [...descendantsOf(ps ?? '', sandboxes), ...sandboxes]
   log.info('host', 'asking a flatpak app to quit', { appId, sandboxes, targets })
-  await runHost(['kill', '-TERM', ...targets.map(String)])
+  await run(['kill', '-TERM', ...targets.map(String)])
 
   const deadline = Date.now() + QUIT_GRACE_MS
   while (Date.now() < deadline) {
@@ -182,12 +167,12 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
     appId,
     graceMs: QUIT_GRACE_MS
   })
-  await runHost(['flatpak', 'kill', appId])
+  await run(['flatpak', 'kill', appId])
   return true
 }
 
 /**
- * Absolute path of the first of these executables found on the host's PATH.
+ * Absolute path of the first of these executables found on PATH.
  *
  * `command -v` is a shell builtin, so this has to go through `sh -c`; names are
  * screened first so a hand-written emulator descriptor cannot smuggle shell
@@ -196,7 +181,7 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
 export async function binaryPath(names: readonly string[]): Promise<string | null> {
   for (const name of names) {
     if (!/^[\w.+-]+$/.test(name)) continue
-    const out = await runHost(['sh', '-c', `command -v ${name}`], 5000)
+    const out = await run(['sh', '-c', `command -v ${name}`], 5000)
     const path = out?.trim().split('\n')[0]
     if (path) return path
   }
@@ -239,7 +224,12 @@ export async function findMatchingFile(
 }
 
 /**
- * argv prefix that starts a resolved install, from inside or outside a sandbox.
+ * argv prefix that starts a resolved install.
+ *
+ * Whatever this returns is spawned directly, so the emulator is a child of
+ * RomMix — which is the point, and the reason RomMix is not itself sandboxed.
+ * A gamescope session only focuses a window Steam has tagged, and Steam only
+ * tags what is inside the process tree it launched.
  *
  * An AppImage is executed directly, never through `appimage-run`: that helper
  * unpacks a squashfs payload, and an AppImage built with uruntime — as Eden's
@@ -247,45 +237,29 @@ export async function findMatchingFile(
  * image's own runtime handles either format.
  *
  * A `scripts` install has no single program — the launcher to run depends on
- * the system — so it gets the sandbox wrapping alone and the descriptor names
- * the script itself.
+ * the system — so it gets nothing here and the descriptor names the script.
  */
 export function execPrefix(
   install: ResolvedInstall,
   env: Readonly<Record<string, string>> = {}
 ): string[] {
-  const passed = Object.entries(env).map(([key, value]) => `--env=${key}=${value}`)
-
   // A flatpak emulator gets a sandbox of its own, and setting a variable on the
   // process that calls `flatpak run` does not put it inside that one — flatpak
   // decides what crosses the boundary, and an emulator that needs a variable to
   // start would not see it. `--env` is the way in, and it belongs before the
   // application id: after it, flatpak passes it to the application as an
-  // ordinary argument.
-  const argv =
-    install.kind === 'flatpak'
-      ? ['flatpak', 'run', ...passed, install.ref]
-      : install.kind === 'scripts'
-        ? []
-        : [install.ref]
-  if (!inFlatpak()) return argv
+  // ordinary argument. Anything else takes the variable from the spawn options.
+  const passed = Object.entries(env).map(([key, value]) => `--env=${key}=${value}`)
 
-  // flatpak-spawn starts a *fresh* process on the host and does not carry our
-  // environment across, so anything the emulator needs has to be passed
-  // explicitly. Outside the sandbox the spawn options handle it instead. A
-  // flatpak install is already covered above, at the boundary that matters;
-  // repeating it here would only set it on the `flatpak run` client.
-  const spawned = install.kind === 'flatpak' ? [] : passed
-  return ['flatpak-spawn', '--host', ...spawned, ...argv]
+  if (install.kind === 'flatpak') return ['flatpak', 'run', ...passed, install.ref]
+  return install.kind === 'scripts' ? [] : [install.ref]
 }
 
 /**
  * Install a flatpak from Flathub, reporting progress lines as they arrive.
  *
- * Runs on the host for the same reason emulators do: a nested `flatpak
- * install` inside our sandbox would install into the sandbox. `--user` keeps
- * it out of the system installation, which would need a polkit prompt RomMix
- * cannot answer from a fullscreen UI.
+ * `--user` keeps it out of the system installation, which would need a polkit
+ * prompt RomMix cannot answer from a fullscreen UI.
  */
 export function installFlatpak(appId: string, onLine: (line: string) => void): Promise<void> {
   return new Promise((resolvePromise, rejectPromise) => {
@@ -293,7 +267,7 @@ export function installFlatpak(appId: string, onLine: (line: string) => void): P
       rejectPromise(new Error(`Refusing to install a suspicious app id: ${appId}`))
       return
     }
-    const [cmd, ...args] = hostCommand([
+    const [cmd, ...args] = [
       'flatpak',
       'install',
       '--user',
@@ -301,7 +275,7 @@ export function installFlatpak(appId: string, onLine: (line: string) => void): P
       '--assumeyes',
       'flathub',
       appId
-    ])
+    ]
 
     log.info('host', 'installing a flatpak', { appId, command: [cmd, ...args].join(' ') })
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -351,9 +325,15 @@ export async function isWritable(path: string | null): Promise<boolean> {
   }
 }
 
-/** Verify flatpak-spawn works, so we can warn early instead of at launch time. */
-export async function canSpawnHost(): Promise<boolean> {
-  if (!inFlatpak()) return true
-  const out = await runHost(['flatpak', '--version'], 5000)
-  return out != null
+/**
+ * Is flatpak installed at all?
+ *
+ * Worth asking separately from "is RetroDECK installed", because without
+ * flatpak the answer to that question is always no and the reason is invisible:
+ * every flatpak-packaged emulator simply reports itself missing, and the
+ * pre-flight check would advise installing them one at a time through a command
+ * that is not there either.
+ */
+export async function flatpakAvailable(): Promise<boolean> {
+  return (await run(['flatpak', '--version'], 5000)) != null
 }

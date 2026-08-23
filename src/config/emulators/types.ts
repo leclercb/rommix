@@ -228,8 +228,8 @@ export interface LaunchVariant {
 
 export interface LaunchContext {
   /**
-   * argv prefix that starts the program, already wrapped for the sandbox. For
-   * a `scripts` install this is the wrapping alone, with no program in it.
+   * argv prefix that starts the program. Empty for a `scripts` install, where
+   * the launcher to run depends on the system and the descriptor names it.
    */
   exec: readonly string[]
   /** What the probe resolved: an app id, a program, or a launcher directory. */

@@ -204,7 +204,7 @@ export const log = {
 /**
  * The line every run starts with.
  *
- * A log that opens with the version, the sandbox and where the root is answers
+ * A log that opens with the version, the platform and where the root is answers
  * most of what would otherwise be the first three questions in a bug report.
  */
 export function logSession(versions: Record<string, unknown>): void {

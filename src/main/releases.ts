@@ -20,8 +20,6 @@ import { extractZip, isZip } from './zip'
 /** Where RomMix keeps emulators it installed itself. */
 export function managedEmulatorDir(id: string): string {
   // Inside RomMix's own root, so a whole installation is one movable folder.
-  // It must also be a real host path, because the emulator is spawned on the
-  // host and a sandbox-only path would not exist there.
   return join(rootPaths().emulators, id)
 }
 

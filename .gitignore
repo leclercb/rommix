@@ -1,8 +1,6 @@
 node_modules/
 out/
 dist/
-build/
-.flatpak-builder/
 .direnv/
 *.tsbuildinfo
 *.local

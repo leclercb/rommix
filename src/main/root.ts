@@ -26,7 +26,7 @@ import { join } from 'node:path'
 // convention for an application's folder is lowercase.
 const DEFAULT_DIR_NAME = 'rommix'
 
-/** Real home directory, even from inside a sandbox where HOME is remapped. */
+/** The user's home directory. */
 function realHome(): string {
   return process.env.HOME ?? homedir()
 }

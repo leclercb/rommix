@@ -53,8 +53,8 @@ export const SUPPORT_URL = 'https://buymeacoffee.com/leclercb'
  * Settings and the pre-flight check.
  *
  * The diagnostics block is the important half: almost every failure in this app
- * is environmental — RetroDECK not installed, the sandbox unable to reach the
- * host, the ROM folder not writable — and each of those is far easier to fix
+ * is environmental — RetroDECK not installed, flatpak missing, the ROM folder
+ * not writable — and each of those is far easier to fix
  * when it is named explicitly rather than surfacing as "launch failed".
  */
 export function SettingsScreen(): JSX.Element {
@@ -318,10 +318,11 @@ export function SettingsScreen(): JSX.Element {
       ) : (
         <>
           <dl className="kv">
-            <dt>Running in flatpak</dt>
-            <dd>{diagnostics.inFlatpak ? 'yes' : 'no'}</dd>
-            <dt>Can start host apps</dt>
-            <dd>{diagnostics.canSpawnHost ? 'yes' : 'no'}</dd>
+            {/* Not about RomMix, which is an AppImage: it is about the
+                emulators, most of which are flatpaks and none of which can be
+                found without the command. */}
+            <dt>Flatpak available</dt>
+            <dd>{diagnostics.flatpakAvailable ? 'yes' : 'no'}</dd>
             <dt>Emulators installed</dt>
             <dd>
               {diagnostics.emulators.filter((e) => e.available).length} of{' '}

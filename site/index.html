@@ -1531,8 +1531,8 @@
             <figcaption>
               <h3>At the desk</h3>
               <p>
-                One <code>flatpak run</code> on any Linux desktop. Keyboard and mouse work as well
-                as a pad — which is how most people set it up, long before it reaches a television.
+                One download on any Linux desktop. Keyboard and mouse work as well as a pad — which
+                is how most people set it up, long before it reaches a television.
               </p>
             </figcaption>
           </figure>
@@ -1731,25 +1731,21 @@
       <div class="wrap">
         <h2>Getting it</h2>
         <p>
-          Linux with <code>flatpak</code>, a RomM server at version 5 or newer that you can reach,
-          and one of the emulators above — RomMix installs any of them but EmuDeck itself. Download
-          the bundle from the
-          <a href="https://github.com/leclercb/rommix/releases">releases page</a> and install it for
-          your user.
+          Linux, a RomM server at version 5 or newer that you can reach, and one of the emulators
+          above — RomMix installs any of them but EmuDeck itself. Download the AppImage from the
+          <a href="https://github.com/leclercb/rommix/releases">releases page</a> and run it.
+          Nothing to install, and no permissions to grant.
         </p>
 
-        <pre><code><b>flatpak</b> remote-add --user --if-not-exists \
-  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-<b>flatpak</b> install --user ./rommix-&lt;version&gt;-x86_64.flatpak
+        <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage
 
-<b>flatpak</b> run be.bl_it.RomMix                  <span># desktop</span>
-<b>gamescope</b> -f -- flatpak run be.bl_it.RomMix  <span># on a TV</span></code></pre>
+<b>./RomMix</b>-&lt;version&gt;-x86_64.AppImage                  <span># desktop</span>
+<b>gamescope</b> -f -- ./RomMix-&lt;version&gt;-x86_64.AppImage  <span># on a TV</span></code></pre>
 
         <p class="note">
-          On a handheld, add that first command to Steam as a non-Steam game instead. There is no
-          Flathub package yet, and the
-          <a href="https://github.com/leclercb/rommix#readme">README</a> covers building it
-          yourself, the permissions it needs and what to do when an emulator will not start.
+          On a handheld, add the AppImage to Steam as a non-Steam game instead. The
+          <a href="https://github.com/leclercb/rommix#readme">README</a> covers building it yourself
+          and what to do when an emulator will not start.
         </p>
       </div>
     </section>

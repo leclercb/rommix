@@ -52,8 +52,8 @@ function gamepadPresent(): boolean {
  * the couch whichever end it failed at, and this separates them: a name here
  * means the pad reached the page and the fault is in what the UI does with it;
  * nothing here means the pad never arrived at all — the usual cause being a
- * sandbox without `--filesystem=/run/udev:ro`, where Chromium can open every
- * device in /dev/input and identify none of them as a gamepad.
+ * session where Chromium can open every device in /dev/input and identify
+ * none of them as a gamepad, udev's database being out of reach.
  *
  * "Not seen yet" is also the honest answer before the first button press:
  * Chromium withholds pads from a page until one of them is used, so that a page

@@ -44,12 +44,17 @@ protocol.registerSchemesAsPrivileged([
  * X11 fallback causes scaling and controller-focus quirks — while still working
  * in a normal desktop session.
  *
- * `ozone-platform-hint` is set here for completeness only. Chromium chooses its
- * backend during early start-up, before any of this runs, so a packaged build
- * that relies on this line alone takes X11 and exits on a Wayland-only session.
- * What actually decides it is `ELECTRON_OZONE_PLATFORM_HINT`, set by the
- * launcher — the flatpak manifest, or nixpkgs' own Electron wrapper in
- * development, which is why this was invisible until the first flatpak run.
+ * Chromium chooses its backend during early start-up, so how reliably this line
+ * lands depends on how RomMix was started. A desktop launch gets the switch on
+ * the real command line — electron-builder puts `linux.executableArgs` into the
+ * .desktop Exec — and that is read before anything here runs. Started directly,
+ * as a Steam shortcut does, this line is what is left.
+ *
+ * It is enough for the sessions RomMix is actually used in: a gamescope session
+ * is X11 (gamescope's own Xwayland), and an ordinary Wayland desktop has
+ * Xwayland to fall back to. The case it cannot save is Wayland with no Xwayland
+ * at all, where Chromium takes X11 and exits — set
+ * `ELECTRON_OZONE_PLATFORM_HINT=auto` in the launcher there.
  */
 function applyDisplayFlags(): void {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
