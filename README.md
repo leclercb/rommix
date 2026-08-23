@@ -269,11 +269,24 @@ re-tests after you fix one.
 
 **RomMix does not start at all, or the Steam shortcut appears to do nothing**
 Run it from a terminal — an AppImage that cannot start says why there and
-nowhere else. `error while loading shared libraries: libglib-2.0.so.0` means
-the distribution does not have the libraries an unpatched binary expects, which
-on NixOS is the normal state of affairs: enable `programs.nix-ld` and _append_
-Electron's libraries to it, appending because assigning the option replaces
-nixpkgs' own default set.
+nowhere else. Two failures look identical from the couch:
+
+`Cannot mount AppImage, please check your FUSE setup` with
+`No suitable fusermount binary found on the $PATH`. The AppImage runtime mounts
+itself with FUSE, and Steam hands a launched shortcut a rewritten `PATH`. On
+NixOS `fusermount3` is a setuid wrapper in `/run/wrappers/bin`, which is not on
+that PATH, so it works from a terminal and fails from Steam. Name the binary
+outright instead of relying on PATH:
+
+```nix
+environment.variables.FUSERMOUNT_PROG = "${config.security.wrapperDir}/fusermount3";
+```
+
+`error while loading shared libraries: libglib-2.0.so.0`. The distribution does
+not have the libraries an unpatched binary expects, which on NixOS is the normal
+state of affairs. Enable `programs.nix-ld` and _append_ Electron's libraries to
+it — appending because assigning the option replaces nixpkgs' own default set,
+which would fix RomMix and break every other AppImage on the machine:
 
 ```nix
 programs.nix-ld.enable = true;
