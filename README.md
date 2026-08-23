@@ -267,6 +267,31 @@ folder, and RomMix hands the emulator the `.m3u` or `.cue` rather than the `.bin
 Settings → **Pre-flight check** names the common problems, and **Re-run check**
 re-tests after you fix one.
 
+**RomMix does not start at all, or the Steam shortcut appears to do nothing**
+Run it from a terminal — an AppImage that cannot start says why there and
+nowhere else. `error while loading shared libraries: libglib-2.0.so.0` means
+the distribution does not have the libraries an unpatched binary expects, which
+on NixOS is the normal state of affairs: enable `programs.nix-ld` and _append_
+Electron's libraries to it, appending because assigning the option replaces
+nixpkgs' own default set.
+
+```nix
+programs.nix-ld.enable = true;
+programs.nix-ld.libraries =
+  options.programs.nix-ld.libraries.default
+  ++ (with pkgs; [
+    alsa-lib at-spi2-core cairo cups dbus expat fontconfig freetype glib gtk3
+    libdrm libgbm libglvnd libx11 libxcb libxcomposite libxcursor libxdamage
+    libxext libxfixes libxi libxkbcommon libxrandr libxrender libxshmfence
+    libxtst nspr nss pango
+  ]);
+```
+
+Also on NixOS: leave `programs.appimage.binfmt` off. It routes every AppImage
+through `appimage-run`, which unpacks a squashfs payload — and an image built
+with uruntime carries DwarFS, so it dies on "Can't find a valid SQUASHFS
+superblock" before its own runtime gets a chance.
+
 **"flatpak is not installed"**
 Most of the emulators RomMix drives are packaged as flatpaks, so without the
 command none of them can be found or installed. Install it from your
