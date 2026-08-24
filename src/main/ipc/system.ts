@@ -49,9 +49,12 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       rommix.send('library:installed', downloads.installed)
     }
 
-    // The only setting the main process itself has to act on: the zoom factor
-    // lives on the window, not in the stylesheet.
+    // Two settings the main process itself has to act on. The zoom factor lives
+    // on the window rather than in the stylesheet; the update policy owns a
+    // timer, and turning checks on would otherwise wait for a restart to start
+    // checking.
     if ('uiScale' in patch) rommix.applyUiScale()
+    if ('updates' in patch) rommix.updates.schedule()
     return next
   })
 

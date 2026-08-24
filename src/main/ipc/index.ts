@@ -8,6 +8,7 @@ import { registerLibraryIpc } from './library.ts'
 import { registerSaveIpc } from './saves.ts'
 import { registerServerIpc } from './server.ts'
 import { registerSystemIpc } from './system.ts'
+import { registerUpdateIpc } from './updates.ts'
 
 /**
  * The IPC surface, one module per thing the interface can ask about.
@@ -32,4 +33,5 @@ export function registerIpc(rommix: RomMixApp): void {
   registerBiosIpc(rommix, handle)
   registerEmulatorIpc(rommix, handle)
   registerSystemIpc(rommix, handle)
+  registerUpdateIpc(rommix, handle)
 }

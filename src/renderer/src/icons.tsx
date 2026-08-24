@@ -39,6 +39,7 @@ import {
   Plug,
   Power,
   RefreshCw,
+  RotateCcw,
   Save,
   Search,
   Server,
@@ -76,6 +77,8 @@ export const ICONS = {
   delete: Trash2,
   back: ArrowLeft,
   refresh: RefreshCw,
+  // Not `refresh`, which is "look again": this one closes RomMix and opens it.
+  restart: RotateCcw,
   install: Download,
   sort: ListOrdered,
   group: Layers,

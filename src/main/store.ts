@@ -60,6 +60,9 @@ function defaultSettings(): Settings {
     confirmSavePush: true,
     dismissedNotices: [],
     uiScale: 0,
+    // Nothing on a Linux desktop updates an AppImage on RomMix's behalf, so the
+    // default is the one that keeps an installation current on its own.
+    updates: 'auto',
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`
   }

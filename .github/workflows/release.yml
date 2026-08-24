@@ -124,22 +124,16 @@ jobs:
           merge-multiple: true
           path: dist
 
-      # The two file names, from the tag. Derived here rather than passed out of
-      # the build job: a matrix writes one `outputs` key per leg and the last to
-      # finish wins, so an `image` output would name whichever architecture
-      # happened to be slower. `electron-builder.yml` spells the suffixes —
-      # `${arch}` is `x86_64` and `arm64`.
-      - name: Name the images
-        id: names
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          echo "x86=RomMix-$version-x86_64.AppImage" >> "$GITHUB_OUTPUT"
-          echo "arm=RomMix-$version-arm64.AppImage" >> "$GITHUB_OUTPUT"
-
       # generate_release_notes has GitHub write the changelog from the commits
       # and pull requests since the last tag; `body` is prepended to it, which is
       # where the part a release page actually needs — how to run the thing —
       # goes. A tag like v0.2.0-rc1 is a pre-release; v0.2.0 is not.
+      #
+      # The file names are written out rather than derived from the tag: they no
+      # longer carry the version. See `appImage.artifactName` in
+      # electron-builder.yml for why — RomMix replaces its own image in place,
+      # and a name that changed with the release would break every shortcut
+      # pointing at it.
       - name: Publish the release
         uses: softprops/action-gh-release@v3
         with:
@@ -153,14 +147,19 @@ jobs:
           body: |
             ### Run
 
-            `${{ steps.names.outputs.x86 }}` for an ordinary PC or a Steam Deck,
-            `${{ steps.names.outputs.arm }}` for an ARM handheld or single-board
+            `RomMix-x86_64.AppImage` for an ordinary PC or a Steam Deck,
+            `RomMix-arm64.AppImage` for an ARM handheld or single-board
             machine. `uname -m` says which you are on: `x86_64` or `aarch64`.
 
             ```bash
-            chmod +x ${{ steps.names.outputs.x86 }}
-            ./${{ steps.names.outputs.x86 }}
+            chmod +x RomMix-x86_64.AppImage
+            ./RomMix-x86_64.AppImage
             ```
+
+            The file name carries no version on purpose: RomMix updates itself
+            by writing the new release over this same file, so the path you
+            point a shortcut at keeps working. Settings shows which version you
+            are running, and updating never asks you to rename anything.
 
             ### From Steam
 
@@ -168,7 +167,7 @@ jobs:
             add **the script** as the non-Steam game:
 
             ```bash
-            chmod +x ${{ steps.names.outputs.x86 }} rommix-steam.sh
+            chmod +x RomMix-x86_64.AppImage rommix-steam.sh
             ```
 
             Steam launches a game with `PR_SET_NO_NEW_PRIVS`, under which the

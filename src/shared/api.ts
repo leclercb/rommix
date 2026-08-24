@@ -19,6 +19,7 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease,
   RootLocation,
+  UpdateStatus,
   SaveAsset,
   SaveDeleteScope,
   SavePushPreview,
@@ -176,6 +177,24 @@ export interface RomMixBridge {
     launch(romId: number, variant?: string): Promise<LaunchResult>
     stop(): Promise<void>
     onState(listener: (state: GameState) => void): () => void
+  }
+  updates: {
+    /** What RomMix knows about its own version right now. */
+    status(): Promise<UpdateStatus>
+    /** Ask GitHub now, whatever the policy says. */
+    check(): Promise<UpdateStatus>
+    /** Fetch the new image and put it beside the running one. */
+    download(): Promise<UpdateStatus>
+    /** Restart into the version already downloaded. Never happens on its own. */
+    restart(): Promise<void>
+    /**
+     * Every state the update passes through, checks and downloads included.
+     *
+     * This is what makes a new version a notification: the check runs on a
+     * timer in the main process, so without it the news would only ever reach
+     * someone who opened Settings.
+     */
+    onStatus(listener: (status: UpdateStatus) => void): () => void
   }
   system: {
     settings(): Promise<Settings>

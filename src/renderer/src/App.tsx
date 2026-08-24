@@ -28,7 +28,8 @@ import { SettingsScreen } from './screens/Settings'
 
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
-  const { route, goBack, canGoBack, navigate, downloads, runningRomId, toasts, status } = useApp()
+  const { route, goBack, canGoBack, navigate, downloads, runningRomId, toasts, status, update } =
+    useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
 
@@ -73,6 +74,19 @@ export function App(): JSX.Element {
   const activeDownloads = downloads.filter(
     (item) => item.state === 'downloading' || item.state === 'queued' || item.state === 'extracting'
   ).length
+
+  /**
+   * The new version, on the menu item that leads to it.
+   *
+   * The toast that announced it lasts five seconds, and a machine that checked
+   * while nobody was watching has none. This is the part that stays: the version
+   * number itself rather than a count, because "Settings 1" says there is
+   * something and not what.
+   */
+  const updateBadge =
+    update && update.latest && update.state !== 'idle' && update.state !== 'checking'
+      ? update.latest
+      : undefined
 
   return (
     <div className="app">
@@ -120,6 +134,7 @@ export function App(): JSX.Element {
               label="Settings"
               route={{ name: 'settings' }}
               active={route.name === 'settings'}
+              badge={updateBadge}
             />
           </nav>
 
@@ -191,7 +206,8 @@ function NavItem({
   label: string
   route: Route
   active: boolean
-  badge?: number
+  /** A count, as Downloads has, or a short word — the new version on Settings. */
+  badge?: number | string
 }): JSX.Element {
   const { navigate } = useApp()
   const { ref, props } = useFocusable({ onSelect: () => navigate(route), actionLabel: label })

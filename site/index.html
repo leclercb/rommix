@@ -1653,6 +1653,14 @@
               typed on a television keyboard.
             </p>
           </div>
+          <div class="card">
+            <h3>It updates itself</h3>
+            <p>
+              Nothing updates an AppImage for you. RomMix watches its own releases, says when one is
+              out, and writes it over the file you run &mdash; ready at the next start. Or it just
+              tells you, or nothing at all.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -1749,8 +1757,13 @@
           nothing to install.
         </p>
 
-        <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage
-<b>./RomMix</b>-&lt;version&gt;-x86_64.AppImage</code></pre>
+        <pre><code><b>chmod</b> +x RomMix-x86_64.AppImage
+<b>./RomMix</b>-x86_64.AppImage</code></pre>
+
+        <p class="note">
+          No version in the file name: updates are written over that same file, so shortcuts keep
+          working. Settings says which version you have.
+        </p>
 
         <h3 class="subhead">From Steam, on a handheld</h3>
         <p>
@@ -1759,7 +1772,7 @@
           game — not the AppImage itself.
         </p>
 
-        <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage rommix-steam.sh</code></pre>
+        <pre><code><b>chmod</b> +x RomMix-x86_64.AppImage rommix-steam.sh</code></pre>
 
         <p class="note">
           Steam cannot launch an AppImage directly; the script is what makes it work. The

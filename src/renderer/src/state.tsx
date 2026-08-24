@@ -14,7 +14,8 @@ import type {
   DownloadItem,
   DownloadState,
   InstalledRom,
-  Settings
+  Settings,
+  UpdateStatus
 } from '@shared/types'
 
 /** Application-wide state: connection, settings, downloads and navigation. */
@@ -78,6 +79,16 @@ interface AppState {
    */
   runningStage: string | null
 
+  /**
+   * RomMix's own version, and what is being done about a newer one.
+   *
+   * Held here rather than in the Settings screen because the news has to reach
+   * someone who is not on it: the check runs on a timer in the main process, and
+   * what it finds becomes a notification and a mark on the menu.
+   */
+  update: UpdateStatus | null
+  refreshUpdate: () => Promise<void>
+
   route: Route
   navigate: (route: Route) => void
   /**
@@ -112,6 +123,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [runningStage, setRunningStage] = useState<string | null>(null)
   const [history, setHistory] = useState<Route[]>([{ name: 'home' }])
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [update, setUpdate] = useState<UpdateStatus | null>(null)
 
   const route = history[history.length - 1]
 
@@ -144,6 +156,10 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     setInstalled(await window.rommix.library.installed())
   }, [])
 
+  const refreshUpdate = useCallback(async (): Promise<void> => {
+    setUpdate(await window.rommix.updates.status())
+  }, [])
+
   const saveSettings = useCallback(async (patch: Partial<Settings>): Promise<void> => {
     setSettings(await window.rommix.system.updateSettings(patch))
   }, [])
@@ -173,9 +189,55 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       setSettings(nextSettings)
       setDownloads(await window.rommix.downloads.list())
       setInstalled(await window.rommix.library.installed())
+      // Whatever the main process already knows — a check that ran before this
+      // window existed, or an image downloaded during the previous session.
+      setUpdate(await window.rommix.updates.status())
       if (!nextStatus.connected) setHistory([{ name: 'connect' }])
     })()
   }, [])
+
+  /**
+   * The update, and the two moments in it worth interrupting for.
+   *
+   * Announced from the states rather than from the events: a download emits
+   * progress several times a second, and every one of those carries the same
+   * `available`. What is new is the pair — this state, for this version — so
+   * each pair is announced once and the rest pass silently into the panel and
+   * the mark on the menu.
+   */
+  const announced = useRef<string | null>(null)
+  useEffect(() => {
+    return window.rommix.updates.onStatus((next) => {
+      setUpdate(next)
+      if (!next.latest) return
+
+      const key = `${next.state}:${next.latest}`
+      if (announced.current === key) return
+
+      if (next.state === 'available') {
+        announced.current = key
+        notify(
+          // What happens next differs by policy, and saying nothing about it
+          // leaves "available" reading as "and RomMix is doing nothing".
+          next.blockedReason
+            ? `RomMix ${next.latest} is available — see Settings`
+            : `RomMix ${next.latest} is available`,
+          next.blockedReason ? 'warn' : 'ok'
+        )
+      } else if (next.state === 'ready') {
+        announced.current = key
+        notify(
+          // Under Steam there is no restarting from here — see
+          // `UpdateStatus.restartBlocked` — so the instruction is the one that
+          // works there rather than a button this toast cannot offer.
+          next.restartBlocked
+            ? `RomMix ${next.latest} is ready — quit and start it again`
+            : `RomMix ${next.latest} is ready — restart to use it`,
+          'ok'
+        )
+      }
+    })
+  }, [notify])
 
   // Live download progress from the main process.
   //
@@ -264,6 +326,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       refreshInstalled,
       runningRomId,
       runningStage,
+      update,
+      refreshUpdate,
       route,
       navigate,
       replace,
@@ -283,6 +347,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       refreshInstalled,
       runningRomId,
       runningStage,
+      update,
+      refreshUpdate,
       route,
       navigate,
       replace,

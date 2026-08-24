@@ -1,6 +1,18 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+/**
+ * The version, for the demo's Settings screen to print.
+ *
+ * In the app that number comes from `app.getVersion()`, which reads this same
+ * file; the browser has no Electron to ask, and a version written out by hand in
+ * the stub would be wrong from the next release onwards.
+ */
+const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as {
+  version: string
+}
 
 /**
  * Drop the app's Content-Security-Policy from the page, while serving it.
@@ -99,7 +111,10 @@ export default defineConfig({
     }
   },
   plugins: [react(), withoutCsp(), demoLabels()],
-  define: { 'import.meta.env.VITE_WEB_PREVIEW': 'true' },
+  define: {
+    'import.meta.env.VITE_WEB_PREVIEW': 'true',
+    'import.meta.env.VITE_ROMMIX_VERSION': JSON.stringify(version)
+  },
   // Beside the landing page rather than under it: `scripts/build-site.sh`
   // assembles both halves of the site into `out/site`, which is what the Pages
   // workflow uploads.

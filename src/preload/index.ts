@@ -13,7 +13,8 @@ import type {
   EmulatorInstallProgress,
   RomQuery,
   SaveDeleteScope,
-  Settings
+  Settings,
+  UpdateStatus
 } from '@shared/types'
 
 /**
@@ -93,6 +94,14 @@ const bridge: RomMixBridge = {
     launch: (romId: number, variant?: string) => ipcRenderer.invoke('game:launch', romId, variant),
     stop: () => ipcRenderer.invoke('game:stop'),
     onState: (listener: (state: GameState) => void) => subscribe<GameState>('game:state', listener)
+  },
+  updates: {
+    status: () => ipcRenderer.invoke('update:status'),
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    restart: () => ipcRenderer.invoke('update:restart'),
+    onStatus: (listener: (status: UpdateStatus) => void) =>
+      subscribe<UpdateStatus>('update:status', listener)
   },
   system: {
     settings: () => ipcRenderer.invoke('system:settings'),

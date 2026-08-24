@@ -7,7 +7,8 @@ import type {
   RommRom,
   RomQuery,
   SaveAsset,
-  Settings
+  Settings,
+  UpdateStatus
 } from '@shared/types'
 
 /**
@@ -359,6 +360,7 @@ const SETTINGS: Settings = {
   dismissedNotices: [],
   // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,
+  updates: 'auto',
   deviceId: 'web-preview',
   deviceName: 'RomMix @ web preview'
 }
@@ -373,6 +375,31 @@ const noSubscription = (): (() => void) => () => {}
 /** A call that takes a moment, so spinners and disabled buttons are visible. */
 function later<T>(value: T, ms = 220): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
+}
+
+/**
+ * What the Settings screen prints about RomMix's own version.
+ *
+ * The version is the real one — `vite.web.config.ts` reads it out of
+ * package.json — so the demo cannot end up claiming a release that does not
+ * exist. Checked "just now", because a demo that says it last looked in 1970 is
+ * showing a bug it does not have.
+ */
+function previewUpdate(): UpdateStatus {
+  return {
+    state: 'idle',
+    current: import.meta.env.VITE_ROMMIX_VERSION ?? 'preview',
+    latest: import.meta.env.VITE_ROMMIX_VERSION ?? 'preview',
+    notes: null,
+    url: 'https://github.com/leclercb/rommix/releases',
+    receivedBytes: 0,
+    totalBytes: 0,
+    readyPath: null,
+    blockedReason: 'This is the web preview, so there is nothing here to replace.',
+    restartBlocked: null,
+    error: null,
+    checkedAt: new Date().toISOString()
+  }
 }
 
 /**
@@ -536,6 +563,22 @@ const bridge: RomMixBridge = {
     launch: () => Promise.reject(new Error('There is no emulator in the web preview')),
     stop: () => later(undefined),
     onState: noSubscription
+  },
+  updates: {
+    /**
+     * Up to date, and unable to be anything else.
+     *
+     * The demo does not invent a new version: the panel's interesting states
+     * are a download and a restart, and a page that offers a fictional 0.9.0
+     * behind a button that cannot fetch it is a worse demonstration than an
+     * honest "nothing to do". The reason it cannot is the one the real app
+     * gives for any copy that is not an AppImage.
+     */
+    status: () => later(previewUpdate()),
+    check: () => later(previewUpdate(), 700),
+    download: () => Promise.reject(new Error('Not available in the web preview')),
+    restart: () => Promise.reject(new Error('Not available in the web preview')),
+    onStatus: noSubscription
   },
   system: {
     settings: () => later(SETTINGS),

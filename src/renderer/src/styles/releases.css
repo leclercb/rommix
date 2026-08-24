@@ -70,3 +70,26 @@
   font-size: 14px;
   color: var(--text-faint);
 }
+
+/* ---------------------------------------------------------------------------
+ * RomMix's own new version
+ * ------------------------------------------------------------------------- */
+
+/*
+ * The release notes, and the path the downloaded image landed at.
+ *
+ * Written as they came: GitHub's notes are a list of lines, and a paragraph that
+ * reflows them into prose loses the only structure they have. Capped in height
+ * because a generated changelog can run to fifty commits, and this sits inside a
+ * notice on a settings page — not on a page of its own.
+ */
+.update__notes {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.85;
+}

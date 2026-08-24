@@ -36,6 +36,9 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
   Credentials are encrypted with the system keyring.
 - **Pre-flight check.** Names what is actually wrong — flatpak missing, no
   emulator, an unwritable ROM folder — instead of failing at launch.
+- **It keeps itself current.** Nothing updates an AppImage for you, so RomMix
+  watches its own releases, says when one is out, and swaps the image in for the
+  next start — or leaves it to you, if you would rather.
 
 ---
 
@@ -72,10 +75,13 @@ Steam Deck, `arm64` for an ARM handheld (`uname -m` says which). Nothing is
 installed and no permissions are needed.
 
 ```bash
-chmod +x RomMix-<version>-x86_64.AppImage
-./RomMix-<version>-x86_64.AppImage                    # desktop
-gamescope -f -- ./RomMix-<version>-x86_64.AppImage    # gamescope session
+chmod +x RomMix-x86_64.AppImage
+./RomMix-x86_64.AppImage                    # desktop
+gamescope -f -- ./RomMix-x86_64.AppImage    # gamescope session
 ```
+
+No version in the file name: updates are written over that same file, so
+shortcuts keep working. Settings says which version you have.
 
 ### From Steam
 
@@ -84,7 +90,7 @@ AppImage, and add the _script_ as the non-Steam game — Steam cannot launch an
 AppImage directly.
 
 ```bash
-chmod +x RomMix-<version>-x86_64.AppImage rommix-steam.sh
+chmod +x RomMix-x86_64.AppImage rommix-steam.sh
 ```
 
 ### Build it yourself
@@ -95,7 +101,7 @@ Node 22.15 or newer.
 git clone https://github.com/leclercb/rommix.git
 cd rommix
 npm install
-npm run appimage        # writes dist/RomMix-<version>-<arch>.AppImage
+npm run appimage        # writes dist/RomMix-<arch>.AppImage
 ```
 
 That builds for the machine you are on; `npm run package -- --arm64` targets the
@@ -151,6 +157,9 @@ tabs, `/` to search, `m` for Settings.
 
 ## Settings
 
+Four tabs — **General**, **Emulators**, **Games**, **System** — with LB/RB (or
+Tab) to move between them.
+
 **Interface → Scale.** The interface is laid out for a 1080p television, so
 **Auto** doubles it on a 4K one. Pick a number if your panel is nearer or
 further away. A desktop that already scales itself is left alone.
@@ -187,6 +196,27 @@ synced, and RomMix says so rather than uploading the wrong data.
 **RomMix folder.** Settings, credentials, the download index and any emulator
 RomMix installed live in `~/rommix`. Set a new path and RomMix copies it across
 and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME` overrides it.
+
+**Updates → New versions of RomMix.** Nothing updates an AppImage for you, so
+RomMix checks its own
+[releases](https://github.com/leclercb/rommix/releases) half a minute after
+starting, then every six hours.
+
+- **Automatic**, the default — downloaded in the background, used at the next
+  start. Nothing restarts on its own; **Restart now** is there if you want it.
+- **Tell me** — notification and a version badge on Settings; nothing is
+  downloaded until you press **Download**.
+- **Off** — never checks by itself. **Check now** still does.
+
+The new image is written over the file you run, so shortcuts keep working and
+nothing is renamed. It is safe while running: the image is renamed into place
+and the running copy keeps reading the file it started from.
+
+Two cases RomMix cannot finish on its own, both of which it says on screen:
+**started from Steam**, where Steam forbids a program restarting itself — quit
+and press Play again; and an image it **cannot write to** or was not started
+from, where the check still reports the new version and the releases page is the
+way to get it.
 
 ### EmuDeck
 
@@ -345,7 +375,7 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm test
-npm run appimage       # build dist/RomMix-<version>-<arch>.AppImage
+npm run appimage       # build dist/RomMix-<arch>.AppImage
 ```
 
 Those four checks are what CI runs, in that order, and what `npm run release`

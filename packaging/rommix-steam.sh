@@ -18,8 +18,8 @@ fi
 
 if [ -z "${ROMMIX_APPIMAGE-}" ] || [ ! -e "$ROMMIX_APPIMAGE" ]; then
   echo "rommix-steam.sh: no RomMix AppImage found beside this script." >&2
-  echo "  Put RomMix-<version>-x86_64.AppImage next to it, or set" >&2
-  echo "  ROMMIX_APPIMAGE=/path/to/RomMix-<version>-x86_64.AppImage" >&2
+  echo "  Put RomMix-x86_64.AppImage next to it, or set" >&2
+  echo "  ROMMIX_APPIMAGE=/path/to/RomMix-x86_64.AppImage" >&2
   exit 1
 fi
 

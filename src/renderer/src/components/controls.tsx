@@ -177,7 +177,8 @@ export function Tabs<T extends string>({
   active,
   onChange
 }: {
-  tabs: { id: T; label: string; badge?: number }[]
+  /** `badge` is a count, as the Saves tab has, or a short word — a version. */
+  tabs: { id: T; label: string; badge?: number | string }[]
   active: T
   onChange: (id: T) => void
 }): JSX.Element {
@@ -212,7 +213,7 @@ function TabButton({
   onSelect
 }: {
   label: string
-  badge?: number
+  badge?: number | string
   active: boolean
   onSelect: () => void
 }): JSX.Element {

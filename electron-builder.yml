@@ -70,7 +70,18 @@ linux:
   syncDesktopName: true
 
 appImage:
-  # `RomMix-0.3.0-x86_64.AppImage` — the version is what tells two downloads
-  # apart in a folder, and the architecture is what tells a user the file is for
-  # their machine.
-  artifactName: ${productName}-${version}-${arch}.AppImage
+  # `RomMix-x86_64.AppImage`. The architecture is there because it tells a user
+  # whether the file is for their machine; the version is deliberately *not*,
+  # and that is a decision about updating rather than about naming.
+  #
+  # RomMix replaces its own image in place — see src/main/update.ts. A version in
+  # the file name would leave that with two bad options: rename the file, which
+  # breaks every Steam shortcut, desktop entry and script pointing at the old
+  # path, or keep the name, which leaves `RomMix-0.5.1-x86_64.AppImage` holding
+  # 0.6.0. Naming the file for the program rather than for the release removes
+  # the choice: the path is stable, the name is never wrong, and nobody has to
+  # rename anything.
+  #
+  # The version still identifies a download — it is in the release title and in
+  # the URL — and the running one is in Settings, in the window and in the log.
+  artifactName: ${productName}-${arch}.AppImage

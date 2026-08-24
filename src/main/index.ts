@@ -81,6 +81,9 @@ if (!app.requestSingleInstanceLock()) {
     await rommix.refreshEmulators()
     registerIpc(rommix)
     rommix.createWindow()
+    // After the window, which is what the first result is announced to. The
+    // check itself waits half a minute — see `Updater.schedule`.
+    rommix.updates.schedule()
     log.info('app', 'ready', { ms: took() })
   })
 
@@ -98,5 +101,9 @@ if (!app.requestSingleInstanceLock()) {
     app.quit()
   })
 
-  app.on('before-quit', () => log.info('app', '--- RomMix quitting ---'))
+  app.on('before-quit', () => {
+    // So a check cannot fire into a window that is closing.
+    rommix.updates.stop()
+    log.info('app', '--- RomMix quitting ---')
+  })
 }

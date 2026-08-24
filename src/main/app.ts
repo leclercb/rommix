@@ -10,6 +10,7 @@ import { RommClient } from './romm.ts'
 import { SaveSync } from './saves.ts'
 import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
+import { Updater } from './update.ts'
 import type { EmulatorState } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
@@ -44,6 +45,12 @@ export class RomMixApp {
   readonly launcher = new Launcher(this.store, this.client, this.saveSync)
   readonly downloads: DownloadManager
   readonly bios: BiosManager
+  /**
+   * RomMix's own updates. Every state it passes through is pushed to the
+   * renderer, which is what makes "a new version is available" a notification
+   * rather than something only Settings knows about.
+   */
+  readonly updates = new Updater(this.store, (status) => this.send('update:status', status))
 
   /** Cached emulator probe; refreshed on demand rather than on every call. */
   private emulatorCache: EmulatorState[] | null = null
