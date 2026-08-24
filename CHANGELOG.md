@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.6.0 — 2026-08-24
+
+- Auto update, split settings page into tabs
+
 ## 0.5.1 — 2026-08-24
 
 - Update webpage and readme
