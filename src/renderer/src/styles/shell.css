@@ -1,0 +1,264 @@
+/* --------------------------------------------------------------------------
+   App shell
+   -------------------------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  background:
+    radial-gradient(120vw 90vh at 78% -10%, rgba(90, 200, 250, 0.09), transparent 62%), var(--bg);
+}
+
+/*
+ * The bar across the top: mark on the left, menu in the middle, who you are on
+ * the right.
+ *
+ * The two outer tracks are equal fractions so the menu is centred on the
+ * *screen* rather than on the space left over between two blocks of differing
+ * width — the brand is a fixed mark and wordmark, the status is a username of
+ * any length, and centring between them would leave the menu drifting from one
+ * screen to the next.
+ *
+ * A grid row rather than a floating bar: the page below scrolls inside its own
+ * box, so nothing can ever pass underneath this and be lost behind it.
+ */
+.topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  padding: 12px var(--safe-x);
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.topbar__logo {
+  width: 38px;
+  height: 38px;
+  /* The mark is the only saturated thing in the bar; the glow ties it to the
+     accent wash behind it instead of leaving it pasted onto the ground. */
+  filter: drop-shadow(0 3px 10px rgba(90, 200, 250, 0.3));
+}
+
+.topbar__wordmark {
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.4px;
+  /* Its own line box would push the wordmark off the mark's centre line. */
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.topbar__wordmark span {
+  color: var(--accent);
+}
+
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The end of the bar: the server this library comes from, right-aligned and
+   quiet. Two lines on one row — who you are, then where — because the username
+   is the part looked for and the host is the part confirmed. */
+.topbar__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-self: end;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-faint);
+  min-width: 0;
+}
+
+/* Text then mark, the marks lining up on the bar's right edge. `min-width: 0`
+   on the text so a long username ellipsises rather than pushing its icon off
+   the end of the row. */
+.topbar__user,
+.topbar__host {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  max-width: 30ch;
+  white-space: nowrap;
+}
+
+.topbar__user > span,
+.topbar__host > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar__user svg,
+.topbar__host svg {
+  opacity: 0.8;
+}
+
+.topbar__user {
+  color: var(--text-dim);
+  font-weight: 650;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  /* The active mark is drawn on this edge, so the space is reserved on every
+     item — added only to the active one, each item would shift as focus
+     travelled along the bar. */
+  border-bottom: 3px solid transparent;
+  color: var(--text-dim);
+  font-weight: 600;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.nav-item[data-active='true'] {
+  color: var(--text);
+  background: var(--surface);
+  border-bottom-color: var(--accent);
+}
+
+/* Lifted rather than nudged sideways: this is a row now, and a horizontal shift
+   would close the gap to the item beside it. */
+.nav-item[data-focused='true'] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-bottom-color: var(--accent);
+  box-shadow: var(--focus-lift);
+  transform: translateY(-2px);
+}
+
+.nav-item__badge {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* A focused item is painted accent; its badge has to leave that ground. */
+.nav-item[data-focused='true'] .nav-item__badge {
+  background: var(--accent-contrast);
+  color: var(--accent);
+}
+
+/*
+ * Too narrow for five labels: the menu keeps its place in the middle and drops
+ * to marks alone, and the server line goes, being the one thing here that is
+ * never acted on.
+ */
+@media (max-width: 1100px) {
+  .nav-item__label,
+  .topbar__status {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 10px 14px;
+  }
+}
+
+/* Narrower still, the wordmark goes too and the mark stands for the app. */
+@media (max-width: 720px) {
+  .topbar__wordmark {
+    display: none;
+  }
+}
+
+.content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--safe-y) var(--safe-x) calc(var(--safe-y) + 40px);
+  scrollbar-width: none;
+  /* Scrolling to a focused element aligns against this inset rather than the
+     hard edge, so the row you land on keeps a band of context above and below
+     it instead of sitting against the rim of the screen. The bottom inset is
+     the larger of the two because the hint bar floats over that edge; the top
+     is modest because the bar above is a row of its own and covers nothing. */
+  scroll-padding: 40px 0 128px;
+}
+
+.content::-webkit-scrollbar {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Typography and generic bits
+   -------------------------------------------------------------------------- */
+
+.page-title {
+  font-size: 34px;
+  font-weight: 750;
+  letter-spacing: -0.7px;
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  color: var(--text-dim);
+  margin: 0 0 26px;
+}
+
+/* "Step 2 of 3", above the question rather than beside it: it is a position in
+   a sequence, not part of what is being asked. Same treatment as the hero's
+   reason line, which does the same job over the same kind of title. */
+.setup__step {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.section-title {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 30px 0 14px;
+  letter-spacing: -0.3px;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.faint {
+  color: var(--text-faint);
+}
+
+.empty {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+  margin: 40px auto;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

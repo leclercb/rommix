@@ -1,0 +1,63 @@
+/* --------------------------------------------------------------------------
+   Notifications
+   -------------------------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  top: var(--safe-y);
+  right: var(--safe-x);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 60;
+  max-width: 460px;
+  pointer-events: none;
+}
+
+/* Every toast is the same shape: optional cover, then title over message. A
+   toast about the app simply has no cover and no title. */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.toast__art {
+  width: 42px;
+  flex: 0 0 42px;
+}
+
+/* A console icon is square and sits in a slot cut for a portrait cover. */
+.toast__art[data-kind='platform'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast__body {
+  min-width: 0;
+}
+
+.toast__title {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast__message {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* --------------------------------------------------------------------------
+   Platform icons
+   -------------------------------------------------------------------------- */
+
+/* The console logos are monochrome SVGs, so they carry on a dark UI unaided.
+   The artwork alone: the plate they used to sit on competed with the icon it
+   was framing, and at card size there was more frame than console. */
+.system-icon {
+  flex: 0 0 auto;
+  object-fit: contain;
+}

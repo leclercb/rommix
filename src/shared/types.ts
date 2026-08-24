@@ -301,7 +301,7 @@ export type RomStorage = 'emulator' | 'rommix'
  * Not an emulator, on purpose: with shared storage there may not be one — the
  * whole point is that a Switch game can be downloaded before Eden is installed.
  * A sentinel rather than an empty string so the index has something to compare
- * against when the setting changes, and the detail screen has something to
+ * against when the setting changes, and the game screen has something to
  * print.
  */
 export const SHARED_LIBRARY = 'rommix:shared'
@@ -372,11 +372,12 @@ export interface Settings {
    * Ask before anything is sent to RomM — both the Push saves button and the
    * automatic upload when a game exits.
    *
-   * Off by default: pushing is additive — RomM keeps every version — so it is
-   * not the kind of destructive action `confirmUninstall` guards. It is here
-   * for the case where seeing *what* is about to be sent matters: a shared RomM
-   * account, or an emulator whose save location RomMix resolved by heuristic
-   * and which is worth checking before it lands on the server.
+   * On by default, not because pushing is destructive — RomM keeps every
+   * version — but because this dialog is the only place RomMix says what it is
+   * about to put on the server under this game's id. Where the saves came from
+   * was resolved per emulator, partly by heuristic, and a wrong answer is worth
+   * catching here rather than on another device that pulls it down. It costs
+   * one press, and that press can be `Send and don't ask again`.
    *
    * The two pushes ask the same question from different sides. The button knows
    * its answer before it does anything; the automatic one has already run, so
@@ -584,7 +585,7 @@ export interface SaveAsset {
   sync: SaveSyncState
 }
 
-/** Result of an explicit save pull or push from the detail screen. */
+/** Result of an explicit save pull or push from the game screen. */
 export interface SaveSyncResult {
   saves: number
   states: number

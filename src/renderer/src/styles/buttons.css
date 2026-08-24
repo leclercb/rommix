@@ -1,0 +1,92 @@
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 26px;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-weight: 650;
+  transition: var(--transition);
+}
+
+/* An icon-only button is square rather than a wide pill with a mark adrift in
+   the middle of it. `:empty` catches exactly those: a button with a label has
+   text nodes, one with only an icon does not. */
+.btn:has(> svg:only-child) {
+  padding: 13px 15px;
+}
+
+/* Colour and elevation, at exactly the size it already was — no scale, and no
+   outline either, both of which make a focused button grow into the ones beside
+   it. The accent fill is doing the work. */
+.btn[data-focused='true'] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  box-shadow: var(--focus-lift);
+}
+
+/*
+ * The one button on a screen worth reaching for first — Play, Download, Connect.
+ *
+ * Tinted, not filled. A solid accent panel is what *focus* looks like here, so a
+ * button painted that way while nothing is on it says "focused" from across the
+ * room, and Play sitting next to a genuinely focused Pull saves reads as two
+ * focused buttons. The tint keeps it the loudest thing in the row while leaving
+ * the fill to mean one thing only.
+ *
+ * Deliberately the same treatment as a chosen segment in `.segmented__option` —
+ * both are "this is the one", drawn without claiming the focus colour — and the
+ * same shape as `.btn--danger`, which has always taken its colour on focus alone.
+ *
+ * There is no focused rule to go with this: `.btn[data-focused]` carries an
+ * attribute as well as a class, so it already outweighs this and a focused Play
+ * fills in exactly like every other focused button.
+ */
+.btn--primary {
+  background: rgba(90, 200, 250, 0.14);
+  border-color: var(--accent-strong);
+  color: var(--text);
+}
+
+.btn--danger[data-focused='true'] {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #200606;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.btn[data-disabled='true'] {
+  opacity: 0.42;
+}
+
+/* A button that carries a state as well as an action: the mark is filled in
+   when the state is on, and hollow when it is off. Only the mark — the button
+   keeps its own colours, so a favourited game does not look like a warning. */
+.btn[data-on='true'] svg {
+  fill: var(--danger);
+  color: var(--danger);
+}
+
+/* Focused, the button is painted accent and a red heart on it would be a
+   clash; the fill alone still says it is on. */
+.btn[data-on='true'][data-focused='true'] svg {
+  fill: currentcolor;
+  color: currentcolor;
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 22px 0;
+}

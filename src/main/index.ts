@@ -1,6 +1,6 @@
 import { BrowserWindow, app, protocol } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
-import { registerIpc } from './ipc.ts'
+import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
 import { ensureRoot } from './root.ts'
 

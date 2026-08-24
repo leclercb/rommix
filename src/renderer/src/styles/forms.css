@@ -1,0 +1,114 @@
+/* --------------------------------------------------------------------------
+   Forms
+   -------------------------------------------------------------------------- */
+
+.form {
+  max-width: 560px;
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+.field__label {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+
+.field__input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  transition: var(--transition);
+}
+
+.field__input[data-focused='true'] {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.field__hint {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: 6px;
+}
+
+.notice {
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  line-height: 1.5;
+}
+
+/* Several things to do, each its own line. Indented to the text rather than
+   hanging off the padding, so the markers sit inside the notice. */
+.notice__list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.notice__list li + li {
+  margin-top: 6px;
+}
+
+/* A notice that ends in a button should not leave it flush against the edge. */
+.notice .btn-row {
+  margin: 12px 0 0;
+}
+
+.notice--error {
+  background: rgba(255, 107, 107, 0.11);
+  border-color: rgba(255, 107, 107, 0.4);
+  color: #ffc9c9;
+}
+
+.notice--warn {
+  background: rgba(255, 200, 87, 0.1);
+  border-color: rgba(255, 200, 87, 0.36);
+  color: #ffe3a3;
+}
+
+.notice--ok {
+  background: rgba(93, 219, 160, 0.11);
+  border-color: rgba(93, 219, 160, 0.36);
+  color: #bff3da;
+}
+
+/* Segmented control used for auth mode and runner choice. */
+.segmented {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.segmented__option {
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-weight: 620;
+  color: var(--text-dim);
+  transition: var(--transition);
+}
+
+.segmented__option[data-active='true'] {
+  color: var(--text);
+  border-color: var(--accent-strong);
+  background: rgba(90, 200, 250, 0.14);
+}
+
+.segmented__option[data-focused='true'] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  box-shadow: var(--focus-lift);
+}

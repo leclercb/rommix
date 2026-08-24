@@ -1,0 +1,157 @@
+/* --------------------------------------------------------------------------
+   Emulator list (Settings)
+   -------------------------------------------------------------------------- */
+
+.emulator {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+
+.emulator__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.emulator__name {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.emulator__meta {
+  font-size: 14px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+/* What the emulator is, beside where its files are.
+   The folders column is the wider of the two: its lines are absolute paths and
+   the other's are a URL and an app id. `minmax(0, …)` rather than a bare
+   fraction because a grid track otherwise floors at its content's width, and a
+   long path would push the row wide instead of ellipsising inside it. */
+.emulator__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+  gap: 12px 28px;
+  margin-top: 8px;
+}
+
+/* One column under the other where there is no room for two — the same lines
+   in the same order, which is why the groups keep their headings. */
+@media (max-width: 820px) {
+  .emulator__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.emulator__group {
+  min-width: 0;
+}
+
+.emulator__group-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+/* One described fact, marked with the kind of fact it is. The icon holds its
+   width so the text of every line starts on the same column, which is what
+   makes seven of them scannable rather than a paragraph of grey. */
+.emulator__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.emulator__line svg {
+  flex: none;
+  opacity: 0.7;
+}
+
+/* The path, not the row, is what may be too long: an ellipsised line still
+   begins with its mark. */
+.emulator__line-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Home folder, Change version, Run/Install, up, down. Wrapping and right
+   aligned, so a row that runs out of width breaks against the edge the buttons
+   end on rather than sliding away from them. */
+.emulator__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Installed / not-installed marker: a coloured dot plus a word, because on a
+   TV a colour alone is easy to miss and a word alone is easy to skim past. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 3px 11px 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.status::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status[data-state='ok'] {
+  color: var(--success);
+}
+
+.status[data-state='warn'] {
+  color: var(--warning);
+}
+
+.status[data-state='off'] {
+  color: var(--text-faint);
+}
+
+/* A chip that carries a glyph instead of the dot: the arrow says which way the
+   file would move, which the dot cannot, and two marks on one chip would be
+   one mark too many. */
+.status--badge::before {
+  content: none;
+}
+
+/* A small dot marking a ROM that is already on disk. */
+.card__installed {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--success);
+  border: 2px solid rgba(0, 0, 0, 0.55);
+}

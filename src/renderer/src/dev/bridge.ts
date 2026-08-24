@@ -49,7 +49,7 @@ const PREVIEW_ROOT = '~/rommix'
 
 /**
  * A game with nothing known about it, which the harvested library has none of:
- * every row on RomM's demo is scraped and carries art. The detail screen has a
+ * every row on RomM's demo is scraped and carries art. The game screen has a
  * banner that has to survive having no artwork to draw and a Details tab that
  * has to admit it knows nothing, and those two states are only reachable from an
  * entry like this one — so it is invented, and named so that nobody mistakes it
@@ -355,7 +355,7 @@ const SETTINGS: Settings = {
   syncSavesDown: true,
   syncSavesUp: true,
   confirmUninstall: true,
-  confirmSavePush: false,
+  confirmSavePush: true,
   dismissedNotices: [],
   // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,

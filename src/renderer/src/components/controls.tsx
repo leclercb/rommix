@@ -1,0 +1,341 @@
+import { type JSX, type ReactNode, type Ref } from 'react'
+import type { RomStorage } from '@shared/types'
+import { useAction, useFocusable } from '../input/focus'
+import { Icon, type IconName } from '../icons'
+
+/** The things a controller presses: buttons, fields, tabs and settings rows. */
+
+export function FocusButton({
+  children,
+  onSelect,
+  variant = 'default',
+  disabled = false,
+  autoFocus = false,
+  icon,
+  on,
+  actionLabel
+}: {
+  children?: ReactNode
+  onSelect: () => void
+  variant?: 'default' | 'primary' | 'danger' | 'ghost'
+  disabled?: boolean
+  autoFocus?: boolean
+  /** Drawn before the label — or alone, where the mark is unambiguous. */
+  icon?: IconName
+  /**
+   * For a button that is also a state: the icon is filled in when it is on.
+   *
+   * Only the icon. A button that changed colour with its state would read as a
+   * warning rather than as something the user has switched on, and the label
+   * still says what pressing it does either way.
+   */
+  on?: boolean
+  /**
+   * What this does, for the hint bar and for assistive tech.
+   *
+   * Taken from the button's own text when that is a plain string. A button with
+   * no text has to say it here: an icon on its own leaves the hint bar with
+   * nothing to report and a screen reader with nothing to read.
+   */
+  actionLabel?: string
+}): JSX.Element {
+  const { ref, props } = useFocusable({
+    onSelect: disabled ? undefined : onSelect,
+    enabled: !disabled,
+    autoFocus,
+    // A button's own text is what pressing A does, so the hint bar needs
+    // nothing declared at the call site. Anything richer than a string — a
+    // label built from several pieces — says nothing and leaves the screen's
+    // own hint standing.
+    actionLabel: actionLabel ?? (typeof children === 'string' ? children : undefined)
+  })
+
+  return (
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      className={`btn ${variant === 'default' ? '' : `btn--${variant}`}`}
+      data-disabled={disabled}
+      data-on={on}
+      aria-label={actionLabel}
+      title={children === undefined ? actionLabel : undefined}
+      {...props}
+    >
+      {/* Beside the word wherever there is one: an icon alone is a guess on a
+          television three metres away. Where a button is icon-only by design,
+          `actionLabel` is what the hint bar reads back for it. */}
+      {icon ? <Icon name={icon} /> : null}
+      {children}
+    </button>
+  )
+}
+
+/**
+ * A text field that a controller can reach.
+ *
+ * Pressing A moves real DOM focus into the input, at which point Steam's Big
+ * Picture on-screen keyboard (or a real keyboard) takes over. Escape hands
+ * control back to the spatial navigator.
+ */
+export function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  hint,
+  autoFocus = false
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  type?: 'text' | 'password'
+  hint?: string
+  autoFocus?: boolean
+}): JSX.Element {
+  const { ref, props } = useFocusable({
+    onSelect: () => (ref.current as HTMLInputElement | null)?.focus(),
+    autoFocus,
+    actionLabel: 'Type'
+  })
+
+  return (
+    <div className="field">
+      <label className="field__label">{label}</label>
+      <input
+        ref={ref as Ref<HTMLInputElement>}
+        className="field__input"
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') (event.target as HTMLInputElement).blur()
+        }}
+        {...props}
+      />
+      {hint ? <div className="field__hint">{hint}</div> : null}
+    </div>
+  )
+}
+
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (value: T) => void
+}): JSX.Element {
+  return (
+    <div className="segmented">
+      {options.map((option) => (
+        <SegmentedOption
+          key={option.value}
+          label={option.label}
+          active={option.value === value}
+          onSelect={() => onChange(option.value)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function SegmentedOption({
+  label,
+  active,
+  onSelect
+}: {
+  label: string
+  active: boolean
+  onSelect: () => void
+}): JSX.Element {
+  const { ref, props } = useFocusable({ onSelect })
+  return (
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      className="segmented__option"
+      data-active={active}
+      {...props}
+    >
+      {label}
+    </button>
+  )
+}
+
+/**
+ * A tab strip.
+ *
+ * Bound to LB/RB (and shift-Tab/Tab) as well as being focusable, because a tab
+ * strip that can only be reached by walking focus up to it is a tab strip
+ * nobody uses on a controller — the shoulder buttons are where a console UI
+ * puts this, and the hint bar says so.
+ */
+export function Tabs<T extends string>({
+  tabs,
+  active,
+  onChange
+}: {
+  tabs: { id: T; label: string; badge?: number }[]
+  active: T
+  onChange: (id: T) => void
+}): JSX.Element {
+  const step = (delta: number): void => {
+    const index = tabs.findIndex((tab) => tab.id === active)
+    if (index < 0) return
+    onChange(tabs[(index + delta + tabs.length) % tabs.length].id)
+  }
+
+  useAction('tabLeft', () => step(-1))
+  useAction('tabRight', () => step(1))
+
+  return (
+    <div className="tabs">
+      {tabs.map((tab) => (
+        <TabButton
+          key={tab.id}
+          label={tab.label}
+          badge={tab.badge}
+          active={tab.id === active}
+          onSelect={() => onChange(tab.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function TabButton({
+  label,
+  badge,
+  active,
+  onSelect
+}: {
+  label: string
+  badge?: number
+  active: boolean
+  onSelect: () => void
+}): JSX.Element {
+  const { ref, props } = useFocusable({ onSelect })
+  return (
+    <button ref={ref as Ref<HTMLButtonElement>} className="tab" data-active={active} {...props}>
+      {label}
+      {badge != null ? <span className="tab__badge">{badge}</span> : null}
+    </button>
+  )
+}
+
+/**
+ * A labelled setting with its own On/Off control, rather than the label
+ * smuggled into the text of one of the options.
+ */
+export function Toggle({
+  label,
+  hint,
+  on,
+  onToggle
+}: {
+  label: string
+  hint?: string
+  on: boolean
+  onToggle: () => void
+}): JSX.Element {
+  return (
+    <div className="setting">
+      <div className="setting__text">
+        <div className="setting__label">{label}</div>
+        {hint ? <div className="setting__hint">{hint}</div> : null}
+      </div>
+      <SegmentedControl<'on' | 'off'>
+        value={on ? 'on' : 'off'}
+        onChange={(next) => {
+          if ((next === 'on') !== on) onToggle()
+        }}
+        options={[
+          { value: 'on', label: 'On' },
+          { value: 'off', label: 'Off' }
+        ]}
+      />
+    </div>
+  )
+}
+
+/** The same row as `Toggle`, for a setting with more than two answers. */
+export function Choice<T extends string>({
+  label,
+  hint,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  hint?: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}): JSX.Element {
+  return (
+    <div className="setting">
+      <div className="setting__text">
+        <div className="setting__label">{label}</div>
+        {hint ? <div className="setting__hint">{hint}</div> : null}
+      </div>
+      <SegmentedControl<T> value={value} options={options} onChange={onChange} />
+    </div>
+  )
+}
+
+/**
+ * The scales offered, as the strings the segmented control switches on.
+ *
+ * A short list of round numbers rather than a slider: this is a control being
+ * driven from a sofa, and every value between 100% and 200% that anyone would
+ * actually stop at is here. `auto` is 0 in settings — see `Settings.uiScale`.
+ *
+ * Here rather than beside the Settings screen because the first-run wizard asks
+ * the same question, and two lists of scales would drift apart.
+ */
+export type UiScaleChoice = 'auto' | '1' | '1.25' | '1.5' | '2'
+
+export const UI_SCALES: { value: UiScaleChoice; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '1', label: '100%' },
+  { value: '1.25', label: '125%' },
+  { value: '1.5', label: '150%' },
+  { value: '2', label: '200%' }
+]
+
+/** The stored number as one of the offered choices, falling back to Auto. */
+export function uiScaleChoice(scale: number): UiScaleChoice {
+  const match = UI_SCALES.find((option) => option.value === String(scale))
+  return match ? match.value : 'auto'
+}
+
+/**
+ * Where downloaded games go. Asked in Settings and again by the first-run
+ * wizard, which is the only reason it is a component rather than two lines.
+ */
+export function RomStorageChoice({
+  value,
+  onChange
+}: {
+  value: RomStorage
+  onChange: (value: RomStorage) => void
+}): JSX.Element {
+  return (
+    <Choice<RomStorage>
+      label="Where downloaded games go"
+      hint={
+        value === 'rommix'
+          ? 'One folder for everything, which each emulator has to be pointed at once. Changing emulator moves nothing, and a game can be downloaded before anything that runs it is installed.'
+          : "Each emulator's own ROM folder, so games show up in its list when you start it yourself. Changing emulator for a platform means downloading its games again."
+      }
+      value={value}
+      options={[
+        { value: 'emulator', label: "Each emulator's folder" },
+        { value: 'rommix', label: 'RomMix folder' }
+      ]}
+      onChange={onChange}
+    />
+  )
+}

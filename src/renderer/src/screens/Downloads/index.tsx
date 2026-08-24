@@ -8,10 +8,10 @@ import {
   SystemIcon,
   Tabs,
   formatBytes
-} from '../components'
-import { Icon } from '../icons'
-import { useFocusable } from '../input/focus'
-import { useApp } from '../state'
+} from '../../components'
+import { Icon } from '../../icons'
+import { useFocusable } from '../../input/focus'
+import { useApp } from '../../state'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
 const STATE_LABELS: Record<DownloadItem['state'], string> = {
@@ -228,7 +228,7 @@ export function DownloadsScreen(): JSX.Element {
                 <ProgressRow
                   key={item.romId}
                   item={item}
-                  onSelect={() => navigate({ name: 'detail', romId: item.romId })}
+                  onSelect={() => navigate({ name: 'game', romId: item.romId })}
                   onCancel={() => void window.rommix.downloads.cancel(item.romId)}
                 />
               ))}
@@ -242,7 +242,7 @@ export function DownloadsScreen(): JSX.Element {
                 <ProgressRow
                   key={item.romId}
                   item={item}
-                  onSelect={() => navigate({ name: 'detail', romId: item.romId })}
+                  onSelect={() => navigate({ name: 'game', romId: item.romId })}
                 />
               ))}
               <div className="btn-row">
@@ -293,7 +293,7 @@ export function DownloadsScreen(): JSX.Element {
                 entries={entries}
                 open={expanded.has(system)}
                 onToggle={() => toggleGroup(system)}
-                onOpenGame={(entry) => navigate({ name: 'detail', romId: entry.romId })}
+                onOpenGame={(entry) => navigate({ name: 'game', romId: entry.romId })}
                 onRemove={(entry) =>
                   settings?.confirmUninstall === false ? void remove(entry) : setConfirming(entry)
                 }
@@ -305,8 +305,8 @@ export function DownloadsScreen(): JSX.Element {
                 <InstalledRow
                   key={entry.romId}
                   entry={entry}
-                  onSelect={() => navigate({ name: 'detail', romId: entry.romId })}
-                  // The same rule as the detail screen: this button is one A
+                  onSelect={() => navigate({ name: 'game', romId: entry.romId })}
+                  // The same rule as the game screen: this button is one A
                   // press away from deleting a game, so it asks unless the user
                   // has turned confirmation off.
                   onRemove={() =>
@@ -408,7 +408,7 @@ function PlatformGroup({
               key={entry.romId}
               entry={entry}
               onSelect={() => onOpenGame(entry)}
-              // The same rule as the detail screen: this button is one A press
+              // The same rule as the game screen: this button is one A press
               // away from deleting a game, so it asks unless the user has
               // turned confirmation off.
               onRemove={() => onRemove(entry)}

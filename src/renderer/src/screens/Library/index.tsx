@@ -1,8 +1,8 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import type { RommPlatform, RommRom } from '@shared/types'
-import { GameCard, Hints, PlatformIcon, Spinner, TextField, tileFromRom } from '../components'
-import { useAction, useFocusable, useKeyLabel } from '../input/focus'
-import { useApp } from '../state'
+import { GameCard, Hints, PlatformIcon, Spinner, TextField, tileFromRom } from '../../components'
+import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
+import { useApp } from '../../state'
 
 const PAGE_SIZE = 60
 
@@ -153,7 +153,7 @@ export function LibraryScreen(): JSX.Element {
             key={rom.id}
             tile={tileFromRom(rom)}
             installed={installedIds.has(rom.id)}
-            onSelect={() => navigate({ name: 'detail', romId: rom.id })}
+            onSelect={() => navigate({ name: 'game', romId: rom.id })}
             showPlatform={selectedPlatform === undefined}
           />
         ))}

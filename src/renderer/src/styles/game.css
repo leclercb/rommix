@@ -1,0 +1,164 @@
+/* --------------------------------------------------------------------------
+   Game banner (game screen)
+   -------------------------------------------------------------------------- */
+
+/*
+ * The head of a game's page: its own artwork, edge to edge, with the cover and
+ * the title over it.
+ *
+ * Full-bleed sideways and pulled up over the page's top inset, so the banner
+ * meets the navigation bar and the three edges of the screen — a picture inset
+ * by the same margin as a paragraph reads as an illustration in the page rather
+ * than as the page's own head. The insets are given back to the contents, which
+ * still line up with everything below.
+ *
+ * Deliberately not clipped: the artwork is held inside `.backdrop` instead, so
+ * that a focused Play button's ring and drop shadow are free to fall past the
+ * banner's lower edge rather than being cut off at it.
+ */
+.game-hero {
+  position: relative;
+  margin: calc(var(--safe-y) * -1) calc(var(--safe-x) * -1) 0;
+  padding: calc(var(--safe-y) + 26px) var(--safe-x) 26px;
+}
+
+.game-hero__body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 34px;
+  align-items: end;
+}
+
+.game-hero__art {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.7);
+}
+
+.game-hero__title {
+  font-size: 46px;
+  font-weight: 780;
+  letter-spacing: -1.4px;
+  line-height: 1.05;
+  margin: 0 0 12px;
+  /* The banner is a photograph; without this the title dissolves into whatever
+     happens to be bright behind it. */
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+}
+
+.game-hero__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* Solid where the other chips are translucent: this is the one figure in the
+   line that is read rather than scanned. */
+.game-hero__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 200, 87, 0.14);
+  border: 1px solid rgba(255, 200, 87, 0.4);
+  color: var(--warning);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.game-hero__summary {
+  color: var(--text-dim);
+  max-width: 78ch;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The chips sit on artwork rather than on the page, so they carry their own
+   dark ground instead of the near-transparent one. */
+.game-hero .chip {
+  background: rgba(6, 8, 12, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  backdrop-filter: blur(6px);
+}
+
+.game-hero .chip--on {
+  background: rgba(93, 219, 160, 0.2);
+  border-color: rgba(93, 219, 160, 0.45);
+  color: var(--success);
+}
+
+/* The buttons are the last thing in the banner; the row's own top margin is
+   enough and its bottom one would only push the tabs away. */
+.game-hero .btn-row {
+  margin-bottom: 0;
+}
+
+/* Under a narrow window the cover would squeeze the title into two words a
+   line; the artwork goes above the text instead of beside it. */
+@media (max-width: 900px) {
+  .game-hero__body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .game-hero__art {
+    max-width: 190px;
+  }
+}
+
+/*
+ * The artwork itself, behind everything: blurred past legibility, dimmed, and
+ * dissolved into the page at the bottom so the banner has no edge to notice.
+ *
+ * Scaled up because a blur of this radius samples past the edges of the image
+ * and would otherwise leave a soft grey border around all four sides.
+ */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.15);
+  filter: blur(34px) saturate(1.25);
+  opacity: 0.38;
+}
+
+.backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(11, 13, 19, 0.55), rgba(11, 13, 19, 0.15) 40%, var(--bg)),
+    linear-gradient(90deg, rgba(11, 13, 19, 0.72), transparent 60%);
+}
+
+.chip {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.chip--on {
+  background: rgba(93, 219, 160, 0.14);
+  border-color: rgba(93, 219, 160, 0.4);
+  color: var(--success);
+}

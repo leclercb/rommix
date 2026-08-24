@@ -1,0 +1,81 @@
+/* --------------------------------------------------------------------------
+   Downloads
+   -------------------------------------------------------------------------- */
+
+/* The artwork spans every row of the grid beside it. */
+.download__art {
+  grid-row: 1 / -1;
+  width: 52px;
+}
+
+.download {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 6px 16px;
+  align-items: center;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  transition: var(--transition);
+}
+
+.download[data-focused='true'] {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+/* A transfer that can still be cancelled carries a button, which needs a column
+   of its own — added only where there is one, so a finished row does not end in
+   an empty track and the gap that comes with it. */
+.download--action {
+  grid-template-columns: 52px 1fr auto auto;
+}
+
+.download__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* The same row without the cover: the game screen already shows the game
+   above, so it has no `__art` to fill the first column — and without dropping
+   that column the label is squeezed into 52px and spills over the size beside
+   it. */
+.download--bare {
+  grid-template-columns: 1fr auto;
+}
+
+.download__name {
+  font-weight: 650;
+}
+
+.download__bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.download__fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 200ms linear;
+}
+
+.download__state {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* One way of installing an emulator: the button that takes it, and what it
+   would do in plain words beside it. */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}

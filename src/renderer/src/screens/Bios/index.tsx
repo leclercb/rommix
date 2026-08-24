@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { BiosPlatform, BiosReport } from '@shared/types'
-import { FocusButton, Hints, Overlay, PlatformIcon, Spinner, formatBytes } from '../components'
-import { useApp, type ToastSubject } from '../state'
+import { FocusButton, Hints, Overlay, PlatformIcon, Spinner, formatBytes } from '../../components'
+import { useApp, type ToastSubject } from '../../state'
 
 /**
  * BIOS files, per platform.

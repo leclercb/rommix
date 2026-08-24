@@ -89,8 +89,10 @@
       // during render on purpose: the alternative is re-registering every
       // focusable on every focus change, which is the cost the whole module is
       // arranged to avoid. The lazy `useRef` id init this also flags is the
-      // documented React pattern for a stable per-instance identity.
-      "files": ["src/renderer/src/input/focus.tsx"],
+      // documented React pattern for a stable per-instance identity. The pad
+      // poll does the same with its callbacks: it is started once and reads
+      // them out of refs, so that a game starting does not tear the loop down.
+      "files": ["src/renderer/src/input/focus.tsx", "src/renderer/src/input/gamepad.ts"],
       "rules": { "react/refs": "off" }
     }
   ],

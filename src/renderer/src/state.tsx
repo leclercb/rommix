@@ -23,7 +23,7 @@ export type Route =
   | { name: 'connect' }
   | { name: 'home' }
   | { name: 'library' }
-  | { name: 'detail'; romId: number }
+  | { name: 'game'; romId: number }
   | { name: 'downloads' }
   | { name: 'bios' }
   | { name: 'settings' }

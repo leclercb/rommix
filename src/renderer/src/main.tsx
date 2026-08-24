@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { FocusProvider } from './input/focus'
 import { AppProvider } from './state'
-import './styles.css'
+import './styles/index.css'
 
 // In a browser there is no preload script and so no `window.rommix`. The flag
 // is set only by `vite.web.config.ts`, and being a compile-time constant

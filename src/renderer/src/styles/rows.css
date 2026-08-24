@@ -1,0 +1,127 @@
+/* --------------------------------------------------------------------------
+   Rows and grids
+   -------------------------------------------------------------------------- */
+
+.row {
+  /* Overflow is visible so the focus scale is not clipped. */
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 10px 4px 16px;
+  scrollbar-width: none;
+}
+
+.row::-webkit-scrollbar {
+  display: none;
+}
+
+/* `min-width: 0` is load-bearing, not tidying.
+   A flex item defaults to `min-width: auto`, which resolves to its min-content
+   width — and `.card__title` is `white-space: nowrap`, so a long game name
+   reports a min-content width of the whole title. The `overflow: hidden` that
+   ellipsises it sits on the title, not on the flex item, so it does not zero
+   that contribution. Cards with long names were therefore rendering *wider*
+   than 168px, and because the cover's height is a percentage of its width,
+   wider meant taller. The covers differed in height because they differed in
+   width. */
+.row > * {
+  flex: 0 0 168px;
+  min-width: 0;
+}
+
+/* Marks the end of an endless shelf. Overrides the card width above so it
+   occupies no meaningful space of its own. */
+.row__sentinel {
+  flex: 0 0 1px;
+  align-self: stretch;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 22px 18px;
+  padding: 10px 4px 20px;
+}
+
+/* Same automatic-minimum-size trap as `.row > *`: a grid item also defaults to
+   `min-width: auto`, so a long title would push the card past its track. */
+.grid > * {
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Hero
+   -------------------------------------------------------------------------- */
+
+/* The horizontal padding is what the focus ring needs: it is drawn on the
+   hero's own edge, so with no inset it sat flush against the cover art. */
+.hero {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 30px;
+  align-items: end;
+  min-height: 300px;
+  padding: 26px 22px 18px;
+  margin: 0 -22px;
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+
+.hero[data-focused='true'] {
+  background: var(--surface);
+  box-shadow: var(--focus-ring);
+}
+
+.hero__art {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+.hero__hint {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.hero[data-focused='true'] .hero__hint {
+  opacity: 1;
+}
+
+.hero__reason {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.hero__title {
+  font-size: 46px;
+  font-weight: 780;
+  letter-spacing: -1.4px;
+  line-height: 1.05;
+  margin: 0 0 10px;
+}
+
+.hero__meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.hero__summary {
+  color: var(--text-dim);
+  max-width: 70ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

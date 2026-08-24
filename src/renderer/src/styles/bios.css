@@ -1,0 +1,89 @@
+/* --------------------------------------------------------------------------
+   BIOS
+   -------------------------------------------------------------------------- */
+
+.bios {
+  margin-bottom: 26px;
+}
+
+.bios__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Pushed to the end of the heading row, away from the console's name and
+   status, so the two things that read as labels stay together. */
+.bios__install-all {
+  margin-left: auto;
+}
+
+/* The exact file, so "where did that go?" never needs asking. Wraps rather
+   than truncates: half a path is worse than a long one. */
+.bios__path {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
+
+/* Staged files are the ones the user still has to act on. */
+.bios__path[data-staged='true'] {
+  color: var(--warning);
+}
+
+.bios__where {
+  font-size: 13px;
+  color: var(--text-faint);
+  word-break: break-all;
+  margin-bottom: 10px;
+}
+
+.bios__item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.bios__body {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.bios__name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-weight: 650;
+  word-break: break-all;
+}
+
+.bios__meta {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.bios__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Contexts where the icon sits inline with its platform's name. `.installed__meta`
+   is already a flex row and needs nothing. */
+.download__state,
+.segmented__option--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

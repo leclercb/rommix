@@ -1,0 +1,33 @@
+/* ---------------------------------------------------------------------------
+ * Reduced motion
+ * ------------------------------------------------------------------------- */
+
+/*
+ * What is left when the system has asked for less movement.
+ *
+ * Last in the file so it wins on equal specificity, and written against the two
+ * things that actually move rather than as a blanket `* { animation: none }`:
+ * the focus ring's grow-and-settle, which fires on every press of a held
+ * direction, and the spinner, which runs for as long as a page is loading.
+ *
+ * Nothing is hidden and nothing stops working — the highlight still lands on
+ * the focused element and the spinner is still visibly a spinner. The scrolling
+ * that goes with a focus move is handled in `input/focus.tsx`, which reads the
+ * same preference: the page still moves, it simply arrives instead of
+ * travelling.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0s;
+  }
+
+  .spinner {
+    /* Stepped rather than stopped: a still ring is indistinguishable from a
+       decoration, and "is it loading" is the one question it exists to answer. */
+    animation: spin 2400ms steps(8) infinite;
+  }
+
+  .download__fill {
+    transition: none;
+  }
+}

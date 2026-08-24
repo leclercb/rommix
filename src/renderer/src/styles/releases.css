@@ -1,0 +1,72 @@
+/* ---------------------------------------------------------------------------
+ * Release picker
+ * ------------------------------------------------------------------------- */
+
+/*
+ * The two steps of installing an emulator build: a version, then a file.
+ *
+ * Rows rather than the `.btn-row` of buttons this used to be. A button sizes
+ * itself to its label and sits beside its neighbours, which for filenames of
+ * fifty near-identical characters produced a wrapped thicket nobody could
+ * compare. A row per option gives each one the full width and puts the part
+ * that differs — the end of the name — in the same place every time.
+ */
+.release-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 20px;
+}
+
+.release {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.release[data-focused='true'] {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.release__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.release__name {
+  font-size: 17px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/*
+ * A filename, which is the whole content of the decision.
+ *
+ * Wrapped rather than ellipsised, and broken anywhere: these run past fifty
+ * characters and differ only near the end, so truncation removes exactly the
+ * part being chosen between. `monospace` because the difference between two of
+ * them is a word in the middle, and a column that lines up is what makes that
+ * findable at a glance.
+ */
+.release__name--file {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.release__meta {
+  margin-top: 3px;
+  font-size: 14px;
+  color: var(--text-faint);
+}

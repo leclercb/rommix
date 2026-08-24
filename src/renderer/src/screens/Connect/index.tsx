@@ -1,6 +1,6 @@
 import { type JSX, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { AuthMode, RomStorage, RommDeviceAuthInit } from '@shared/types'
-import { useAction } from '../input/focus'
+import { useAction } from '../../input/focus'
 import {
   Choice,
   FocusButton,
@@ -14,8 +14,8 @@ import {
   UI_SCALES,
   uiScaleChoice,
   type UiScaleChoice
-} from '../components'
-import { useApp } from '../state'
+} from '../../components'
+import { useApp } from '../../state'
 
 /**
  * The steps of first-run setup, in order.

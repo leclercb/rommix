@@ -1,0 +1,95 @@
+/* Palette, sizing tokens and the handful of element resets. */
+
+:root {
+  --bg: #0b0d13;
+  --bg-raised: #151a24;
+  --bg-hover: #1e2532;
+  --surface: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.09);
+
+  --text: #f2f5fa;
+  --text-dim: #9aa4b8;
+  --text-faint: #626c80;
+
+  --accent: #5ac8fa;
+  --accent-strong: #2aa9e0;
+  --accent-contrast: #04121b;
+  --danger: #ff6b6b;
+  --success: #5ddba0;
+  --warning: #ffc857;
+
+  --radius: 12px;
+  --radius-lg: 18px;
+
+  --safe-x: 3.5vw;
+  --safe-y: 3.5vh;
+
+  /*
+   * Two focus treatments, for two kinds of focusable.
+   *
+   * `--focus-lift` is the elevation alone, for anything that fills with accent
+   * when focused: the colour is already the loudest signal available, and the
+   * ring below would only add three pixels on every side — which, animated in
+   * over `--transition`, reads as the control growing.
+   *
+   * `--focus-ring` adds the outline, for everything that cannot change colour to
+   * say it is focused: cover art, a text field, a row of a list.
+   */
+  --focus-lift: 0 12px 34px rgba(0, 0, 0, 0.65);
+  --focus-ring: 0 0 0 3px var(--accent), var(--focus-lift);
+  --transition: 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    'Inter',
+    'Noto Sans',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  overflow: hidden;
+  /* A controller drives this UI; a stray text selection only gets in the way. */
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Icons are drawn in the colour of the text they sit beside, and never shrink
+   when a long label wraps. */
+svg {
+  flex: 0 0 auto;
+}
+
+input {
+  font: inherit;
+}
+
+/* Focus is drawn by us, never by the browser's default outline. */
+:focus {
+  outline: none;
+}

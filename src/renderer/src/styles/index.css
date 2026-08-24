@@ -1,0 +1,34 @@
+/*
+ * RomMix — a 10-foot interface.
+ *
+ * Sizing assumes a couch: nothing smaller than 16px, generous hit areas, and a
+ * 3.5% safe-area inset so nothing important lands in a TV's overscan. Focus is
+ * communicated by a bright ring, a colour change and elevation — and, where
+ * there is no colour to change, by scale — because on a TV a subtle outline is
+ * invisible from three metres away.
+ */
+
+/*
+ * One file per area of the interface, imported in the order they were written
+ * in: CSS is a cascade, so the order here is part of the meaning — a later rule
+ * of equal specificity wins, and several sections rely on that (a chip on
+ * artwork overriding the plain chip, a shelf card overriding the grid card).
+ * Add a section at the end unless it is deliberately overriding one above it.
+ */
+
+@import './base.css';
+@import './shell.css';
+@import './buttons.css';
+@import './cards.css';
+@import './emulators.css';
+@import './rows.css';
+@import './game.css';
+@import './forms.css';
+@import './downloads.css';
+@import './overlays.css';
+@import './notifications.css';
+@import './tabs.css';
+@import './saves.css';
+@import './bios.css';
+@import './releases.css';
+@import './motion.css';

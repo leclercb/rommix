@@ -1,0 +1,209 @@
+/* --------------------------------------------------------------------------
+   Overlays
+   -------------------------------------------------------------------------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 12, 0.86);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--safe-y) var(--safe-x);
+}
+
+/*
+ * Three quarters of the screen, not a fixed 620px.
+ *
+ * What a dialog holds here is mostly file names — release assets, saves about
+ * to be pushed, the folder a game will be deleted from — and those are long,
+ * unbreakable and the whole reason the dialog is on screen. At 620px they
+ * ellipsised, which turns "confirm this" into "confirm something".
+ *
+ * A share of the viewport rather than a wider fixed number because the viewport
+ * is not a fixed thing: `applyUiScale` renders at 2× on a 4K panel, so the page
+ * is 1920 CSS pixels wide there and 1280 on a laptop. `vw` is measured after
+ * that zoom, so 75% stays three quarters of what the user can see either way.
+ * The cap keeps a very wide monitor from producing a line of text nobody can
+ * track back to its start.
+ */
+.overlay__panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 34px 38px;
+  width: 75vw;
+  max-width: 1100px;
+  /* Never so tall that the buttons leave the screen: the panel scrolls inside
+     itself, and the safe-area padding on `.overlay` is what it stops short of. */
+  max-height: calc(100vh - var(--safe-y) * 2);
+  overflow-y: auto;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+.overlay__title {
+  font-size: 26px;
+  font-weight: 720;
+  margin: 0 0 10px;
+}
+
+/* The QR sits on its own white plate: the code needs a light quiet zone, and a
+   plate keeps that from reading as a rendering glitch against the dark panel. */
+.pair-qr {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 4px;
+}
+
+.pair-qr svg {
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 45%);
+  max-width: 100%;
+  height: auto;
+}
+
+.pair-code {
+  font-size: 46px;
+  font-weight: 780;
+  letter-spacing: 10px;
+  text-align: center;
+  padding: 22px 0;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The footer: the signature at one end, the button hints at the other, like a
+   console UI. */
+.hints {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px 22px;
+  justify-content: flex-end;
+  /* Four hints of keyboard labels are far wider than four of `A`/`B`/`X`/`Y`,
+     so they wrap onto a second line on a narrow window rather than colliding. */
+  flex-wrap: wrap;
+  padding: 10px var(--safe-x);
+  background: linear-gradient(transparent, rgba(6, 8, 12, 0.92) 45%);
+  font-size: 14px;
+  color: var(--text-dim);
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* Each hint keeps its chip and its label on one line, whatever they say. */
+.hints > span {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/*
+ * Hard left, the hints staying hard right.
+ *
+ * An auto margin rather than `space-between` on the bar: the bar wraps, and
+ * with space-between a wrapped second line would spread its two remaining
+ * hints to the far edges instead of keeping them together at the end.
+ *
+ * Quieter than the hints beside it — this is a signature, not something anyone
+ * has to read — and the first thing dropped on a window too narrow to hold both
+ * it and the buttons it shares the line with.
+ */
+.hints__credit {
+  margin-right: auto;
+  font-size: 13px;
+  color: var(--text-faint);
+  opacity: 0.75;
+}
+
+.hints__heart {
+  color: var(--danger);
+  margin: 0 4px;
+}
+
+@media (max-width: 900px) {
+  .hints__credit {
+    display: none;
+  }
+}
+
+/*
+ * A pill rather than a fixed circle. The chip has to hold `A` and `Shift+Tab`
+ * alike now that it names keyboard keys as well as controller buttons, and a
+ * fixed 22px circle simply let the longer ones spill over the label next to it.
+ * `min-width` equal to the height keeps a single character perfectly round.
+ */
+.hint__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 7px;
+  color: var(--text);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 8px 20px;
+  margin: 16px 0;
+  font-size: 15px;
+}
+
+/* Icon then label, both in the dim colour: the mark belongs to the label it
+   sits with, not to the value across the gutter. */
+.kv dt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-faint);
+}
+
+/* `anywhere` rather than `break-all`: a long install path still breaks mid-word
+   because it has to, but a list of company names breaks between the names,
+   which `break-all` would not have done. */
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The same list, in two columns where there is room for two.
+ *
+ * For a list long enough that one column of it runs off the bottom of the
+ * screen — a game RomM has full metadata for is fifteen rows — where the second
+ * column costs nothing but the space already going spare beside it.
+ *
+ * Two and no more, which the `max-width` is what enforces: the values here are
+ * install paths and comma-separated lists of languages, and a third column
+ * takes the space they need to sit on one line. Widening the window would then
+ * *add* wrapping, which is not what a wider window is for.
+ *
+ * `auto-fill` rather than a fixed two: below the minimum it becomes one column
+ * on its own, which is the whole of the narrow-window behaviour.
+ */
+.kv--columns {
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  max-width: 1000px;
+  gap: 10px 40px;
+}
+
+.kv--columns .kv__row {
+  display: grid;
+  /* Narrower than the single-column list's 210px: every label here is one or
+     two words, and what is left over goes to the value, which is not. */
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 20px;
+  align-items: baseline;
+}

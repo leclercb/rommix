@@ -83,6 +83,28 @@ them otherwise, and every helper in there is meant to stay testable.
 `@shared`/`@config` aliases, and a stub for `electron` that throws by name if a
 test actually calls it.
 
+`src/main/ipc/` is one module per subject — `saves.ts`, `game.ts`, `system.ts`
+and the rest — each exporting a `register…Ipc(rommix, handle)` that declares its
+own channels. A new channel goes in the module it belongs to; `index.ts` only
+composes them, and `handler.ts` is the wrapper that logs every call and turns a
+thrown error into a message the renderer can show.
+
+### The renderer
+
+`src/renderer/src/components/` is the shared UI, imported as one module
+(`../components`); `input/` is the focus engine, split into the geometry, the
+scrolling and the two input sources it is built from.
+
+Every screen is a folder under `screens/`, named after the screen and holding
+`index.tsx` — the screen itself — with its own parts beside it: `Game/` keeps
+its banner, its dialogs and its save hook, and its four tabs in `tabs/`. A
+screen that is still one file gets the folder anyway, so growing one is a new
+file rather than a move. The folder is named for the screen's subject, which is
+also the route it answers to (`Game/`, `{ name: 'game', romId }`).
+
+Styles follow the same shape: `styles/index.css` imports one file per area of
+the interface, and the import order there is the cascade.
+
 ### The linter
 
 [oxlint](https://oxc.rs), not ESLint. That started as a constraint — no published

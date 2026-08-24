@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { stemMatches, syncStateOf } from './saves.ts'
+import { stemMatches, syncStateOf } from './savefiles.ts'
 
 /**
  * The two judgements save sync makes that nothing else checks.

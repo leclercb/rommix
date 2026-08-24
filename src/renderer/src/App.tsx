@@ -20,7 +20,7 @@ import { Icon, type IconName } from './icons'
 import { useApp, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
-import { DetailScreen } from './screens/Detail'
+import { GameScreen } from './screens/Game'
 import { DownloadsScreen } from './screens/Downloads'
 import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
@@ -167,8 +167,8 @@ function Screen({ route }: { route: Route }): JSX.Element {
       return <HomeScreen />
     case 'library':
       return <LibraryScreen />
-    case 'detail':
-      return <DetailScreen romId={route.romId} />
+    case 'game':
+      return <GameScreen romId={route.romId} />
     case 'downloads':
       return <DownloadsScreen />
     case 'bios':

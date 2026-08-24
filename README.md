@@ -227,8 +227,9 @@ pointing it back brings them straight back.
 - **Download newer saves before playing** — only ever replaces a local save that
   is _older_, and keeps the local file as `*.rommix-bak` first.
 - **Upload saves after playing** — sends back only the files the session wrote.
-- **Ask before sending saves to RomM** — off by default. Lists the files first
-  and sends only what you approve; what you decline stays on this device.
+- **Ask before sending saves to RomM** — on by default. Lists the files first
+  and sends only what you approve; what you decline stays on this device. The
+  dialog's **Send and don't ask again** turns this off from where it is asked.
 
 A game's **Saves** tab pulls or pushes by hand, and marks each file in sync,
 newer here, newer on RomM, or missing from one side.

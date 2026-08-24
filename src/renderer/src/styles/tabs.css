@@ -1,0 +1,84 @@
+/* --------------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------------- */
+
+/*
+ * A card holding a tab strip and whatever the strip is pointing at.
+ *
+ * The two are one block rather than a row of buttons above some loose content:
+ * the strip is the lid, and the border runs round both so the answer to "what
+ * does this tab govern" is drawn rather than inferred.
+ */
+.panel {
+  margin: 26px 0 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.panel__body {
+  padding: 4px 22px 18px;
+}
+
+/* Inside the card the lists supply the spacing, so the first and last of them
+   must not add the page's margins on top of the padding. */
+.panel__body > :first-child {
+  margin-top: 14px;
+}
+
+.panel__body > :last-child {
+  margin-bottom: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 26px 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* In a card the strip is the card's own top edge: flush with it, on a slightly
+   raised ground, and without the margins it needs when it stands alone. */
+.panel .tabs {
+  margin: 0;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 650;
+  font-size: 16px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tab[data-active='true'] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tab[data-focused='true'] {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-radius: 10px 10px 0 0;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tab__badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
