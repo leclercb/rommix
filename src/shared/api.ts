@@ -20,6 +20,7 @@ import type {
   EmulatorRelease,
   RootLocation,
   SaveAsset,
+  SaveDeleteScope,
   SavePushPreview,
   SaveSyncResult,
   Settings,
@@ -130,16 +131,18 @@ export interface RomMixBridge {
      */
     pushSelected(romId: number, paths: string[]): Promise<SaveSyncResult>
     /**
-     * Delete one asset from every end that has it.
+     * Delete one asset from one end of the sync — this device, or RomM.
      *
      * `id` is RomM's, or null for a file only this device has — which is what
      * `fileName` identifies, since such a row has no server id to name it by.
+     * Rejects when the named end does not hold the file.
      */
     remove(
       romId: number,
       kind: 'save' | 'state',
       id: number | null,
-      fileName: string
+      fileName: string,
+      scope: SaveDeleteScope
     ): Promise<void>
   }
   bios: {

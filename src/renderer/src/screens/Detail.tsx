@@ -9,6 +9,7 @@ import type {
   PendingSave,
   RommRom,
   SaveAsset,
+  SaveDeleteScope,
   SavePushPreview,
   SaveSyncState
 } from '@shared/types'
@@ -83,29 +84,37 @@ const SYNC_BADGES: Record<
 }
 
 /**
- * Which ends of the sync a row's Delete button would clear.
+ * The two ends a row's delete buttons clear, one button each.
  *
- * Named on the button itself rather than left to the confirmation dialog. The
- * two ends are the whole subject of this tab — every badge above is about which
- * of them is ahead — so a button that just says "Delete" is the one control
- * here that does not say which end it means, and the answer changes per row.
+ * Both buttons on every row that has both copies, rather than one that clears
+ * the pair: the two ends are the whole subject of this tab — every badge above
+ * is about which of them is ahead — and the reason to delete one is almost
+ * always that the other is the copy worth keeping. Throwing away a corrupt
+ * local save and pulling RomM's back is a thing to want, and "delete
+ * everywhere" cannot say it.
+ *
+ * `where` completes both the button — `Delete {where}` — and the dialog's
+ * question, so the two cannot drift apart. `consequence` is what the surviving
+ * copy will do, which is the part worth pausing over: neither delete stays
+ * deleted by itself, and that is exactly why one presses it.
  */
-type DeleteScope = 'both' | 'remote' | 'local'
-
-function deleteScopeOf(asset: SaveAsset): DeleteScope {
-  if (asset.id === null) return 'local'
-  return asset.localPath ? 'both' : 'remote'
+const DELETE_SCOPES: Record<SaveDeleteScope, { where: string; consequence: string }> = {
+  local: {
+    where: 'from this device',
+    consequence: 'Pull saves brings the copy on RomM back down.'
+  },
+  remote: {
+    where: 'from RomM',
+    consequence: 'Push saves sends the copy on this device back up.'
+  }
 }
 
-/**
- * What each scope is called. `where` completes both the button — `Delete
- * {where}` — and the dialog's question, so the two cannot drift apart.
- */
-const DELETE_SCOPES: Record<DeleteScope, { where: string; warning: string }> = {
-  both: { where: 'everywhere', warning: 'Deleting one alone does not stick.' },
-  // The badge on the row already says it is not on this device.
-  remote: { where: 'from RomM', warning: '' },
-  local: { where: 'from this device', warning: 'There is no copy on RomM.' }
+/** Which ends hold this file, and so which of the two buttons can act. */
+function deleteScopesOf(asset: SaveAsset): SaveDeleteScope[] {
+  const scopes: SaveDeleteScope[] = []
+  if (asset.localPath) scopes.push('local')
+  if (asset.id !== null) scopes.push('remote')
+  return scopes
 }
 
 /**
@@ -140,7 +149,10 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   /** Null until RomM has been asked, which is what the button waits on. */
   const [favourite, setFavourite] = useState<boolean | null>(null)
-  const [deletingAsset, setDeletingAsset] = useState<SaveAsset | null>(null)
+  /** The row and the end it was asked to be deleted from, awaiting an answer. */
+  const [deleting, setDeleting] = useState<{ asset: SaveAsset; scope: SaveDeleteScope } | null>(
+    null
+  )
   const [bios, setBios] = useState<BiosPlatform | null>(null)
 
   useEffect(() => {
@@ -441,18 +453,18 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
   }
 
   /**
-   * Remove one save or state from every end that has it.
+   * Remove one save or state from the one end the button named.
    *
-   * Which ends those are is the row's business, not this function's: the main
-   * process re-scans and clears whatever it finds, so the scope computed here
-   * is only what the button and the dialog say it will be.
+   * The other copy is deliberately left alone — that is what makes "delete the
+   * bad one here, then pull RomM's" possible — so the list is reloaded
+   * afterwards and the row comes back with the badge for whichever end is left.
    */
-  const deleteAsset = async (asset: SaveAsset): Promise<void> => {
-    setDeletingAsset(null)
+  const deleteAsset = async (asset: SaveAsset, scope: SaveDeleteScope): Promise<void> => {
+    setDeleting(null)
     setBusy(true)
     try {
-      await window.rommix.saves.remove(romId, asset.kind, asset.id, asset.fileName)
-      notify(`${asset.fileName} deleted ${DELETE_SCOPES[deleteScopeOf(asset)].where}`)
+      await window.rommix.saves.remove(romId, asset.kind, asset.id, asset.fileName, scope)
+      notify(`${asset.fileName} deleted ${DELETE_SCOPES[scope].where}`)
       await loadAssets()
     } catch {
       // Reported centrally.
@@ -819,7 +831,11 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         <div className="panel__body">
           {tab === 'details' ? <Details rom={rom} entry={entry} /> : null}
           {tab === 'saves' ? (
-            <SavesTab assets={assets} entry={entry} onDelete={setDeletingAsset} />
+            <SavesTab
+              assets={assets}
+              entry={entry}
+              onDelete={(asset, scope) => setDeleting({ asset, scope })}
+            />
           ) : null}
           {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
           {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
@@ -862,31 +878,34 @@ export function DetailScreen({ romId }: { romId: number }): JSX.Element {
         </Overlay>
       ) : null}
 
-      {deletingAsset ? (
+      {deleting ? (
         <Overlay
-          title={`Delete this ${deletingAsset.kind} ${
-            DELETE_SCOPES[deleteScopeOf(deletingAsset)].where
-          }?`}
+          title={`Delete this ${deleting.asset.kind} ${DELETE_SCOPES[deleting.scope].where}?`}
         >
           <p className="muted">
-            {/* The title says the scope; this names the file and the folder it
-                is actually in. */}
-            {deletingAsset.fileName} —{deletingAsset.id !== null ? ' RomM' : ''}
-            {deletingAsset.id !== null && deletingAsset.localPath ? ' and' : ''}
-            {deletingAsset.localPath
-              ? ` ${deletingAsset.localPath.replace(/\/[^/]*$/, '')}`
-              : ''}. {DELETE_SCOPES[deleteScopeOf(deletingAsset)].warning}
+            {/* The title says which end; this names the file and, for a local
+                delete, the folder it is actually in. */}
+            {deleting.asset.fileName} —{' '}
+            {deleting.scope === 'local'
+              ? deleting.asset.localPath?.replace(/\/[^/]*$/, '')
+              : 'RomM'}
+            .{' '}
+            {/* What happens to the copy left behind. Not a warning: it is the
+                reason for deleting one end rather than both. */}
+            {deleteScopesOf(deleting.asset).length === 2
+              ? DELETE_SCOPES[deleting.scope].consequence
+              : 'This is the only copy.'}
           </p>
           <div className="btn-row">
-            <FocusButton icon="keep" onSelect={() => setDeletingAsset(null)} autoFocus>
+            <FocusButton icon="keep" onSelect={() => setDeleting(null)} autoFocus>
               Keep it
             </FocusButton>
             <FocusButton
               icon="delete"
               variant="danger"
-              onSelect={() => void deleteAsset(deletingAsset)}
+              onSelect={() => void deleteAsset(deleting.asset, deleting.scope)}
             >
-              Delete {DELETE_SCOPES[deleteScopeOf(deletingAsset)].where}
+              Delete {DELETE_SCOPES[deleting.scope].where}
             </FocusButton>
           </div>
         </Overlay>
@@ -1127,7 +1146,7 @@ function SavesTab({
 }: {
   assets: SaveAsset[] | null
   entry?: InstalledRom
-  onDelete: (asset: SaveAsset) => void
+  onDelete: (asset: SaveAsset, scope: SaveDeleteScope) => void
 }): JSX.Element {
   if (!assets) return <Spinner />
   if (assets.length === 0) {
@@ -1170,14 +1189,20 @@ function SavesTab({
               {asset.fromThisDevice === false ? ' · another device' : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
-            {/* Every row, and the label names the ends it clears. A button
-                present on some rows and missing from others reads as an
-                inconsistency to work out rather than as the fact it was: that
-                there was no server copy to remove. */}
+            {/* One button per end that actually holds the file, each naming its
+                end. A row with both copies gets both, which is what makes the
+                two ends separable: delete the local one, pull RomM's back. */}
             <span className="asset__actions">
-              <FocusButton icon="delete" variant="danger" onSelect={() => onDelete(asset)}>
-                Delete {DELETE_SCOPES[deleteScopeOf(asset)].where}
-              </FocusButton>
+              {deleteScopesOf(asset).map((scope) => (
+                <FocusButton
+                  key={scope}
+                  icon="delete"
+                  variant="danger"
+                  onSelect={() => onDelete(asset, scope)}
+                >
+                  Delete {DELETE_SCOPES[scope].where}
+                </FocusButton>
+              ))}
             </span>
           </li>
         )

@@ -535,6 +535,18 @@ export type SaveSyncState =
   | 'remote-only'
 
 /**
+ * Which end a delete clears.
+ *
+ * One end at a time, never both at once. Clearing both is the safe default
+ * only if a save has one meaning; in practice the two ends are two copies a
+ * person compares, and the useful actions are on one of them — throw away a
+ * corrupt local file and pull RomM's back, or drop a stale server copy and
+ * push the one that has been played. A single "delete everywhere" can express
+ * neither, and anyone who does want both ends gone can press twice.
+ */
+export type SaveDeleteScope = 'local' | 'remote'
+
+/**
  * A save or save state belonging to a game, on either side of the sync.
  *
  * One row per file *name*, not per copy: a save the server and this device both

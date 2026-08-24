@@ -23,6 +23,7 @@ import type {
   LibrarySyncResult,
   RootLocation,
   SaveAsset,
+  SaveDeleteScope,
   SavePushPreview,
   SaveSyncResult,
   Settings
@@ -477,12 +478,12 @@ export function registerIpc(rommix: RomMixApp): void {
   )
 
   /**
-   * Delete one save or state from every end that has it.
+   * Delete one save or state from one end of the sync — this device, or RomM.
    *
-   * Both ends, because one alone does not stay deleted: RomMix uploads what a
-   * session wrote, so a save removed only from the server comes back the next
-   * time the game is played. `id` is null for a file only this device has,
-   * which has no server copy to remove and is named instead.
+   * One end, because the other is usually the copy being kept: deleting here is
+   * how a bad local save is thrown away and RomM's pulled back over it. `id` is
+   * null for a file only this device has, which has no server copy to remove
+   * and is named instead.
    */
   handle(
     'saves:delete',
@@ -490,10 +491,11 @@ export function registerIpc(rommix: RomMixApp): void {
       romId: number,
       kind: 'save' | 'state',
       id: number | null,
-      fileName: string
+      fileName: string,
+      scope: SaveDeleteScope
     ): Promise<void> => {
       const local = await saveContext(romId).catch(() => null)
-      await saveSync.deleteAsset(romId, kind, id, fileName, local ?? undefined)
+      await saveSync.deleteAsset(romId, kind, id, fileName, scope, local ?? undefined)
     }
   )
 

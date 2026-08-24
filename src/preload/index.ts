@@ -12,6 +12,7 @@ import type {
   EmulatorAsset,
   EmulatorInstallProgress,
   RomQuery,
+  SaveDeleteScope,
   Settings
 } from '@shared/types'
 
@@ -62,8 +63,13 @@ const bridge: RomMixBridge = {
     pushPreview: (romId: number) => ipcRenderer.invoke('saves:pushPreview', romId),
     pushSelected: (romId: number, paths: string[]) =>
       ipcRenderer.invoke('saves:pushSelected', romId, paths),
-    remove: (romId: number, kind: 'save' | 'state', id: number | null, fileName: string) =>
-      ipcRenderer.invoke('saves:delete', romId, kind, id, fileName)
+    remove: (
+      romId: number,
+      kind: 'save' | 'state',
+      id: number | null,
+      fileName: string,
+      scope: SaveDeleteScope
+    ) => ipcRenderer.invoke('saves:delete', romId, kind, id, fileName, scope)
   },
   bios: {
     list: () => ipcRenderer.invoke('bios:list'),

@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rm, stat, utimes } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
@@ -8,6 +8,7 @@ import type {
   PendingSave,
   RommRom,
   SaveAsset,
+  SaveDeleteScope,
   SavePushPreview,
   SaveSyncResult,
   SaveSyncState
@@ -70,6 +71,18 @@ const STATE_PULL_LIMIT = 5
 
 /** Suffix marking a directory save carried as one archive. */
 const ARCHIVE_SUFFIX = '.rommix-save.zip'
+
+/**
+ * How far apart two timestamps may be and still count as the same file.
+ *
+ * A pulled file is stamped with the server's `updated_at` so that the copy and
+ * its original read as one thing, but the stamp does not always survive the
+ * disk: FAT32 and exFAT — what a handheld's SD card is formatted as — record
+ * mtimes to the nearest two seconds. Without a tolerance, every save pulled
+ * onto a card would come back rounded up and read as "newer here" the moment
+ * it landed.
+ */
+const SYNC_TOLERANCE_MS = 2000
 
 /** Everything needed to ask a descriptor where this game's saves are. */
 export interface SaveTarget {
@@ -581,14 +594,18 @@ export class SaveSync {
   }
 
   /**
-   * Delete one asset from wherever it exists — the server, this device, or both.
+   * Delete one asset from one end of the sync.
    *
-   * Whichever ends hold it, because deleting one end alone does not stay
-   * deleted. RomMix pushes what a session wrote back to RomM, so a save removed
-   * only from the server is uploaded again the next time the game is played;
-   * and a pull brings a server copy back down over a file removed only here.
-   * The local file goes first: if the server then refuses, the asset is still
-   * there to pull back, whereas the reverse order can lose both.
+   * One end, because the two ends are two copies and the reason to remove one
+   * is almost always that the other is the one worth keeping: a local file that
+   * a crash left corrupt is deleted here so the next pull brings RomM's copy
+   * down, and a stale server copy is deleted there so the next push replaces
+   * it. Clearing both at once serves neither, and is two presses away.
+   *
+   * What it does not do is stay deleted on its own. Sync runs in both
+   * directions around a launch, so the surviving copy comes back over the
+   * deleted one — that is the point of deleting one end, and the caller says so
+   * before asking.
    *
    * The asset is found by re-scanning rather than by trusting what the caller
    * passed. `id` identifies a row RomM knows about; a row only this device has
@@ -600,6 +617,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     id: number | null,
     fileName: string,
+    scope: SaveDeleteScope,
     local?: SaveTarget
   ): Promise<void> {
     const assets = await this.listAssets(romId, local)
@@ -612,14 +630,19 @@ export class SaveSync {
 
     log.info('saves', `deleting a ${kind}`, {
       romId,
+      scope,
       id: asset.id,
       fileName: asset.fileName,
-      localPath: asset.localPath,
-      onServer: asset.id !== null
+      localPath: asset.localPath
     })
 
-    if (asset.localPath) await rm(asset.localPath, { force: true, recursive: true })
-    if (asset.id === null) return
+    if (scope === 'local') {
+      if (!asset.localPath) throw new Error(`${fileName} is not on this device to delete`)
+      await rm(asset.localPath, { force: true, recursive: true })
+      return
+    }
+
+    if (asset.id === null) throw new Error(`${fileName} is not on RomM to delete`)
     if (kind === 'save') await this.client.deleteSaves([asset.id])
     else await this.client.deleteStates([asset.id])
   }
@@ -678,7 +701,9 @@ export class SaveSync {
     for (const item of wanted) {
       const remoteTime = Date.parse(item.updated_at)
       const match = local.find((entry) => entry.fileName === item.file_name)
-      if (match && match.mtimeMs >= remoteTime) continue
+      // The same tolerance the badge uses, so a copy the screen calls "in sync"
+      // is never one this loop downloads again.
+      if (match && match.mtimeMs >= remoteTime - SYNC_TOLERANCE_MS) continue
 
       const download =
         kind === 'save'
@@ -687,9 +712,9 @@ export class SaveSync {
 
       try {
         if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {
-          await this.restoreArchive(location.dir, download)
+          await this.restoreArchive(location.dir, download, remoteTime)
         } else {
-          await this.restoreFile(location, item.file_name, match?.path, download)
+          await this.restoreFile(location, item.file_name, match?.path, download, remoteTime)
         }
         written += 1
         log.info('saves', `${kind} pulled`, {
@@ -729,7 +754,8 @@ export class SaveSync {
     location: SaveLocation,
     fileName: string,
     existing: string | undefined,
-    download: (to: string) => Promise<void>
+    download: (to: string) => Promise<void>,
+    remoteTime: number
   ): Promise<void> {
     const destination = existing ?? join(location.dir, fileName)
     await mkdir(join(destination, '..'), { recursive: true })
@@ -739,6 +765,7 @@ export class SaveSync {
       await copyFile(existing, `${existing}.rommix-bak`).catch(() => undefined)
     }
     await download(destination)
+    await stampMtime(destination, remoteTime)
   }
 
   /**
@@ -751,7 +778,8 @@ export class SaveSync {
    */
   private async restoreArchive(
     dir: string,
-    download: (to: string) => Promise<void>
+    download: (to: string) => Promise<void>,
+    remoteTime: number
   ): Promise<void> {
     const staging = join(tmpdir(), `rommix-save-${Date.now()}.zip`)
     try {
@@ -761,6 +789,10 @@ export class SaveSync {
       await rm(backup, { recursive: true, force: true })
       await cpDirectory(dir, backup)
       await extractZip(staging, dir)
+      // Every file, not just the extracted ones: `findLocal` reads a directory
+      // save's age as the newest mtime anywhere under it, so one file the
+      // archive did not carry would keep the whole folder reading as newer.
+      for (const file of await walk(dir)) await stampMtime(file, remoteTime)
     } finally {
       await rm(staging, { force: true })
     }
@@ -876,6 +908,12 @@ export class SaveSync {
  * this device reads as `remote-newer`. That is the honest answer with what the
  * server tells us, and it is also what a pull would do with it, so the badge
  * does not promise something the buttons would contradict.
+ *
+ * The other direction is settled by the pull itself, which stamps what it
+ * writes with the server's `updated_at` rather than leaving it at the download
+ * time — a file is not "newer here" for having just arrived from there. The
+ * comparison is within `SYNC_TOLERANCE_MS` because that stamp is rounded by
+ * some filesystems.
  */
 export function syncStateOf(
   localMtimeMs: number | null,
@@ -886,8 +924,8 @@ export function syncStateOf(
 
   const remote = Date.parse(remoteUpdatedAt)
   if (!Number.isFinite(remote)) return 'synced'
+  if (Math.abs(localMtimeMs - remote) <= SYNC_TOLERANCE_MS) return 'synced'
   if (localMtimeMs > remote) return 'local-newer'
-  if (localMtimeMs === remote) return 'synced'
   return fromThisDevice === true ? 'synced' : 'remote-newer'
 }
 
@@ -907,6 +945,21 @@ async function sizeOf(path: string, isDirectory: boolean): Promise<number> {
     total += (await stat(file).catch(() => null))?.size ?? 0
   }
   return total
+}
+
+/**
+ * Date a pulled file as of the server copy it is, not the moment it arrived.
+ *
+ * Without this every download reads as `local-newer` the instant it lands —
+ * the file's mtime is the download time, which is by definition later than the
+ * `updated_at` it was compared against — and the detail screen invites a push
+ * of the file RomM just handed over. Failure is ignored: a save that is on disk
+ * with the wrong date is still the save, and refusing the pull over a timestamp
+ * would be the worse trade.
+ */
+async function stampMtime(path: string, mtimeMs: number): Promise<void> {
+  const when = new Date(mtimeMs)
+  await utimes(path, when, when).catch(() => undefined)
 }
 
 /** Recursive copy, for the backup taken before a directory save is overwritten. */

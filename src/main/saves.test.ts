@@ -85,6 +85,22 @@ test('identical timestamps are in sync', () => {
   assert.equal(syncStateOf(Date.parse(at), at, null), 'synced')
 })
 
+test('a file just pulled is in sync, not newer here', () => {
+  // The pull stamps what it writes with the server's `updated_at`, and a card
+  // formatted FAT32 rounds that to the nearest two seconds. Both directions of
+  // that rounding are the same file, and neither is a reason to offer a push.
+  const at = '2026-01-01T00:00:00Z'
+  assert.equal(syncStateOf(Date.parse(at) + 1000, at, null), 'synced')
+  assert.equal(syncStateOf(Date.parse(at) - 1000, at, null), 'synced')
+})
+
+test('a local file past the rounding tolerance is still local-newer', () => {
+  // The tolerance absorbs a filesystem's timestamp granularity, nothing more:
+  // a session played after the pull must still read as a push candidate.
+  const at = '2026-01-01T00:00:00Z'
+  assert.equal(syncStateOf(Date.parse(at) + 3000, at, null), 'local-newer')
+})
+
 test('an unparseable server timestamp does not invent a conflict', () => {
   assert.equal(syncStateOf(Date.now(), 'not a date', null), 'synced')
 })
