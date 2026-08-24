@@ -4,6 +4,13 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.5.1 — 2026-08-24
+
+- Update webpage and readme
+- Add "do not ask again" button in save confirmation dialog, refactor code and split big files
+- Details tab columns cap
+- Split delete save buttons, fix saves shown as "newer here"
+
 ## 0.5.0 — 2026-08-23
 
 - Code audit, improve tests and documentation
