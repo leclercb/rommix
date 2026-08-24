@@ -1529,29 +1529,40 @@ input {
   color: var(--text-faint);
 }
 
+/* `anywhere` rather than `break-all`: a long install path still breaks mid-word
+   because it has to, but a list of company names breaks between the names,
+   which `break-all` would not have done. */
 .kv dd {
   margin: 0;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 /*
- * The same list, in as many columns as the width will hold.
+ * The same list, in two columns where there is room for two.
  *
  * For a list long enough that one column of it runs off the bottom of the
  * screen — a game RomM has full metadata for is fifteen rows — where the second
  * column costs nothing but the space already going spare beside it.
  *
+ * Two and no more, which the `max-width` is what enforces: the values here are
+ * install paths and comma-separated lists of languages, and a third column
+ * takes the space they need to sit on one line. Widening the window would then
+ * *add* wrapping, which is not what a wider window is for.
+ *
  * `auto-fill` rather than a fixed two: below the minimum it becomes one column
  * on its own, which is the whole of the narrow-window behaviour.
  */
 .kv--columns {
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  max-width: 1000px;
   gap: 10px 40px;
 }
 
 .kv--columns .kv__row {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  /* Narrower than the single-column list's 210px: every label here is one or
+     two words, and what is left over goes to the value, which is not. */
+  grid-template-columns: 150px minmax(0, 1fr);
   gap: 20px;
   align-items: baseline;
 }
@@ -1730,6 +1741,9 @@ input {
 /* Pushed to the end of the row, away from what the file is and when it was
    written — the same place every other destructive button on a row sits. */
 .asset__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-left: auto;
 }
 
