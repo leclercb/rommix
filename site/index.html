@@ -6,8 +6,8 @@
   One file, no build step and no script — `scripts/build-site.sh` copies this
   next to the browser build of the renderer, which is where both `Open the demo`
   and the `Show the demo` link on the picture lead. Its palette and its mark are
-  the app's own, from `src/renderer/src/styles.css` and
-  `src/renderer/src/components.tsx`.
+  the app's own, from `src/renderer/src/styles/` and
+  `src/renderer/src/components/`.
 
   The artwork under `./demo/art/` is the same cover art the demo shows: the
   homebrew library from RomM's public demo, copied there by the preview build
@@ -23,7 +23,7 @@
     <title>RomMix — a Big Picture front end for RomM</title>
     <meta
       name="description"
-      content="Browse your RomM library like a console dashboard on a desktop, a handheld or a television: download games into your emulator's ROM folder, launch them, and sync saves back when you quit."
+      content="Browse your RomM library like a console dashboard on a desktop, a handheld or a television. Download a game, play it, and your saves go back to RomM when you quit."
     />
     <link
       rel="icon"
@@ -1192,8 +1192,8 @@
 
         <p class="lede">
           A Big Picture&ndash;style front end for your own <a href="https://romm.app">RomM</a>
-          server. Browse it like a console dashboard, send a game to your emulator's ROM folder,
-          play it, and let your saves go back to RomM when you quit.
+          server. Browse your library like a console dashboard, download a game, play it &mdash; and
+          your saves go back to RomM when you quit.
         </p>
 
         <p class="where">
@@ -1231,10 +1231,9 @@
         </div>
 
         <p class="note">
-          The demo is the real interface, browsing the homebrew library from
-          <a href="https://demo.romm.app">RomM's public demo</a>: no server, no emulator, nothing
-          installed. Drive it with the arrow keys, Enter and Escape, with a mouse, or with a
-          controller if one is plugged in.
+          The demo is the real interface, browsing the homebrew library on
+          <a href="https://demo.romm.app">RomM's public demo</a>. Nothing to install, and no server
+          needed. Use the arrow keys and Enter, a mouse, or a controller if one is plugged in.
         </p>
 
         <!-- The picture, and the way into the real thing on top of it. -->
@@ -1510,8 +1509,8 @@
       <div class="wrap">
         <h2>Desktop, handheld, television</h2>
         <p>
-          One build for all three. RomMix opens fullscreen and every screen in it is reachable on a
-          D-pad, so the machine it runs on changes little more than how far away you are sitting.
+          One build for all three. RomMix opens fullscreen and everything in it can be reached with
+          a D-pad, so the only real difference is how far away you are sitting.
         </p>
 
         <div class="devices">
@@ -1538,8 +1537,8 @@
             <figcaption>
               <h3>At the desk</h3>
               <p>
-                One download on any Linux desktop. Keyboard and mouse work as well as a pad — which
-                is how most people set it up, long before it reaches a television.
+                One download on any Linux desktop. Keyboard, mouse and controller all work, which is
+                where most people set it up before it ever reaches a television.
               </p>
             </figcaption>
           </figure>
@@ -1563,8 +1562,8 @@
             <figcaption>
               <h3>In your hands</h3>
               <p>
-                On a Steam Deck or any handheld running Linux: add the launcher script to Steam as a
-                non-Steam game and it starts in game mode with the built-in pad already driving it.
+                On a Steam Deck or any Linux handheld. Add the launcher script to Steam as a
+                non-Steam game, and it opens in game mode with the built-in controls driving it.
               </p>
             </figcaption>
           </figure>
@@ -1592,8 +1591,8 @@
             <figcaption>
               <h3>Across the room</h3>
               <p>
-                Under gamescope, laid out for 1080p and drawn at double size on a 4K panel so it
-                still reads from the sofa. Sign in by scanning a code with your phone.
+                Runs under gamescope, and scales up on a 4K screen so everything still reads from
+                the sofa. Sign in by scanning a code with your phone.
               </p>
             </figcaption>
           </figure>
@@ -1605,51 +1604,53 @@
       <div class="wrap">
         <h2>What it does</h2>
         <p>
-          RomM already holds the library. RomMix is the part that puts it on a screen you drive from
-          the sofa, and gets the files where an emulator will find them.
+          RomM holds your library. RomMix puts it on a screen you can drive from the sofa, and gets
+          the files where your emulator will find them.
         </p>
 
         <div class="grid">
           <div class="card">
-            <h3>Downloads where the emulator looks</h3>
+            <h3>Your library, laid out for a screen</h3>
             <p>
-              A game lands in its emulator's own ROM folder, SD card included — so it is still there
-              when you start that emulator yourself and ES-DE scrapes it as usual.
+              Shelves for what you were last playing, what is already on this device and your
+              favourites &mdash; then everything on the server, searchable and filtered by platform.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Downloads into your emulator's own folder</h3>
+            <p>
+              A game lands in its emulator's own ROM folder, SD card included, so it is there when
+              you start that emulator yourself. Multi-disc sets are unpacked and the emulator is
+              handed the playlist, not the first disc.
             </p>
           </div>
           <div class="card">
             <h3>Saves that follow you</h3>
             <p>
-              Newer saves and save states come down before you play and go back up when you quit. A
-              per-game tab shows which side is ahead, and pulls or pushes by hand.
+              Newer saves come down before you play and go back up when you quit &mdash; after
+              showing you what is about to be sent. Every game has a tab for pulling or pushing by
+              hand.
+            </p>
+          </div>
+          <div class="card">
+            <h3>The emulators, installed and assigned</h3>
+            <p>
+              Four of the five install from Settings, and RomMix picks which one runs each platform.
+              Change that per platform whenever you like.
             </p>
           </div>
           <div class="card">
             <h3>BIOS from your own server</h3>
             <p>
-              Per platform: what is needed, what RomM holds and what the emulator already has — then
-              the missing files are put in place. Nothing is fetched from anywhere else.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Multi-disc, handled</h3>
-            <p>
-              A cue+bin or a multi-disc set is unpacked into a folder of its own, and the emulator
-              is handed the <code>.m3u</code>, not the <code>.bin</code>.
+              Per platform: what is needed, what RomM has, and what is already in place &mdash; then
+              RomMix installs the rest. Nothing comes from anywhere but your own server.
             </p>
           </div>
           <div class="card">
             <h3>Sign in from the couch</h3>
             <p>
-              RomMix shows a code and a QR. Approve it in RomM from your phone, and nothing secret
-              is typed on a television keyboard.
-            </p>
-          </div>
-          <div class="card">
-            <h3>It installs the emulators too</h3>
-            <p>
-              RetroDECK, RetroArch and shadPS4 come from Flathub, Eden from its own releases, all
-              from Settings. Start with RetroDECK if you have none.
+              RomMix shows a code and a QR. Approve it in RomM on your phone &mdash; no password
+              typed on a television keyboard.
             </p>
           </div>
         </div>
@@ -1660,10 +1661,10 @@
       <div class="wrap">
         <h2>The emulators it drives</h2>
         <p>
-          Five. RetroDECK and EmuDeck are front ends carrying a dozen emulators each, so a game goes
-          to whichever one that system is configured for; RetroArch runs the libretro core RomMix
-          names for the system; Eden and shadPS4 each run one console and nothing else. Settings
-          &rarr; Platforms shows what every system resolves to, and lets you change it.
+          Five, and RomMix works out which one runs each system. RetroDECK and EmuDeck each carry a
+          dozen emulators; RetroArch runs one core per system; Eden and shadPS4 each run a single
+          console. Settings &rarr; Platforms shows what every system will use, and lets you change
+          it.
         </p>
 
         <div class="scroll">
@@ -1672,7 +1673,7 @@
               <tr>
                 <th>Emulator</th>
                 <th>Covers</th>
-                <th>Automatic installation supported</th>
+                <th>Installed by RomMix</th>
               </tr>
             </thead>
             <tbody>
@@ -1738,12 +1739,14 @@
       <div class="wrap">
         <h2>Getting it</h2>
         <p>
-          Linux, a RomM server at version 5 or newer that you can reach, and one of the emulators
-          above — RomMix installs any of them but EmuDeck itself. Download the AppImage for your
+          You need Linux, a RomM server at version 5 or newer, and one of the emulators above
+          &mdash; RomMix can install all of them except EmuDeck. Download the AppImage for your
           machine from the
-          <a href="https://github.com/leclercb/rommix/releases">releases page</a> —
-          <code>x86_64</code> for an ordinary PC or a Steam Deck, <code>arm64</code> for an ARM
-          handheld — and run it. Nothing to install, and no permissions to grant.
+          <a href="https://github.com/leclercb/rommix/releases">releases page</a> (<code
+            >x86_64</code
+          >
+          for a PC or a Steam Deck, <code>arm64</code> for an ARM handheld) and run it. There is
+          nothing to install.
         </p>
 
         <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage
@@ -1759,14 +1762,9 @@
         <pre><code><b>chmod</b> +x RomMix-&lt;version&gt;-x86_64.AppImage rommix-steam.sh</code></pre>
 
         <p class="note">
-          Steam launches a game with <code>PR_SET_NO_NEW_PRIVS</code>, and the kernel ignores the
-          setuid bit on anything started that way — so <code>fusermount</code> cannot mount, and an
-          AppImage added to Steam directly dies with <em>Cannot mount AppImage</em> before RomMix
-          runs at all. The script unpacks it to a temporary directory instead, and still
-          <code>exec</code>s it, which is what keeps RomMix the emulator's parent process so
-          gamescope will focus the game's window. The
-          <a href="https://github.com/leclercb/rommix#readme">README</a> covers building it yourself
-          and what to do when an emulator will not start.
+          Steam cannot launch an AppImage directly; the script is what makes it work. The
+          <a href="https://github.com/leclercb/rommix#readme">README</a> covers building RomMix
+          yourself, and what to do when an emulator will not start.
         </p>
       </div>
     </section>
