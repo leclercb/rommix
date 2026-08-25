@@ -4,6 +4,11 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.3 — 2026-08-25
+
+- Fix EmuDeck detection, its Run button, and re-pairing on every start
+- Offer only the EmuDeck launchers that are actually installed
+
 ## 0.7.2 — 2026-08-25
 
 - Add a language dropdown with flags and a GitHub star count to the site header
