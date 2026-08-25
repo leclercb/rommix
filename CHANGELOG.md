@@ -4,6 +4,11 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.1 — 2026-08-25
+
+- Put the save push buttons on one row
+- Show a game's files as one list tagged by where each one is
+
 ## 0.7.0 — 2026-08-25
 
 - Offer to force an emulator closed when it ignores the request to quit
