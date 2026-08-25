@@ -294,6 +294,11 @@ import type { EmulatorId, EmulatorState } from '../config/emulators/types.ts'
  * and re-downloads nothing, and a game can be fetched for a platform that has
  * no emulator installed at all — a Switch library is worth having on disk
  * before Eden is.
+ *
+ * `rommix` is the default. The setup step is a one-off that the pre-flight
+ * check spells out; the re-download `emulator` costs is paid every time somebody
+ * changes their mind about which emulator runs a platform, which is a thing
+ * Settings actively invites.
  */
 export type RomStorage = 'emulator' | 'rommix'
 

@@ -49,10 +49,16 @@ function defaultSettings(): Settings {
     emulatorRoots: {},
     systemOverrides: {},
     emulatorPriority: [],
-    // Each emulator's own folder: what RomMix has always done, so an existing
-    // installation reading these defaults for a key it has never stored finds
-    // its library exactly where it left it. The wizard asks new users.
-    romStorage: 'emulator',
+    // One folder for everything, which is the answer that keeps working: a
+    // platform pointed at another emulator moves nothing and re-downloads
+    // nothing, and a game can be fetched before the thing that runs it is
+    // installed at all. It costs one setup step per emulator, which the
+    // pre-flight check names.
+    //
+    // Only a fresh installation reads this. Anything that has ever connected to
+    // a server has the whole settings object on disk — `persistSettings` writes
+    // it entire — so an existing library stays exactly where it was put.
+    romStorage: 'rommix',
     setupComplete: false,
     syncSavesDown: true,
     syncSavesUp: true,

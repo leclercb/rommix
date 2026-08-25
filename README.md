@@ -19,9 +19,9 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
   searchable and filtered by platform.
 - **Driven with a controller.** Every screen reachable on a D-pad, fullscreen,
   and drawn at double size on a 4K panel so it still reads from a sofa.
-- **Downloads into your emulator's own folder.** SD card included — or into one
-  shared folder you point every emulator at. The queue keeps running while you
-  browse.
+- **Downloads into one folder you point every emulator at.** Or into each
+  emulator's own ROM folder, SD card included, if you would rather. The queue
+  keeps running while you browse.
 - **Multi-disc handled.** A cue+bin or a multi-disc set is unpacked into its own
   folder, and the emulator is handed the `.m3u` or `.cue`, not the `.bin`.
 - **Saves both ways.** Newer saves and states come down before you play and go
