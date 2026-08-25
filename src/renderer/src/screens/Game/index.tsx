@@ -405,22 +405,21 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           </FocusButton>
         )}
 
-        {/* Marked on RomM, not here, so the shelf on the home screen and the
+        {/* Marked on RomM, so the Favourites row on the home screen and the
             same game in a browser agree. Always offered: a game does not have
-            to be downloaded to be one you want to keep track of. */}
+            to be downloaded to be marked. Icon only — a filled heart says
+            which way it is set, and the word beside it said the same thing
+            twice; `actionLabel` is what the hint bar and a screen reader get. */}
         <FocusButton
           icon="favourite"
           on={favourite === true}
+          actionLabel={favourite ? t('game.removeFavourite') : t('game.addFavourite')}
           onSelect={() => void toggleFavourite()}
           disabled={favourite === null}
-        >
-          {favourite ? t('game.removeFavourite') : t('game.addFavourite')}
-        </FocusButton>
+        />
 
-        {/* The user's own shelves on RomM. Beside the heart because they are
-            the same kind of act — marking the game on the server rather than
-            doing anything to the copy on this disk — and always offered, since
-            a game does not have to be downloaded to be put on a list. */}
+        {/* Collections on RomM. Beside the heart because both mark the game on
+            the server rather than touching the copy on this disk. */}
         <FocusButton icon="collection" onSelect={() => setChoosingCollections(true)}>
           {t('collections.button')}
         </FocusButton>
