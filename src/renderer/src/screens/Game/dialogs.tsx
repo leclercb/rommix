@@ -156,12 +156,8 @@ export function PushConfirmDialog({
         <FocusButton icon="push" variant="primary" onSelect={() => onSend(false)}>
           {t('game.pushSend')}
         </FocusButton>
-      </div>
-      {/* The shortcut to the Settings toggle, put where the question is
-          actually being asked. Sends as well as stops asking: turning it off
-          and leaving these files unsent would be the one answer nobody means
-          by "don't ask me". */}
-      <div className="btn-row">
+        {/* Sends as well as stops asking: turning the setting off and leaving
+            these files unsent is not what "don't ask me" means. */}
         <FocusButton icon="hide" variant="ghost" onSelect={() => onSend(true)}>
           {t('game.pushSendNoAsk')}
         </FocusButton>
