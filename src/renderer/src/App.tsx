@@ -21,6 +21,8 @@ import { useApp, useI18n, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
 import { GameScreen } from './screens/Game'
+import { CollectionScreen } from './screens/Collections/CollectionScreen'
+import { CollectionsScreen } from './screens/Collections'
 import { DownloadsScreen } from './screens/Downloads'
 import { EmulatorsScreen } from './screens/Emulators'
 import { HomeScreen } from './screens/Home'
@@ -131,6 +133,12 @@ export function App(): JSX.Element {
               active={route.name === 'library'}
             />
             <NavItem
+              icon="collection"
+              label={t('nav.collections')}
+              route={{ name: 'collections' }}
+              active={route.name === 'collections' || route.name === 'collection'}
+            />
+            <NavItem
               icon="downloads"
               label={t('nav.downloads')}
               route={{ name: 'downloads' }}
@@ -204,6 +212,10 @@ function Screen({ route }: { route: Route }): JSX.Element {
       return <LibraryScreen />
     case 'game':
       return <GameScreen romId={route.romId} />
+    case 'collections':
+      return <CollectionsScreen />
+    case 'collection':
+      return <CollectionScreen collectionId={route.collectionId} title={route.title} />
     case 'downloads':
       return <DownloadsScreen />
     case 'bios':

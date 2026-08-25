@@ -4,6 +4,7 @@ import { resolveSystem } from '@config/systems'
 import type { BiosPlatform, InstalledRom, LaunchChoice, RommRom } from '@shared/types'
 import { FocusButton, Hints, Spinner, Tabs } from '../../components'
 import { useApp, useI18n } from '../../state'
+import { CollectionsDialog } from './CollectionsDialog'
 import { GameHero } from './GameHero'
 import {
   DeleteAssetDialog,
@@ -43,6 +44,8 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
   /** Null until RomM has been asked, which is what the button waits on. */
   const [favourite, setFavourite] = useState<boolean | null>(null)
   const [bios, setBios] = useState<BiosPlatform | null>(null)
+  /** True while the shelves this game is on are being looked at or changed. */
+  const [choosingCollections, setChoosingCollections] = useState(false)
 
   useEffect(() => {
     setRom(null)
@@ -414,6 +417,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           {favourite ? t('game.removeFavourite') : t('game.addFavourite')}
         </FocusButton>
 
+        {/* The user's own shelves on RomM. Beside the heart because they are
+            the same kind of act — marking the game on the server rather than
+            doing anything to the copy on this disk — and always offered, since
+            a game does not have to be downloaded to be put on a list. */}
+        <FocusButton icon="collection" onSelect={() => setChoosingCollections(true)}>
+          {t('collections.button')}
+        </FocusButton>
+
         {/* The way back to a choice already made: without it, a platform
             answered once could only be changed by editing settings. Shown only
             where there is genuinely more than one answer. */}
@@ -562,6 +573,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--warn">
           {settings?.confirmSavePush ? t('game.runningAsk') : t('game.runningAuto')}
         </div>
+      ) : null}
+
+      {choosingCollections ? (
+        <CollectionsDialog
+          romId={romId}
+          onClose={() => setChoosingCollections(false)}
+          onError={(message) => notify(message, 'error')}
+        />
       ) : null}
 
       {choosing ? (

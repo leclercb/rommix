@@ -10,6 +10,7 @@ import type {
   LaunchResult,
   LibrarySyncResult,
   RommCollection,
+  RommVirtualCollection,
   RommDeviceAuthInit,
   RommPlatform,
   RommRom,
@@ -109,12 +110,21 @@ export interface RomMixBridge {
   library: {
     platforms(): Promise<RommPlatform[]>
     collections(): Promise<RommCollection[]>
+    /** The shelves RomM derives from metadata. Empty where the server has none. */
+    virtualCollections(): Promise<RommVirtualCollection[]>
     roms(query: RomQuery): Promise<RommRomPage>
     rom(id: number): Promise<RommRom>
     /** Whether this game is in the user's favourites on RomM. */
     favourite(romId: number): Promise<boolean>
     /** Put it in or take it out; resolves to the state it ended up in. */
     setFavourite(romId: number, favourite: boolean): Promise<boolean>
+    /**
+     * Put a game in one of the user's own collections, or take it out.
+     *
+     * Membership is read from `collections()`, which carries every collection's
+     * `rom_ids`, so there is no per-game question to ask the server.
+     */
+    setCollection(romId: number, collectionId: number, member: boolean): Promise<void>
     installed(): Promise<InstalledRom[]>
     /**
      * Check every ROM on the server against the disk: forget what has been

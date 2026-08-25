@@ -30,6 +30,8 @@ import {
   Languages,
   Layers,
   ClipboardList,
+  BookMarked,
+  Plus,
   LayoutGrid,
   Library,
   ListOrdered,
@@ -141,6 +143,8 @@ export const ICONS = {
   coffee: Coffee,
   /** A step of a several-page flow. */
   previous: ChevronLeft,
+  add: Plus,
+  collection: BookMarked,
   note: ClipboardList,
   next: ChevronRight
 } as const

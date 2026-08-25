@@ -34,6 +34,67 @@ export function CoverArt({
 }
 
 /**
+ * Four covers in one tile, the way RomM draws a collection.
+ *
+ * A collection has no artwork of its own unless someone uploaded some, and a
+ * shelf drawn as one grey rectangle with a name on it is indistinguishable
+ * from every other shelf. What identifies it from across a room is what is on
+ * it, so the first few covers stand in — two by two, in the same 3:4 box a game
+ * occupies, so a grid of collections lines up with a grid of games.
+ *
+ * One cover fills the tile rather than sitting in a quarter of it: a mosaic
+ * with three empty cells reads as three missing pictures rather than as a
+ * shelf with one game on it.
+ */
+export function CoverMosaic({
+  paths,
+  name
+}: {
+  /** Covers of the first few games, in the collection's own order. */
+  paths: readonly (string | null)[]
+  name: string
+}): JSX.Element {
+  const covers = paths.filter((path): path is string => Boolean(path)).slice(0, 4)
+
+  if (covers.length <= 1) return <CoverArt path={covers[0] ?? null} name={name} />
+
+  // The grid is a layer over `.cover`, not `.cover` itself. That box gets its
+  // height from a padding-ratio pseudo-element, and a pseudo-element inside a
+  // grid is a grid *item*: it took a row of its own and pushed the pictures out
+  // below it. Absolutely positioned over the spacer, the way a single cover
+  // already is, the ratio holds and the four cells divide it.
+  return (
+    <div className="cover cover--mosaic">
+      <div className="cover__grid">
+        {covers.map((path) => (
+          <MosaicCell key={path} path={path} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * One quarter of a mosaic.
+ *
+ * Its own component for the failure state: a cover that 404s has to fall back
+ * to the empty gradient in that cell alone, which needs a `useState` per cell
+ * and so a component per cell.
+ */
+function MosaicCell({ path }: { path: string }): JSX.Element {
+  const url = window.rommix.system.imageUrl(path)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => setFailed(false), [url])
+
+  return url && !failed ? (
+    <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} />
+  ) : (
+    <span />
+  )
+}
+
+/**
  * The wash of artwork behind a game's hero.
  *
  * A still from the game where RomM has one, its cover where it does not: blurred

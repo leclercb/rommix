@@ -27,6 +27,17 @@ export type Route =
   | { name: 'library' }
   | { name: 'game'; romId: number }
   | { name: 'downloads' }
+  /**
+   * One shelf on RomM. The name travels with the id: it was on screen in the
+   * list that was pressed to get here, so refetching it would put a spinner
+   * where the title goes.
+   *
+   * A number is a collection the user made and a string is one RomM derived —
+   * which is the distinction the server itself draws, right down to the query
+   * parameter each is passed as.
+   */
+  | { name: 'collection'; collectionId: number | string; title: string }
+  | { name: 'collections' }
   | { name: 'bios' }
   | { name: 'emulators' }
   | { name: 'settings' }

@@ -6,6 +6,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type {
   RommCollection,
+  RommVirtualCollection,
   RommDeviceAuthInit,
   RommDeviceAuthToken,
   RommFirmware,
@@ -338,6 +339,38 @@ export class RommClient {
   }
 
   /**
+   * The shelves RomM derives rather than the ones the user made.
+   *
+   * A separate endpoint with a separate schema — see `RommVirtualCollection`.
+   *
+   * `type` is required, and naming one kind would fetch only that kind: there
+   * is a shelf per genre, per franchise, per company and per play mode, and
+   * RomM's own handler reads `all` as "do not filter". Without it the server
+   * answers 422 and the page shows nothing, which is exactly what it did.
+   *
+   * Only a 404 is answered with silence, and only because it is the one failure
+   * that is not a failure: a server too old to have the endpoint has no virtual
+   * collections to list, and a page that works is the right outcome.
+   *
+   * Everything else is thrown, like every other call here. Swallowing the lot
+   * was how this shipped with a missing `type` — the server answered 422, the
+   * page showed an empty list, and the only evidence was a line in a log nobody
+   * had a reason to open. An error the user cannot see is an error nobody can
+   * report.
+   */
+  async virtualCollections(): Promise<RommVirtualCollection[]> {
+    try {
+      return await this.json<RommVirtualCollection[]>('/api/collections/virtual?type=all')
+    } catch (cause) {
+      if (cause instanceof RommError && cause.status === 404) {
+        log.info('romm', 'this server has no virtual collections endpoint')
+        return []
+      }
+      throw cause
+    }
+  }
+
+  /**
    * The user's favourites.
    *
    * RomM has no per-ROM favourite flag — /api/roms/{id}/props carries rating,
@@ -369,17 +402,33 @@ export class RommClient {
     if (!existing && !favourite) return false
 
     const collection = existing ?? (await this.createFavourites())
-    const res = await this.request(`/api/collections/${collection.id}/roms`, {
-      method: favourite ? 'POST' : 'DELETE',
+    await this.setCollectionMembership(collection.id, romId, favourite)
+    return favourite
+  }
+
+  /**
+   * Put one game in a collection, or take it out.
+   *
+   * The same two calls favouriting makes, which is what favouriting *is* on
+   * RomM — one collection whose name the server reads as `is_favorite`. Named
+   * separately because the shelves a user makes for themselves are the general
+   * case and the star is the special one, not the other way round.
+   */
+  async setCollectionMembership(
+    collectionId: number,
+    romId: number,
+    member: boolean
+  ): Promise<void> {
+    const res = await this.request(`/api/collections/${collectionId}/roms`, {
+      method: member ? 'POST' : 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rom_ids: [romId] })
     })
     if (!res.ok) throw await this.toError(res)
-    log.info('romm', favourite ? 'added to favourites' : 'removed from favourites', {
+    log.info('romm', member ? 'added to a collection' : 'removed from a collection', {
       romId,
-      collectionId: collection.id
+      collectionId
     })
-    return favourite
   }
 
   /** POST /api/collections — multipart, since RomM takes artwork on the same call. */
@@ -399,6 +448,9 @@ export class RommClient {
     if (query.search_term) params.set('search_term', query.search_term)
     for (const id of query.platform_ids ?? []) params.append('platform_ids', String(id))
     if (query.collection_id != null) params.set('collection_id', String(query.collection_id))
+    if (query.virtual_collection_id != null) {
+      params.set('virtual_collection_id', query.virtual_collection_id)
+    }
     if (query.favorite != null) params.set('favorite', String(query.favorite))
     if (query.last_played != null) params.set('last_played', String(query.last_played))
     params.set('order_by', query.order_by ?? 'name')

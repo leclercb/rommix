@@ -75,6 +75,7 @@ export const en = {
 
   'nav.home': 'Home',
   'nav.library': 'Library',
+  'nav.collections': 'Collections',
   'nav.downloads': 'Downloads',
   'nav.emulators': 'Emulators',
   'nav.bios': 'BIOS',
@@ -243,6 +244,24 @@ export const en = {
   'library.thatIsAll_one': 'That is all {count} of them.',
   'library.thatIsAll_other': 'That is all {count} of them.',
   'library.downloadedMark': 'Downloaded',
+
+  // -- the user's own shelves on RomM ---------------------------------------
+
+  'collections.mine': 'Collections',
+  'collections.derived': 'Virtual collections',
+  'collections.count_one': '{count} collection',
+  'collections.count_other': '{count} collections',
+  'collections.openExpand': 'Open · Expand',
+  'collections.subtitle': 'Collections you made on RomM, and the ones RomM builds itself.',
+  'collections.empty': 'No collections on your RomM server yet.',
+  'collections.emptyShelf': 'Nothing in this collection.',
+  'collections.button': 'Collections',
+  'collections.dialogTitle': 'Which collections?',
+  'collections.none': 'You have no collections on RomM yet. Make one there and it appears here.',
+  'collections.on': 'On',
+  'collections.off': 'Add',
+  'collections.add': 'Add to this collection',
+  'collections.remove': 'Remove from this collection',
 
   // -- downloads ------------------------------------------------------------
 

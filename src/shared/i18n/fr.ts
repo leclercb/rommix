@@ -63,6 +63,7 @@ export const fr: Catalog = {
 
   'nav.home': 'Accueil',
   'nav.library': 'Bibliothèque',
+  'nav.collections': 'Collections',
   'nav.downloads': 'Téléchargements',
   'nav.emulators': 'Émulateurs',
   'nav.bios': 'BIOS',
@@ -237,6 +238,26 @@ export const fr: Catalog = {
   'library.thatIsAll_one': 'C’est tout : {count} en tout.',
   'library.thatIsAll_other': 'C’est tout : {count} en tout.',
   'library.downloadedMark': 'Téléchargé',
+
+  // -- les étagères de l'utilisateur sur RomM --------------------------------
+
+  'collections.mine': 'Collections',
+  'collections.derived': 'Collections virtuelles',
+  'collections.count_one': '{count} collection',
+  'collections.count_other': '{count} collections',
+  'collections.openExpand': 'Ouvrir · Déplier',
+  'collections.subtitle':
+    'Les collections que vous avez faites sur RomM, et celles que RomM construit lui-même.',
+  'collections.empty': 'Aucune collection sur votre serveur RomM pour l’instant.',
+  'collections.emptyShelf': 'Rien dans cette collection.',
+  'collections.button': 'Collections',
+  'collections.dialogTitle': 'Dans quelles collections ?',
+  'collections.none':
+    'Vous n’avez encore aucune collection sur RomM. Créez-en une là-bas et elle apparaîtra ici.',
+  'collections.on': 'Dedans',
+  'collections.off': 'Ajouter',
+  'collections.add': 'Ajouter à cette collection',
+  'collections.remove': 'Retirer de cette collection',
 
   // -- téléchargements ------------------------------------------------------
 

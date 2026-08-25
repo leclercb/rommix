@@ -66,6 +66,7 @@ export const de: Catalog = {
 
   'nav.home': 'Start',
   'nav.library': 'Bibliothek',
+  'nav.collections': 'Sammlungen',
   'nav.downloads': 'Downloads',
   'nav.emulators': 'Emulatoren',
   'nav.bios': 'BIOS',
@@ -246,6 +247,26 @@ export const de: Catalog = {
   'library.thatIsAll_one': 'Das war alles: {count} insgesamt.',
   'library.thatIsAll_other': 'Das war alles: {count} insgesamt.',
   'library.downloadedMark': 'Heruntergeladen',
+
+  // -- die eigenen Regale des Nutzers auf RomM -------------------------------
+
+  'collections.mine': 'Sammlungen',
+  'collections.derived': 'Virtuelle Sammlungen',
+  'collections.count_one': '{count} Sammlung',
+  'collections.count_other': '{count} Sammlungen',
+  'collections.openExpand': 'Öffnen · Ausklappen',
+  'collections.subtitle':
+    'Sammlungen, die Sie auf RomM angelegt haben, und die, die RomM selbst bildet.',
+  'collections.empty': 'Noch keine Sammlungen auf Ihrem RomM-Server.',
+  'collections.emptyShelf': 'Nichts in dieser Sammlung.',
+  'collections.button': 'Sammlungen',
+  'collections.dialogTitle': 'In welchen Sammlungen?',
+  'collections.none':
+    'Sie haben auf RomM noch keine Sammlungen. Legen Sie dort eine an, dann erscheint sie hier.',
+  'collections.on': 'Drin',
+  'collections.off': 'Hinzufügen',
+  'collections.add': 'Zu dieser Sammlung hinzufügen',
+  'collections.remove': 'Aus dieser Sammlung entfernen',
 
   // -- Downloads ------------------------------------------------------------
 

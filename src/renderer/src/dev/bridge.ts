@@ -5,6 +5,9 @@ import type {
   BiosPlatform,
   DownloadItem,
   InstalledRom,
+  RommCollection,
+  RommCollectionBase,
+  RommVirtualCollection,
   RommRom,
   RomQuery,
   SaveAsset,
@@ -414,6 +417,64 @@ function previewUpdate(): UpdateStatus {
  */
 const favourites = new Set<number>([175, 123, 149, 99, 54])
 
+/**
+ * A couple of shelves someone might have made, so the Collections page has
+ * something to be.
+ *
+ * Membership is a live Set rather than a fixed list: the button on a game's
+ * page writes to it, and the demo is worth nothing if pressing that button
+ * changes nothing. Covers are left null — these are the user's own shelves and
+ * RomM only has art for one if they uploaded it.
+ */
+const COLLECTIONS: {
+  id: number
+  name: string
+  description: string
+  roms: Set<number>
+  virtual?: boolean
+}[] = [
+  { id: 9001, name: 'Rainy Sunday', description: 'Long ones', roms: new Set([175, 139, 137]) },
+  { id: 9002, name: 'Show someone', description: 'Short and pretty', roms: new Set([169, 77]) },
+  // One of RomM's own, so the switch that hides them has something to hide.
+  {
+    id: 9003,
+    name: 'Platform',
+    description: 'By genre',
+    roms: new Set([123, 163, 77, 137]),
+    virtual: true
+  }
+]
+
+/** The shape both endpoints share, with the covers RomM sends for a mosaic. */
+const shelf = (collection: (typeof COLLECTIONS)[number]): RommCollectionBase => ({
+  name: collection.name,
+  description: collection.description,
+  rom_ids: [...collection.roms],
+  rom_count: collection.roms.size,
+  path_cover_small: null,
+  path_cover_large: null,
+  path_covers_small: [...collection.roms]
+    .map((romId) => romById(romId).path_cover_small)
+    .filter((path): path is string => Boolean(path))
+    .slice(0, 4),
+  path_covers_large: [],
+  is_virtual: collection.virtual ?? false,
+  is_favorite: false
+})
+
+const collectionList = (): RommCollection[] =>
+  COLLECTIONS.filter((collection) => !collection.virtual).map((collection) => ({
+    ...shelf(collection),
+    id: collection.id
+  }))
+
+const virtualList = (): RommVirtualCollection[] =>
+  COLLECTIONS.filter((collection) => collection.virtual).map((collection) => ({
+    ...shelf(collection),
+    id: `genre/${collection.name.toLowerCase()}`,
+    type: 'genre'
+  }))
+
 const bridge: RomMixBridge = {
   server: {
     status: () =>
@@ -439,7 +500,8 @@ const bridge: RomMixBridge = {
   },
   library: {
     platforms: () => later(PLATFORMS),
-    collections: () => later([]),
+    collections: () => later(collectionList()),
+    virtualCollections: () => later(virtualList()),
     roms: (query: RomQuery) => {
       const term = query.search_term?.toLowerCase() ?? ''
       const matched = ROMS.filter((rom) => {
@@ -447,6 +509,15 @@ const bridge: RomMixBridge = {
         if (query.platform_ids?.length && !query.platform_ids.includes(rom.platform_id))
           return false
         if (query.favorite && !favourites.has(rom.id)) return false
+        if (query.collection_id != null) {
+          const collection = COLLECTIONS.find((entry) => entry.id === query.collection_id)
+          if (!collection?.roms.has(rom.id)) return false
+        }
+        if (query.virtual_collection_id != null) {
+          const name = query.virtual_collection_id.split('/')[1]
+          const collection = COLLECTIONS.find((entry) => entry.name.toLowerCase() === name)
+          if (!collection?.roms.has(rom.id)) return false
+        }
         if (query.last_played && !rom.rom_user.last_played) return false
         return true
       })
@@ -465,6 +536,12 @@ const bridge: RomMixBridge = {
       if (favourite) favourites.add(romId)
       else favourites.delete(romId)
       return later(favourite)
+    },
+    setCollection: (romId: number, collectionId: number, member: boolean) => {
+      const collection = COLLECTIONS.find((entry) => entry.id === collectionId)
+      if (member) collection?.roms.add(romId)
+      else collection?.roms.delete(romId)
+      return later(undefined)
     },
     installed: () => later(INSTALLED),
     sync: () => later({ checked: ROMS.length, removed: 0, adopted: 0 }, 900),

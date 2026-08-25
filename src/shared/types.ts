@@ -156,18 +156,49 @@ export interface RommRomPage {
   offset: number
 }
 
-/** GET /api/collections (`CollectionSchema`). */
-export interface RommCollection {
-  id: number
+/**
+ * What every kind of collection has in common (`BaseCollectionSchema`).
+ *
+ * RomM has two, on two endpoints, and they differ in one field that matters:
+ * a collection somebody made has an integer id and can be written to, and one
+ * RomM derived has a string id like `genre/platform` and cannot.
+ */
+export interface RommCollectionBase {
   name: string
   description: string
   /** Every ROM in it. Present on the list response, not only on one collection. */
   rom_ids: number[]
   rom_count: number
+  /** Artwork uploaded for the collection itself, if any. */
   path_cover_small: string | null
   path_cover_large: string | null
+  /**
+   * Covers of the first few games on it, which is what RomM draws a shelf with
+   * when nobody uploaded artwork for it. Empty for a collection with none.
+   */
+  path_covers_small: string[]
+  path_covers_large: string[]
   is_virtual: boolean
   is_favorite: boolean
+}
+
+/** GET /api/collections (`CollectionSchema`) — the ones the user made. */
+export interface RommCollection extends RommCollectionBase {
+  id: number
+}
+
+/**
+ * GET /api/collections/virtual (`VirtualCollectionSchema`) — the ones RomM
+ * derives from metadata: one per genre, franchise, company, play mode.
+ *
+ * The id is a string, and it goes to `/api/roms` as `virtual_collection_id`
+ * rather than `collection_id`. Nothing can be added to one by hand, which is
+ * the whole of why the two are separate types rather than one with a flag.
+ */
+export interface RommVirtualCollection extends RommCollectionBase {
+  id: string
+  /** What it was derived from: `genre`, `franchise`, `company`, `mode`. */
+  type: string
 }
 
 /** GET /api/saves (`SaveSchema`). */
@@ -230,6 +261,8 @@ export interface RomQuery {
   search_term?: string
   platform_ids?: number[]
   collection_id?: number
+  /** A collection RomM derived. Its id is a string — see `RommVirtualCollection`. */
+  virtual_collection_id?: string
   favorite?: boolean
   last_played?: boolean
   order_by?: string

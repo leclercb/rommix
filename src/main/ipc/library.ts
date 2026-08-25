@@ -9,6 +9,7 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
 
   handle('library:platforms', () => client.platforms())
   handle('library:collections', () => client.collections())
+  handle('library:virtualCollections', () => client.virtualCollections())
   /**
    * The library, reconciled with the disk on the way past.
    *
@@ -30,6 +31,9 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
     return rom
   })
   handle('library:favourite', (romId: number) => client.isFavourite(romId))
+  handle('library:setCollection', (romId: number, collectionId: number, member: boolean) =>
+    client.setCollectionMembership(collectionId, romId, member)
+  )
   handle('library:setFavourite', (romId: number, favourite: boolean) =>
     client.setFavourite(romId, favourite)
   )

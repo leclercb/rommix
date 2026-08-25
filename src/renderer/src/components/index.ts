@@ -6,7 +6,15 @@
  * files does not touch every screen that draws it.
  */
 
-export { ArtBackdrop, CoverArt, Logo, PlatformBadge, PlatformIcon, SystemIcon } from './art'
+export {
+  ArtBackdrop,
+  CoverArt,
+  CoverMosaic,
+  Logo,
+  PlatformBadge,
+  PlatformIcon,
+  SystemIcon
+} from './art'
 export {
   Choice,
   FocusButton,
