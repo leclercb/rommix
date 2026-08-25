@@ -577,11 +577,13 @@ export const fr: Catalog = {
   'details.romMixFolder': 'Le dossier propre à RomMix',
   'details.empty': 'RomM n’en sait pas plus sur ce jeu.',
 
-  'files.onServer': 'Sur le serveur',
-  'files.onDevice': 'Sur cet appareil',
-  'files.serverEmpty': 'RomM ne liste aucun fichier pour ce jeu.',
-  'files.notDownloaded': 'Non téléchargé.',
-
+  'files.tagBoth': 'Les deux',
+  'files.tagServer': 'RomM',
+  'files.tagDevice': 'Appareil',
+  'files.hintBoth': 'Sur le serveur et sur cet appareil.',
+  'files.hintServer': 'Uniquement sur le serveur. Téléchargez le jeu pour l’obtenir.',
+  'files.hintDevice': 'Uniquement sur cet appareil. RomM ne le liste pas.',
+  'files.empty': 'RomM ne liste aucun fichier pour ce jeu, et il n’y en a aucun sur cet appareil.',
   'shots.empty': 'RomM n’a aucune capture pour ce jeu.',
 
   // -- réglages -------------------------------------------------------------

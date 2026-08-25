@@ -580,11 +580,13 @@ export const en = {
   'details.romMixFolder': "RomMix's own folder",
   'details.empty': 'RomM knows nothing more about this game.',
 
-  'files.onServer': 'On the server',
-  'files.onDevice': 'On this device',
-  'files.serverEmpty': 'RomM lists no files for this game.',
-  'files.notDownloaded': 'Not downloaded.',
-
+  'files.tagBoth': 'Both',
+  'files.tagServer': 'RomM',
+  'files.tagDevice': 'Device',
+  'files.hintBoth': 'On the server and on this device.',
+  'files.hintServer': 'On the server only. Download the game to get it.',
+  'files.hintDevice': 'On this device only. RomM does not list it.',
+  'files.empty': 'RomM lists no files for this game, and none are on this device.',
   'shots.empty': 'RomM has no screenshots for this game.',
 
   // -- settings -------------------------------------------------------------

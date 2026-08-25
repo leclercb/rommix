@@ -588,11 +588,14 @@ export const de: Catalog = {
   'details.romMixFolder': 'Der eigene Ordner von RomMix',
   'details.empty': 'RomM weiß nichts weiter über dieses Spiel.',
 
-  'files.onServer': 'Auf dem Server',
-  'files.onDevice': 'Auf diesem Gerät',
-  'files.serverEmpty': 'RomM führt für dieses Spiel keine Dateien.',
-  'files.notDownloaded': 'Nicht heruntergeladen.',
-
+  'files.tagBoth': 'Beide',
+  'files.tagServer': 'RomM',
+  'files.tagDevice': 'Gerät',
+  'files.hintBoth': 'Auf dem Server und auf diesem Gerät.',
+  'files.hintServer': 'Nur auf dem Server. Laden Sie das Spiel herunter, um sie zu bekommen.',
+  'files.hintDevice': 'Nur auf diesem Gerät. RomM führt sie nicht.',
+  'files.empty':
+    'RomM führt für dieses Spiel keine Dateien, und auf diesem Gerät liegen auch keine.',
   'shots.empty': 'RomM hat keine Screenshots für dieses Spiel.',
 
   // -- Einstellungen --------------------------------------------------------
