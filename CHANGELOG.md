@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.4 — 2026-08-25
+
+- Compare save tags against the emulator id, not the frontend id
+
 ## 0.7.3 — 2026-08-25
 
 - Fix EmuDeck detection, its Run button, and re-pairing on every start
