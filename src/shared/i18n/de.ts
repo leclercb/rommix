@@ -67,6 +67,7 @@ export const de: Catalog = {
   'nav.home': 'Start',
   'nav.library': 'Bibliothek',
   'nav.downloads': 'Downloads',
+  'nav.emulators': 'Emulatoren',
   'nav.bios': 'BIOS',
   'nav.settings': 'Einstellungen',
 
@@ -565,7 +566,6 @@ export const de: Catalog = {
 
   'settings.title': 'Einstellungen',
   'settings.tabGeneral': 'Allgemein',
-  'settings.tabEmulators': 'Emulatoren',
   'settings.tabGames': 'Spiele',
   'settings.tabSystem': 'System',
 
@@ -612,15 +612,14 @@ export const de: Catalog = {
     'Deinstallieren ist einen Druck auf A davon entfernt, eine mehrere Gigabyte große Datei zu ' +
     'löschen.',
 
-  'settings.emulators': 'Emulatoren',
-  'settings.emulatorsExplainer':
+  'emulators.explainer':
     'Was RomMix auf diesem Rechner gefunden hat und wie viele Plattformen jeder abdeckt. Die ' +
     'Reihenfolge ist die Präferenz: eine Plattform ohne eigene Wahl wird vom ersten Emulator ' +
     'dieser Liste ausgeführt, der installiert ist und sie abdeckt — einen nach oben zu schieben ' +
     'macht ihn also zur Vorgabe für alles, was er kann. Plattformen, die Sie unten einzeln ' +
     'festgelegt haben, bleiben davon unberührt.',
-  'settings.platforms': 'Plattformen',
-  'settings.platformsExplainer':
+  'emulators.platforms': 'Plattformen',
+  'emulators.platformsExplainer':
     'Welcher Emulator jede Plattform Ihrer Bibliothek ausführt. Jede Plattform startet mit einer ' +
     'Vorgabe daraus, was diese Emulatoren üblicherweise übernehmen; ändern Sie eine, verwendet ' +
     'RomMix Ihre Wahl nur für diese Plattform — und sagt es, statt stillschweigend etwas anderes ' +

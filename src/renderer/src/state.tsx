@@ -28,6 +28,7 @@ export type Route =
   | { name: 'game'; romId: number }
   | { name: 'downloads' }
   | { name: 'bios' }
+  | { name: 'emulators' }
   | { name: 'settings' }
 
 export interface Toast {

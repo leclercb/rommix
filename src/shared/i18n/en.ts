@@ -76,6 +76,7 @@ export const en = {
   'nav.home': 'Home',
   'nav.library': 'Library',
   'nav.downloads': 'Downloads',
+  'nav.emulators': 'Emulators',
   'nav.bios': 'BIOS',
   'nav.settings': 'Settings',
 
@@ -560,7 +561,6 @@ export const en = {
 
   'settings.title': 'Settings',
   'settings.tabGeneral': 'General',
-  'settings.tabEmulators': 'Emulators',
   'settings.tabGames': 'Games',
   'settings.tabSystem': 'System',
 
@@ -600,14 +600,13 @@ export const en = {
   'settings.confirmUninstall': 'Ask before deleting a downloaded game',
   'settings.confirmUninstallHint': 'Uninstall is one A press from deleting a multi-gigabyte file.',
 
-  'settings.emulators': 'Emulators',
-  'settings.emulatorsExplainer':
+  'emulators.explainer':
     'What RomMix found on this machine, and how many platforms each one covers. The order is the ' +
     'preference: a platform with no choice of its own is run by the first emulator here that is ' +
     'installed and covers it, so moving one up makes it the default for everything it can run. ' +
     'Platforms you have chosen for individually below are unaffected.',
-  'settings.platforms': 'Platforms',
-  'settings.platformsExplainer':
+  'emulators.platforms': 'Platforms',
+  'emulators.platformsExplainer':
     'Which emulator runs each platform in your library. Every platform starts on a default taken ' +
     'from what these emulators normally handle; change one and RomMix uses your choice for that ' +
     'platform only, and says so rather than quietly substituting if it is missing.',

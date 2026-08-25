@@ -22,6 +22,7 @@ import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
 import { GameScreen } from './screens/Game'
 import { DownloadsScreen } from './screens/Downloads'
+import { EmulatorsScreen } from './screens/Emulators'
 import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
 import { SettingsScreen } from './screens/Settings'
@@ -131,6 +132,12 @@ export function App(): JSX.Element {
               active={route.name === 'bios'}
             />
             <NavItem
+              icon="emulator"
+              label={t('nav.emulators')}
+              route={{ name: 'emulators' }}
+              active={route.name === 'emulators'}
+            />
+            <NavItem
               icon="settings"
               label={t('nav.settings')}
               route={{ name: 'settings' }}
@@ -189,6 +196,8 @@ function Screen({ route }: { route: Route }): JSX.Element {
       return <DownloadsScreen />
     case 'bios':
       return <BiosScreen />
+    case 'emulators':
+      return <EmulatorsScreen />
     case 'settings':
       return <SettingsScreen />
     case 'connect':

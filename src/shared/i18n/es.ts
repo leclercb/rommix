@@ -66,6 +66,7 @@ export const es: Catalog = {
   'nav.home': 'Inicio',
   'nav.library': 'Biblioteca',
   'nav.downloads': 'Descargas',
+  'nav.emulators': 'Emuladores',
   'nav.bios': 'BIOS',
   'nav.settings': 'Ajustes',
 
@@ -550,7 +551,6 @@ export const es: Catalog = {
 
   'settings.title': 'Ajustes',
   'settings.tabGeneral': 'General',
-  'settings.tabEmulators': 'Emuladores',
   'settings.tabGames': 'Juegos',
   'settings.tabSystem': 'Sistema',
 
@@ -594,15 +594,14 @@ export const es: Catalog = {
   'settings.confirmUninstallHint':
     'Desinstalar está a una pulsación de A de borrar un archivo de varios gigabytes.',
 
-  'settings.emulators': 'Emuladores',
-  'settings.emulatorsExplainer':
+  'emulators.explainer':
     'Lo que RomMix ha encontrado en esta máquina, y cuántas plataformas cubre cada uno. El orden ' +
     'es la preferencia: una plataforma sin elección propia la ejecuta el primer emulador de esta ' +
     'lista que esté instalado y la cubra, así que subir uno lo convierte en el predeterminado ' +
     'para todo lo que sepa ejecutar. Las plataformas que hayas configurado una a una más abajo no ' +
     'se ven afectadas.',
-  'settings.platforms': 'Plataformas',
-  'settings.platformsExplainer':
+  'emulators.platforms': 'Plataformas',
+  'emulators.platformsExplainer':
     'Qué emulador ejecuta cada plataforma de tu biblioteca. Cada plataforma parte de un valor ' +
     'predeterminado sacado de lo que estos emuladores suelen manejar; cambia uno y RomMix usará tu ' +
     'elección solo para esa plataforma, y lo dirá en vez de sustituirla en silencio si falta.',

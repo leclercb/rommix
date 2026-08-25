@@ -64,6 +64,7 @@ export const fr: Catalog = {
   'nav.home': 'Accueil',
   'nav.library': 'Bibliothèque',
   'nav.downloads': 'Téléchargements',
+  'nav.emulators': 'Émulateurs',
   'nav.bios': 'BIOS',
   'nav.settings': 'Réglages',
 
@@ -554,7 +555,6 @@ export const fr: Catalog = {
 
   'settings.title': 'Réglages',
   'settings.tabGeneral': 'Général',
-  'settings.tabEmulators': 'Émulateurs',
   'settings.tabGames': 'Jeux',
   'settings.tabSystem': 'Système',
 
@@ -602,15 +602,14 @@ export const fr: Catalog = {
     'Désinstaller n’est qu’à une pression de A de la suppression d’un fichier de plusieurs ' +
     'gigaoctets.',
 
-  'settings.emulators': 'Émulateurs',
-  'settings.emulatorsExplainer':
+  'emulators.explainer':
     'Ce que RomMix a trouvé sur cette machine, et combien de plateformes chacun couvre. L’ordre ' +
     'est la préférence : une plateforme sans choix propre est lancée par le premier émulateur de ' +
     'la liste qui est installé et la couvre, donc en remonter un en fait le choix par défaut pour ' +
     'tout ce qu’il sait faire. Les plateformes que vous avez réglées individuellement ci-dessous ' +
     'ne sont pas touchées.',
-  'settings.platforms': 'Plateformes',
-  'settings.platformsExplainer':
+  'emulators.platforms': 'Plateformes',
+  'emulators.platformsExplainer':
     'Quel émulateur fait tourner chaque plateforme de votre bibliothèque. Chaque plateforme part ' +
     'd’un choix par défaut tiré de ce que ces émulateurs prennent en charge habituellement ; ' +
     'changez-en un et RomMix utilise votre choix pour cette plateforme uniquement, et le dit ' +
