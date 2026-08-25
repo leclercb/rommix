@@ -135,7 +135,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     // past? — and it is dismissed for the *emulator*, which is wider than the
     // game it was dismissed from and worth saying out loud.
     notify(
-      t('game.setupHidden', {
+      t('setup.hidden', {
         emulator: emulatorById(setup.emulatorId)?.name ?? setup.emulatorId
       })
     )
@@ -516,7 +516,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           </ul>
           <div className="btn-row">
             <FocusButton icon="hide" variant="ghost" onSelect={() => void dismissSetup()}>
-              {t('game.dontShowAgain')}
+              {t('setup.dontShowAgain')}
             </FocusButton>
           </div>
         </div>

@@ -397,7 +397,7 @@ export const en = {
   'game.extracting': 'Extracting…',
   'game.downloading': 'Downloading…',
   'game.openBios': 'Open BIOS',
-  'game.dontShowAgain': "Don't show this again",
+  'setup.dontShowAgain': "Don't show this again",
   'game.tabDetails': 'Details',
   'game.tabSaves': 'Saves',
   'game.tabFiles': 'Files',
@@ -412,7 +412,7 @@ export const en = {
   'game.biosMissing_other':
     '{platform} needs {files} to start most games, and they are not installed.',
   'game.biosSetup': '{platform} needs its BIOS set up before games will run.',
-  'game.setupHidden': 'Setup steps hidden for {emulator}',
+  'setup.hidden': 'Setup steps hidden for {emulator}',
   'game.alreadyDownloaded': 'Already downloaded',
   'game.downloadStarted': 'Download started',
   'game.couldNotStart': 'The game could not be started',
@@ -525,7 +525,7 @@ export const en = {
     'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.',
   'setup.edenExitConfirm':
     'Turn off Eden’s exit confirmation: Emulation → Configure → General → Confirm exit while ' +
-    'emulation is running. RomMix cannot close Eden while that dialog is waiting for an answer.',
+    'emulation is running.',
   'setup.edenStaging':
     'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
   'setup.shadps4Roms':
@@ -650,6 +650,12 @@ export const en = {
   'emulator.movedDown': '{name} moved down',
   'emulator.rootSet': '{name} will be read from {path}',
   'emulator.rootCleared': '{name} folder found automatically again',
+  'emulator.installedTitle': '{name} is installed',
+  'emulator.setupTitle': 'Set up {name}',
+  'emulator.setupSteps': 'Setup steps',
+  'emulator.setupIntro':
+    'What is left is inside {name} itself — RomMix can neither do these from outside it nor check ' +
+    'that they are done:',
   'emulator.installedToast': '{name} installed',
   'emulator.installingFlathub': 'Installing from Flathub',
   'emulator.contactingFlathub': 'Contacting Flathub…',

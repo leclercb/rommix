@@ -392,7 +392,7 @@ export const es: Catalog = {
   'game.extracting': 'Extrayendo…',
   'game.downloading': 'Descargando…',
   'game.openBios': 'Abrir BIOS',
-  'game.dontShowAgain': 'No mostrar esto otra vez',
+  'setup.dontShowAgain': 'No mostrar esto otra vez',
   'game.tabDetails': 'Detalles',
   'game.tabSaves': 'Partidas',
   'game.tabFiles': 'Archivos',
@@ -408,7 +408,7 @@ export const es: Catalog = {
   'game.biosMissing_other':
     '{platform} necesita {files} para arrancar la mayoría de los juegos, y no están instalados.',
   'game.biosSetup': '{platform} necesita su BIOS en su sitio antes de que los juegos arranquen.',
-  'game.setupHidden': 'Pasos de configuración ocultos para {emulator}',
+  'setup.hidden': 'Pasos de configuración ocultos para {emulator}',
   'game.alreadyDownloaded': 'Ya estaba descargado',
   'game.downloadStarted': 'Descarga iniciada',
   'game.couldNotStart': 'El juego no ha podido arrancar',
@@ -515,8 +515,7 @@ export const es: Catalog = {
     'Instala el firmware en Eden: Tools → Install Firmware. Las claves se copian por ti.',
   'setup.edenExitConfirm':
     'Desactiva la confirmación de salida de Eden: Emulation → Configure → General → Confirm ' +
-    'exit while emulation is running. RomMix no puede cerrar Eden mientras ese diálogo espera ' +
-    'una respuesta.',
+    'exit while emulation is running.',
   'setup.edenStaging':
     'Instala el firmware en Eden: Tools → Install Firmware, apuntando al archivo de abajo.',
   'setup.shadps4Roms':
@@ -646,6 +645,12 @@ export const es: Catalog = {
   'emulator.movedDown': '{name} ha bajado',
   'emulator.rootSet': '{name} se leerá desde {path}',
   'emulator.rootCleared': 'La carpeta de {name} vuelve a encontrarse automáticamente',
+  'emulator.installedTitle': '{name} está instalado',
+  'emulator.setupTitle': 'Configurar {name}',
+  'emulator.setupSteps': 'Pasos de configuración',
+  'emulator.setupIntro':
+    'Lo que queda pasa dentro del propio {name} — RomMix no puede hacerlo desde fuera ni ' +
+    'comprobar que se ha hecho:',
   'emulator.installedToast': '{name} instalado',
   'emulator.installingFlathub': 'Instalando desde Flathub',
   'emulator.contactingFlathub': 'Contactando con Flathub…',

@@ -405,7 +405,7 @@ export const de: Catalog = {
   'game.extracting': 'Entpacken…',
   'game.downloading': 'Download…',
   'game.openBios': 'BIOS öffnen',
-  'game.dontShowAgain': 'Nicht mehr anzeigen',
+  'setup.dontShowAgain': 'Nicht mehr anzeigen',
   'game.tabDetails': 'Details',
   'game.tabSaves': 'Spielstände',
   'game.tabFiles': 'Dateien',
@@ -422,7 +422,7 @@ export const de: Catalog = {
   'game.biosMissing_other':
     '{platform} braucht {files}, damit die meisten Spiele starten, und sie sind nicht installiert.',
   'game.biosSetup': 'Bei {platform} muss das BIOS eingerichtet sein, bevor Spiele laufen.',
-  'game.setupHidden': 'Einrichtungsschritte für {emulator} ausgeblendet',
+  'setup.hidden': 'Einrichtungsschritte für {emulator} ausgeblendet',
   'game.alreadyDownloaded': 'Bereits heruntergeladen',
   'game.downloadStarted': 'Download gestartet',
   'game.couldNotStart': 'Das Spiel konnte nicht gestartet werden',
@@ -530,8 +530,7 @@ export const de: Catalog = {
     'Firmware in Eden installieren: Tools → Install Firmware. Die Schlüssel werden für Sie kopiert.',
   'setup.edenExitConfirm':
     'Die Beenden-Nachfrage von Eden abschalten: Emulation → Configure → General → Confirm exit ' +
-    'while emulation is running. Solange dieser Dialog auf eine Antwort wartet, kann RomMix ' +
-    'Eden nicht schließen.',
+    'while emulation is running.',
   'setup.edenStaging':
     'Firmware in Eden installieren: Tools → Install Firmware, auf die Datei unten zeigen lassen.',
   'setup.shadps4Roms':
@@ -665,6 +664,12 @@ export const de: Catalog = {
   'emulator.movedDown': '{name} nach unten verschoben',
   'emulator.rootSet': '{name} wird aus {path} gelesen',
   'emulator.rootCleared': 'Der Ordner von {name} wird wieder automatisch gefunden',
+  'emulator.installedTitle': '{name} ist installiert',
+  'emulator.setupTitle': '{name} einrichten',
+  'emulator.setupSteps': 'Einrichtungsschritte',
+  'emulator.setupIntro':
+    'Was übrig bleibt, geschieht in {name} selbst — RomMix kann es von außen weder erledigen noch ' +
+    'nachprüfen:',
   'emulator.installedToast': '{name} installiert',
   'emulator.installingFlathub': 'Installation von Flathub',
   'emulator.contactingFlathub': 'Flathub wird kontaktiert…',

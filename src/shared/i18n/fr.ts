@@ -394,7 +394,7 @@ export const fr: Catalog = {
   'game.extracting': 'Extraction…',
   'game.downloading': 'Téléchargement…',
   'game.openBios': 'Ouvrir BIOS',
-  'game.dontShowAgain': 'Ne plus afficher',
+  'setup.dontShowAgain': 'Ne plus afficher',
   'game.tabDetails': 'Détails',
   'game.tabSaves': 'Sauvegardes',
   'game.tabFiles': 'Fichiers',
@@ -411,7 +411,7 @@ export const fr: Catalog = {
   'game.biosMissing_other':
     '{platform} a besoin de {files} pour lancer la plupart des jeux, et ils ne sont pas installés.',
   'game.biosSetup': '{platform} a besoin que son BIOS soit en place avant que les jeux démarrent.',
-  'game.setupHidden': 'Étapes de configuration masquées pour {emulator}',
+  'setup.hidden': 'Étapes de configuration masquées pour {emulator}',
   'game.alreadyDownloaded': 'Déjà téléchargé',
   'game.downloadStarted': 'Téléchargement lancé',
   'game.couldNotStart': 'Le jeu n’a pas pu démarrer',
@@ -519,8 +519,7 @@ export const fr: Catalog = {
     'Installez le firmware dans Eden : Tools → Install Firmware. Les clés sont copiées pour vous.',
   'setup.edenExitConfirm':
     'Désactivez la confirmation de sortie d’Eden : Emulation → Configure → General → Confirm ' +
-    'exit while emulation is running. RomMix ne peut pas fermer Eden tant que cette boîte de ' +
-    'dialogue attend une réponse.',
+    'exit while emulation is running.',
   'setup.edenStaging':
     'Installez le firmware dans Eden : Tools → Install Firmware, en le pointant sur le fichier ci-dessous.',
   'setup.shadps4Roms':
@@ -655,6 +654,12 @@ export const fr: Catalog = {
   'emulator.movedDown': '{name} est descendu',
   'emulator.rootSet': '{name} sera lu depuis {path}',
   'emulator.rootCleared': 'Le dossier de {name} est de nouveau trouvé automatiquement',
+  'emulator.installedTitle': '{name} est installé',
+  'emulator.setupTitle': 'Configurer {name}',
+  'emulator.setupSteps': 'Étapes de configuration',
+  'emulator.setupIntro':
+    'Ce qui reste se passe dans {name} même — RomMix ne peut ni le faire depuis l’extérieur ni ' +
+    'vérifier que c’est fait :',
   'emulator.installedToast': '{name} installé',
   'emulator.installingFlathub': 'Installation depuis Flathub',
   'emulator.contactingFlathub': 'Contact de Flathub…',

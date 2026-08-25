@@ -6,7 +6,7 @@ import {
   releaseSource,
   systemCount
 } from '@config/emulators'
-import type { MessageKey } from '@shared/i18n'
+import { localize, type MessageKey } from '@shared/i18n'
 import type {
   DiagnosticsReport,
   EmulatorDescriptor,
@@ -18,6 +18,7 @@ import { FocusButton, Filled, Overlay, Spinner, TextField } from '../../componen
 import { Icon, type IconName } from '../../icons'
 import { useApp, useI18n } from '../../state'
 import { InstallPicker } from './InstallPicker'
+import { SetupNotesNotice } from './SetupNotesNotice'
 
 /**
  * The emulators RomMix knows about, in the order it prefers them.
@@ -140,7 +141,8 @@ export function EmulatorList({
   confirmChange: () => Promise<boolean>
   onInstalled: () => void
 }): JSX.Element {
-  const { t } = useI18n()
+  const i18n = useI18n()
+  const { t } = i18n
   const { settings, saveSettings, refreshInstalled } = useApp()
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
   const [running, setRunning] = useState<EmulatorId | null>(null)
@@ -156,6 +158,13 @@ export function EmulatorList({
    * packaged more than one way, where that is picked.
    */
   const [pending, setPending] = useState<EmulatorDescriptor | null>(null)
+  /**
+   * The emulator that has just arrived and still wants something done inside
+   * it. Null for one that needs nothing, which is most of them.
+   */
+  const [setUp, setSetUp] = useState<EmulatorDescriptor | null>(null)
+  /** True while `setUp` is the confirmation of an install rather than a lookup. */
+  const [justInstalled, setJustInstalled] = useState(false)
 
   // The order shown is the order used. Held as a full list rather than as the
   // moved entry alone, so what is saved is exactly what is on screen.
@@ -254,6 +263,37 @@ export function EmulatorList({
    * A download is a choice of build rather than one act, so it opens the
    * picker; Flathub is one command and runs here.
    */
+  /**
+   * Say it arrived, and say what is left.
+   *
+   * The steps replace the notification rather than joining it: the panel's own
+   * title is "{name} is installed", and a toast saying the same thing over the
+   * top of it is the same sentence twice.
+   */
+  /**
+   * Steps the user has said they do not want shown again, by emulator.
+   *
+   * The same key the game page writes, so hiding them in either place hides
+   * them in both: the answer is about this emulator, not about the screen it
+   * was given on.
+   */
+  const dismissedNotices = settings?.dismissedNotices ?? []
+  const hideSetup = async (descriptor: EmulatorDescriptor): Promise<void> => {
+    const key = `setup:${descriptor.id}`
+    if (dismissedNotices.includes(key)) return
+    await saveSettings({ dismissedNotices: [...dismissedNotices, key] })
+    notify(t('setup.hidden', { emulator: descriptor.name }))
+  }
+
+  const announce = (descriptor: EmulatorDescriptor): void => {
+    if (descriptor.setupNotes.length === 0) {
+      notify(t('emulator.installedToast', { name: descriptor.name }))
+      return
+    }
+    setJustInstalled(true)
+    setSetUp(descriptor)
+  }
+
   const install = async (descriptor: EmulatorDescriptor, spec: InstallMethod): Promise<void> => {
     setPending(null)
     if (spec.kind === 'appimage') {
@@ -266,7 +306,7 @@ export function EmulatorList({
     try {
       await window.rommix.system.installEmulatorFlatpak(descriptor.id)
       onInstalled()
-      notify(t('emulator.installedToast', { name: descriptor.name }))
+      announce(descriptor)
     } catch {
       // Reported centrally on `app:error`; this only keeps the success
       // notification from firing over a failed install.
@@ -347,6 +387,39 @@ export function EmulatorList({
                   </section>
                 ) : null}
               </div>
+
+              {/* What is still to be done inside it, for an emulator that is
+                  actually here — the same notice the game page shows when a
+                  game is about to be launched on it. Faint text in a column was
+                  the one place these could sit and be missed, which is the
+                  whole thing they exist to prevent.
+
+                  Dismissible, and by the same key the game page uses: the
+                  answer is about this emulator rather than about the screen it
+                  was given on, so saying it once is enough. Installing it again
+                  is what brings the steps back. */}
+              {state?.install &&
+              descriptor.setupNotes.length > 0 &&
+              !dismissedNotices.includes(`setup:${descriptor.id}`) ? (
+                <div className="notice notice--warn">
+                  <ul className="notice__list">
+                    {descriptor.setupNotes.map((note) => (
+                      <li key={typeof note === 'string' ? note : note.key}>
+                        {localize(note, i18n)}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="btn-row">
+                    <FocusButton
+                      icon="hide"
+                      variant="ghost"
+                      onSelect={() => void hideSetup(descriptor)}
+                    >
+                      {t('setup.dontShowAgain')}
+                    </FocusButton>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Below the columns rather than inside one: a field and its two
                   buttons need the width of the row, and half of it would put a
@@ -436,6 +509,20 @@ export function EmulatorList({
                   {flatpakBusy === descriptor.id ? t('action.installing') : t('action.install')}
                 </FocusButton>
               )}
+              {/* The steps, on demand. Icon-only because it is the one button
+                  in this row that opens a reference rather than doing
+                  something, and because the row is already wide. Disabled
+                  rather than hidden for an emulator that wants nothing done:
+                  the answer "there is nothing to set up" is worth being able to
+                  read off the row, and a button that comes and goes makes the
+                  rows below it move. */}
+              <FocusButton
+                icon="note"
+                variant="ghost"
+                actionLabel={t('emulator.setupSteps')}
+                disabled={descriptor.setupNotes.length === 0}
+                onSelect={() => setSetUp(descriptor)}
+              />
               {/* Last, so the buttons that do something to this emulator come
                   first and the pair that only moves it sits where a list's
                   handles belong. Rank, not decoration: moving one up makes it
@@ -518,15 +605,27 @@ export function EmulatorList({
         </Overlay>
       ) : null}
 
+      {setUp ? (
+        <SetupNotesNotice
+          emulator={setUp}
+          installed={justInstalled}
+          onClose={() => {
+            setSetUp(null)
+            setJustInstalled(false)
+          }}
+        />
+      ) : null}
+
       {installing ? (
         <InstallPicker
           emulatorId={installing}
           onClose={() => setInstalling(null)}
           onInstalled={() => {
-            const name = emulatorById(installing)?.name ?? installing
+            const descriptor = emulatorById(installing)
             setInstalling(null)
             onInstalled()
-            notify(t('emulator.installedToast', { name }))
+            if (descriptor) announce(descriptor)
+            else notify(t('emulator.installedToast', { name: installing }))
           }}
         />
       ) : null}
