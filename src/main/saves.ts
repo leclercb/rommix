@@ -424,10 +424,14 @@ export class SaveSync {
 
       // Only asked for once there is something to compare it against: a game
       // with no local saves should not cost a round-trip to the server.
+      //
+      // Not caught. A refused listing read as an empty one puts "New on RomM"
+      // against every file in the dialog, when what the push would actually do
+      // is overwrite. Failing the preview is the honest answer.
       const remote =
         kind === 'save'
-          ? await this.client.saves(target.rom.id).catch(() => [])
-          : await this.client.states(target.rom.id).catch(() => [])
+          ? await this.client.saves(target.rom.id)
+          : await this.client.states(target.rom.id)
       const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
 
       for (const asset of local) {

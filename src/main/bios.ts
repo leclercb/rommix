@@ -127,38 +127,29 @@ export class BiosManager {
    * too much work to do every time a game is opened. This is the same
    * description of one row at the cost of two calls.
    *
-   * Returns null rather than throwing when the answer cannot be had — an
-   * unknown platform, or a server that will not talk about firmware. The BIOS
-   * screen is where a refused firmware call is reported; a game page that
-   * cannot check is a game page with nothing to warn about, and it must not
-   * fail to open over it.
+   * Null means the server has no such platform, which is not a failure: RomMix
+   * knows platforms a given server has never heard of.
+   *
+   * Anything else throws. A failed check used to return null as well, and the
+   * game page then drew exactly what it draws for a platform with nothing
+   * wrong — no warning at all. The page still opens either way, because the
+   * caller keeps its own `catch`; what changes is that the user is told.
    */
   async platformReport(platformId: number): Promise<BiosPlatform | null> {
-    try {
-      const platforms = await this.client.platforms()
-      const platform = platforms.find((row) => row.id === platformId)
-      if (!platform) return null
+    const platforms = await this.client.platforms()
+    const platform = platforms.find((row) => row.id === platformId)
+    if (!platform) return null
 
-      const firmware = await this.client.firmware(platformId)
-      const listings = new Map<string, Set<string>>()
-      const listing = async (dir: string): Promise<Set<string>> => {
-        const cached = listings.get(dir)
-        if (cached) return cached
-        const found = await existingFiles(dir)
-        listings.set(dir, found)
-        return found
-      }
-      return await this.describe(platform, firmware, listing)
-    } catch (cause) {
-      // Deliberately not an error for the user, but a game page that shows no
-      // BIOS warning because the check failed looks exactly like one with
-      // nothing to warn about.
-      log.warn('bios', 'could not check this platform, the page shows no warning', {
-        platformId,
-        reason: (cause as Error).message
-      })
-      return null
+    const firmware = await this.client.firmware(platformId)
+    const listings = new Map<string, Set<string>>()
+    const listing = async (dir: string): Promise<Set<string>> => {
+      const cached = listings.get(dir)
+      if (cached) return cached
+      const found = await existingFiles(dir)
+      listings.set(dir, found)
+      return found
     }
+    return await this.describe(platform, firmware, listing)
   }
 
   /**
