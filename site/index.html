@@ -140,33 +140,112 @@
          and a select that needs one to go anywhere is worse than a row of
          words. Each names itself, which is the only form a reader looking for
          their own language can be relied on to recognise. */
-      .langs {
+      /* The row above everything: where the source is, and what language this
+         is in. Both are things a reader looks for before reading, and neither
+         is worth a line of the page proper. */
+      .topline {
         display: flex;
         justify-content: flex-end;
-        gap: 6px;
+        align-items: center;
+        gap: 10px;
         margin-bottom: 28px;
         font-size: 0.85rem;
       }
 
-      .langs a,
-      .langs span {
-        padding: 3px 10px;
+      .topline a,
+      .topline summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 11px;
+        border: 1px solid var(--border);
         border-radius: 999px;
-        color: var(--text-faint);
-      }
-
-      .langs a:hover {
         background: var(--surface);
         color: var(--text-dim);
+        white-space: nowrap;
+      }
+
+      .topline a:hover,
+      .topline summary:hover {
+        background: var(--bg-hover);
+        color: var(--text);
         text-decoration: none;
       }
 
-      /* The page you are on is not a link to itself. */
-      .langs span {
-        background: var(--surface);
+      .topline svg {
+        width: 15px;
+        height: 15px;
+        fill: currentColor;
+      }
+
+      .stars b {
+        font-weight: 650;
+        color: var(--text);
+      }
+
+      /* A dropdown with no script: `details` is the only element that opens and
+         closes on its own. The marker is replaced by a chevron of our own so it
+         sits after the label rather than before it. */
+      .langs {
+        position: relative;
+      }
+
+      .langs summary {
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .langs summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .langs summary::after {
+        content: '';
+        width: 6px;
+        height: 6px;
+        margin-left: 1px;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: translateY(-2px) rotate(45deg);
+      }
+
+      .langs[open] summary::after {
+        transform: translateY(1px) rotate(-135deg);
+      }
+
+      .langs ul {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        z-index: 5;
+        margin: 0;
+        padding: 5px;
+        list-style: none;
+        min-width: 100%;
         border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-raised);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+      }
+
+      .langs li a {
+        display: flex;
+        border: 0;
+        border-radius: 8px;
+        background: none;
+        padding: 6px 10px;
         color: var(--text-dim);
-        padding: 2px 9px;
+      }
+
+      /* The page you are on is not a link to itself. */
+      .langs li span {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
       }
 
       .brand {
@@ -1200,7 +1279,31 @@
   <body>
     <header>
       <div class="wrap">
-        <nav class="langs" aria-label="{{@settings.language}}">{{languages}}</nav>
+        <div class="topline">
+          <!-- The star count is written in at build time — see
+               `scripts/build-landing.mjs`. It is as fresh as the last deploy,
+               which is the price of a page that runs no script. -->
+          <a
+            class="stars"
+            href="https://github.com/leclercb/rommix"
+            rel="noopener"
+            aria-label="{{stars.label}}"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+              />
+            </svg>
+            {{stars.count}}
+          </a>
+
+          <details class="langs">
+            <summary aria-label="{{@settings.language}}">{{languages.current}}</summary>
+            <ul>
+              {{languages}}
+            </ul>
+          </details>
+        </div>
 
         <div class="brand">
           <!-- The app's own mark: a cartridge whose label is a cassette. -->

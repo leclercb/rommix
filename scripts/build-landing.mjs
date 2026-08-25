@@ -26,13 +26,42 @@
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { createI18n, LANGUAGE_NAMES, LOCALES } from '../src/shared/i18n/index.ts'
+import { createI18n, LANGUAGE_FLAGS, LANGUAGE_NAMES, LOCALES } from '../src/shared/i18n/index.ts'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const OUT = resolve(ROOT, 'out/site')
 
 /** Where the published site lives, for the `hreflang` links search engines want. */
 const SITE = 'https://leclercb.github.io/rommix'
+
+/** The repository the star count is read from, and the link that carries it. */
+const REPO = 'leclercb/rommix'
+
+/**
+ * How many people have starred it, or null.
+ *
+ * Read once at build time and written into the page. The page runs no script,
+ * so this is as fresh as the last deploy — which for a number that moves by
+ * ones is close enough, and buys a header that costs the reader no request.
+ *
+ * Null on any failure, including no network at all: a missing count is a link
+ * without a number beside it, and that must not be the difference between a
+ * site that builds and one that does not.
+ */
+async function stars() {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${REPO}`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'rommix-site' },
+      signal: AbortSignal.timeout(5000)
+    })
+    if (!response.ok) throw new Error(`GitHub responded ${response.status}`)
+    const repo = await response.json()
+    return typeof repo.stargazers_count === 'number' ? repo.stargazers_count : null
+  } catch (cause) {
+    console.log(`    (no star count: ${cause.message})`)
+    return null
+  }
+}
 
 /** The language the site is served from its root, and the one others fall back to. */
 const DEFAULT = 'en'
@@ -43,25 +72,24 @@ const pathOf = (locale) => (locale === DEFAULT ? '' : `${locale}/`)
 /** How deep a page sits, as the prefix that gets back to the site root. */
 const rootOf = (locale) => (locale === DEFAULT ? './' : '../')
 
-async function render(template, locale) {
+async function render(template, locale, starCount) {
   const page = JSON.parse(await readFile(resolve(ROOT, 'site/text', `${locale}.json`), 'utf8'))
   const { t } = createI18n(locale)
   const used = new Set()
 
-  // The other three, each named in itself — the one form a reader looking for
-  // their own language recognises without being able to read the page yet.
+  // Each named in itself behind its flag — the one form a reader looking for
+  // their own language recognises without being able to read the page yet. The
+  // one being read is in the list too, marked, so the menu is the whole set
+  // rather than the set minus the obvious.
   //
   // Indented here rather than in the template, which prettier keeps on one line
   // because a placeholder is, as far as it knows, a word.
-  const languages = [
-    '',
-    ...LOCALES.map((other) =>
-      other === locale
-        ? `          <span aria-current="page">${LANGUAGE_NAMES[other]}</span>`
-        : `          <a href="${rootOf(locale)}${pathOf(other)}" hreflang="${other}" lang="${other}">${LANGUAGE_NAMES[other]}</a>`
-    ),
-    '        '
-  ].join('\n')
+  const name = (other) => `${LANGUAGE_FLAGS[other]} ${LANGUAGE_NAMES[other]}`
+  const languages = LOCALES.map((other) =>
+    other === locale
+      ? `              <li><span aria-current="page">${name(other)}</span></li>`
+      : `              <li><a href="${rootOf(locale)}${pathOf(other)}" hreflang="${other}" lang="${other}">${name(other)}</a></li>`
+  ).join('\n')
 
   const alternates = [
     ...LOCALES.map(
@@ -70,7 +98,20 @@ async function render(template, locale) {
     `    <link rel="alternate" hreflang="x-default" href="${SITE}/" />`
   ].join('\n')
 
-  const fixed = { lang: locale, root: rootOf(locale), languages, alternates }
+  const fixed = {
+    lang: locale,
+    root: rootOf(locale),
+    languages,
+    'languages.current': name(locale),
+    alternates,
+    // Compact, and in this page's own language: 1200 is `1.2k` in English and
+    // `1,2 k` in French.
+    'stars.count':
+      starCount === null
+        ? ''
+        : `<b>${new Intl.NumberFormat(locale, { notation: 'compact' }).format(starCount)}</b>`,
+    'stars.label': starCount === null ? REPO : `${REPO} — ${starCount}`
+  }
 
   const rendered = template.replace(/\{\{(@?[\w.]+)\}\}/g, (whole, key) => {
     if (key in fixed) return fixed[key]
@@ -113,7 +154,9 @@ const template = source.replace(
 )
 if (template === source) throw new Error('site/index.html has lost its header comment')
 
+const starCount = await stars()
+
 for (const locale of LOCALES) {
-  const target = await render(template, locale)
+  const target = await render(template, locale, starCount)
   console.log(`    ${locale} -> ${target.slice(ROOT.length + 1)}`)
 }
