@@ -60,7 +60,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
       variant: chosen ?? null
     })
 
-    rommix.send('game:state', { running: true, romId, stage: null })
+    rommix.send('running:state', { running: true, romId, stage: null })
     try {
       return await launcher.launch({
         rom,
@@ -73,14 +73,14 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
         // Re-sent as the same "running" state it already is, so the screen has
         // one thing to read rather than two that could disagree about whether a
         // game is up.
-        onStage: (stage) => rommix.send('game:state', { running: true, romId, stage })
+        onStage: (stage) => rommix.send('running:state', { running: true, romId, stage })
       })
     } finally {
-      rommix.send('game:state', { running: false, romId: null, stage: null })
+      rommix.send('running:state', { running: false, romId: null, stage: null })
     }
   })
 
-  handle('game:stop', () => {
+  handle('running:stop', () => {
     log.info('game', 'stop requested from the interface')
     launcher.stop()
   })

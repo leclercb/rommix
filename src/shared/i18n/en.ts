@@ -94,6 +94,10 @@ export const en = {
     'The emulator has focus. Quit it to come back — RomMix will ask what to send to RomM.',
   'app.emulatorHasFocusAuto':
     'The emulator has focus. Quit it to come back — saves sync to RomM automatically.',
+  'app.emulatorRunning': '{name} is running',
+  'app.emulatorOpened':
+    '{name} has focus. Quit it to come back — nothing is being played, so there is nothing to ' +
+    'sync.',
   'app.holdToClose': 'Hold {key} to close it from here.',
   'app.closeEmulator': 'Close the emulator',
   'app.askingEmulatorToQuit': 'Asking the emulator to quit…',
@@ -644,7 +648,6 @@ export const en = {
   'emulator.run': 'Run',
   'emulator.movedUp': '{name} moved up',
   'emulator.movedDown': '{name} moved down',
-  'emulator.started': '{name} started',
   'emulator.rootSet': '{name} will be read from {path}',
   'emulator.rootCleared': '{name} folder found automatically again',
   'emulator.installedToast': '{name} installed',

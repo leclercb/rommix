@@ -38,10 +38,28 @@ export interface ConnectPayload {
   token?: string
 }
 
-/** Emitted on `game:state` so the UI can show a "running" overlay. */
-export interface GameState {
+/**
+ * What has the screen, emitted on `running:state` so the UI can put an overlay
+ * in front of it.
+ *
+ * Not `GameState`: a game is the usual answer but not the only one — an
+ * emulator opened on its own from the Emulators page is in front of RomMix in
+ * exactly the same way, and the overlay exists for that fact rather than for
+ * the game.
+ */
+export interface RunningState {
   running: boolean
   romId: number | null
+  /**
+   * The emulator's name when it was started on its own, with no game — the Run
+   * button on the Emulators page — and null when a game is what is running.
+   *
+   * Both need the same overlay for the same reason: something else has the
+   * screen and RomMix is behind it. Without one, starting an emulator to add a
+   * ROM folder left the user inside it with nothing of RomMix's on screen and
+   * no way back short of closing the emulator by hand.
+   */
+  emulator?: string | null
   /**
    * What the launch is doing while the emulator is not up yet, ready to show,
    * or null once it is running.
@@ -175,8 +193,17 @@ export interface RomMixBridge {
     variants(romId: number): Promise<LaunchChoice>
     /** `variant` is remembered for the platform once passed. */
     launch(romId: number, variant?: string): Promise<LaunchResult>
+  }
+  /**
+   * Whatever is in front of RomMix, and the way to close it.
+   *
+   * Its own namespace rather than part of `game`, because neither member is
+   * about a game: an emulator opened to change a setting in raises the same
+   * state and is closed by the same call.
+   */
+  running: {
     stop(): Promise<void>
-    onState(listener: (state: GameState) => void): () => void
+    onState(listener: (state: RunningState) => void): () => void
   }
   updates: {
     /** What RomMix knows about its own version right now. */

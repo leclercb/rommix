@@ -194,7 +194,7 @@ export function EmulatorList({
    * is re-run afterwards, since running it once is often exactly what makes it
    * usable.
    */
-  const run = async (id: EmulatorId, name: string): Promise<void> => {
+  const run = async (id: EmulatorId): Promise<void> => {
     setRunning(id)
     try {
       // This waits a couple of seconds now: the main process holds the answer
@@ -202,7 +202,9 @@ export function EmulatorList({
       // started or quit with something to say about why. So the button says
       // "Starting…" rather than looking wedged.
       await window.rommix.system.runEmulator(id)
-      notify(t('emulator.started', { name }))
+      // No toast: the overlay that goes up the moment it is running says the
+      // same thing, and stays until it is closed. Two of them over one event is
+      // one too many.
       onInstalled()
     } catch {
       // Reported centrally on `app:error`, in the emulator's own words.
@@ -416,7 +418,7 @@ export function EmulatorList({
                   icon="play"
                   variant="ghost"
                   disabled={running !== null}
-                  onSelect={() => void run(descriptor.id, descriptor.name)}
+                  onSelect={() => void run(descriptor.id)}
                 >
                   {running === descriptor.id ? t('action.starting') : t('emulator.run')}
                 </FocusButton>

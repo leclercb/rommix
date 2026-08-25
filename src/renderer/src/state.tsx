@@ -87,6 +87,14 @@ interface AppState {
 
   runningRomId: number | null
   /**
+   * The emulator someone started on its own, from the Emulators page, or null.
+   *
+   * The other way something can be in front of RomMix. It is not a session —
+   * there is no game and nothing to sync — but the screen belongs to it just
+   * the same, so the same overlay says so.
+   */
+  runningEmulator: string | null
+  /**
    * What the launch is doing before the emulator is up — installing a missing
    * core — or null when there is nothing to say and it is simply running.
    */
@@ -133,6 +141,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [installed, setInstalled] = useState<InstalledRom[]>([])
   const [runningRomId, setRunningRomId] = useState<number | null>(null)
+  const [runningEmulator, setRunningEmulator] = useState<string | null>(null)
   const [runningStage, setRunningStage] = useState<string | null>(null)
   const [history, setHistory] = useState<Route[]>([{ name: 'home' }])
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -301,8 +310,9 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [refreshInstalled, notify, i18n])
 
   useEffect(() => {
-    return window.rommix.game.onState((state) => {
+    return window.rommix.running.onState((state) => {
       setRunningRomId(state.running ? state.romId : null)
+      setRunningEmulator(state.running ? (state.emulator ?? null) : null)
       setRunningStage(state.running ? (state.stage ?? null) : null)
     })
   }, [])
@@ -355,6 +365,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       installedIds,
       refreshInstalled,
       runningRomId,
+      runningEmulator,
       runningStage,
       update,
       refreshUpdate,
@@ -377,6 +388,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       installedIds,
       refreshInstalled,
       runningRomId,
+      runningEmulator,
       runningStage,
       update,
       refreshUpdate,

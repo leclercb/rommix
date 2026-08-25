@@ -24,7 +24,16 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     const state = states.find((emulator) => emulator.id === id)
     if (!state) throw new RommError(t('error.unknownEmulator', { id }))
     if (!state.install) throw new RommError(t('error.emulatorNotInstalled', { name: state.name }))
-    return launcher.runEmulator(state)
+    // Announced as "something has the screen", the same state a launch raises:
+    // the emulator opens fullscreen over RomMix, and without the overlay the
+    // user is inside it with no way back. Sent after it has survived long
+    // enough to count as started — before that, `runEmulator` rejects and there
+    // is nothing to be in front of.
+    const command = await launcher.runEmulator(state, () =>
+      rommix.send('running:state', { running: false, romId: null, emulator: null, stage: null })
+    )
+    rommix.send('running:state', { running: true, romId: null, emulator: state.name, stage: null })
+    return command
   })
 
   /** Releases RomMix could install for this emulator, newest first. */

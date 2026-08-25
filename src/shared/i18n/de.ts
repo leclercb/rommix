@@ -87,6 +87,10 @@ export const de: Catalog = {
   'app.emulatorHasFocusAuto':
     'Der Emulator hat den Fokus. Beenden Sie ihn, um zurückzukommen — Spielstände werden ' +
     'automatisch mit RomM abgeglichen.',
+  'app.emulatorRunning': '{name} läuft',
+  'app.emulatorOpened':
+    '{name} hat den Fokus. Beenden Sie ihn, um zurückzukommen — es wird nichts gespielt, also gibt ' +
+    'es auch nichts abzugleichen.',
   'app.holdToClose': '{key} gedrückt halten, um ihn von hier aus zu schließen.',
   'app.closeEmulator': 'Emulator schließen',
   'app.askingEmulatorToQuit': 'Der Emulator wird zum Beenden aufgefordert…',
@@ -659,7 +663,6 @@ export const de: Catalog = {
   'emulator.run': 'Starten',
   'emulator.movedUp': '{name} nach oben verschoben',
   'emulator.movedDown': '{name} nach unten verschoben',
-  'emulator.started': '{name} gestartet',
   'emulator.rootSet': '{name} wird aus {path} gelesen',
   'emulator.rootCleared': 'Der Ordner von {name} wird wieder automatisch gefunden',
   'emulator.installedToast': '{name} installiert',

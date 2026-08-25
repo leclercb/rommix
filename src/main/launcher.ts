@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { emulatorById } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
@@ -31,7 +31,7 @@ interface LaunchOptions {
    * Told what the launch is doing while the emulator is not up yet.
    *
    * A callback rather than an event sent from here, because the launcher has no
-   * window to send to; the caller that raised `game:state` is the one that can
+   * window to send to; the caller that raised `running:state` is the one that can
    * put this on screen.
    */
   onStage?: (stage: string | null) => void
@@ -107,6 +107,33 @@ function stageFor(progress: CoreProgress): string {
 }
 
 /**
+ * Ask a running emulator to quit.
+ *
+ * A flatpak has to be stopped through flatpak: the process spawned here is only
+ * a client of it, and signalling that one is what the close button used to do —
+ * nothing. Anything else was spawned directly and a signal reaches it.
+ *
+ * Shared by the two things that can have the screen: a game's session, and an
+ * emulator started on its own from the Emulators page.
+ */
+function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
+  log.info('emulator', 'asking the emulator to quit', {
+    pid: child.pid ?? null,
+    install: install?.kind ?? null,
+    ref: install?.ref ?? null
+  })
+  if (install?.kind !== 'flatpak') return void child.kill('SIGTERM')
+
+  void stopFlatpakApp(install.ref).then((stopped) => {
+    // No instance was listed — the app is still starting, or it is not running
+    // under flatpak's own bookkeeping. Signalling what we spawned is unlikely
+    // to reach it, but a close button with one more thing to try beats one that
+    // has quietly given up.
+    if (!stopped) child.kill('SIGTERM')
+  })
+}
+
+/**
  * How long an emulator started on its own gets to prove it is running.
  *
  * Shorter than `STARTUP_MS`, because nothing is riding on the answer: this is
@@ -117,6 +144,15 @@ function stageFor(progress: CoreProgress): string {
 const OPEN_SETTLE_MS = 2500
 
 export class Launcher {
+  /**
+   * An emulator started on its own and still up, so the overlay in front of it
+   * has something to close. Null while nothing was opened that way.
+   *
+   * Separate from `current`: that is a session, with saves to account for and a
+   * game to report. This is a program someone opened to change a setting in.
+   */
+  private opened: { name: string; kill: () => void } | null = null
+
   /**
    * The session in progress, so a second launch can be refused.
    *
@@ -397,24 +433,7 @@ export class Launcher {
       let signalled = false
       session.kill = () => {
         signalled = true
-        log.info('emulator', 'asking the emulator to quit', {
-          pid: child.pid ?? null,
-          install: install?.kind ?? null,
-          ref: install?.ref ?? null
-        })
-        // A flatpak has to be stopped through flatpak: the process spawned here
-        // is only a client of it, and signalling that one is what the close
-        // button used to do — nothing. Anything else was spawned directly and a
-        // signal reaches it.
-        if (install?.kind !== 'flatpak') return void child.kill('SIGTERM')
-
-        void stopFlatpakApp(install.ref).then((stopped) => {
-          // No instance was listed — the app is still starting, or it is not
-          // running under flatpak's own bookkeeping. Signalling what we spawned
-          // is unlikely to reach it, but a close button with one more thing to
-          // try beats one that has quietly given up.
-          if (!stopped) child.kill('SIGTERM')
-        })
+        askToQuit(child, install)
       }
 
       child.on('error', (err) => {
@@ -484,14 +503,26 @@ export class Launcher {
     })
   }
 
-  /** Ask the running game to quit. */
+  /**
+   * Ask whatever has the screen to quit.
+   *
+   * A game's session first: it is the one with something at stake, and an
+   * emulator opened on its own cannot be running at the same time as a launch
+   * — `launch` refuses a second one, and the Run button is on a screen that a
+   * running game covers.
+   */
   stop(): void {
-    if (!this.current) {
-      log.debug('launch', 'stop asked for with nothing running')
+    if (this.current) {
+      log.info('launch', 'stopping the running game', { romId: this.current.romId })
+      this.current.kill()
       return
     }
-    log.info('launch', 'stopping the running game', { romId: this.current.romId })
-    this.current.kill()
+    if (this.opened) {
+      log.info('launch', 'closing the emulator opened on its own', { name: this.opened.name })
+      this.opened.kill()
+      return
+    }
+    log.debug('launch', 'stop asked for with nothing running')
   }
 
   /**
@@ -511,7 +542,7 @@ export class Launcher {
    * `OPEN_SETTLE_MS` is therefore reported, using the emulator's own words; the
    * process is released as soon as it has survived that long.
    */
-  async runEmulator(emulator: EmulatorState): Promise<string> {
+  async runEmulator(emulator: EmulatorState, onExit?: () => void): Promise<string> {
     const descriptor = emulatorById(emulator.id)
     if (!descriptor || !emulator.install) {
       throw new Error(t('error.emulatorNotInstalled', { name: emulator.name }))
@@ -563,6 +594,23 @@ export class Launcher {
             // partway through a session. `collect` keeps only the tail, so
             // draining it for hours costs nothing.
             child.unref()
+
+            // Kept, now that it has the screen: it is not a session — there is
+            // no game and nothing to sync — but it is the thing in front of
+            // RomMix, and the overlay that says so needs a way to close it.
+            // `unref` above still stands, so quitting RomMix leaves it running.
+            const opened = {
+              name: emulator.name,
+              kill: () => askToQuit(child, emulator.install)
+            }
+            this.opened = opened
+            child.on('close', () => {
+              // Only if it is still the one in front: opening a second
+              // emulator replaces this entry, and the first one exiting must
+              // not clear the second's.
+              if (this.opened === opened) this.opened = null
+              onExit?.()
+            })
             resolvePromise(command)
           }),
         OPEN_SETTLE_MS

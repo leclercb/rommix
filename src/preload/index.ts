@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   BiosProgress,
   ConnectPayload,
-  GameState,
+  RunningState,
   RomMixBridge,
   SyncProgress
 } from '@shared/api'
@@ -91,9 +91,12 @@ const bridge: RomMixBridge = {
   },
   game: {
     variants: (romId: number) => ipcRenderer.invoke('game:variants', romId),
-    launch: (romId: number, variant?: string) => ipcRenderer.invoke('game:launch', romId, variant),
-    stop: () => ipcRenderer.invoke('game:stop'),
-    onState: (listener: (state: GameState) => void) => subscribe<GameState>('game:state', listener)
+    launch: (romId: number, variant?: string) => ipcRenderer.invoke('game:launch', romId, variant)
+  },
+  running: {
+    stop: () => ipcRenderer.invoke('running:stop'),
+    onState: (listener: (state: RunningState) => void) =>
+      subscribe<RunningState>('running:state', listener)
   },
   updates: {
     status: () => ipcRenderer.invoke('update:status'),

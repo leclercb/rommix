@@ -83,6 +83,10 @@ export const fr: Catalog = {
   'app.emulatorHasFocusAuto':
     "L'émulateur a la main. Quittez-le pour revenir — les sauvegardes se synchronisent " +
     'automatiquement avec RomM.',
+  'app.emulatorRunning': '{name} est en cours',
+  'app.emulatorOpened':
+    '{name} a la main. Quittez-le pour revenir — aucune partie n’est en cours, il n’y a donc rien ' +
+    'à synchroniser.',
   'app.holdToClose': 'Maintenez {key} pour le fermer d’ici.',
   'app.closeEmulator': "Fermer l'émulateur",
   'app.askingEmulatorToQuit': "Demande à l'émulateur de quitter…",
@@ -649,7 +653,6 @@ export const fr: Catalog = {
   'emulator.run': 'Lancer',
   'emulator.movedUp': '{name} est monté',
   'emulator.movedDown': '{name} est descendu',
-  'emulator.started': '{name} démarré',
   'emulator.rootSet': '{name} sera lu depuis {path}',
   'emulator.rootCleared': 'Le dossier de {name} est de nouveau trouvé automatiquement',
   'emulator.installedToast': '{name} installé',

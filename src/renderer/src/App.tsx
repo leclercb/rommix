@@ -30,8 +30,18 @@ import { SettingsScreen } from './screens/Settings'
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
   const { t } = useI18n()
-  const { route, goBack, canGoBack, navigate, downloads, runningRomId, toasts, status, update } =
-    useApp()
+  const {
+    route,
+    goBack,
+    canGoBack,
+    navigate,
+    downloads,
+    runningRomId,
+    runningEmulator,
+    toasts,
+    status,
+    update
+  } = useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
 
@@ -58,16 +68,18 @@ export function App(): JSX.Element {
   // Settings is where every switch in RomMix lives.
   useAction('menu', () => navigate({ name: 'settings' }), route.name !== 'settings')
 
-  // While an emulator is up, the pad belongs to the game and not to us. Here
-  // rather than inside the overlay so it holds for the whole session, including
-  // the moment before the overlay has mounted.
-  useSuspendGamepad(runningRomId !== null)
+  // Whatever is in front of RomMix — a game, or an emulator opened on its own
+  // to change a setting in — owns the pad. Here rather than inside the overlay
+  // so it holds for the whole session, including the moment before the overlay
+  // has mounted.
+  const covered = runningRomId !== null || runningEmulator !== null
+  useSuspendGamepad(covered)
 
   if (route.name === 'connect') {
     return (
       <div className="app">
         <ConnectScreen />
-        {runningRomId !== null ? <RunningOverlay /> : null}
+        {covered ? <RunningOverlay /> : null}
         <Toasts toasts={toasts} />
       </div>
     )
@@ -178,7 +190,7 @@ export function App(): JSX.Element {
 
       {confirmingQuit ? <QuitOverlay onCancel={() => setConfirmingQuit(false)} /> : null}
 
-      {runningRomId !== null ? <RunningOverlay /> : null}
+      {covered ? <RunningOverlay /> : null}
       <Toasts toasts={toasts} />
     </div>
   )
@@ -258,13 +270,27 @@ function NavItem({
  */
 function RunningOverlay(): JSX.Element {
   const { t } = useI18n()
-  const { settings, runningStage } = useApp()
+  const { settings, runningStage, runningEmulator } = useApp()
 
   if (runningStage) {
     return (
       <Overlay title={t('app.gettingReady')}>
         <p className="muted">{runningStage}</p>
         <Spinner />
+      </Overlay>
+    )
+  }
+
+  // An emulator opened on its own has no session behind it: nothing was
+  // launched, nothing will be synced, and saying either would describe
+  // something that is not happening. What it shares with a game is the only
+  // thing this overlay is for — something else has the screen, and here is the
+  // way back.
+  if (runningEmulator) {
+    return (
+      <Overlay title={t('app.emulatorRunning', { name: runningEmulator })}>
+        <p className="muted">{t('app.emulatorOpened', { name: runningEmulator })}</p>
+        <RunningActions />
       </Overlay>
     )
   }
@@ -298,7 +324,7 @@ function RunningActions(): JSX.Element {
     // stays up for a moment afterwards and would otherwise look like a button
     // that did nothing.
     notify(t('app.askingEmulatorToQuit'), 'warn')
-    void window.rommix.game.stop()
+    void window.rommix.running.stop()
   }
 
   // The one press that reaches RomMix while a game has the pad.

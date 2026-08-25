@@ -563,7 +563,9 @@ const bridge: RomMixBridge = {
         chosen: null
       })
     },
-    launch: () => Promise.reject(new Error(say('demo.noEmulator'))),
+    launch: () => Promise.reject(new Error(say('demo.noEmulator')))
+  },
+  running: {
     stop: () => later(undefined),
     onState: noSubscription
   },

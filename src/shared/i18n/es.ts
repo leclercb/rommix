@@ -85,6 +85,10 @@ export const es: Catalog = {
   'app.emulatorHasFocusAuto':
     'El emulador tiene el control. Ciérralo para volver — las partidas se sincronizan solas con ' +
     'RomM.',
+  'app.emulatorRunning': '{name} está en marcha',
+  'app.emulatorOpened':
+    '{name} tiene el control. Ciérralo para volver — no se está jugando a nada, así que no hay ' +
+    'nada que sincronizar.',
   'app.holdToClose': 'Mantén {key} para cerrarlo desde aquí.',
   'app.closeEmulator': 'Cerrar el emulador',
   'app.askingEmulatorToQuit': 'Pidiendo al emulador que se cierre…',
@@ -640,7 +644,6 @@ export const es: Catalog = {
   'emulator.run': 'Ejecutar',
   'emulator.movedUp': '{name} ha subido',
   'emulator.movedDown': '{name} ha bajado',
-  'emulator.started': '{name} iniciado',
   'emulator.rootSet': '{name} se leerá desde {path}',
   'emulator.rootCleared': 'La carpeta de {name} vuelve a encontrarse automáticamente',
   'emulator.installedToast': '{name} instalado',
