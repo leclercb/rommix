@@ -215,7 +215,17 @@ function queued(id: number, state: DownloadItem['state'], received: number): Dow
   }
 }
 
-const DOWNLOADS: DownloadItem[] = [
+/**
+ * Built on demand, not at module load.
+ *
+ * `queued` reaches `say`, which reads `SETTINGS` — declared further down this
+ * file. Evaluating this list while the module was still initialising read that
+ * `const` before it existed, and the demo died on load with a bare
+ * ReferenceError. Building it per call also means the demo's own language
+ * setting reaches these strings, which it could not when they were frozen at
+ * import time.
+ */
+const downloadQueue = (): DownloadItem[] => [
   // Four games none of which are in `INSTALLED`, the finished one excepted:
   // that is what `done` means, and it is why Beneath a Steel Sky is on the
   // shelf above. At 69 MB it is also the only game here big enough to have been
@@ -277,7 +287,7 @@ const SAVES: SaveAsset[] = [
  * into, belong to the Switch and the PS3 and are not reachable from here. They
  * are worth seeing in the real app rather than inventing a platform for.
  */
-const BIOS: BiosPlatform[] = [
+const biosPlatforms = (): BiosPlatform[] => [
   {
     platformId: 6,
     platformSlug: 'gba',
@@ -580,22 +590,23 @@ const bridge: RomMixBridge = {
     remove: () => later(undefined)
   },
   bios: {
-    list: () => later({ platforms: BIOS }),
+    list: () => later({ platforms: biosPlatforms() }),
     platform: (platformId: number) =>
-      later(BIOS.find((platform) => platform.platformId === platformId) ?? null),
+      later(biosPlatforms().find((platform) => platform.platformId === platformId) ?? null),
     // Marked in place rather than refused: the screen reloads the report after
     // an install, so a row that never changes state makes the button look
     // broken. Nothing is written anywhere, and a reload puts it all back.
     install: (firmwareId: number) => {
-      const item = BIOS.flatMap((platform) => platform.items).find(
-        (candidate) => candidate.firmwareId === firmwareId
-      )
+      const item = biosPlatforms()
+        .flatMap((platform) => platform.items)
+        .find((candidate) => candidate.firmwareId === firmwareId)
       if (!item) return Promise.reject(new Error(say('demo.noFirmware')))
       item.installed = true
       return later(`${item.dir}/${item.fileName}`, 500)
     },
     syncAll: (platformId?: number | null) => {
-      const platforms = platformId ? BIOS.filter((p) => p.platformId === platformId) : BIOS
+      const all = biosPlatforms()
+      const platforms = platformId ? all.filter((p) => p.platformId === platformId) : all
       const items = platforms.flatMap((platform) => platform.items)
       const outstanding = items.filter((item) => !item.installed)
       const fetchable = outstanding.filter((item) => item.firmwareId !== null)
@@ -612,7 +623,7 @@ const bridge: RomMixBridge = {
     onProgress: noSubscription
   },
   downloads: {
-    list: () => later(DOWNLOADS),
+    list: () => later(downloadQueue()),
     start: (romId: number) => later(queued(romId, 'queued', 0)),
     cancel: () => later(undefined),
     clearFinished: () => later(undefined),
@@ -735,6 +746,10 @@ const bridge: RomMixBridge = {
  * than once, because the demo's Settings can change the language under it.
  */
 function say(key: MessageKey): string {
+  // Never during module initialisation: `SETTINGS` is a `const` below this
+  // point in the file, and reading it before the module has finished loading
+  // throws. Anything a top-level value needs from here has to be built lazily
+  // — see `downloadQueue` and `biosPlatforms`.
   return createI18n(localeFor(SETTINGS.language, navigator.language)).t(key)
 }
 
