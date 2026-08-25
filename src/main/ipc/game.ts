@@ -84,4 +84,9 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
     log.info('game', 'stop requested from the interface')
     launcher.stop()
   })
+
+  handle('running:force', () => {
+    log.warn('game', 'force close requested from the interface')
+    launcher.stop(true)
+  })
 }

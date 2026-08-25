@@ -212,7 +212,16 @@ export interface RomMixBridge {
    * state and is closed by the same call.
    */
   running: {
+    /** Ask it to quit, and let it save. */
     stop(): Promise<void>
+    /**
+     * Close it outright, losing whatever it has not written.
+     *
+     * The way out of an emulator that will not answer: one that raises its own
+     * confirmation dialog off-screen, or has hung. Offered only after `stop`
+     * has been given time to work.
+     */
+    forceStop(): Promise<void>
     onState(listener: (state: RunningState) => void): () => void
   }
   updates: {

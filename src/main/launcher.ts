@@ -4,7 +4,7 @@ import type { ResolvedInstall } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { installCore, missingCore } from './cores.ts'
-import { execPrefix, stopFlatpakApp } from './host.ts'
+import { execPrefix, killFlatpakApp, stopFlatpakApp } from './host.ts'
 import { log } from './log.ts'
 import type { RommClient } from './romm.ts'
 import type { SaveSync } from './saves.ts'
@@ -134,6 +134,27 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
 }
 
 /**
+ * Close it now, whatever state it is in.
+ *
+ * `askToQuit` sends a request the emulator is free to handle — and free to sit
+ * on, which some do: Eden raises its own confirmation dialog, and one opened
+ * off-screen or hung never answers it. A direct emulator then had nothing left
+ * to try, so RomMix waited on it for as long as it stayed up.
+ *
+ * Anything the emulator had not written is lost, which is why nothing calls
+ * this until the user has been told so and pressed again.
+ */
+function forceQuit(child: ChildProcess, install: ResolvedInstall | null): void {
+  log.warn('emulator', 'forcing the emulator to close', {
+    pid: child.pid ?? null,
+    install: install?.kind ?? null,
+    ref: install?.ref ?? null
+  })
+  if (install?.kind === 'flatpak') void killFlatpakApp(install.ref)
+  else child.kill('SIGKILL')
+}
+
+/**
  * How long an emulator started on its own gets to prove it is running.
  *
  * Shorter than `STARTUP_MS`, because nothing is riding on the answer: this is
@@ -151,7 +172,7 @@ export class Launcher {
    * Separate from `current`: that is a session, with saves to account for and a
    * game to report. This is a program someone opened to change a setting in.
    */
-  private opened: { name: string; kill: () => void } | null = null
+  private opened: { name: string; kill: () => void; forceKill: () => void } | null = null
 
   /**
    * The session in progress, so a second launch can be refused.
@@ -162,7 +183,13 @@ export class Launcher {
    * open the same save files. `kill` starts as a request to abandon the session
    * before the emulator is spawned, and becomes a signal to it afterwards.
    */
-  private current: { romId: number; kill: () => void; stopped: boolean } | null = null
+  private current: {
+    romId: number
+    kill: () => void
+    /** Close it outright. Null until there is a process to send it to. */
+    forceKill: (() => void) | null
+    stopped: boolean
+  } | null = null
 
   constructor(
     private readonly store: Store,
@@ -240,6 +267,9 @@ export class Launcher {
       kill: (): void => {
         session.stopped = true
       },
+      // Assigned once there is a process. Before that there is nothing to
+      // force: `kill` above only marks the session abandoned.
+      forceKill: null,
       stopped: false
     }
     this.current = session
@@ -401,7 +431,7 @@ export class Launcher {
    */
   private run(
     argv: string[],
-    session: { kill: () => void },
+    session: { kill: () => void; forceKill: (() => void) | null },
     install: ResolvedInstall | null,
     env: Readonly<Record<string, string>> = {}
   ): Promise<ExitReport> {
@@ -435,6 +465,7 @@ export class Launcher {
         signalled = true
         askToQuit(child, install)
       }
+      session.forceKill = () => forceQuit(child, install)
 
       child.on('error', (err) => {
         log.error('emulator', 'the process could not be started', err, { command: argv.join(' ') })
@@ -511,15 +542,21 @@ export class Launcher {
    * — `launch` refuses a second one, and the Run button is on a screen that a
    * running game covers.
    */
-  stop(): void {
+  stop(force = false): void {
     if (this.current) {
-      log.info('launch', 'stopping the running game', { romId: this.current.romId })
-      this.current.kill()
+      log.info('launch', force ? 'forcing the running game closed' : 'stopping the running game', {
+        romId: this.current.romId
+      })
+      if (force) this.current.forceKill?.()
+      else this.current.kill()
       return
     }
     if (this.opened) {
-      log.info('launch', 'closing the emulator opened on its own', { name: this.opened.name })
-      this.opened.kill()
+      log.info('launch', force ? 'forcing the emulator closed' : 'closing the emulator', {
+        name: this.opened.name
+      })
+      if (force) this.opened.forceKill()
+      else this.opened.kill()
       return
     }
     log.debug('launch', 'stop asked for with nothing running')
@@ -601,7 +638,8 @@ export class Launcher {
             // `unref` above still stands, so quitting RomMix leaves it running.
             const opened = {
               name: emulator.name,
-              kill: () => askToQuit(child, emulator.install)
+              kill: () => askToQuit(child, emulator.install),
+              forceKill: () => forceQuit(child, emulator.install)
             }
             this.opened = opened
             child.on('close', () => {

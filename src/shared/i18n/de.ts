@@ -94,6 +94,10 @@ export const de: Catalog = {
     'es auch nichts abzugleichen.',
   'app.holdToClose': '{key} gedrückt halten, um ihn von hier aus zu schließen.',
   'app.closeEmulator': 'Emulator schließen',
+  'app.notClosing':
+    'Er hat sich nicht geschlossen. Ihn zu erzwingen verliert alles, was er nicht gespeichert hat.',
+  'app.holdToForce': '{key} erneut gedrückt halten, um ihn zu erzwingen.',
+  'app.forceClose': 'Schließen erzwingen',
   'app.askingEmulatorToQuit': 'Der Emulator wird zum Beenden aufgefordert…',
 
   // -- Benachrichtigungen des Gerüsts ---------------------------------------

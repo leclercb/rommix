@@ -92,6 +92,9 @@ export const es: Catalog = {
     'nada que sincronizar.',
   'app.holdToClose': 'Mantén {key} para cerrarlo desde aquí.',
   'app.closeEmulator': 'Cerrar el emulador',
+  'app.notClosing': 'No se ha cerrado. Forzarlo pierde todo lo que no haya guardado.',
+  'app.holdToForce': 'Mantén {key} otra vez para forzarlo.',
+  'app.forceClose': 'Forzar el cierre',
   'app.askingEmulatorToQuit': 'Pidiendo al emulador que se cierre…',
 
   // -- avisos del armazón ---------------------------------------------------

@@ -644,6 +644,7 @@ const bridge: RomMixBridge = {
   },
   running: {
     stop: () => later(undefined),
+    forceStop: () => later(undefined),
     onState: noSubscription
   },
   updates: {

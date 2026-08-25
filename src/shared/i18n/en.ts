@@ -101,6 +101,9 @@ export const en = {
     'sync.',
   'app.holdToClose': 'Hold {key} to close it from here.',
   'app.closeEmulator': 'Close the emulator',
+  'app.notClosing': 'It has not closed. Forcing it loses anything it has not saved.',
+  'app.holdToForce': 'Hold {key} again to force it.',
+  'app.forceClose': 'Force it to close',
   'app.askingEmulatorToQuit': 'Asking the emulator to quit…',
 
   // -- notifications raised by the shell ------------------------------------

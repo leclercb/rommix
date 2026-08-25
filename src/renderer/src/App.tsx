@@ -1,4 +1,4 @@
-import { useCallback, useState, type JSX, type Ref } from 'react'
+import { useCallback, useEffect, useState, type JSX, type Ref } from 'react'
 import {
   CoverArt,
   FocusButton,
@@ -318,29 +318,77 @@ function RunningOverlay(): JSX.Element {
 }
 
 /**
+ * How long a polite request gets before the panel offers to force it.
+ *
+ * Past the five seconds `stopFlatpakApp` waits before killing a flatpak itself,
+ * so that route has already finished by the time this appears. What is left is
+ * an emulator RomMix signalled directly and which has not gone.
+ */
+const FORCE_AFTER_MS = 6000
+
+/**
  * The way out, inside the overlay rather than beside it.
  *
  * A child component because `useAction` registers on the layer it is *called*
  * from, and `Overlay` raises the layer for its children only — called from
  * `RunningOverlay` the handler would sit on the layer below, where `fireAction`
  * never looks while the overlay is up.
+ *
+ * Three states, in the order they happen: offer to close, say it has been
+ * asked, and — if it is still there — offer to close it outright. That last one
+ * exists because asking is all RomMix could do: a SIGTERM an emulator handles
+ * by opening its own dialog leaves both of us waiting, and off-screen or hung
+ * that dialog is never answered.
+ *
+ * Start does each step in turn, because it is the only press that reaches
+ * RomMix while something else has the pad.
  */
 function RunningActions(): JSX.Element {
   const { t } = useI18n()
-  const { notify } = useApp()
   const keyLabel = useKeyLabel()
+  const [asked, setAsked] = useState(false)
+  const [stuck, setStuck] = useState(false)
+
+  // Only while it is still up: the overlay unmounts when the emulator exits,
+  // and the timer goes with it.
+  useEffect(() => {
+    if (!asked) return
+    const timer = window.setTimeout(() => setStuck(true), FORCE_AFTER_MS)
+    return () => window.clearTimeout(timer)
+  }, [asked])
 
   const stop = (): void => {
-    // Said because the request is not the outcome: RomMix asks the emulator to
-    // quit and gives it five seconds to save before killing it, so this overlay
-    // stays up for a moment afterwards and would otherwise look like a button
-    // that did nothing.
-    notify(t('app.askingEmulatorToQuit'), 'warn')
+    setAsked(true)
     void window.rommix.running.stop()
   }
+  const force = (): void => void window.rommix.running.forceStop()
 
-  // The one press that reaches RomMix while a game has the pad.
-  useAction('menu', stop)
+  // The one press that reaches RomMix while a game has the pad. Asking twice
+  // does nothing — the request is already out — so it does nothing until there
+  // is something else to offer.
+  useAction('menu', () => {
+    if (!asked) stop()
+    else if (stuck) force()
+  })
+
+  if (asked && stuck) {
+    return (
+      <>
+        <p className="muted">{t('app.notClosing')}</p>
+        <p className="muted">{t('app.holdToForce', { key: keyLabel('START') })}</p>
+        <div className="btn-row">
+          <FocusButton icon="quit" variant="danger" onSelect={force}>
+            {t('app.forceClose')}
+          </FocusButton>
+        </div>
+      </>
+    )
+  }
+
+  // Said because the request is not the outcome: an emulator is given time to
+  // save, so the overlay stays up for a moment and would otherwise look like a
+  // button that did nothing.
+  if (asked) return <p className="muted">{t('app.askingEmulatorToQuit')}</p>
 
   return (
     <>

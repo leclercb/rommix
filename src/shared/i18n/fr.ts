@@ -90,6 +90,10 @@ export const fr: Catalog = {
     'à synchroniser.',
   'app.holdToClose': 'Maintenez {key} pour le fermer d’ici.',
   'app.closeEmulator': "Fermer l'émulateur",
+  'app.notClosing':
+    'Il ne s’est pas fermé. Le forcer fait perdre tout ce qu’il n’a pas enregistré.',
+  'app.holdToForce': 'Maintenez de nouveau {key} pour le forcer.',
+  'app.forceClose': 'Forcer la fermeture',
   'app.askingEmulatorToQuit': "Demande à l'émulateur de quitter…",
 
   // -- notifications de l'ossature ------------------------------------------

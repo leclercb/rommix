@@ -98,6 +98,7 @@ const bridge: RomMixBridge = {
   },
   running: {
     stop: () => ipcRenderer.invoke('running:stop'),
+    forceStop: () => ipcRenderer.invoke('running:force'),
     onState: (listener: (state: RunningState) => void) =>
       subscribe<RunningState>('running:state', listener)
   },

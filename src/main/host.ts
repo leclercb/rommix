@@ -193,6 +193,18 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
 }
 
 /**
+ * Kill a flatpak app outright, with no grace period.
+ *
+ * `stopFlatpakApp` asks first and waits; this is what is left when the user has
+ * been told the app is not responding and has chosen to lose whatever it had
+ * not written.
+ */
+export async function killFlatpakApp(appId: string): Promise<void> {
+  log.warn('host', 'killing a flatpak app on request — unsaved data is lost', { appId })
+  await run(['flatpak', 'kill', appId])
+}
+
+/**
  * Absolute path of the first of these executables found on PATH.
  *
  * `command -v` is a shell builtin, so this has to go through `sh -c`; names are
