@@ -100,7 +100,7 @@ export function shadPs4SavePaths(ctx: SaveContext): SavePaths {
     return {
       saves: null,
       states: null,
-      unsyncableReason: 'RomMix has not found where shadPS4 keeps its save data.'
+      unsyncableReason: 'saves.shadps4NoData'
     }
   }
 
@@ -109,9 +109,7 @@ export function shadPs4SavePaths(ctx: SaveContext): SavePaths {
     return {
       saves: null,
       states: null,
-      unsyncableReason:
-        "This game states no PS4 serial, so RomMix cannot tell which of shadPS4's save folders " +
-        'is its own.'
+      unsyncableReason: 'saves.shadps4NoSerial'
     }
   }
 

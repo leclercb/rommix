@@ -1,11 +1,14 @@
 import { type JSX, type ReactNode } from 'react'
 import { FocusLayer, useAction, useFocusContext, useKeyLabel } from '../input/focus'
+import { useI18n } from '../state'
 import { FocusButton } from './controls'
+import { Filled } from './text'
 
 /** The two frames every screen sits in: a modal over it, hints under it. */
 
 export function Spinner(): JSX.Element {
-  return <div className="spinner" aria-label="Loading" />
+  const { t } = useI18n()
+  return <div className="spinner" aria-label={t('app.loading')} />
 }
 
 /**
@@ -38,8 +41,9 @@ export function Overlay({ title, children }: { title: string; children: ReactNod
  * has no way out of RomMix at all until a server has been configured.
  */
 export function QuitOverlay({ onCancel }: { onCancel: () => void }): JSX.Element {
+  const { t } = useI18n()
   return (
-    <Overlay title="Quit RomMix?">
+    <Overlay title={t('app.quitTitle')}>
       <QuitActions onCancel={onCancel} />
     </Overlay>
   )
@@ -54,15 +58,16 @@ export function QuitOverlay({ onCancel }: { onCancel: () => void }): JSX.Element
  * closes it, so a press too many lands back where it started.
  */
 function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
+  const { t } = useI18n()
   useAction('back', onCancel)
 
   return (
     <div className="btn-row">
       <FocusButton icon="keep" onSelect={onCancel} autoFocus>
-        Stay
+        {t('app.stay')}
       </FocusButton>
       <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
-        Quit RomMix
+        {t('app.quitRomMix')}
       </FocusButton>
     </div>
   )
@@ -80,13 +85,19 @@ function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
  * without being in the way of something that must be.
  */
 export function Hints({ items }: { items: { key: string; label: string }[] }): JSX.Element {
+  const { t } = useI18n()
   const keyLabel = useKeyLabel()
   const { focusedAction } = useFocusContext()
 
   return (
     <div className="hints">
       <span className="hints__credit">
-        Developed with <span className="hints__heart">♥</span> by leclercb
+        {/* One sentence with the heart inside it, rather than two fragments
+            around it: where the mark falls is the sentence's business, and in
+            another language it does not fall in the same place. */}
+        <Filled text={t('app.credit')} name="heart">
+          <span className="hints__heart">♥</span>
+        </Filled>
       </span>
       {items.map((item) => (
         <span key={item.key + item.label}>

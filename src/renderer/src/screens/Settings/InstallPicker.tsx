@@ -6,9 +6,10 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease
 } from '@shared/types'
-import { FocusButton, Overlay, Spinner, formatBytes, formatDateTime } from '../../components'
+import { FocusButton, Overlay, Spinner } from '../../components'
 import { Icon } from '../../icons'
 import { useAction, useFocusable } from '../../input/focus'
+import { useI18n } from '../../state'
 
 /**
  * Pick a release build to install, in two steps: which version, then which file.
@@ -38,6 +39,7 @@ export function InstallPicker({
   onClose: () => void
   onInstalled: () => void
 }): JSX.Element {
+  const { t, formatBytes } = useI18n()
   const [releases, setReleases] = useState<EmulatorRelease[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -74,7 +76,7 @@ export function InstallPicker({
         ? Math.round((progress.receivedBytes / progress.totalBytes) * 100)
         : null
     return (
-      <Overlay title={`Installing ${descriptor?.name ?? emulatorId}`}>
+      <Overlay title={t('install.installing', { name: descriptor?.name ?? emulatorId })}>
         <p className="muted">{busy}</p>
         <p className="muted">
           {formatBytes(progress?.receivedBytes ?? 0)}
@@ -101,17 +103,15 @@ export function InstallPicker({
   }
 
   return (
-    <Overlay title={`Install ${descriptor?.name ?? emulatorId}`}>
+    <Overlay title={t('install.title', { name: descriptor?.name ?? emulatorId })}>
       {error ? <div className="notice notice--error">{error}</div> : null}
       {!releases && !error ? <Spinner /> : null}
 
-      {releases?.length === 0 ? (
-        <div className="empty">No builds were published for this machine.</div>
-      ) : null}
+      {releases?.length === 0 ? <div className="empty">{t('install.noBuilds')}</div> : null}
 
       {releases && releases.length > 0 ? (
         <>
-          <p className="muted">Which version?</p>
+          <p className="muted">{t('install.whichVersion')}</p>
           <div className="release-list">
             {releases.map((release, index) => (
               <ReleaseRow
@@ -128,12 +128,12 @@ export function InstallPicker({
       ) : null}
 
       <p className="faint" style={{ fontSize: 13 }}>
-        Published at {descriptor?.homepage}.
+        {t('install.publishedAt', { url: descriptor?.homepage ?? '' })}
       </p>
 
       <div className="btn-row">
         <FocusButton icon="cancel" onSelect={onClose}>
-          Cancel
+          {t('action.cancel')}
         </FocusButton>
       </div>
     </Overlay>
@@ -158,7 +158,12 @@ function ReleaseRow({
   onSelect: () => void
   autoFocus: boolean
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect, autoFocus, actionLabel: 'Choose this version' })
+  const { t, formatDateTime } = useI18n()
+  const { ref, props } = useFocusable({
+    onSelect,
+    autoFocus,
+    actionLabel: t('install.chooseVersion')
+  })
   const count = release.assets.length
 
   return (
@@ -168,18 +173,18 @@ function ReleaseRow({
           {release.name || release.tag}
           {latest ? (
             <span className="status" data-state="ok">
-              Latest
+              {t('install.latest')}
             </span>
           ) : null}
           {release.prerelease ? (
             <span className="status" data-state="warn">
-              Pre-release
+              {t('install.prerelease')}
             </span>
           ) : null}
         </div>
         <div className="release__meta">
-          {release.publishedAt ? formatDateTime(release.publishedAt) : 'no publication date'} ·{' '}
-          {count} build{count === 1 ? '' : 's'} for this machine
+          {release.publishedAt ? formatDateTime(release.publishedAt) : t('install.noDate')} ·{' '}
+          {t('install.builds', { count })}
         </div>
       </div>
       <Icon name="next" size={18} />
@@ -207,15 +212,13 @@ function AssetPicker({
   onPick: (asset: EmulatorAsset) => void
   onBack: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   useAction('back', onBack)
 
   return (
     <Overlay title={`${emulatorName} ${release.name || release.tag}`}>
       {error ? <div className="notice notice--error">{error}</div> : null}
-      <p className="muted">
-        Which build? Pick the one that matches your hardware — when in doubt, the plainest name is
-        the general-purpose one.
-      </p>
+      <p className="muted">{t('install.whichBuild')}</p>
 
       <div className="release-list">
         {release.assets.map((asset, index) => (
@@ -230,7 +233,7 @@ function AssetPicker({
 
       <div className="btn-row">
         <FocusButton icon="previous" variant="ghost" onSelect={onBack}>
-          Other versions
+          {t('install.otherVersions')}
         </FocusButton>
       </div>
     </Overlay>
@@ -253,7 +256,12 @@ function AssetRow({
   onSelect: () => void
   autoFocus: boolean
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect, autoFocus, actionLabel: 'Install this build' })
+  const { t, formatBytes } = useI18n()
+  const { ref, props } = useFocusable({
+    onSelect,
+    autoFocus,
+    actionLabel: t('install.chooseBuild')
+  })
 
   return (
     <div ref={ref as Ref<HTMLDivElement>} className="release" {...props}>

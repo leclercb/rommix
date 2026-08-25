@@ -1,6 +1,7 @@
 import { copyFile, mkdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { localize } from '@shared/i18n'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
@@ -14,6 +15,7 @@ import type {
 } from '@shared/types'
 import type { RommClient } from './romm.ts'
 import type { Store } from './store.ts'
+import { i18n, t } from './i18n.ts'
 import { realHome } from './host.ts'
 import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
@@ -150,7 +152,7 @@ export class SaveSync {
         states: paths.states?.dir ?? null,
         statesMatch: paths.states?.match ?? null,
         tag: paths.emulator ?? null,
-        unsyncableReason: paths.unsyncableReason ?? null
+        unsyncableReason: localize(paths.unsyncableReason, i18n())
       })
       return paths
     } catch (cause) {
@@ -528,7 +530,9 @@ export class SaveSync {
    */
   private reasonFor(paths: SavePaths, moved: number): string | null {
     if (moved > 0) return null
-    return paths.unsyncableReason ?? null
+    // The descriptor names the phrase; only here is there a language to say it
+    // in. See `Text` in `@shared/i18n`.
+    return localize(paths.unsyncableReason, i18n())
   }
 
   /**
@@ -564,7 +568,7 @@ export class SaveSync {
         item.kind === kind &&
         (id === null ? item.id === null && item.fileName === fileName : item.id === id)
     )
-    if (!asset) throw new Error(`${fileName} is no longer there to delete`)
+    if (!asset) throw new Error(t('error.assetGone', { file: fileName }))
 
     log.info('saves', `deleting a ${kind}`, {
       romId,
@@ -575,12 +579,12 @@ export class SaveSync {
     })
 
     if (scope === 'local') {
-      if (!asset.localPath) throw new Error(`${fileName} is not on this device to delete`)
+      if (!asset.localPath) throw new Error(t('error.assetNotLocal', { file: fileName }))
       await rm(asset.localPath, { force: true, recursive: true })
       return
     }
 
-    if (asset.id === null) throw new Error(`${fileName} is not on RomM to delete`)
+    if (asset.id === null) throw new Error(t('error.assetNotRemote', { file: fileName }))
     if (kind === 'save') await this.client.deleteSaves([asset.id])
     else await this.client.deleteStates([asset.id])
   }

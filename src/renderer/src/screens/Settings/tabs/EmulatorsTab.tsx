@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import type { DiagnosticsReport } from '@shared/types'
-import { useApp } from '../../../state'
+import { useApp, useI18n } from '../../../state'
 import { EmulatorList } from '../EmulatorList'
 import { PlatformList } from '../PlatformList'
 
@@ -23,16 +23,14 @@ export function EmulatorsTab({
   /** Something changed what the machine can run: re-run the probe. */
   onChanged: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   const { settings, saveSettings, notify } = useApp()
 
   return (
     <>
-      <h2 className="section-title">Emulators</h2>
+      <h2 className="section-title">{t('settings.emulators')}</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        What RomMix found on this machine, and how many platforms each one covers. The order is the
-        preference: a platform with no choice of its own is run by the first emulator here that is
-        installed and covers it, so moving one up makes it the default for everything it can run.
-        Platforms you have chosen for individually below are unaffected.
+        {t('settings.emulatorsExplainer')}
       </p>
       <EmulatorList
         diagnostics={diagnostics}
@@ -41,11 +39,9 @@ export function EmulatorsTab({
         onInstalled={onChanged}
       />
 
-      <h2 className="section-title">Platforms</h2>
+      <h2 className="section-title">{t('settings.platforms')}</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        Which emulator runs each platform in your library. Every platform starts on a default taken
-        from what these emulators normally handle; change one and RomMix uses your choice for that
-        platform only, and says so rather than quietly substituting if it is missing.
+        {t('settings.platformsExplainer')}
       </p>
       <PlatformList
         chosen={settings?.systemEmulators ?? {}}

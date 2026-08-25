@@ -11,6 +11,7 @@ import { realHome } from './host.ts'
 import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import { extractZip } from './zip.ts'
+import { t } from './i18n.ts'
 
 /**
  * Installing the libretro core a game needs, before the game is started.
@@ -144,10 +145,7 @@ export async function installCore(
 ): Promise<void> {
   const url = archiveUrl(core)
   if (!url) {
-    throw new Error(
-      `No ${core.name} core is published for this machine. ` +
-        `Install it from the emulator's own Online Updater.`
-    )
+    throw new Error(t('core.noneForMachine', { core: core.name }))
   }
 
   log.info('core', 'downloading', { core: core.fileName, url })
@@ -158,7 +156,7 @@ export async function installCore(
       url,
       status: response.status
     })
-    throw new Error(`Could not download the ${core.name} core: ${url} responded ${response.status}`)
+    throw new Error(t('core.downloadFailed', { core: core.name, url, status: response.status }))
   }
 
   const total = Number(response.headers.get('content-length') ?? 0)
@@ -187,7 +185,7 @@ export async function installCore(
     // something fails here rather than as the fatal core error this replaced.
     const extracted = join(staging, core.fileName)
     if (!(await exists(extracted))) {
-      throw new Error(`The ${core.name} download did not contain ${core.fileName}`)
+      throw new Error(t('core.missingFile', { core: core.name, file: core.fileName }))
     }
 
     await mkdir(core.dir, { recursive: true })

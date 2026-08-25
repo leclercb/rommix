@@ -6,6 +6,7 @@ import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 import yauzl from 'yauzl'
 import { log } from './log.ts'
+import { t } from './i18n.ts'
 
 /**
  * Reading and writing zip archives.
@@ -72,7 +73,7 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
     yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (err, zipfile) => {
-      if (err || !zipfile) return rejectPromise(err ?? new Error('Cannot open archive'))
+      if (err || !zipfile) return rejectPromise(err ?? new Error(t('error.cannotOpenArchive')))
 
       zipfile.on('error', rejectPromise)
       zipfile.on('end', () => resolvePromise())
@@ -101,7 +102,8 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
         }
 
         zipfile.openReadStream(entry, (streamErr, stream) => {
-          if (streamErr || !stream) return rejectPromise(streamErr ?? new Error('Bad zip entry'))
+          if (streamErr || !stream)
+            return rejectPromise(streamErr ?? new Error(t('error.badZipEntry')))
           mkdir(dirname(target), { recursive: true })
             .then(() => pipeline(stream, createWriteStream(target)))
             .then(() => zipfile.readEntry())

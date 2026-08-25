@@ -18,6 +18,7 @@ import type {
   RommUser,
   RomQuery
 } from '@shared/types'
+import { t } from './i18n.ts'
 import { log } from './log.ts'
 import type { Store } from './store.ts'
 
@@ -72,7 +73,7 @@ export interface DownloadProgress {
 /** Strip trailing slashes so we can concatenate paths safely. */
 export function normaliseBaseUrl(input: string): string {
   let url = input.trim()
-  if (!url) throw new RommError('Server address is empty')
+  if (!url) throw new RommError(t('error.serverAddressEmpty'))
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`
   const parsed = new URL(url)
   // A user pasting the RomM web UI URL often includes a path; keep it, but drop
@@ -89,7 +90,7 @@ export class RommClient {
 
   private get baseUrl(): string {
     const server = this.store.server
-    if (!server) throw new RommError('No RomM server configured')
+    if (!server) throw new RommError(t('error.noServerConfigured'))
     return server.baseUrl
   }
 
@@ -129,7 +130,7 @@ export class RommClient {
       res = await send()
     } catch (cause) {
       log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
-      throw new RommError(`Cannot reach ${base}: ${(cause as Error).message}`)
+      throw new RommError(t('error.cannotReach', { url: base, reason: (cause as Error).message }))
     }
 
     if (res.status === 401 && retryOn401 && this.store.credentials.refreshToken) {
@@ -160,9 +161,9 @@ export class RommClient {
     } catch {
       // non-JSON error body; statusText is the best we have
     }
-    if (res.status === 401) return new RommError('Not authorised — sign in again', 401)
-    if (res.status === 403) return new RommError(`Permission denied: ${detail}`, 403)
-    return new RommError(`RomM returned ${res.status}: ${detail}`, res.status)
+    if (res.status === 401) return new RommError(t('error.notAuthorised'), 401)
+    if (res.status === 403) return new RommError(t('error.permissionDenied', { detail }), 403)
+    return new RommError(t('error.rommReturned', { status: res.status, detail }), res.status)
   }
 
   // -- authentication -------------------------------------------------------
@@ -196,7 +197,7 @@ export class RommClient {
     )
     if (!res.ok) {
       log.warn('romm', 'password sign-in refused', { username, status: res.status })
-      if (res.status === 401) throw new RommError('Wrong username or password', 401)
+      if (res.status === 401) throw new RommError(t('error.wrongCredentials'), 401)
       throw await this.toError(res)
     }
     const token = (await res.json()) as RommTokenResponse
@@ -296,7 +297,7 @@ export class RommClient {
 
     this.refreshInFlight = (async () => {
       const refreshToken = this.store.credentials.refreshToken
-      if (!refreshToken) throw new RommError('Session expired — sign in again', 401)
+      if (!refreshToken) throw new RommError(t('error.sessionExpired'), 401)
 
       const res = await fetch(`${this.baseUrl}/api/token`, {
         method: 'POST',
@@ -309,7 +310,7 @@ export class RommClient {
       if (!res.ok) {
         log.warn('romm', 'token refresh refused, credentials cleared', { status: res.status })
         this.store.clearCredentials()
-        throw new RommError('Session expired — sign in again', 401)
+        throw new RommError(t('error.sessionExpired'), 401)
       }
       log.info('romm', 'access token refreshed')
       this.storeToken((await res.json()) as RommTokenResponse)
@@ -442,7 +443,7 @@ export class RommClient {
     const path = `/api/roms/${rom.id}/content/${encodeURIComponent(rom.fs_name)}`
     const res = await this.request(path, { signal })
     if (!res.ok) throw await this.toError(res)
-    if (!res.body) throw new RommError('RomM returned an empty response body')
+    if (!res.body) throw new RommError(t('error.emptyResponseBody'))
 
     const total = Number(res.headers.get('content-length') ?? 0) || rom.fs_size_bytes
     let received = 0
@@ -552,7 +553,7 @@ export class RommClient {
   private async downloadAsset(path: string, destination: string): Promise<void> {
     const res = await this.request(path)
     if (!res.ok) throw await this.toError(res)
-    if (!res.body) throw new RommError('Empty asset body')
+    if (!res.body) throw new RommError(t('error.emptyAssetBody'))
     const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
     await pipeline(source, createWriteStream(destination))
   }

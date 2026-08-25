@@ -3,7 +3,7 @@ import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
 import type { DiagnosticsReport, EmulatorId, RommPlatform } from '@shared/types'
 import { FocusButton, PlatformIcon } from '../../components'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 import { Status } from './EmulatorList'
 
 /**
@@ -33,6 +33,7 @@ export function PlatformList({
 }): JSX.Element {
   // The same order the Emulators list is showing, so "Default" here names the
   // emulator that would actually run the platform.
+  const { t } = useI18n()
   const { settings } = useApp()
   const priority = settings?.emulatorPriority ?? []
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
@@ -45,7 +46,7 @@ export function PlatformList({
   }, [])
 
   if (platforms.length === 0) {
-    return <p className="faint">Connect to RomM to see the platforms in your library.</p>
+    return <p className="faint">{t('platforms.connectFirst')}</p>
   }
 
   const rows = platforms
@@ -119,13 +120,14 @@ export function PlatformList({
                   <Status state={state} />
                 ) : (
                   <span className="status" data-state="warn">
-                    {candidates.length === 0 ? 'No emulator covers this' : 'None installed'}
+                    {candidates.length === 0
+                      ? t('platforms.noneCovers')
+                      : t('platforms.noneInstalled')}
                   </span>
                 )}
               </div>
               <div className="emulator__meta">
-                {systemLabel(system)} · {platform.rom_count} game
-                {platform.rom_count === 1 ? '' : 's'}
+                {t('platforms.meta', { system: systemLabel(system), count: platform.rom_count })}
               </div>
             </div>
             <div className="emulator__actions">
@@ -135,8 +137,8 @@ export function PlatformList({
                 disabled={candidates.length === 0}
                 onSelect={() => void advance()}
               >
-                {effective ? (emulatorById(effective)?.name ?? effective) : 'None'}
-                {current == null && effective ? ' (default)' : ''}
+                {effective ? (emulatorById(effective)?.name ?? effective) : t('value.none')}
+                {current == null && effective ? ` ${t('platforms.default')}` : ''}
               </FocusButton>
             </div>
           </div>

@@ -1,8 +1,10 @@
 import { mkdir, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { localize } from '@shared/i18n'
 import { biosFor } from '@config/bios'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
+import { i18n, t } from './i18n.ts'
 import { realHome } from './host.ts'
 import { log } from './log.ts'
 import { rootPaths } from './root.ts'
@@ -211,7 +213,7 @@ export class BiosManager {
     // only one firmware endpoint: whatever refused it for one platform is going
     // to refuse it for the rest.
     if (failures.length > 0) {
-      throw new RommError(`Cannot read the BIOS files on the server: ${failures[0]}`)
+      throw new RommError(t('error.biosListFailed', { reason: failures[0] }))
     }
 
     // One listing per BIOS folder, not per platform: several platforms share
@@ -303,7 +305,7 @@ export class BiosManager {
       const { dir, staged } = placement(file.name)
       items.set(key(file.name), {
         fileName: file.name,
-        note: file.note,
+        note: t(file.note),
         required: file.required,
         installed: await isInstalled(file.name, dir),
         dir,
@@ -333,12 +335,11 @@ export class BiosManager {
     }
 
     const blockedReason = !system
-      ? `RomMix has no folder mapping for ${platform.display_name}, so it does not know which ` +
-        'emulator runs it. Add one in settings.systemOverrides.'
+      ? t('bios.blockedNoMapping', { platform: platform.display_name })
       : !emulator
-        ? `No installed emulator runs ${systemLabel(system)}.`
+        ? t('bios.blockedNoEmulator', { system: systemLabel(system) })
         : !biosDir
-          ? `RomMix does not know where ${emulator.name} keeps its BIOS files.`
+          ? t('bios.blockedNoFolder', { name: emulator.name })
           : null
 
     const rows = [...items.values()].sort((a, b) => a.fileName.localeCompare(b.fileName))
@@ -353,11 +354,11 @@ export class BiosManager {
       biosDir,
       // Only worth saying when something on this row actually was staged.
       stagingNote: rows.some((row) => row.staged)
-        ? ((emulator ? emulatorById(emulator.id)?.biosStagingNote : null) ?? null)
+        ? localize((emulator ? emulatorById(emulator.id)?.biosStagingNote : null) ?? null, i18n())
         : null,
       items: rows,
       blockedReason,
-      setupNote: requirement?.setupNote ?? null
+      setupNote: requirement?.setupNote ? t(requirement.setupNote) : null
     }
   }
 
@@ -454,7 +455,7 @@ export class BiosManager {
     report: BiosReport
   ): Promise<string> {
     const firmware = firmwareById.get(firmwareId)
-    if (!firmware) throw new RommError('That BIOS file is no longer on the server')
+    if (!firmware) throw new RommError(t('error.biosGone'))
 
     const dir = dirFor.get(firmwareId)
     if (!dir) {
@@ -463,7 +464,7 @@ export class BiosManager {
       const row = report.platforms.find((platform) =>
         platform.items.some((item) => item.firmwareId === firmwareId)
       )
-      throw new RommError(row?.blockedReason ?? 'RomMix has nowhere to put that BIOS file')
+      throw new RommError(row?.blockedReason ?? t('error.biosNowhere'))
     }
 
     await mkdir(dir, { recursive: true })

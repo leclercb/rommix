@@ -4,6 +4,7 @@ import { resolveEmulator } from '@config/emulators'
 import { BiosManager } from './bios.ts'
 import { DownloadManager } from './downloads.ts'
 import { detectEmulators } from './emulators.ts'
+import { setLanguage } from './i18n.ts'
 import { Launcher } from './launcher.ts'
 import { log } from './log.ts'
 import { RommClient } from './romm.ts'
@@ -57,6 +58,9 @@ export class RomMixApp {
   private window: BrowserWindow | null = null
 
   constructor() {
+    // Before anything can have something to say: the store is the only place
+    // that knows which language RomMix was left in.
+    setLanguage(this.store.settings.language)
     this.downloads = new DownloadManager(this.store, this.client, (system) =>
       this.activeEmulator(system)
     )

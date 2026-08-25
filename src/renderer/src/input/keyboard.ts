@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { I18n } from '@shared/i18n'
 import type { Action, Direction, InputKind } from './types'
 
 /**
@@ -8,15 +9,30 @@ import type { Action, Direction, InputKind } from './types'
  * controller produces, so nothing downstream has to know which was used.
  */
 
-/** What a controller button is called on the keyboard that stands in for it. */
-export const KEYBOARD_LABELS: Record<string, string> = {
-  A: 'Enter',
-  B: 'Esc',
-  X: 'M',
-  Y: '/',
-  LB: 'Shift+Tab',
-  RB: 'Tab',
-  START: 'M'
+/**
+ * What a controller button is called on the keyboard that stands in for it.
+ *
+ * Two of the seven are words and are translated; the rest are what is printed
+ * on the key itself — `Tab`, `M`, `/` — which no language changes.
+ */
+export function keyboardLabel(key: string, t: I18n['t']): string | undefined {
+  switch (key) {
+    case 'A':
+      return t('key.enter')
+    case 'B':
+      return t('key.esc')
+    case 'X':
+    case 'START':
+      return 'M'
+    case 'Y':
+      return '/'
+    case 'LB':
+      return 'Shift+Tab'
+    case 'RB':
+      return 'Tab'
+    default:
+      return undefined
+  }
 }
 
 export function useKeyboard(

@@ -2,7 +2,7 @@ import { type JSX, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
 import { FocusButton, Spinner, TextField } from '../../../components'
 import { useGamepadName } from '../../../input/focus'
-import { useApp } from '../../../state'
+import { useApp, useI18n } from '../../../state'
 import { UpdatePanel } from '../UpdatePanel'
 
 /**
@@ -24,6 +24,7 @@ export function SystemTab({
   /** Run the pre-flight check again; resolves with what it found. */
   onRecheck: () => Promise<DiagnosticsReport | null>
 }): JSX.Element {
+  const { t } = useI18n()
   const { notify } = useApp()
   const [rootDraft, setRootDraft] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
@@ -43,7 +44,7 @@ export function SystemTab({
     if (!value) return
     try {
       await window.rommix.system.setRoot(value)
-      notify('RomMix folder moved — restarting')
+      notify(t('system.folderMoved'))
       await window.rommix.system.restart()
     } catch {
       // Reported centrally on `app:error`.
@@ -66,8 +67,8 @@ export function SystemTab({
       const problems = report.notes.length
       notify(
         problems === 0
-          ? 'Checked — everything looks ready to play'
-          : `Checked — ${problems} thing${problems === 1 ? '' : 's'} to sort out`,
+          ? t('system.checkedReady')
+          : t('system.checkedProblems', { count: problems }),
         problems === 0 ? 'ok' : 'warn'
       )
     } finally {
@@ -77,25 +78,20 @@ export function SystemTab({
 
   return (
     <>
-      <h2 className="section-title">Updates</h2>
+      <h2 className="section-title">{t('system.updates')}</h2>
       <UpdatePanel />
 
-      <h2 className="section-title">RomMix folder</h2>
+      <h2 className="section-title">{t('system.romMixFolder')}</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        Settings, credentials, the download index, and any emulator RomMix installed. Move this
-        folder to move the whole installation.
+        {t('system.folderExplainer')}
       </p>
       <div className="form">
         <TextField
-          label="Folder"
+          label={t('system.folder')}
           value={draft}
           onChange={setRootDraft}
           placeholder={root?.fallback ?? '/home/you/rommix'}
-          hint={
-            root?.fromEnvironment
-              ? 'Set by ROMMIX_HOME, which wins over anything chosen here.'
-              : 'Settings are copied to the new folder; emulators and ROMs stay where they are.'
-          }
+          hint={root?.fromEnvironment ? t('system.folderHintEnv') : t('system.folderHint')}
         />
         <div className="btn-row">
           <FocusButton
@@ -103,12 +99,12 @@ export function SystemTab({
             disabled={root?.fromEnvironment || draft.trim() === root?.current}
             onSelect={() => void moveRoot()}
           >
-            Move and restart
+            {t('system.moveAndRestart')}
           </FocusButton>
         </div>
       </div>
 
-      <h2 className="section-title">Pre-flight check</h2>
+      <h2 className="section-title">{t('system.preflight')}</h2>
       {!diagnostics ? (
         <Spinner />
       ) : (
@@ -117,30 +113,32 @@ export function SystemTab({
             {/* Not about RomMix, which is an AppImage: it is about the
                 emulators, most of which are flatpaks and none of which can be
                 found without the command. */}
-            <dt>Flatpak available</dt>
-            <dd>{diagnostics.flatpakAvailable ? 'yes' : 'no'}</dd>
+            <dt>{t('system.flatpakAvailable')}</dt>
+            <dd>{diagnostics.flatpakAvailable ? t('value.yes') : t('value.no')}</dd>
             {/* The other half of the same question. A machine can have flatpak
                 and still have nowhere to install from, which otherwise shows up
                 only as every emulator reading "not installed". */}
-            <dt>Flathub set up</dt>
+            <dt>{t('system.flathubSetUp')}</dt>
             <dd>
               {!diagnostics.flatpakAvailable
                 ? '—'
                 : diagnostics.flathubConfigured
-                  ? 'yes'
-                  : 'no — added on first install'}
+                  ? t('value.yes')
+                  : t('system.flathubOnFirstInstall')}
             </dd>
-            <dt>Emulators installed</dt>
+            <dt>{t('system.emulatorsInstalled')}</dt>
             <dd>
-              {diagnostics.emulators.filter((e) => e.available).length} of{' '}
-              {diagnostics.emulators.length}
+              {t('system.countOf', {
+                count: diagnostics.emulators.filter((e) => e.available).length,
+                total: diagnostics.emulators.length
+              })}
             </dd>
-            <dt>ROM folders writable</dt>
-            <dd>{diagnostics.romsWritable ? 'yes' : 'no'}</dd>
-            <dt>Controller</dt>
-            <dd>{controller ?? 'none seen — press a button on it'}</dd>
+            <dt>{t('system.romsWritable')}</dt>
+            <dd>{diagnostics.romsWritable ? t('value.yes') : t('value.no')}</dd>
+            <dt>{t('system.controller')}</dt>
+            <dd>{controller ?? t('system.noController')}</dd>
             {/* The file to attach to a bug report, named where the problems are. */}
-            <dt>Log file</dt>
+            <dt>{t('system.logFile')}</dt>
             <dd>{diagnostics.logPath}</dd>
           </dl>
 
@@ -153,12 +151,12 @@ export function SystemTab({
               </div>
             ))
           ) : (
-            <div className="notice notice--ok">Everything looks ready to play.</div>
+            <div className="notice notice--ok">{t('system.allReady')}</div>
           )}
 
           <div className="btn-row">
             <FocusButton icon="refresh" disabled={rechecking} onSelect={() => void recheck()}>
-              {rechecking ? 'Checking…' : 'Re-run check'}
+              {rechecking ? t('action.checking') : t('system.rerunCheck')}
             </FocusButton>
           </div>
         </>

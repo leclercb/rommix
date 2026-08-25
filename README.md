@@ -385,8 +385,12 @@ or a BIOS requirement, is a change in `src/config/` and nowhere else.
 
 `npm run preview:app` runs the renderer as a web page against a stub library,
 for looking at the front end where starting Electron is not worth it.
-`npm run build:site` assembles it with [site/index.html](site/index.html) into
-`out/site` — what [Pages](.github/workflows/pages.yml) publishes.
+`npm run build:site` assembles it with the landing page into `out/site` — what
+[Pages](.github/workflows/pages.yml) publishes. The landing page is a template,
+[site/index.html](site/index.html), rendered once per language from
+[site/text/](site/text) by [scripts/build-landing.mjs](scripts/build-landing.mjs):
+English at the root, French, German and Spanish in folders beside it. The demo is
+built once and picks its language in the browser, as the app does.
 
 ### Releasing
 

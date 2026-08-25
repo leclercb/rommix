@@ -1,7 +1,8 @@
 import type { JSX, ReactNode } from 'react'
 import type { InstalledRom, RommRom } from '@shared/types'
-import { ArtBackdrop, CoverArt, PlatformIcon, formatBytes } from '../../components'
+import { ArtBackdrop, CoverArt, PlatformIcon } from '../../components'
 import { Icon } from '../../icons'
+import { useI18n } from '../../state'
 
 /**
  * The game's own banner: a still of it washed out behind the cover and the
@@ -27,6 +28,7 @@ export function GameHero({
   /** The action row: Play, Download, Pull saves, and the rest. */
   children: ReactNode
 }): JSX.Element {
+  const { t, formatBytes } = useI18n()
   const title = rom.name ?? rom.fs_name
   const rating = rom.metadatum.average_rating ? Math.round(rom.metadatum.average_rating) : null
   const year = rom.metadatum.first_release_date
@@ -61,7 +63,7 @@ export function GameHero({
               <span className="game-hero__rating">
                 <Icon name="rating" size={16} />
                 {rating}
-                <span className="faint"> / 100</span>
+                <span className="faint"> {t('game.ratingOutOf')}</span>
               </span>
             ) : null}
             {/* The year only; the full release date is a row in Details. */}
@@ -75,9 +77,11 @@ export function GameHero({
                 {rom.regions.join(', ')}
               </span>
             ) : null}
-            {rom.revision ? <span className="chip">Rev {rom.revision}</span> : null}
+            {rom.revision ? (
+              <span className="chip">{t('game.revision', { revision: rom.revision })}</span>
+            ) : null}
             <span className="chip">{formatBytes(rom.fs_size_bytes)}</span>
-            {entry ? <span className="chip chip--on">Downloaded</span> : null}
+            {entry ? <span className="chip chip--on">{t('library.downloadedMark')}</span> : null}
             {rom.metadatum.genres.slice(0, 3).map((genre) => (
               <span className="chip" key={genre}>
                 {genre}

@@ -27,6 +27,7 @@ import { RommClient, RommError } from './romm.ts'
 import { rootPaths } from './root.ts'
 import { isZip } from './zip.ts'
 import type { Store } from './store.ts'
+import { t } from './i18n.ts'
 
 /**
  * Downloads ROMs from RomM into the library, and reconciles the library with
@@ -144,8 +145,10 @@ export class DownloadManager extends EventEmitter {
     )
     if (!system) {
       throw new RommError(
-        `RomMix does not know which folder "${rom.platform_display_name}" maps to. ` +
-          `Add a mapping for "${rom.platform_slug}" to settings.systemOverrides.`
+        t('error.noFolderMapping', {
+          platform: rom.platform_display_name,
+          slug: rom.platform_slug
+        })
       )
     }
 
@@ -170,17 +173,16 @@ export class DownloadManager extends EventEmitter {
         .map((descriptor) => descriptor.name)
         .join(' or ')
       throw new RommError(
-        `No installed emulator can run "${system}".` +
-          (covers ? ` Install ${covers}, then try again.` : '')
+        covers
+          ? t('error.noEmulatorInstallOne', { system, name: covers })
+          : t('error.noEmulatorForSystem', { system })
       )
     })()
 
     // Every descriptor declares a ROM folder, so this is only null when the
     // emulator was found but never probed.
     if (!library.root) {
-      throw new RommError(
-        `RomMix does not know where ${emulator?.name ?? 'RomMix'} keeps its games`
-      )
+      throw new RommError(t('error.noRomFolder', { name: emulator?.name ?? 'RomMix' }))
     }
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) arrive as a

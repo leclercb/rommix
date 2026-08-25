@@ -1,4 +1,5 @@
 import { artFor, PLATFORMS, ROMS as LIBRARY } from './library'
+import { createI18n, localeFor, type MessageKey } from '@shared/i18n'
 import type { RomMixBridge } from '@shared/api'
 import type {
   BiosPlatform,
@@ -206,8 +207,7 @@ function queued(id: number, state: DownloadItem['state'], received: number): Dow
     state,
     receivedBytes: received,
     totalBytes: rom.fs_size_bytes,
-    error:
-      state === 'error' ? 'The server closed the connection before the file was complete.' : null,
+    error: state === 'error' ? say('demo.connectionClosed') : null,
     targetPath: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`
   }
 }
@@ -289,7 +289,7 @@ const BIOS: BiosPlatform[] = [
     items: [
       {
         fileName: 'gba_bios.bin',
-        note: 'Game Boy Advance BIOS — improves accuracy',
+        note: say('bios.note.gbaBios'),
         required: false,
         installed: false,
         dir: '/home/deck/retrodeck/bios',
@@ -314,7 +314,7 @@ const BIOS: BiosPlatform[] = [
     items: [
       {
         fileName: '7800 BIOS (U).rom',
-        note: 'Atari 7800 BIOS — North America',
+        note: say('bios.note.atari7800'),
         required: false,
         installed: true,
         dir: '/home/deck/retrodeck/bios',
@@ -358,6 +358,9 @@ const SETTINGS: Settings = {
   confirmUninstall: true,
   confirmSavePush: true,
   dismissedNotices: [],
+  // The browser's own language, so the published demo reads in whatever the
+  // visitor's browser is set to — and the Settings row still switches it.
+  language: 'auto',
   // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,
   updates: 'auto',
@@ -395,7 +398,7 @@ function previewUpdate(): UpdateStatus {
     receivedBytes: 0,
     totalBytes: 0,
     readyPath: null,
-    blockedReason: 'This is the web preview, so there is nothing here to replace.',
+    blockedReason: say('demo.nothingToReplace'),
     restartBlocked: null,
     error: null,
     checkedAt: new Date().toISOString()
@@ -429,9 +432,9 @@ const bridge: RomMixBridge = {
         serverVersion: '5.1.0 (preview)',
         error: null
       }),
-    connect: () => Promise.reject(new Error('Not available in the web preview')),
+    connect: () => Promise.reject(new Error(say('demo.notAvailable'))),
     disconnect: () => Promise.resolve(),
-    startPairing: () => Promise.reject(new Error('Not available in the web preview')),
+    startPairing: () => Promise.reject(new Error(say('demo.notAvailable'))),
     pollPairing: () => Promise.resolve(false)
   },
   library: {
@@ -510,7 +513,7 @@ const bridge: RomMixBridge = {
       const item = BIOS.flatMap((platform) => platform.items).find(
         (candidate) => candidate.firmwareId === firmwareId
       )
-      if (!item) return Promise.reject(new Error('No such firmware'))
+      if (!item) return Promise.reject(new Error(say('demo.noFirmware')))
       item.installed = true
       return later(`${item.dir}/${item.fileName}`, 500)
     },
@@ -554,13 +557,13 @@ const bridge: RomMixBridge = {
           system === 'genesis'
             ? [
                 { id: 'genesis_plus_gx', label: 'Genesis Plus GX' },
-                { id: 'picodrive', label: 'PicoDrive', note: 'faster, less accurate' }
+                { id: 'picodrive', label: 'PicoDrive', note: say('demo.variantFaster') }
               ]
-            : [{ id: 'default', label: 'RetroDECK’s choice' }],
+            : [{ id: 'default', label: say('demo.variantDefault') }],
         chosen: null
       })
     },
-    launch: () => Promise.reject(new Error('There is no emulator in the web preview')),
+    launch: () => Promise.reject(new Error(say('demo.noEmulator'))),
     stop: () => later(undefined),
     onState: noSubscription
   },
@@ -576,17 +579,24 @@ const bridge: RomMixBridge = {
      */
     status: () => later(previewUpdate()),
     check: () => later(previewUpdate(), 700),
-    download: () => Promise.reject(new Error('Not available in the web preview')),
-    restart: () => Promise.reject(new Error('Not available in the web preview')),
+    download: () => Promise.reject(new Error(say('demo.notAvailable'))),
+    restart: () => Promise.reject(new Error(say('demo.notAvailable'))),
     onStatus: noSubscription
   },
   system: {
     settings: () => later(SETTINGS),
-    updateSettings: (patch) => later(Object.assign(SETTINGS, patch)),
+    updateSettings: (patch) => {
+      Object.assign(SETTINGS, patch)
+      // The tab follows the language too: in the app nobody ever sees the
+      // title, but the demo is a page in a browser and it is the only name it
+      // has once the link has been shared.
+      if ('language' in patch) describePage()
+      return later(SETTINGS)
+    },
     emulatorReleases: () => later([]),
-    installEmulator: () => Promise.reject(new Error('Not available in the web preview')),
-    installEmulatorFlatpak: () => Promise.reject(new Error('Not available in the web preview')),
-    runEmulator: () => Promise.reject(new Error('Not available in the web preview')),
+    installEmulator: () => Promise.reject(new Error(say('demo.notAvailable'))),
+    installEmulatorFlatpak: () => Promise.reject(new Error(say('demo.notAvailable'))),
+    runEmulator: () => Promise.reject(new Error(say('demo.notAvailable'))),
     onInstallProgress: noSubscription,
     diagnostics: () =>
       later({
@@ -598,7 +608,7 @@ const bridge: RomMixBridge = {
         // the panel shows it so a bug report can quote it, and a demo quoting a
         // folder RomMix does not use teaches the wrong one.
         logPath: `${PREVIEW_ROOT}/logs/rommix.log`,
-        notes: ['This is the web preview: nothing was actually checked.']
+        notes: [say('demo.nothingChecked')]
       }),
     root: () =>
       later({
@@ -606,7 +616,7 @@ const bridge: RomMixBridge = {
         fallback: PREVIEW_ROOT,
         fromEnvironment: false
       }),
-    setRoot: () => Promise.reject(new Error('Not available in the web preview')),
+    setRoot: () => Promise.reject(new Error(say('demo.notAvailable'))),
     restart: () => later(undefined),
     /**
      * Cover art and screenshots resolve to the copies bundled with the preview;
@@ -628,8 +638,36 @@ const bridge: RomMixBridge = {
 }
 
 /** Put the stub in place. Called from `main.tsx` before anything renders. */
+/**
+ * Name the page in whatever language it is about to be drawn in.
+ *
+ * `vite.web.config.ts` writes an English title and description into the
+ * document, which is what a crawler unfurling the link reads — a single static
+ * build can only carry one, and English is the one the rest of the world falls
+ * back to. This is the copy for the person actually looking at it, which is a
+ * different question and has a locale to answer it with.
+ */
+/**
+ * The stub's own words, in whatever language the demo is being read in.
+ *
+ * The bridge stands in for the main process, so it answers the same way that
+ * does: a sentence, already translated, never a key. Resolved per call rather
+ * than once, because the demo's Settings can change the language under it.
+ */
+function say(key: MessageKey): string {
+  return createI18n(localeFor(SETTINGS.language, navigator.language)).t(key)
+}
+
+function describePage(): void {
+  const { t } = createI18n(localeFor(SETTINGS.language, navigator.language))
+  document.title = t('demo.title')
+  const description = document.querySelector('meta[name="description"]')
+  if (description) description.setAttribute('content', t('demo.description'))
+}
+
 export function installPreviewBridge(): void {
   window.rommix = bridge
+  describePage()
   // Said once, in the one place a developer will look when something behaves
   // oddly here and not in the app.
   console.info('[rommix] web preview: window.rommix is a stub, no server is involved')

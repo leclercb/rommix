@@ -8,6 +8,7 @@ import { shadps4 } from './shadps4/index.ts'
 import { EMULATORS } from './index.ts'
 import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
+import { createI18n, localize } from '@shared/i18n'
 
 /**
  * Save resolution, against a described machine rather than a real one.
@@ -18,6 +19,15 @@ import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
  * point of the fake environment is that those facts can be asserted without an
  * emulator installed, which is the only way a table this size stays honest.
  */
+
+/**
+ * The language the phrases below are asserted in.
+ *
+ * A descriptor names a catalogue key rather than a sentence, so a test that
+ * wants to read one has to pick a language to read it in. English, because that
+ * is the catalogue the others are written from.
+ */
+const ENGLISH = createI18n('en')
 
 const HOME = '/home/deck'
 
@@ -375,7 +385,7 @@ test('a shared memory card is not offered for per-game sync, but its states are'
   const ps2 = retroDeck({ romPath: '/home/deck/retrodeck/roms/ps2/game.chd', system: 'ps2' })
   assert.equal(ps2.saves?.match, 'shared')
   assert.equal(ps2.states?.match, 'rom-stem')
-  assert.match(ps2.unsyncableReason ?? '', /memory card/i)
+  assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /memory card/i)
 })
 
 test('a per-game altemulator in the ES-DE gamelist changes where saves are looked for', () => {
@@ -636,7 +646,7 @@ test('with no title id, nothing is synced rather than something wrong', () => {
   })
   const paths = edenPaths(env, '/roms/switch/Some Game.nsp')
   assert.equal(paths.saves, null)
-  assert.match(paths.unsyncableReason ?? '', /title id/i)
+  assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /title id/i)
 })
 
 test('with no profile yet, Eden says so rather than inventing one', () => {
@@ -647,7 +657,7 @@ test('with no profile yet, Eden says so rather than inventing one', () => {
     machine({ heads: { '/roms/switch/game.nsp': 'HEAD 01007EF00011E000.cnmt tail' } })
   )
   assert.equal(paths.saves, null)
-  assert.match(paths.unsyncableReason ?? '', /profile/i)
+  assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /profile/i)
 })
 
 test('Eden has no save states, so none are claimed', () => {
@@ -709,7 +719,7 @@ test('with no serial, nothing is synced rather than something wrong', () => {
   const env = machine({ dirs: { [SAVEDATA]: ['1'] } })
   const paths = shadPaths(env, '/roms/ps4/Some Game/eboot.bin')
   assert.equal(paths.saves, null)
-  assert.match(paths.unsyncableReason ?? '', /serial/i)
+  assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /serial/i)
 })
 
 // ---------------------------------------------------------------------------

@@ -15,11 +15,11 @@ export {
   Tabs,
   TextField,
   Toggle,
-  UI_SCALES,
   uiScaleChoice,
+  uiScaleOptions,
   type UiScaleChoice
 } from './controls'
-export { formatBytes, formatDate, formatDateTime } from './format'
 export { GameCard, GameRow, tileFromInstalled, tileFromRom, type GameTile } from './games'
 export { Hints, Overlay, QuitOverlay, Spinner } from './overlay'
 export { QrCode, ScanToOpen } from './qr'
+export { Filled } from './text'

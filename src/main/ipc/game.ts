@@ -1,6 +1,8 @@
 import { emulatorById, launchVariants } from '@config/emulators'
+import { localize } from '@shared/i18n'
 import type { LaunchChoice, LaunchResult } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
+import { i18n } from '../i18n.ts'
 import { log } from '../log.ts'
 import { launchContext, launcherKey } from './context.ts'
 import type { Handle } from './handler.ts'
@@ -26,7 +28,8 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
       system: installed.system,
       emulatorId: emulator.id,
       emulatorName: emulator.name,
-      setupNotes: [...(descriptor?.setupNotes ?? [])],
+      // Resolved here, so the renderer is handed sentences rather than keys.
+      setupNotes: (descriptor?.setupNotes ?? []).map((note) => localize(note, i18n())),
       options: options.map((option) => ({ ...option })),
       // A recorded choice that no longer exists is reported as unanswered, so
       // the user is asked again rather than being launched into something else.

@@ -18,6 +18,8 @@
  * environment rather than a real emulator install.
  */
 
+import type { Text } from '@shared/i18n'
+
 /**
  * How a file or directory under a save location is recognised as this game's.
  *
@@ -80,8 +82,12 @@ export interface SavePaths {
    * Set when the emulator genuinely has no per-game save — not when a directory
    * merely happens to be missing, which is the ordinary state of a game that
    * has not been played yet.
+   *
+   * A catalogue key rather than a sentence: these resolvers run wherever a save
+   * is looked for, including in the renderer, and none of those places is where
+   * the language is decided. `SaveSync` resolves it on the way out.
    */
-  unsyncableReason?: string
+  unsyncableReason?: Text
 }
 
 /**

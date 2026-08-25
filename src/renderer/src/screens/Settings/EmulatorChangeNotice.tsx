@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { FocusButton, Overlay } from '../../components'
+import { useI18n } from '../../state'
 
 /**
  * What changing the emulator for a platform actually costs, and the two ways
@@ -23,29 +24,24 @@ export function EmulatorChangeNotice({
   onConfirm: (dontAskAgain: boolean) => void
   onCancel: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   return (
-    <Overlay title="Change which emulator runs this?">
-      <p className="muted">
-        Each emulator keeps its own files, and nothing moves across when you change one:
-      </p>
+    <Overlay title={t('change.title')}>
+      <p className="muted">{t('change.body')}</p>
       <ul className="notice__list muted">
-        <li>BIOS files have to be installed again for the new emulator.</li>
-        <li>
-          {sharedRoms
-            ? 'Games stay where they are — they are in RomMix’s own folder, which you point every emulator at.'
-            : 'Downloaded games stay in the old emulator’s folder and have to be downloaded again.'}
-        </li>
-        <li>Saves live in the old emulator&apos;s tree. Pull them from RomM after the change.</li>
+        <li>{t('change.bios')}</li>
+        <li>{sharedRoms ? t('change.gamesShared') : t('change.gamesPerEmulator')}</li>
+        <li>{t('change.saves')}</li>
       </ul>
       <div className="btn-row">
         <FocusButton icon="confirm" variant="primary" onSelect={() => onConfirm(false)} autoFocus>
-          Change it
+          {t('change.confirm')}
         </FocusButton>
         <FocusButton icon="hide" onSelect={() => onConfirm(true)}>
-          Change it, don&apos;t ask again
+          {t('change.confirmNoAsk')}
         </FocusButton>
         <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
-          Cancel
+          {t('action.cancel')}
         </FocusButton>
       </div>
     </Overlay>

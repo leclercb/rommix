@@ -2,6 +2,7 @@ import type { EmulatorState, InstalledRom } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import type { SaveTarget } from '../saves.ts'
 import { RommError } from '../romm.ts'
+import { t } from '../i18n.ts'
 
 /**
  * What a call about one game has to work out before it can do anything: which
@@ -31,11 +32,11 @@ export async function saveContext(rommix: RomMixApp, romId: number): Promise<Sav
   await rommix.ensureEmulators()
   const installed = downloads.installedNow(romId)
   if (!installed) {
-    throw new RommError('That ROM is not downloaded for the emulator this platform uses')
+    throw new RommError(t('error.notDownloadedForEmulator'))
   }
   const emulator = rommix.activeEmulator(installed.system)
   if (!emulator) {
-    throw new RommError(`No installed emulator can run "${installed.system}"`)
+    throw new RommError(t('error.noEmulatorForSystem', { system: installed.system }))
   }
   return {
     rom: await client.rom(romId),
@@ -63,16 +64,13 @@ export async function launchContext(
   const installed = downloads.installedNow(romId)
   if (!installed) {
     throw new RommError(
-      store.getInstalled(romId)
-        ? 'This copy was downloaded for a different emulator. Download it again for the one ' +
-            'this platform now uses.'
-        : 'That ROM is not downloaded yet'
+      store.getInstalled(romId) ? t('error.downloadedForOther') : t('error.notDownloadedYet')
     )
   }
 
   const emulator = rommix.activeEmulator(installed.system)
   if (!emulator) {
-    throw new RommError(`No installed emulator can run "${installed.system}"`)
+    throw new RommError(t('error.noEmulatorForSystem', { system: installed.system }))
   }
   return { installed, emulator }
 }

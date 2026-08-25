@@ -207,10 +207,7 @@ export function switchSavePaths(
     return {
       saves: null,
       states: null,
-      unsyncableReason:
-        `RomMix could not read a title id for this game, which is how ${emulatorName} names its ` +
-        'save folder. A ROM that carries its title id in the file name, or an unmodified NSP or ' +
-        'XCI, resolves automatically.'
+      unsyncableReason: { key: 'saves.switchNoTitleId', params: { emulator: emulatorName } }
     }
   }
 
@@ -219,9 +216,7 @@ export function switchSavePaths(
     return {
       saves: null,
       states: null,
-      unsyncableReason:
-        `${emulatorName} has no user profile yet, so there is nowhere for a save to go. Start it ` +
-        'once and create a profile.'
+      unsyncableReason: { key: 'saves.switchNoProfile', params: { emulator: emulatorName } }
     }
   }
 

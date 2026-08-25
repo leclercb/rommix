@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import type { PendingSave } from '@shared/types'
-import { formatBytes, formatDateTime } from '../../components'
+import { useI18n } from '../../state'
 
 /**
  * How many files the push confirmation lists before summarising the rest.
@@ -22,6 +22,7 @@ const PUSH_PREVIEW_ROWS = 8
  * sending is likely to be a mistake.
  */
 export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Element {
+  const { t, formatBytes, formatDateTime } = useI18n()
   // Capped rather than scrolled: nothing in this list is focusable, so a
   // scrolling panel on a gamepad is content that cannot be reached. A push of
   // ten libretro state slots is a real thing, and the count in the title is
@@ -40,7 +41,7 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
           return (
             <li key={`${file.kind}-${file.path}`}>
               <span className="asset__kind" data-kind={file.kind}>
-                {file.kind === 'save' ? 'Save' : 'State'}
+                {file.kind === 'save' ? t('asset.save') : t('asset.state')}
               </span>
               <span className="status" data-state={stale ? 'warn' : 'ok'}>
                 {file.emulator}
@@ -51,31 +52,27 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
                 {/* A Switch save is a folder of files named after nothing, so it
                   travels as one archive — worth saying, since the name above is
                   not a name anything on disk has. */}
-                {file.isDirectory ? ' · folder, sent as one zip' : ''} ·{' '}
+                {file.isDirectory ? ` · ${t('push.folderAsZip')}` : ''} ·{' '}
                 {formatDateTime(file.modifiedAt)}
               </span>
               <span className="asset__meta">
                 {file.replaces
-                  ? `On RomM: ${
-                      file.replaces.fromThisDevice === true
-                        ? 'this device'
-                        : file.replaces.fromThisDevice === false
-                          ? 'another device'
-                          : (file.replaces.emulator ?? 'unknown')
-                    }, ${formatDateTime(file.replaces.updatedAt)}${
-                      stale ? ' · newer than this' : ''
-                    }`
-                  : 'New on RomM'}
+                  ? t('push.onRomM', {
+                      source:
+                        file.replaces.fromThisDevice === true
+                          ? t('push.thisDevice')
+                          : file.replaces.fromThisDevice === false
+                            ? t('push.anotherDevice')
+                            : (file.replaces.emulator ?? t('value.unknown')),
+                      when: formatDateTime(file.replaces.updatedAt) ?? ''
+                    }) + (stale ? ` · ${t('push.newerThanThis')}` : '')
+                  : t('push.newOnRomM')}
               </span>
             </li>
           )
         })}
       </ul>
-      {hidden > 0 ? (
-        <p className="muted">
-          and {hidden} more file{hidden === 1 ? '' : 's'}.
-        </p>
-      ) : null}
+      {hidden > 0 ? <p className="muted">{t('push.andMore', { count: hidden })}</p> : null}
     </>
   )
 }

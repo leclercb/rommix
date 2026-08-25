@@ -6,9 +6,10 @@ import type {
   SaveDeleteScope,
   SavePushPreview
 } from '@shared/types'
-import { FocusButton, Overlay, formatBytes } from '../../components'
+import { FocusButton, Overlay } from '../../components'
+import { useI18n } from '../../state'
 import { PushPreviewList } from './PushPreviewList'
-import { DELETE_SCOPES, deleteScopesOf } from './tabs'
+import { deleteScopeText, deleteScopesOf } from './tabs'
 
 /**
  * The four questions this screen asks before doing something it cannot undo.
@@ -28,11 +29,11 @@ export function LaunchVariantDialog({
   onPick: (variant: string) => void
   onCancel: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   return (
-    <Overlay title={`How should ${choice.system} games run?`}>
+    <Overlay title={t('game.variantTitle', { system: choice.system })}>
       <p className="muted">
-        {choice.emulatorName} offers several. Remembered for {choice.system} — change it later with
-        Run with
+        {t('game.variantBody', { emulator: choice.emulatorName, system: choice.system })}
       </p>
       <div className="btn-row">
         {choice.options.map((option) => (
@@ -49,7 +50,7 @@ export function LaunchVariantDialog({
       </div>
       <div className="btn-row">
         <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
-          Cancel
+          {t('action.cancel')}
         </FocusButton>
       </div>
     </Overlay>
@@ -68,24 +69,32 @@ export function DeleteAssetDialog({
   onKeep: () => void
   onDelete: () => void
 }): JSX.Element {
+  const { t } = useI18n()
+  const { where, consequence } = deleteScopeText(scope, t)
+  // Two whole questions rather than one with the kind slotted in: "this save"
+  // and "this state" do not share an article in every language.
   return (
-    <Overlay title={`Delete this ${asset.kind} ${DELETE_SCOPES[scope].where}?`}>
+    <Overlay
+      title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle', {
+        where
+      })}
+    >
       <p className="muted">
         {/* The title says which end; this names the file and, for a local
-            delete, the folder it is actually in. */}
-        {asset.fileName} — {scope === 'local' ? asset.localPath?.replace(/\/[^/]*$/, '') : 'RomM'}.{' '}
-        {/* What happens to the copy left behind. Not a warning: it is the
-            reason for deleting one end rather than both. */}
-        {deleteScopesOf(asset).length === 2
-          ? DELETE_SCOPES[scope].consequence
-          : 'This is the only copy.'}
+            delete, the folder it is actually in — and then what happens to the
+            copy left behind, which is the reason for deleting one end at all. */}
+        {t('game.deleteAssetBody', {
+          file: asset.fileName,
+          location: scope === 'local' ? (asset.localPath?.replace(/\/[^/]*$/, '') ?? '') : 'RomM',
+          consequence: deleteScopesOf(asset).length === 2 ? consequence : t('game.deleteOnlyCopy')
+        })}
       </p>
       <div className="btn-row">
         <FocusButton icon="keep" onSelect={onKeep} autoFocus>
-          Keep it
+          {t('action.keep')}
         </FocusButton>
         <FocusButton icon="delete" variant="danger" onSelect={onDelete}>
-          Delete {DELETE_SCOPES[scope].where}
+          {t('game.deleteAt', { where })}
         </FocusButton>
       </div>
     </Overlay>
@@ -102,18 +111,21 @@ export function UninstallDialog({
   onKeep: () => void
   onUninstall: () => void
 }): JSX.Element {
+  const { t, formatBytes } = useI18n()
   return (
-    <Overlay title="Uninstall this game?">
+    <Overlay title={t('uninstall.title')}>
       <p className="muted">
-        {entry.fileName} will be deleted from {entry.path.replace(/\/[^/]*$/, '')}. Your saves on
-        RomM are kept.
+        {t('uninstall.body', {
+          file: entry.fileName,
+          folder: entry.path.replace(/\/[^/]*$/, '')
+        })}
       </p>
       <div className="btn-row">
         <FocusButton icon="keep" onSelect={onKeep} autoFocus>
-          Keep it
+          {t('action.keep')}
         </FocusButton>
         <FocusButton icon="uninstall" variant="danger" onSelect={onUninstall}>
-          Uninstall, freeing {formatBytes(entry.sizeBytes)}
+          {t('uninstall.freeing', { size: formatBytes(entry.sizeBytes) })}
         </FocusButton>
       </div>
     </Overlay>
@@ -131,18 +143,17 @@ export function PushConfirmDialog({
   /** `stopAsking` also turns the confirmation off for every future push. */
   onSend: (stopAsking: boolean) => void
 }): JSX.Element {
+  const { t } = useI18n()
   return (
-    <Overlay
-      title={`Send ${preview.files.length} file${preview.files.length === 1 ? '' : 's'} to RomM?`}
-    >
-      <p className="muted">Uploaded as {preview.deviceName}.</p>
+    <Overlay title={t('game.pushTitle', { count: preview.files.length })}>
+      <p className="muted">{t('game.pushUploadedAs', { device: preview.deviceName })}</p>
       <PushPreviewList files={preview.files} />
       <div className="btn-row">
         <FocusButton icon="cancel" onSelect={onCancel} autoFocus>
-          Cancel
+          {t('action.cancel')}
         </FocusButton>
         <FocusButton icon="push" variant="primary" onSelect={() => onSend(false)}>
-          Send to RomM
+          {t('game.pushSend')}
         </FocusButton>
       </div>
       {/* The shortcut to the Settings toggle, put where the question is
@@ -151,7 +162,7 @@ export function PushConfirmDialog({
           by "don't ask me". */}
       <div className="btn-row">
         <FocusButton icon="hide" variant="ghost" onSelect={() => onSend(true)}>
-          Send and don&apos;t ask again
+          {t('game.pushSendNoAsk')}
         </FocusButton>
       </div>
     </Overlay>

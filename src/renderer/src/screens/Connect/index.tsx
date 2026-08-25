@@ -11,11 +11,11 @@ import {
   RomStorageChoice,
   SegmentedControl,
   TextField,
-  UI_SCALES,
   uiScaleChoice,
+  uiScaleOptions,
   type UiScaleChoice
 } from '../../components'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 
 /**
  * The steps of first-run setup, in order.
@@ -47,6 +47,7 @@ const SETUP_STEPS: readonly SetupStep[] = ['scale', 'storage', 'server']
  *  - Username and password: the OAuth2 password grant.
  */
 export function ConnectScreen(): JSX.Element {
+  const { t } = useI18n()
   const { refreshStatus, replace, notify, status, settings, saveSettings } = useApp()
 
   const [baseUrl, setBaseUrl] = useState(status?.baseUrl ?? '')
@@ -99,7 +100,7 @@ export function ConnectScreen(): JSX.Element {
       // point of the flag is that these questions are asked once, and reaching
       // a working library is the moment that becomes true.
       if (settings && !settings.setupComplete) await saveSettings({ setupComplete: true })
-      notify(`Connected to RomM as ${next.user?.username ?? 'user'}`)
+      notify(t('connect.connectedAs', { user: next.user?.username ?? t('connect.someone') }))
       // Replaced rather than pushed: signing in is the start of a session, not
       // a step into one. Pushed, the connect form stays one B press behind the
       // home screen for the rest of the run.
@@ -145,15 +146,15 @@ export function ConnectScreen(): JSX.Element {
     return (
       <SetupPage
         step={stepNumber}
-        title="How big should RomMix be?"
-        subtitle="Auto follows the screen — twice the size on a 4K television. Pick a size you can read from wherever you sit; you can change it later in Settings."
+        title={t('setup.scaleTitle')}
+        subtitle={t('setup.scaleSubtitle')}
         onNext={() => at('storage')}
       >
         <Choice<UiScaleChoice>
-          label="Scale"
-          hint="The whole interface, not just the text."
+          label={t('control.scale')}
+          hint={t('setup.scaleHint')}
           value={uiScaleChoice(settings.uiScale)}
-          options={UI_SCALES}
+          options={uiScaleOptions(t)}
           onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
         />
       </SetupPage>
@@ -164,8 +165,8 @@ export function ConnectScreen(): JSX.Element {
     return (
       <SetupPage
         step={stepNumber}
-        title="Where should downloaded games go?"
-        subtitle="This decides where every ROM lands, so it is far easier to answer now than once there are games on disk in the other place."
+        title={t('setup.storageTitle')}
+        subtitle={t('setup.storageSubtitle')}
         onBack={() => at('scale')}
         onNext={() => at('server')}
       >
@@ -180,56 +181,58 @@ export function ConnectScreen(): JSX.Element {
   return (
     <div className="content">
       <h1 className="page-title">
-        {wizard ? <span className="setup__step">Step {stepNumber} of 3</span> : null}
-        Connect to RomM
+        {wizard ? (
+          <span className="setup__step">
+            {t('setup.stepOf', { step: stepNumber, total: SETUP_STEPS.length })}
+          </span>
+        ) : null}
+        {t('connect.title')}
       </h1>
-      <p className="page-subtitle">
-        Point RomMix at your RomM server to browse and download your library.
-      </p>
+      <p className="page-subtitle">{t('connect.subtitle')}</p>
 
       <div className="form">
         <TextField
-          label="Server address"
+          label={t('connect.serverAddress')}
           value={baseUrl}
           onChange={setBaseUrl}
           placeholder="https://romm.example.org"
-          hint="The same address you use for the RomM web interface."
+          hint={t('connect.serverAddressHint')}
           autoFocus
         />
 
-        <label className="field__label">How would you like to sign in?</label>
+        <label className="field__label">{t('connect.howSignIn')}</label>
         <SegmentedControl<AuthMode>
           value={mode}
           onChange={setMode}
           options={[
-            { value: 'device', label: 'Pair this device' },
-            { value: 'token', label: 'API token' },
-            { value: 'password', label: 'Username & password' }
+            { value: 'device', label: t('connect.modeDevice') },
+            { value: 'token', label: t('connect.modeToken') },
+            { value: 'password', label: t('connect.modePassword') }
           ]}
         />
 
-        {mode === 'device' ? (
-          <p className="muted">
-            RomMix shows a short code that you approve from RomM in any browser — no password typed
-            on the couch.
-          </p>
-        ) : null}
+        {mode === 'device' ? <p className="muted">{t('connect.deviceExplainer')}</p> : null}
 
         {mode === 'token' ? (
           <TextField
-            label="API token"
+            label={t('connect.modeToken')}
             value={token}
             onChange={setToken}
             placeholder="rmm_…"
             type="password"
-            hint="Create one in RomM under Administration → Client tokens."
+            hint={t('connect.tokenHint')}
           />
         ) : null}
 
         {mode === 'password' ? (
           <>
-            <TextField label="Username" value={username} onChange={setUsername} />
-            <TextField label="Password" value={password} onChange={setPassword} type="password" />
+            <TextField label={t('connect.username')} value={username} onChange={setUsername} />
+            <TextField
+              label={t('connect.password')}
+              value={password}
+              onChange={setPassword}
+              type="password"
+            />
           </>
         ) : null}
 
@@ -240,7 +243,7 @@ export function ConnectScreen(): JSX.Element {
               and B is already bound to leaving the screen everywhere else. */}
           {wizard ? (
             <FocusButton icon="previous" variant="ghost" onSelect={() => at('storage')}>
-              Back
+              {t('action.back')}
             </FocusButton>
           ) : null}
           {mode === 'device' ? (
@@ -250,7 +253,7 @@ export function ConnectScreen(): JSX.Element {
               onSelect={() => void startPairing()}
               disabled={busy || !baseUrl}
             >
-              {busy ? 'Contacting server…' : 'Start pairing'}
+              {busy ? t('connect.contacting') : t('connect.startPairing')}
             </FocusButton>
           ) : (
             <FocusButton
@@ -259,7 +262,7 @@ export function ConnectScreen(): JSX.Element {
               onSelect={() => void connect()}
               disabled={busy || !baseUrl}
             >
-              {busy ? 'Connecting…' : 'Connect'}
+              {busy ? t('connect.connecting') : t('connect.connect')}
             </FocusButton>
           )}
         </div>
@@ -285,9 +288,9 @@ export function ConnectScreen(): JSX.Element {
 
       <Hints
         items={[
-          { key: 'A', label: 'Select' },
-          { key: '↕', label: 'Navigate' },
-          { key: 'B', label: wizard ? 'Back' : 'Quit' }
+          { key: 'A', label: t('action.select') },
+          { key: '↕', label: t('action.navigate') },
+          { key: 'B', label: wizard ? t('action.back') : t('app.quit') }
         ]}
       />
     </div>
@@ -317,6 +320,7 @@ function SetupPage({
   onNext: () => void
   children: ReactNode
 }): JSX.Element {
+  const { t } = useI18n()
   // B goes back a page rather than out of the app: on the first page there is
   // nowhere behind, which is what leaving it unbound means.
   useAction('back', () => onBack?.(), Boolean(onBack))
@@ -325,7 +329,7 @@ function SetupPage({
     <div className="content">
       <h1 className="page-title">
         <span className="setup__step">
-          Step {step} of {SETUP_STEPS.length}
+          {t('setup.stepOf', { step, total: SETUP_STEPS.length })}
         </span>
         {title}
       </h1>
@@ -336,19 +340,19 @@ function SetupPage({
       <div className="btn-row">
         {onBack ? (
           <FocusButton icon="previous" variant="ghost" onSelect={onBack}>
-            Back
+            {t('action.back')}
           </FocusButton>
         ) : null}
         <FocusButton icon="next" variant="primary" onSelect={onNext} autoFocus>
-          Next
+          {t('action.next')}
         </FocusButton>
       </div>
 
       <Hints
         items={[
-          { key: 'A', label: 'Select' },
-          { key: '↕', label: 'Navigate' },
-          ...(onBack ? [{ key: 'B', label: 'Back' }] : [])
+          { key: 'A', label: t('action.select') },
+          { key: '↕', label: t('action.navigate') },
+          ...(onBack ? [{ key: 'B', label: t('action.back') }] : [])
         ]}
       />
     </div>
@@ -374,6 +378,7 @@ function PairingOverlay({
   onPaired: () => void
   onError: (message: string) => void
 }): JSX.Element {
+  const { t } = useI18n()
   const [secondsLeft, setSecondsLeft] = useState(pairing.expires_in)
   const settled = useRef(false)
 
@@ -390,7 +395,7 @@ function PairingOverlay({
       if (settled.current) return
       if (Date.now() > deadline) {
         settled.current = true
-        onError('The pairing code expired. Try again.')
+        onError(t('connect.pairExpired'))
         return
       }
       void window.rommix.server
@@ -411,7 +416,7 @@ function PairingOverlay({
       window.clearInterval(tick)
       window.clearInterval(poll)
     }
-  }, [pairing, baseUrl, onPaired, onError])
+  }, [pairing, baseUrl, onPaired, onError, t])
 
   // The address is whatever was typed into the field, which may well have no
   // scheme — and a QR code of `romm.local/…` is one a phone cannot open. The
@@ -422,11 +427,8 @@ function PairingOverlay({
     : `${origin.replace(/\/+$/, '')}${pairing.verification_path_complete}`
 
   return (
-    <Overlay title="Approve this device">
-      <p className="muted">
-        Scan this with your phone, or open the address below on any device, then enter the code to
-        let RomMix into your library.
-      </p>
+    <Overlay title={t('connect.pairTitle')}>
+      <p className="muted">{t('connect.pairExplainer')}</p>
 
       <div className="pair-qr">
         <QrCode value={verificationUrl} />
@@ -435,17 +437,20 @@ function PairingOverlay({
       <div className="pair-code">{pairing.user_code}</div>
 
       <dl className="kv">
-        <dt>Open in a browser</dt>
+        <dt>{t('connect.pairOpen')}</dt>
         <dd>{verificationUrl}</dd>
-        <dt>Code expires in</dt>
+        <dt>{t('connect.pairExpiresIn')}</dt>
         <dd>
-          {Math.floor(secondsLeft / 60)}m {secondsLeft % 60}s
+          {t('connect.pairTimeLeft', {
+            minutes: Math.floor(secondsLeft / 60),
+            seconds: secondsLeft % 60
+          })}
         </dd>
       </dl>
 
       <div className="btn-row">
         <FocusButton icon="cancel" onSelect={onCancel} autoFocus>
-          Cancel
+          {t('action.cancel')}
         </FocusButton>
       </div>
     </Overlay>

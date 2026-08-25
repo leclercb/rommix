@@ -1,23 +1,25 @@
 import { type JSX, useState } from 'react'
+import { LANGUAGE_NAMES, LOCALES, type LanguageChoice } from '@shared/i18n'
 import {
   Choice,
   FocusButton,
   Overlay,
   ScanToOpen,
-  UI_SCALES,
   uiScaleChoice,
+  uiScaleOptions,
   type UiScaleChoice
 } from '../../../components'
-import { useApp } from '../../../state'
+import { useApp, useI18n } from '../../../state'
 
 /**
  * The account, the size of the interface, and the two things done to RomMix
  * itself.
  *
  * The tab someone lands on, so it holds what is asked most and read most: who
- * you are signed in as, and how large this is drawn. Fullscreen and Quit are
- * here because they are one press each and belong nowhere else; the thank-you
- * is here because a settings page is where somebody who likes the thing looks.
+ * you are signed in as, and how large — and in which language — this is drawn.
+ * Fullscreen and Quit are here because they are one press each and belong
+ * nowhere else; the thank-you is here because a settings page is where somebody
+ * who likes the thing looks.
  */
 
 /**
@@ -30,76 +32,94 @@ import { useApp } from '../../../state'
 const SUPPORT_URL = 'https://buymeacoffee.com/leclercb'
 
 export function GeneralTab(): JSX.Element {
+  const { t } = useI18n()
   const { status, settings, saveSettings, replace, notify } = useApp()
   const [supporting, setSupporting] = useState(false)
 
   const disconnect = async (): Promise<void> => {
     await window.rommix.server.disconnect()
-    notify('Disconnected from RomM')
+    notify(t('settings.disconnected'))
     // The end of a session, so the screens behind this one go with it: every
     // one of them is a view of a library there is no longer a server for.
     replace({ name: 'connect' })
   }
 
+  /**
+   * Auto, then each language written in itself.
+   *
+   * Deliberately untranslated below the first row: somebody hunting for their
+   * own language in this list is, by definition, reading it in one they may not
+   * have, and "Deutsch" is recognisable from across a room in a way that
+   * "German" translated into Spanish is not.
+   */
+  const languages: { value: LanguageChoice; label: string }[] = [
+    { value: 'auto', label: t('value.auto') },
+    ...LOCALES.map((locale) => ({ value: locale, label: LANGUAGE_NAMES[locale] }))
+  ]
+
   return (
     <>
-      <h2 className="section-title">Server</h2>
+      <h2 className="section-title">{t('settings.server')}</h2>
       <dl className="kv">
-        <dt>Address</dt>
-        <dd>{status?.baseUrl ?? 'Not configured'}</dd>
-        <dt>Signed in as</dt>
+        <dt>{t('settings.address')}</dt>
+        <dd>{status?.baseUrl ?? t('value.notConfigured')}</dd>
+        <dt>{t('settings.signedInAs')}</dt>
         <dd>{status?.user?.username ?? '—'}</dd>
-        <dt>RomM version</dt>
-        <dd>{status?.serverVersion ?? 'unknown'}</dd>
+        <dt>{t('settings.rommVersion')}</dt>
+        <dd>{status?.serverVersion ?? t('value.unknown')}</dd>
       </dl>
       <div className="btn-row">
         <FocusButton icon="disconnect" variant="danger" onSelect={() => void disconnect()}>
-          Disconnect
+          {t('settings.disconnect')}
         </FocusButton>
       </div>
 
-      <h2 className="section-title">Interface</h2>
+      <h2 className="section-title">{t('settings.interface')}</h2>
+      <Choice<LanguageChoice>
+        label={t('settings.language')}
+        hint={t('settings.languageHint')}
+        value={settings?.language ?? 'auto'}
+        options={languages}
+        onChange={(next) => void saveSettings({ language: next })}
+      />
       <Choice<UiScaleChoice>
-        label="Scale"
-        hint="Auto follows the screen: twice the size on a 4K television."
+        label={t('control.scale')}
+        hint={t('settings.scaleHint')}
         value={uiScaleChoice(settings?.uiScale ?? 0)}
-        options={UI_SCALES}
+        options={uiScaleOptions(t)}
         onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
       />
 
-      <h2 className="section-title">Support RomMix</h2>
+      <h2 className="section-title">{t('settings.support')}</h2>
       <p className="faint" style={{ fontSize: 14 }}>
-        RomMix is free and always will be. If it saved you an afternoon of wiring emulators
-        together, you can buy me a coffee.
+        {t('settings.supportBody')}
       </p>
       <div className="btn-row">
         <FocusButton icon="coffee" onSelect={() => setSupporting(true)}>
-          Buy me a coffee
+          {t('settings.buyCoffee')}
         </FocusButton>
       </div>
 
-      <h2 className="section-title">Application</h2>
+      <h2 className="section-title">{t('settings.application')}</h2>
       <div className="btn-row">
         <FocusButton
           icon="fullscreen"
           onSelect={() => void window.rommix.system.toggleFullscreen()}
         >
-          Toggle fullscreen
+          {t('settings.toggleFullscreen')}
         </FocusButton>
         <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
-          Quit RomMix
+          {t('app.quitRomMix')}
         </FocusButton>
       </div>
 
       {supporting ? (
-        <Overlay title="Buy me a coffee">
-          <p className="muted">
-            Scan this with your phone, or open it in a browser on this machine.
-          </p>
+        <Overlay title={t('settings.buyCoffee')}>
+          <p className="muted">{t('settings.scanOrOpen')}</p>
           <ScanToOpen url={SUPPORT_URL} />
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setSupporting(false)} autoFocus>
-              Close
+              {t('action.close')}
             </FocusButton>
             <FocusButton
               icon="homepage"
@@ -108,7 +128,7 @@ export function GeneralTab(): JSX.Element {
                 void window.rommix.system.openExternal(SUPPORT_URL)
               }}
             >
-              Open in a browser
+              {t('action.openInBrowser')}
             </FocusButton>
           </div>
         </Overlay>

@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { APPIMAGE_SEARCH_DIRS } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
 import { log } from './log.ts'
+import { t } from './i18n.ts'
 
 /**
  * Talking to the machine RomMix is installed on. Nothing here knows about any
@@ -313,7 +314,7 @@ export async function flathubConfigured(): Promise<boolean> {
  */
 async function ensureFlathub(onLine: (line: string) => void): Promise<void> {
   if (await flathubConfigured()) return
-  onLine('Adding the Flathub remote…')
+  onLine(t('host.addingFlathub'))
   log.info('host', 'flathub is not configured for the user installation, adding it')
 
   const added = await run([
@@ -325,10 +326,7 @@ async function ensureFlathub(onLine: (line: string) => void): Promise<void> {
     FLATHUB_REPO
   ])
   if (added === null) {
-    throw new Error(
-      'Could not add the Flathub remote. Add it by hand with:  flatpak remote-add ' +
-        `--user --if-not-exists ${FLATHUB_REMOTE} ${FLATHUB_REPO}`
-    )
+    throw new Error(t('host.flathubFailed', { remote: FLATHUB_REMOTE, repo: FLATHUB_REPO }))
   }
   log.info('host', 'flathub remote added', { remote: FLATHUB_REMOTE })
 }
@@ -342,7 +340,7 @@ async function ensureFlathub(onLine: (line: string) => void): Promise<void> {
  */
 export async function installFlatpak(appId: string, onLine: (line: string) => void): Promise<void> {
   if (!/^[A-Za-z0-9._-]+$/.test(appId)) {
-    throw new Error(`Refusing to install a suspicious app id: ${appId}`)
+    throw new Error(t('host.suspiciousAppId', { appId }))
   }
   await ensureFlathub(onLine)
 
@@ -374,7 +372,7 @@ export async function installFlatpak(appId: string, onLine: (line: string) => vo
 
     child.on('error', (err) => {
       log.error('host', 'flatpak could not be run', err, { appId })
-      rejectPromise(new Error(`Could not run flatpak: ${err.message}`))
+      rejectPromise(new Error(t('host.flatpakFailed', { reason: err.message })))
     })
     child.on('close', (code) => {
       if (code === 0) {

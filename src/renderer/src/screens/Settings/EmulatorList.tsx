@@ -6,6 +6,7 @@ import {
   releaseSource,
   systemCount
 } from '@config/emulators'
+import type { MessageKey } from '@shared/i18n'
 import type {
   DiagnosticsReport,
   EmulatorDescriptor,
@@ -13,9 +14,9 @@ import type {
   EmulatorState,
   ResolvedInstall
 } from '@shared/types'
-import { FocusButton, Overlay, Spinner, TextField } from '../../components'
+import { FocusButton, Filled, Overlay, Spinner, TextField } from '../../components'
 import { Icon, type IconName } from '../../icons'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 import { InstallPicker } from './InstallPicker'
 
 /**
@@ -28,16 +29,17 @@ import { InstallPicker } from './InstallPicker'
 
 /** Installed / not-installed marker, with the in-between state named. */
 export function Status({ state }: { state: EmulatorState | undefined }): JSX.Element {
+  const { t } = useI18n()
   if (!state)
     return (
       <span className="status" data-state="off">
-        Not checked
+        {t('emulator.notChecked')}
       </span>
     )
   if (state.available)
     return (
       <span className="status" data-state="ok">
-        Installed
+        {t('emulator.installed')}
       </span>
     )
   // Present but unusable is worth distinguishing from absent: the fix is
@@ -45,12 +47,12 @@ export function Status({ state }: { state: EmulatorState | undefined }): JSX.Ele
   if (state.install)
     return (
       <span className="status" data-state="warn">
-        Needs setup
+        {t('emulator.needsSetup')}
       </span>
     )
   return (
     <span className="status" data-state="off">
-      Not installed
+      {t('emulator.notInstalled')}
     </span>
   )
 }
@@ -65,11 +67,11 @@ type InstallMethod = ReturnType<typeof installMethods>[number]
  * anybody writes, and a row that says "appimage:" looks like a leaked internal
  * name rather than a statement about the user's machine.
  */
-const INSTALL_KIND: Record<ResolvedInstall['kind'], string> = {
-  flatpak: 'Flatpak',
-  binary: 'Program',
-  appimage: 'AppImage',
-  scripts: 'Launchers'
+const INSTALL_KIND: Record<ResolvedInstall['kind'], MessageKey> = {
+  flatpak: 'emulator.kindFlatpak',
+  binary: 'emulator.kindBinary',
+  appimage: 'emulator.kindAppImage',
+  scripts: 'emulator.kindScripts'
 }
 
 /**
@@ -138,6 +140,7 @@ export function EmulatorList({
   confirmChange: () => Promise<boolean>
   onInstalled: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   const { settings, saveSettings, refreshInstalled } = useApp()
   const [installing, setInstalling] = useState<EmulatorId | null>(null)
   const [running, setRunning] = useState<EmulatorId | null>(null)
@@ -175,7 +178,11 @@ export function EmulatorList({
     // platform, and which downloads that emulator can actually see.
     onInstalled()
     await refreshInstalled()
-    notify(`${emulatorById(id)?.name ?? id} moved ${delta < 0 ? 'up' : 'down'}`)
+    notify(
+      t(delta < 0 ? 'emulator.movedUp' : 'emulator.movedDown', {
+        name: emulatorById(id)?.name ?? id
+      })
+    )
   }
 
   /**
@@ -195,7 +202,7 @@ export function EmulatorList({
       // started or quit with something to say about why. So the button says
       // "Starting…" rather than looking wedged.
       await window.rommix.system.runEmulator(id)
-      notify(`${name} started`)
+      notify(t('emulator.started', { name }))
       onInstalled()
     } catch {
       // Reported centrally on `app:error`, in the emulator's own words.
@@ -234,8 +241,8 @@ export function EmulatorList({
     await refreshInstalled()
     notify(
       trimmed
-        ? `${emulatorById(id)?.name ?? id} will be read from ${trimmed}`
-        : `${emulatorById(id)?.name ?? id} folder found automatically again`
+        ? t('emulator.rootSet', { name: emulatorById(id)?.name ?? id, path: trimmed })
+        : t('emulator.rootCleared', { name: emulatorById(id)?.name ?? id })
     )
   }
 
@@ -257,7 +264,7 @@ export function EmulatorList({
     try {
       await window.rommix.system.installEmulatorFlatpak(descriptor.id)
       onInstalled()
-      notify(`${descriptor.name} installed`)
+      notify(t('emulator.installedToast', { name: descriptor.name }))
     } catch {
       // Reported centrally on `app:error`; this only keeps the success
       // notification from firing over a failed install.
@@ -291,20 +298,22 @@ export function EmulatorList({
               <div className="emulator__columns">
                 {/* What this emulator is and where it came from. */}
                 <section className="emulator__group">
-                  <h3 className="emulator__group-title">General</h3>
-                  <Detail icon="emulator">
-                    {covers} platform{covers === 1 ? '' : 's'}
-                  </Detail>
+                  <h3 className="emulator__group-title">{t('emulator.groupGeneral')}</h3>
+                  <Detail icon="emulator">{t('emulator.platforms', { count: covers })}</Detail>
                   {/* Why it cannot be used, directly under the badge that says
                       so rather than across the gap in the other column. */}
                   {state?.unavailableReason ? (
                     <Detail icon="warn">{state.unavailableReason}</Detail>
                   ) : null}
-                  <Path icon="homepage" label="Homepage" value={descriptor.homepage} />
+                  <Path
+                    icon="homepage"
+                    label={t('emulator.homepage')}
+                    value={descriptor.homepage}
+                  />
                   {state?.install ? (
                     <Path
                       icon="package"
-                      label={INSTALL_KIND[state.install.kind]}
+                      label={t(INSTALL_KIND[state.install.kind])}
                       value={state.install.ref}
                     />
                   ) : null}
@@ -314,21 +323,25 @@ export function EmulatorList({
                     not here: a heading over nothing is a column of empty. */}
                 {folders ? (
                   <section className="emulator__group">
-                    <h3 className="emulator__group-title">Folders</h3>
+                    <h3 className="emulator__group-title">{t('emulator.groupFolders')}</h3>
                     {/* Home first: for an emulator that owns a library the three
                         below hang off it, so the block reads top-down instead of
                         ending on the folder they all came from. */}
                     {home ? (
                       <Path
                         icon="home"
-                        label="Home"
-                        value={state?.paths.home ?? 'not found'}
-                        note={settings?.emulatorRoots?.[descriptor.id] ? ' (set by you)' : ''}
+                        label={t('emulator.home')}
+                        value={state?.paths.home ?? t('emulator.notFound')}
+                        note={
+                          settings?.emulatorRoots?.[descriptor.id]
+                            ? ` ${t('emulator.setByYou')}`
+                            : ''
+                        }
                       />
                     ) : null}
-                    <Path icon="roms" label="Roms" value={state?.paths.roms} />
-                    <Path icon="saves" label="Saves" value={state?.paths.saves} />
-                    <Path icon="bios" label="Bios" value={state?.paths.bios} />
+                    <Path icon="roms" label={t('emulator.roms')} value={state?.paths.roms} />
+                    <Path icon="saves" label={t('emulator.saves')} value={state?.paths.saves} />
+                    <Path icon="bios" label={t('emulator.bios')} value={state?.paths.bios} />
                   </section>
                 ) : null}
               </div>
@@ -339,14 +352,11 @@ export function EmulatorList({
               {rootDraft?.id === descriptor.id ? (
                 <div className="form">
                   <TextField
-                    label="Home folder"
+                    label={t('emulator.homeFolder')}
                     value={rootDraft.value}
                     onChange={(value) => setRootDraft({ id: descriptor.id, value })}
                     placeholder={state?.paths.home ?? ''}
-                    hint={
-                      'Roms, saves, states and BIOS are read from inside this folder. ' +
-                      'Leave it empty to go back to finding it automatically.'
-                    }
+                    hint={t('emulator.homeFolderHint')}
                     autoFocus
                   />
                   <div className="btn-row">
@@ -354,10 +364,10 @@ export function EmulatorList({
                       icon="folder"
                       onSelect={() => void saveRoot(descriptor.id, rootDraft.value)}
                     >
-                      Use this folder
+                      {t('emulator.useThisFolder')}
                     </FocusButton>
                     <FocusButton icon="back" variant="ghost" onSelect={() => setRootDraft(null)}>
-                      Cancel
+                      {t('action.cancel')}
                     </FocusButton>
                   </div>
                 </div>
@@ -379,7 +389,7 @@ export function EmulatorList({
                     })
                   }
                 >
-                  Home folder
+                  {t('emulator.homeFolder')}
                 </FocusButton>
               ) : null}
               {/* Only for an install RomMix downloaded: a build it fetched is
@@ -392,7 +402,7 @@ export function EmulatorList({
                   variant="ghost"
                   onSelect={() => setInstalling(descriptor.id)}
                 >
-                  Change version
+                  {t('emulator.changeVersion')}
                 </FocusButton>
               ) : null}
               {/* Run and Install are the same slot, because they are the same
@@ -408,7 +418,7 @@ export function EmulatorList({
                   disabled={running !== null}
                   onSelect={() => void run(descriptor.id, descriptor.name)}
                 >
-                  {running === descriptor.id ? 'Starting…' : 'Run'}
+                  {running === descriptor.id ? t('action.starting') : t('emulator.run')}
                 </FocusButton>
               ) : (
                 /* One button whatever the emulator offers — how it gets here is
@@ -421,7 +431,7 @@ export function EmulatorList({
                   disabled={flatpakBusy !== null}
                   onSelect={() => setPending(descriptor)}
                 >
-                  {flatpakBusy === descriptor.id ? 'Installing…' : 'Install'}
+                  {flatpakBusy === descriptor.id ? t('action.installing') : t('action.install')}
                 </FocusButton>
               )}
               {/* Last, so the buttons that do something to this emulator come
@@ -430,14 +440,14 @@ export function EmulatorList({
                   the emulator that answers for every platform both cover. */}
               <FocusButton
                 icon="moveUp"
-                actionLabel="Move up"
+                actionLabel={t('action.moveUp')}
                 variant="ghost"
                 disabled={index === 0}
                 onSelect={() => void move(descriptor.id, -1)}
               />
               <FocusButton
                 icon="moveDown"
-                actionLabel="Move down"
+                actionLabel={t('action.moveDown')}
                 variant="ghost"
                 disabled={index === order.length - 1}
                 onSelect={() => void move(descriptor.id, 1)}
@@ -448,8 +458,8 @@ export function EmulatorList({
       })}
 
       {flatpakBusy ? (
-        <Overlay title="Installing from Flathub">
-          <p className="muted">{flatpakLine ?? 'Contacting Flathub…'}</p>
+        <Overlay title={t('emulator.installingFlathub')}>
+          <p className="muted">{flatpakLine ?? t('emulator.contactingFlathub')}</p>
           <Spinner />
         </Overlay>
       ) : null}
@@ -457,7 +467,7 @@ export function EmulatorList({
       {/* Every route this emulator has, each naming what it would do — and the
           answer "none of them" where that is the truth. */}
       {pending ? (
-        <Overlay title={`Install ${pending.name}`}>
+        <Overlay title={t('emulator.installTitle', { name: pending.name })}>
           {installMethods(pending).map((spec, index) => (
             <div className="choice" key={spec.kind}>
               <FocusButton
@@ -465,25 +475,31 @@ export function EmulatorList({
                 onSelect={() => void install(pending, spec)}
                 autoFocus={index === 0}
               >
-                {INSTALL_KIND[spec.kind]}
+                {t(INSTALL_KIND[spec.kind])}
               </FocusButton>
               <span className="faint">
                 {spec.kind === 'flatpak'
-                  ? `${spec.appId}, from Flathub`
-                  : "the build you pick, into RomMix's own folder"}
+                  ? t('emulator.fromFlathub', { appId: spec.appId })
+                  : t('emulator.buildIntoRomMix')}
               </span>
             </div>
           ))}
 
           {installMethods(pending).length === 0 ? (
             <p className="muted">
-              {pending.name} has to be installed by hand
               {pending.homepage ? (
-                <>
-                  , from <strong>{pending.homepage}</strong>
-                </>
-              ) : null}
-              .
+                /* `homepage` is deliberately not passed: an unfilled
+                   placeholder is left standing, which is exactly what `Filled`
+                   then splits the sentence at. */
+                <Filled
+                  text={t('emulator.manualInstallFrom', { name: pending.name })}
+                  name="homepage"
+                >
+                  <strong>{pending.homepage}</strong>
+                </Filled>
+              ) : (
+                t('emulator.manualInstall', { name: pending.name })
+              )}
             </p>
           ) : null}
 
@@ -494,7 +510,7 @@ export function EmulatorList({
               onSelect={() => setPending(null)}
               autoFocus={installMethods(pending).length === 0}
             >
-              Cancel
+              {t('action.cancel')}
             </FocusButton>
           </div>
         </Overlay>
@@ -508,7 +524,7 @@ export function EmulatorList({
             const name = emulatorById(installing)?.name ?? installing
             setInstalling(null)
             onInstalled()
-            notify(`${name} installed`)
+            notify(t('emulator.installedToast', { name }))
           }}
         />
       ) : null}

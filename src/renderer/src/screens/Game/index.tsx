@@ -2,8 +2,8 @@ import { type JSX, useEffect, useState } from 'react'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import type { BiosPlatform, InstalledRom, LaunchChoice, RommRom } from '@shared/types'
-import { FocusButton, Hints, Spinner, Tabs, formatBytes } from '../../components'
-import { useApp } from '../../state'
+import { FocusButton, Hints, Spinner, Tabs } from '../../components'
+import { useApp, useI18n } from '../../state'
 import { GameHero } from './GameHero'
 import {
   DeleteAssetDialog,
@@ -21,6 +21,7 @@ type GameTab = 'details' | 'saves' | 'files' | 'screenshots'
  * play it, remove it.
  */
 export function GameScreen({ romId }: { romId: number }): JSX.Element {
+  const { t, formatBytes } = useI18n()
   const {
     installed,
     downloads,
@@ -133,12 +134,16 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     // The notice vanishing is ambiguous on its own — dismissed, or scrolled
     // past? — and it is dismissed for the *emulator*, which is wider than the
     // game it was dismissed from and worth saying out loud.
-    notify(`Setup steps hidden for ${emulatorById(setup.emulatorId)?.name ?? setup.emulatorId}`)
+    notify(
+      t('game.setupHidden', {
+        emulator: emulatorById(setup.emulatorId)?.name ?? setup.emulatorId
+      })
+    )
   }
 
   /** How this game is named and pictured in a toast. */
   const subjectOf = (): { title: string; coverPath: string | null } => ({
-    title: rom?.name ?? rom?.fs_name ?? 'Game',
+    title: rom?.name ?? rom?.fs_name ?? t('game.fallbackTitle'),
     coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
   })
 
@@ -168,10 +173,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       const item = await window.rommix.downloads.start(romId)
       // Already on disk: the main process adopts it instead of queueing, so
       // saying "download started" would be a plain lie.
-      notify(item.state === 'done' ? 'Already downloaded' : 'Download started', 'ok', {
-        title: item.name,
-        coverPath: item.coverPath
-      })
+      notify(
+        item.state === 'done' ? t('game.alreadyDownloaded') : t('game.downloadStarted'),
+        'ok',
+        {
+          title: item.name,
+          coverPath: item.coverPath
+        }
+      )
     } catch {
       // Reported centrally on `app:error`; this only keeps the screen from
       // claiming a download that never started.
@@ -212,16 +221,16 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       const result = await window.rommix.game.launch(romId, variant)
       const subject = subjectOf()
       if (!result.ok) {
-        notify(result.error ?? 'The game could not be started', 'error', subject)
+        notify(result.error ?? t('game.couldNotStart'), 'error', subject)
       } else {
         const synced = result.uploadedSaves + result.uploadedStates
         const waiting = result.pendingPush?.files.length ?? 0
         notify(
           waiting > 0
-            ? `Session ended — ${waiting} file${waiting === 1 ? '' : 's'} to send`
+            ? t('game.sessionPending', { count: waiting })
             : synced > 0
-              ? `Session ended — ${synced} save file${synced === 1 ? '' : 's'} sent to RomM`
-              : 'Session ended',
+              ? t('game.sessionSent', { count: synced })
+              : t('game.sessionEnded'),
           result.error ? 'warn' : 'ok',
           subject
         )
@@ -264,7 +273,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       // Said because the change is on the *server*: the filled heart only
       // proves the button was pressed, and this is the confirmation that RomM
       // and the Favourites shelf now agree with it.
-      notify(settled ? 'Added to favourites on RomM' : 'Removed from favourites', 'ok', subjectOf())
+      notify(settled ? t('game.favouriteAdded') : t('game.favouriteRemoved'), 'ok', subjectOf())
     } catch {
       setFavourite(!next)
     }
@@ -285,8 +294,8 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     try {
       await window.rommix.downloads.uninstall(romId)
       await refreshInstalled()
-      notify('Uninstalled', 'ok', {
-        title: rom?.name ?? entry?.fileName ?? 'Game',
+      notify(t('downloads.uninstalled'), 'ok', {
+        title: rom?.name ?? entry?.fileName ?? t('game.fallbackTitle'),
         coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
       })
     } catch {
@@ -302,7 +311,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--error">{error}</div>
         <div className="btn-row">
           <FocusButton icon="back" onSelect={goBack} autoFocus>
-            Back
+            {t('action.back')}
           </FocusButton>
         </div>
       </div>
@@ -335,16 +344,16 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
     const missing = bios.items.filter((item) => item.required && !item.installed)
     if (missing.length > 0) {
-      return `${bios.platformName} needs ${missing
-        .map((item) => item.fileName)
-        .join(', ')} to start most games, and ${
-        missing.length === 1 ? 'it is' : 'they are'
-      } not installed.`
+      return t('game.biosMissing', {
+        count: missing.length,
+        platform: bios.platformName,
+        files: missing.map((item) => item.fileName).join(', ')
+      })
     }
 
     const anythingInPlace = bios.items.some((item) => item.installed)
     if (bios.setupNote && bios.items.length > 0 && !anythingInPlace) {
-      return `${bios.platformName} needs its BIOS set up before games will run.`
+      return t('game.biosSetup', { platform: bios.platformName })
     }
     return null
   })()
@@ -370,7 +379,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             disabled={working || running}
             autoFocus
           >
-            {running ? 'Running…' : 'Play'}
+            {running ? t('game.running') : t('game.play')}
           </FocusButton>
         ) : active ? (
           <FocusButton
@@ -379,7 +388,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             onSelect={() => void window.rommix.downloads.cancel(romId)}
             autoFocus
           >
-            Cancel download ({progress}%)
+            {t('game.cancelDownload', { percent: progress })}
           </FocusButton>
         ) : (
           <FocusButton
@@ -389,7 +398,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             disabled={working}
             autoFocus
           >
-            Download
+            {t('action.download')}
           </FocusButton>
         )}
 
@@ -402,7 +411,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           onSelect={() => void toggleFavourite()}
           disabled={favourite === null}
         >
-          {favourite ? 'Remove from favourites' : 'Add to favourites'}
+          {favourite ? t('game.removeFavourite') : t('game.addFavourite')}
         </FocusButton>
 
         {/* The way back to a choice already made: without it, a platform
@@ -414,7 +423,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             onSelect={() => void openChooser()}
             disabled={working || running}
           >
-            Run with
+            {t('game.runWith')}
           </FocusButton>
         ) : null}
 
@@ -427,14 +436,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
               onSelect={() => void syncSaves('pull')}
               disabled={working || running}
             >
-              Pull saves
+              {t('game.pullSaves')}
             </FocusButton>
             <FocusButton
               icon="push"
               onSelect={() => void beginPush()}
               disabled={working || running}
             >
-              Push saves
+              {t('game.pushSaves')}
             </FocusButton>
           </>
         ) : null}
@@ -450,19 +459,19 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             }
             disabled={working || running}
           >
-            Uninstall
+            {t('action.uninstall')}
           </FocusButton>
         ) : null}
 
         <FocusButton icon="back" variant="ghost" onSelect={goBack}>
-          Back
+          {t('action.back')}
         </FocusButton>
       </GameHero>
 
       {active ? (
         <div className="download download--bare">
           <span className="download__name">
-            {download?.state === 'extracting' ? 'Extracting…' : 'Downloading…'}
+            {download?.state === 'extracting' ? t('game.extracting') : t('game.downloading')}
           </span>
           <span className="download__state">
             {formatBytes(download?.receivedBytes ?? 0)} / {formatBytes(download?.totalBytes ?? 0)}
@@ -487,7 +496,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           {biosWarning}
           <div className="btn-row">
             <FocusButton icon="bios" variant="ghost" onSelect={() => navigate({ name: 'bios' })}>
-              Open BIOS
+              {t('game.openBios')}
             </FocusButton>
           </div>
         </div>
@@ -507,7 +516,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           </ul>
           <div className="btn-row">
             <FocusButton icon="hide" variant="ghost" onSelect={() => void dismissSetup()}>
-              Don't show this again
+              {t('game.dontShowAgain')}
             </FocusButton>
           </div>
         </div>
@@ -524,12 +533,12 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           active={tab}
           onChange={setTab}
           tabs={[
-            { id: 'details', label: 'Details' },
-            { id: 'saves', label: 'Saves', badge: assets?.length },
-            { id: 'files', label: 'Files', badge: rom.files.length || undefined },
+            { id: 'details', label: t('game.tabDetails') },
+            { id: 'saves', label: t('game.tabSaves'), badge: assets?.length },
+            { id: 'files', label: t('game.tabFiles'), badge: rom.files.length || undefined },
             {
               id: 'screenshots',
-              label: 'Screenshots',
+              label: t('game.tabScreenshots'),
               badge: rom.merged_screenshots?.length || undefined
             }
           ]}
@@ -551,10 +560,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
       {running ? (
         <div className="notice notice--warn">
-          The game is running.{' '}
-          {settings?.confirmSavePush
-            ? 'RomMix will ask what to send to RomM when you quit the emulator.'
-            : 'RomMix will sync your saves back to RomM when you quit the emulator.'}
+          {settings?.confirmSavePush ? t('game.runningAsk') : t('game.runningAuto')}
         </div>
       ) : null}
 
@@ -593,10 +599,10 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
       <Hints
         items={[
-          { key: 'A', label: entry ? 'Play' : 'Download' },
-          { key: 'LB', label: 'Previous tab' },
-          { key: 'RB', label: 'Next tab' },
-          { key: 'B', label: 'Back' }
+          { key: 'A', label: entry ? t('game.play') : t('action.download') },
+          { key: 'LB', label: t('action.previousTab') },
+          { key: 'RB', label: t('action.nextTab') },
+          { key: 'B', label: t('action.back') }
         ]}
       />
     </div>

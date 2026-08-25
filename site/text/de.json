@@ -1,0 +1,77 @@
+{
+  "_comment": [
+    "Die Startseite auf Deutsch. Siehe en.json, die Referenz: ein Schlüssel, der",
+    "dort hinzukommt und hier fehlt, lässt den Site-Build scheitern.",
+    "",
+    "Spielnamen, Plattformnamen und die Zusammenfassung im Bild sind bewusst",
+    "nicht übersetzt: das sind die Metadaten von RomM, die die Demo in jeder",
+    "Oberflächensprache auf Englisch zeigt."
+  ],
+
+  "page.title": "RomMix — eine Big-Picture-Oberfläche für RomM",
+  "page.description": "Durchsuchen Sie Ihre RomM-Bibliothek wie ein Konsolen-Dashboard — am Rechner, am Handheld oder am Fernseher. Ein Spiel herunterladen, spielen, und beim Beenden gehen Ihre Spielstände zurück an RomM.",
+
+  "hero.title": "Ihre RomM-Bibliothek, wo immer Sie spielen.",
+  "hero.lede": "Eine Oberfläche im Big-Picture-Stil für Ihren eigenen <a href=\"https://romm.app\">RomM</a>-Server. Durchsuchen Sie Ihre Bibliothek wie ein Konsolen-Dashboard, laden Sie ein Spiel herunter, spielen Sie es &mdash; und beim Beenden gehen Ihre Spielstände zurück an RomM.",
+  "hero.note": "Die Demo ist die echte Oberfläche, auf der Homebrew-Bibliothek der <a href=\"https://demo.romm.app\">öffentlichen Demo von RomM</a>. Nichts zu installieren, kein Server nötig. Bedienbar mit den Pfeiltasten und Enter, mit der Maus oder mit einem Controller, falls einer angeschlossen ist.",
+
+  "where.desktop": "Rechner",
+  "where.handheld": "Handheld",
+  "where.television": "Fernseher",
+
+  "action.demo": "Demo öffnen",
+  "action.download": "Herunterladen",
+  "action.source": "Quellcode auf GitHub",
+  "demo.start": "Demo ansehen",
+
+  "devices.title": "Rechner, Handheld, Fernseher",
+  "devices.lede": "Ein Build für alle drei. RomMix öffnet im Vollbild, und alles darin ist mit einem Steuerkreuz erreichbar — der einzige echte Unterschied ist, wie weit weg Sie sitzen.",
+  "devices.desk.title": "Am Schreibtisch",
+  "devices.desk.body": "Ein Download auf jedem Linux-Desktop. Tastatur, Maus und Controller funktionieren alle, und hier richten die meisten es ein, lange bevor es je an einem Fernseher landet.",
+  "devices.hands.title": "In Ihren Händen",
+  "devices.hands.body": "Auf einem Steam Deck oder einem beliebigen Linux-Handheld. Fügen Sie das Startskript als Nicht-Steam-Spiel zu Steam hinzu, und es öffnet sich im Game Mode, gesteuert von den eingebauten Tasten.",
+  "devices.room.title": "Quer durchs Zimmer",
+  "devices.room.body": "Läuft unter gamescope und skaliert auf einem 4K-Bildschirm hoch, damit vom Sofa aus alles lesbar bleibt. Zum Anmelden scannen Sie einen Code mit Ihrem Telefon.",
+
+  "does.title": "Was es tut",
+  "does.lede": "RomM hält Ihre Bibliothek. RomMix bringt sie auf einen Bildschirm, den Sie vom Sofa aus bedienen können, und legt die Dateien dorthin, wo Ihr Emulator sie findet.",
+  "does.library.title": "Ihre Bibliothek, für einen Bildschirm gesetzt",
+  "does.library.body": "Regale für das, was Sie zuletzt gespielt haben, was schon auf diesem Gerät liegt und was Ihre Favoriten sind &mdash; und dann alles auf dem Server, durchsuchbar und nach Plattform gefiltert.",
+  "does.downloads.title": "Downloads in den eigenen Ordner Ihres Emulators",
+  "does.downloads.body": "Ein Spiel landet im ROM-Ordner seines Emulators, SD-Karte eingeschlossen, damit es da ist, wenn Sie diesen Emulator selbst starten. Mehrteilige Disc-Sets werden entpackt, und dem Emulator wird die Playlist übergeben, nicht die erste Disc.",
+  "does.saves.title": "Spielstände, die mitkommen",
+  "does.saves.body": "Neuere Spielstände kommen vor dem Spielen herunter und gehen beim Beenden wieder hoch &mdash; nachdem Sie gesehen haben, was gleich gesendet wird. Jedes Spiel hat einen Tab zum Holen und Senden von Hand.",
+  "does.emulators.title": "Die Emulatoren, installiert und zugeordnet",
+  "does.emulators.body": "Vier der fünf installieren sich aus den Einstellungen heraus, und RomMix wählt, welcher jede Plattform ausführt. Das lässt sich pro Plattform jederzeit ändern.",
+  "does.bios.title": "BIOS von Ihrem eigenen Server",
+  "does.bios.body": "Pro Plattform: was gebraucht wird, was RomM hat und was schon an seinem Platz liegt &mdash; den Rest installiert RomMix. Nichts kommt von irgendwo anders her als von Ihrem eigenen Server.",
+  "does.signin.title": "Anmelden vom Sofa aus",
+  "does.signin.body": "RomMix zeigt einen Code und einen QR. Bestätigen Sie ihn in RomM auf Ihrem Telefon &mdash; kein Passwort, das auf einer Fernsehtastatur getippt werden muss.",
+  "does.updates.title": "Es aktualisiert sich selbst",
+  "does.updates.body": "Ein AppImage wird von nichts für Sie aktualisiert. RomMix beobachtet seine eigenen Releases, meldet, wenn eines erscheint, und schreibt es über die Datei, die Sie starten &mdash; bereit beim nächsten Start. Oder es sagt nur Bescheid, oder eben gar nichts.",
+
+  "emulators.title": "Die Emulatoren, die es ansteuert",
+  "emulators.lede": "Fünf, und RomMix ermittelt, welcher jedes System ausführt. RetroDECK und EmuDeck bringen je ein Dutzend Emulatoren mit; RetroArch lädt einen Core pro System; Eden und shadPS4 emulieren je eine einzige Konsole. Einstellungen &rarr; Plattformen zeigt, was jedes System verwenden wird, und lässt Sie es ändern.",
+  "emulators.colEmulator": "Emulator",
+  "emulators.colCovers": "Deckt ab",
+  "emulators.colInstalled": "Von RomMix installiert",
+  "emulators.retrodeck": "79 Systeme, vom NES bis zur PS3",
+  "emulators.emudeck": "74 Systeme, vom NES bis zur Switch und zur 360",
+  "emulators.retroarch": "69 Systeme, je ein libretro-Core",
+  "emulators.eden": "Nintendo Switch",
+  "emulators.shadps4": "PlayStation 4",
+  "emulators.ownInstaller": "Sein eigener Installer",
+  "emulators.flatpakAndAppImage": "Flatpak und AppImage",
+
+  "getting.title": "Woher Sie es bekommen",
+  "getting.lede": "Sie brauchen Linux, einen RomM-Server ab Version 5 und einen der Emulatoren von oben &mdash; RomMix kann alle davon außer EmuDeck installieren. Laden Sie das AppImage für Ihren Rechner von der <a href=\"https://github.com/leclercb/rommix/releases\">Releases-Seite</a> herunter (<code>x86_64</code> für einen PC oder ein Steam Deck, <code>arm64</code> für einen ARM-Handheld) und starten Sie es. Zu installieren gibt es nichts.",
+  "getting.note": "Keine Version im Dateinamen: Updates werden über dieselbe Datei geschrieben, damit Verknüpfungen weiter funktionieren. Welche Version Sie haben, sagen die Einstellungen.",
+  "getting.steamTitle": "Aus Steam heraus, auf einem Handheld",
+  "getting.steamBody": "Laden Sie <code>rommix-steam.sh</code> aus demselben Release herunter, legen Sie es <strong>neben</strong> das AppImage, und fügen Sie <strong>das Skript</strong> als Nicht-Steam-Spiel hinzu — nicht das AppImage selbst.",
+  "getting.steamNote": "Steam kann ein AppImage nicht direkt starten; das Skript ist es, was es zum Laufen bringt. Die <a href=\"https://github.com/leclercb/rommix#readme\">README</a> behandelt, wie Sie RomMix selbst bauen, und was zu tun ist, wenn ein Emulator nicht startet.",
+
+  "footer.demo": "Demo",
+  "footer.releases": "Releases",
+  "footer.docs": "Dokumentation",
+  "footer.disclaimer": "RomMix steht unter der MIT-Lizenz und ist weder mit RomM, mit einem der Emulatoren, die es startet, noch mit einem Konsolenhersteller oder Spielepublisher verbunden, von ihnen unterstützt oder ihnen zugehörig. Es liefert keine Spiele mit: die Cover auf dieser Seite und die Bibliothek in der Demo stammen aus <a href=\"https://demo.romm.app\">RomMs eigener öffentlicher Demo</a>, die durchgehend Homebrew und Freeware ist, und Grafik und Name jedes Spiels gehören dem, der es gemacht hat. RomMix zeigt Ihnen, was auf einem Server liegt, den Sie selbst betreiben."
+}

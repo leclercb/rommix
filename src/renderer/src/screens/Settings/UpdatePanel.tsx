@@ -1,7 +1,8 @@
 import { type JSX, useState } from 'react'
+import type { MessageKey } from '@shared/i18n'
 import type { UpdatePolicy } from '@shared/types'
-import { Choice, FocusButton, Spinner, formatBytes, formatDateTime } from '../../components'
-import { useApp } from '../../state'
+import { Choice, FocusButton, Spinner } from '../../components'
+import { useApp, useI18n } from '../../state'
 
 /**
  * RomMix's own version, and what is being done about a newer one.
@@ -14,19 +15,20 @@ import { useApp } from '../../state'
  * never one of them.
  */
 
-const POLICIES: { value: UpdatePolicy; label: string }[] = [
-  { value: 'auto', label: 'Automatic' },
-  { value: 'notify', label: 'Tell me' },
-  { value: 'off', label: 'Off' }
-]
+const POLICIES = [
+  { value: 'auto', label: 'update.policyAuto' },
+  { value: 'notify', label: 'update.policyNotify' },
+  { value: 'off', label: 'update.policyOff' }
+] as const satisfies readonly { value: UpdatePolicy; label: MessageKey }[]
 
-const POLICY_HINT: Record<UpdatePolicy, string> = {
-  auto: 'New versions are downloaded in the background and used the next time RomMix starts.',
-  notify: 'RomMix says when a new version is published and waits for you to fetch it.',
-  off: 'RomMix never looks on its own. The button below still does.'
+const POLICY_HINT: Record<UpdatePolicy, MessageKey> = {
+  auto: 'update.hintAuto',
+  notify: 'update.hintNotify',
+  off: 'update.hintOff'
 }
 
 export function UpdatePanel(): JSX.Element {
+  const { t, formatBytes, formatDateTime } = useI18n()
   const { settings, saveSettings, update, notify } = useApp()
   const [busy, setBusy] = useState(false)
 
@@ -47,7 +49,7 @@ export function UpdatePanel(): JSX.Element {
     setBusy(true)
     try {
       const next = await window.rommix.updates.check()
-      if (next.state === 'idle') notify(`RomMix ${next.current} is the newest version`)
+      if (next.state === 'idle') notify(t('update.newest', { version: next.current }))
     } catch {
       // Reported centrally on `app:error`.
     } finally {
@@ -74,22 +76,22 @@ export function UpdatePanel(): JSX.Element {
   return (
     <>
       <Choice<UpdatePolicy>
-        label="New versions of RomMix"
-        hint={POLICY_HINT[policy]}
+        label={t('update.label')}
+        hint={t(POLICY_HINT[policy])}
         value={policy}
-        options={POLICIES}
+        options={POLICIES.map((option) => ({ value: option.value, label: t(option.label) }))}
         onChange={(next) => void saveSettings({ updates: next })}
       />
 
       <dl className="kv">
-        <dt>Installed</dt>
+        <dt>{t('update.installed')}</dt>
         <dd>{update?.current ?? '—'}</dd>
-        <dt>Newest published</dt>
+        <dt>{t('update.newestPublished')}</dt>
         {/* Never checked and checked-and-current are different answers, and the
             second one is the reassuring one. */}
-        <dd>{update?.latest ?? (checking ? 'checking…' : 'not checked yet')}</dd>
-        <dt>Last checked</dt>
-        <dd>{update?.checkedAt ? formatDateTime(update.checkedAt) : 'never'}</dd>
+        <dd>{update?.latest ?? (checking ? t('update.checking') : t('update.notCheckedYet'))}</dd>
+        <dt>{t('update.lastChecked')}</dt>
+        <dd>{update?.checkedAt ? formatDateTime(update.checkedAt) : t('value.never')}</dd>
       </dl>
 
       {/* Why this copy cannot replace itself, said whether or not there is a
@@ -106,12 +108,12 @@ export function UpdatePanel(): JSX.Element {
       {state === 'available' && update?.latest ? (
         <div className="notice notice--warn">
           <div>
-            <strong>RomMix {update.latest} is available.</strong>{' '}
+            <strong>{t('update.available', { version: update.latest })}</strong>{' '}
             {update.blockedReason
-              ? 'Download it from the releases page.'
+              ? t('update.availableBlocked')
               : policy === 'auto'
-                ? 'It is being fetched now.'
-                : 'Fetch it whenever suits you — nothing is downloaded until you do.'}
+                ? t('update.availableAuto')
+                : t('update.availableManual')}
           </div>
           {update.notes ? <div className="update__notes">{update.notes}</div> : null}
         </div>
@@ -120,7 +122,10 @@ export function UpdatePanel(): JSX.Element {
       {downloading ? (
         <div className="notice notice--ok">
           <div>
-            Downloading RomMix {update?.latest}: {formatBytes(update?.receivedBytes ?? 0)}
+            {t('update.downloadingLine', {
+              version: update?.latest ?? '',
+              size: formatBytes(update?.receivedBytes ?? 0)
+            })}
             {percent != null ? ` · ${percent}%` : ''}
           </div>
           <Spinner />
@@ -130,11 +135,11 @@ export function UpdatePanel(): JSX.Element {
       {state === 'ready' && update?.latest ? (
         <div className="notice notice--ok">
           <div>
-            <strong>RomMix {update.latest} is ready.</strong>{' '}
+            <strong>{t('update.ready', { version: update.latest })}</strong>{' '}
             {/* Where Steam owns the process, "restart" is quit and press Play,
                 and saying so is the difference between one press and a session
                 that ends with nothing coming back. */}
-            {update.restartBlocked ?? 'It runs the next time RomMix starts, or now if you restart.'}
+            {update.restartBlocked ?? t('update.readyDefault')}
           </div>
           {/* The path, which is the same one RomMix was started from. */}
           {update.readyPath ? <div className="update__notes">{update.readyPath}</div> : null}
@@ -142,7 +147,7 @@ export function UpdatePanel(): JSX.Element {
       ) : null}
 
       {state === 'idle' && update?.checkedAt ? (
-        <div className="notice notice--ok">RomMix is up to date.</div>
+        <div className="notice notice--ok">{t('update.upToDate')}</div>
       ) : null}
 
       <div className="btn-row">
@@ -153,7 +158,7 @@ export function UpdatePanel(): JSX.Element {
           disabled={busy || checking || downloading || state === 'ready'}
           onSelect={() => void check()}
         >
-          {checking ? 'Checking…' : 'Check now'}
+          {checking ? t('action.checking') : t('update.checkNow')}
         </FocusButton>
 
         {state === 'available' && !update?.blockedReason ? (
@@ -161,17 +166,17 @@ export function UpdatePanel(): JSX.Element {
             icon="download"
             // The label is a string and a value, so the hint bar has to be told
             // in words what A does here.
-            actionLabel="Download the new version"
+            actionLabel={t('update.downloadAction')}
             disabled={busy}
             onSelect={() => void download()}
           >
-            Download {update?.latest}
+            {t('update.downloadVersion', { version: update?.latest ?? '' })}
           </FocusButton>
         ) : null}
 
         {state === 'ready' && !update?.restartBlocked ? (
           <FocusButton icon="restart" onSelect={() => void window.rommix.updates.restart()}>
-            Restart now
+            {t('update.restartNow')}
           </FocusButton>
         ) : null}
 
@@ -183,7 +188,7 @@ export function UpdatePanel(): JSX.Element {
             variant="danger"
             onSelect={() => void window.rommix.system.quit()}
           >
-            Quit RomMix
+            {t('app.quitRomMix')}
           </FocusButton>
         ) : null}
 
@@ -195,7 +200,7 @@ export function UpdatePanel(): JSX.Element {
             variant="ghost"
             onSelect={() => void window.rommix.system.openExternal(update.url as string)}
           >
-            Releases page
+            {t('update.releasesPage')}
           </FocusButton>
         ) : null}
       </div>

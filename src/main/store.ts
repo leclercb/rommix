@@ -60,6 +60,8 @@ function defaultSettings(): Settings {
     confirmSavePush: true,
     dismissedNotices: [],
     uiScale: 0,
+    // The desktop's own language, until somebody says otherwise in Settings.
+    language: 'auto',
     // Nothing on a Linux desktop updates an AppImage on RomMix's behalf, so the
     // default is the one that keeps an installation current on its own.
     updates: 'auto',

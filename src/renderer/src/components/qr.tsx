@@ -1,5 +1,6 @@
 import { type JSX, useMemo } from 'react'
 import qrcode from 'qrcode-generator'
+import { useI18n } from '../state'
 
 /** An address for the phone in the room, since the television has no browser. */
 
@@ -14,6 +15,7 @@ import qrcode from 'qrcode-generator'
  * `crispEdges` keeps the cells from being antialiased into each other.
  */
 export function QrCode({ value, size = 240 }: { value: string; size?: number }): JSX.Element {
+  const { t } = useI18n()
   const { path, moduleCount } = useMemo(() => {
     // Type 0 auto-sizes; 'M' tolerates ~15% damage, which is the usual choice
     // for something displayed on a screen rather than printed.
@@ -41,7 +43,7 @@ export function QrCode({ value, size = 240 }: { value: string; size?: number }):
       viewBox={`0 0 ${span} ${span}`}
       shapeRendering="crispEdges"
       role="img"
-      aria-label="QR code"
+      aria-label={t('app.qrCode')}
     >
       <rect width={span} height={span} fill="#ffffff" />
       <path d={path} fill="#000000" transform={`translate(${quietZone} ${quietZone})`} />

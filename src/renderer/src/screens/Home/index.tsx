@@ -10,7 +10,7 @@ import {
   tileFromRom
 } from '../../components'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 
 /**
  * The landing screen: a hero for the highlighted game and a few shelves,
@@ -83,6 +83,7 @@ function useShelf(query: RomQuery): Shelf {
 const READY_TO_PLAY_SHELF = 30
 
 export function HomeScreen(): JSX.Element {
+  const { t } = useI18n()
   const { installed, installedIds, navigate, canGoBack } = useApp()
 
   /**
@@ -122,7 +123,7 @@ export function HomeScreen(): JSX.Element {
   if (error) {
     return (
       <div className="content">
-        <h1 className="page-title">Home</h1>
+        <h1 className="page-title">{t('home.title')}</h1>
         <div className="notice notice--error">{error}</div>
       </div>
     )
@@ -140,7 +141,9 @@ export function HomeScreen(): JSX.Element {
   // you last played, or failing that the newest in the library. Labelled,
   // because an unexplained game at the top of the screen invites the question.
   const highlight = continuePlaying.items[0] ?? recentlyAdded.items[0] ?? null
-  const highlightReason = continuePlaying.items[0] ? 'Continue playing' : 'Recently added'
+  const highlightReason = continuePlaying.items[0]
+    ? t('home.continuePlaying')
+    : t('home.recentlyAdded')
   const open = (tile: { romId: number }): void => navigate({ name: 'game', romId: tile.romId })
 
   return (
@@ -154,7 +157,7 @@ export function HomeScreen(): JSX.Element {
       ) : null}
 
       <GameRow
-        title="Continue playing"
+        title={t('home.continuePlaying')}
         tiles={continuePlaying.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
@@ -163,20 +166,20 @@ export function HomeScreen(): JSX.Element {
       {/* No onEndReached: this shelf is the download index, which is already
           here in full, rather than a query that pages. */}
       <GameRow
-        title="Ready to play"
+        title={t('home.readyToPlay')}
         tiles={readyToPlay}
         installedIds={installedIds}
         onSelect={open}
       />
       <GameRow
-        title="Favourites"
+        title={t('home.favourites')}
         tiles={favourites.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={favourites.loadMore}
       />
       <GameRow
-        title="Recently added"
+        title={t('home.recentlyAdded')}
         tiles={recentlyAdded.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
@@ -186,18 +189,16 @@ export function HomeScreen(): JSX.Element {
       {continuePlaying.items.length === 0 &&
       recentlyAdded.items.length === 0 &&
       favourites.items.length === 0 ? (
-        <div className="empty">
-          Your RomM library looks empty. Add some ROMs on the server and run a scan.
-        </div>
+        <div className="empty">{t('home.empty')}</div>
       ) : null}
 
       <Hints
         items={[
-          { key: 'A', label: 'Open' },
-          { key: 'Y', label: 'Search' },
+          { key: 'A', label: t('action.open') },
+          { key: 'Y', label: t('action.search') },
           // Nothing behind this screen means B is the way up rather than back:
           // to the menu, and from there out of RomMix. See `App`.
-          { key: 'B', label: canGoBack ? 'Back' : 'Menu' }
+          { key: 'B', label: canGoBack ? t('action.back') : t('action.menu') }
         ]}
       />
     </div>
@@ -215,6 +216,7 @@ function Hero({
   onSelect: () => void
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect, autoFocus: true })
+  const { t } = useI18n()
   const keyLabel = useKeyLabel()
   const title = rom.name ?? rom.fs_name
   const year = rom.metadatum.first_release_date
@@ -242,7 +244,7 @@ function Hero({
           ))}
         </div>
         {rom.summary ? <p className="hero__summary">{rom.summary}</p> : null}
-        <div className="hero__hint">Press {keyLabel('A')} to open</div>
+        <div className="hero__hint">{t('home.pressToOpen', { key: keyLabel('A') })}</div>
       </div>
     </div>
   )

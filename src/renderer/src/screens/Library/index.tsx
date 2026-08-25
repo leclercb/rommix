@@ -2,7 +2,7 @@ import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref }
 import type { RommPlatform, RommRom } from '@shared/types'
 import { GameCard, Hints, PlatformIcon, Spinner, TextField, tileFromRom } from '../../components'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 
 const PAGE_SIZE = 60
 
@@ -16,6 +16,7 @@ const PAGE_SIZE = 60
  * there is nothing to aim at and press.
  */
 export function LibraryScreen(): JSX.Element {
+  const { t } = useI18n()
   const { installedIds, navigate } = useApp()
   const keyLabel = useKeyLabel()
 
@@ -111,33 +112,38 @@ export function LibraryScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">Library</h1>
+      <h1 className="page-title">{t('library.title')}</h1>
       <p className="page-subtitle">
-        {total > 0
-          ? `${total.toLocaleString()} game${total === 1 ? '' : 's'}${platformName ? ` on ${platformName}` : ''}`
-          : 'Browse everything on your RomM server'}
+        {total === 0
+          ? t('library.browseAll')
+          : platformName
+            ? t('library.countOnPlatform', { count: total, platform: platformName })
+            : t('library.count', { count: total })}
       </p>
 
       <div ref={searchRef} className="form">
         <TextField
-          label="Search"
+          label={t('action.search')}
           value={search}
           onChange={setSearch}
-          placeholder="Game title…"
-          hint={`Press ${keyLabel('Y')} to jump here, Escape to leave the field.`}
+          placeholder={t('library.searchPlaceholder')}
+          hint={t('library.searchHint', { key: keyLabel('Y') })}
         />
       </div>
 
       <div className="segmented">
         <PlatformChip
-          label="All platforms"
+          label={t('library.allPlatforms')}
           active={selectedPlatform === undefined}
           onSelect={() => setSelectedPlatform(undefined)}
         />
         {platforms.map((platform) => (
           <PlatformChip
             key={platform.id}
-            label={`${platform.display_name} (${platform.rom_count})`}
+            label={t('library.platformChip', {
+              name: platform.display_name,
+              count: platform.rom_count
+            })}
             icon={<PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />}
             active={platform.id === selectedPlatform}
             onSelect={() => setSelectedPlatform(platform.id)}
@@ -165,20 +171,20 @@ export function LibraryScreen(): JSX.Element {
       {loading ? <Spinner /> : null}
 
       {!loading && roms.length === 0 && !error ? (
-        <div className="empty">No games match that search.</div>
+        <div className="empty">{t('library.noMatches')}</div>
       ) : null}
 
       {!loading && roms.length > 0 && roms.length >= total ? (
         <div className="empty" style={{ padding: '28px 0' }}>
-          That is all {total.toLocaleString()} of them.
+          {t('library.thatIsAll', { count: total })}
         </div>
       ) : null}
 
       <Hints
         items={[
-          { key: 'A', label: 'Open' },
-          { key: 'Y', label: 'Search' },
-          { key: 'B', label: 'Back' }
+          { key: 'A', label: t('action.open') },
+          { key: 'Y', label: t('action.search') },
+          { key: 'B', label: t('action.back') }
         ]}
       />
     </div>

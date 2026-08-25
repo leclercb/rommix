@@ -40,18 +40,47 @@ format` fixes the first one for you.
 
 `src/config/` is the part most changes belong in.
 
-| You want to            | Edit                                               |
-| ---------------------- | -------------------------------------------------- |
-| Add a system           | the table in `src/config/systems.ts`               |
-| Map a RomM platform    | the `slugs` column of that same row                |
-| Say what a BIOS needs  | `src/config/bios.ts`                               |
-| Teach a new ROM format | `src/config/romfiles.ts`                           |
-| Add an emulator        | a folder under `src/config/emulators/` — see below |
+| You want to             | Edit                                               |
+| ----------------------- | -------------------------------------------------- |
+| Add a system            | the table in `src/config/systems.ts`               |
+| Map a RomM platform     | the `slugs` column of that same row                |
+| Say what a BIOS needs   | `src/config/bios.ts`                               |
+| Teach a new ROM format  | `src/config/romfiles.ts`                           |
+| Add an emulator         | a folder under `src/config/emulators/` — see below |
+| Change what RomMix says | `src/shared/i18n/en.ts`, then the other three      |
+| Change the landing page | `site/text/en.json`, then the other three          |
 
 **No code outside `src/config/` names an emulator.** That is a rule, not a
 tendency: `src/main/emulators.ts` probes whatever the registry declares, and the
 two prose lists that do name them — the table in the README and the one in
-`site/index.html` — have to be edited by hand.
+`site/text/*.json` — have to be edited by hand.
+
+### Wording
+
+Nothing user-facing is written where it is drawn. Every phrase lives in
+`src/shared/i18n/`, English first — `fr.ts`, `de.ts` and `es.ts` are declared as
+`Catalog`, so adding a key to English and forgetting one of them does not
+compile. `npm test` checks the parts the types cannot: that each language
+substitutes the same `{placeholders}`, and that a plural set has all its forms.
+
+Two of these are checked by `npm test` rather than by review: no error in
+`src/main` may be thrown with a written-out message, and no text may sit loose
+in the renderer's markup. Log lines are exempt on purpose — the log is what gets
+attached to a bug report, and one in four languages is one nobody can triage.
+
+Counts go through `t('key', { count })` with `_one` / `_other` entries, never
+`count === 1 ? … : …` — French keeps the singular at zero and German does not.
+Anything a phrase wraps that is not text (a `<strong>`, the heart in the footer)
+stays one catalogue entry with a placeholder, and `Filled` splits it: word order
+is the first thing a language changes.
+
+Text that belongs to one emulator — its setup steps, why its saves cannot be
+synced — is in the catalogue like everything else. The rule that keeps emulator
+_logic_ inside `src/config/emulators/<id>/` does not extend to wording: a
+descriptor is a pure function of an install and has nowhere to get a language
+from, so it names a phrase (`unsyncableReason: 'saves.dolphin'`) and `localize`
+resolves it at the boundary. One entry then serves every frontend shipping the
+same component — RetroDECK and EmuDeck both run Dolphin.
 
 ### Adding an emulator
 

@@ -6,6 +6,8 @@
  * deal more per ROM (per-provider metadata blobs, sibling roms, ...).
  */
 
+import type { LanguageChoice } from './i18n/locales.ts'
+
 // ---------------------------------------------------------------------------
 // RomM API
 // ---------------------------------------------------------------------------
@@ -405,6 +407,15 @@ export interface Settings {
    * for a panel whose reported size does not match how far away it is sat from.
    */
   uiScale: number
+  /**
+   * Which language the interface is drawn in, or `auto` to follow the desktop.
+   *
+   * One setting for both processes: the main process translates its own
+   * messages — a failed launch, a BIOS that cannot be placed — before they
+   * cross IPC, so an error and the screen it lands on are never in two
+   * different languages. See `LanguageChoice`.
+   */
+  language: LanguageChoice
   /**
    * What RomMix does about a new version of itself. See `UpdatePolicy`.
    *

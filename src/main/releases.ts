@@ -8,6 +8,7 @@ import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@s
 import { log } from './log.ts'
 import { rootPaths } from './root.ts'
 import { extractZip, isZip } from './zip.ts'
+import { t } from './i18n.ts'
 
 /**
  * Installing an emulator that ships as a loose download rather than a package.
@@ -92,7 +93,7 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
       api: source.api,
       status: response.status
     })
-    throw new Error(`${source.api} responded ${response.status}`)
+    throw new Error(t('error.releasesResponded', { api: source.api, status: response.status }))
   }
 
   const payload = (await response.json()) as ForgejoRelease[]
@@ -157,7 +158,7 @@ export async function installAsset(
       url: asset.url,
       status: response.status
     })
-    throw new Error(`Download failed: ${asset.url} responded ${response.status}`)
+    throw new Error(t('error.assetDownloadFailed', { url: asset.url, status: response.status }))
   }
 
   const declared = Number(response.headers.get('content-length') ?? 0)
@@ -217,7 +218,7 @@ async function unpackImage(archive: string, dir: string): Promise<string> {
 
   const image = (await readdir(dir)).find((name) => name.toLowerCase().endsWith('.appimage'))
   if (!image) {
-    throw new Error(`${basename(archive)} holds no AppImage`)
+    throw new Error(t('error.noAppImageInArchive', { archive: basename(archive) }))
   }
 
   const path = join(dir, image)

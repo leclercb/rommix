@@ -9,6 +9,7 @@ import { log } from './log.ts'
 import type { RommClient } from './romm.ts'
 import type { SaveSync } from './saves.ts'
 import type { Store } from './store.ts'
+import { t } from './i18n.ts'
 
 /**
  * Launches a downloaded ROM and waits for it to exit.
@@ -98,9 +99,11 @@ function tailOf(output: string): string | null {
 
 /** The core download, as a line to put under the Play button. */
 function stageFor(progress: CoreProgress): string {
-  const done = `Installing the ${progress.core} core`
-  if (!progress.totalBytes) return `${done}…`
-  return `${done}… ${Math.round((progress.receivedBytes / progress.totalBytes) * 100)}%`
+  if (!progress.totalBytes) return t('launch.installingCore', { core: progress.core })
+  return t('launch.installingCorePercent', {
+    core: progress.core,
+    percent: Math.round((progress.receivedBytes / progress.totalBytes) * 100)
+  })
 }
 
 /**
@@ -172,14 +175,11 @@ export class Launcher {
       }
     }
 
-    if (this.current) return failure('A game is already running')
+    if (this.current) return failure(t('launch.alreadyRunning'))
 
     const argv = this.buildCommand(options)
     if (!argv) {
-      return failure(
-        `${emulator.name} cannot run "${system}". Choose a different emulator for this ` +
-          `platform in Settings, or install one that covers it.`
-      )
+      return failure(t('launch.cannotRunSystem', { emulator: emulator.name, system }))
     }
     const command = argv.join(' ')
     // The exact argv, because "it did nothing" is almost always a question
@@ -221,7 +221,7 @@ export class Launcher {
       try {
         const core = await missingCore(emulator, system)
         if (core) {
-          options.onStage?.(`Installing the ${core.name} core…`)
+          options.onStage?.(t('launch.installingCore', { core: core.name }))
           await installCore(core, (progress: CoreProgress) => options.onStage?.(stageFor(progress)))
         }
       } catch (cause) {
@@ -230,7 +230,7 @@ export class Launcher {
         options.onStage?.(null)
       }
 
-      if (session.stopped) return failure('Stopped before the game started', command)
+      if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
 
       // Pull remote saves before the emulator opens them. A failure here is
       // reported but does not block play — the local save is still valid.
@@ -245,7 +245,7 @@ export class Launcher {
 
       // Stopped while the saves were coming down: there is no process to
       // signal, so the request has to be honoured here instead.
-      if (session.stopped) return failure('Stopped before the game started', command)
+      if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
 
       const startedAt = new Date()
       // Anything the emulator writes after this instant is part of this
@@ -336,7 +336,7 @@ export class Launcher {
       const syncWarnings = [pullError, pushError].filter(Boolean)
       const notes = [
         exit.warning,
-        syncWarnings.length ? `Save sync warning: ${syncWarnings.join('; ')}` : null
+        syncWarnings.length ? t('launch.syncWarning', { details: syncWarnings.join('; ') }) : null
       ].filter(Boolean)
 
       return {
@@ -420,7 +420,7 @@ export class Launcher {
       child.on('error', (err) => {
         log.error('emulator', 'the process could not be started', err, { command: argv.join(' ') })
         resolvePromise({
-          startupError: `Could not start the emulator: ${err.message}`,
+          startupError: t('launch.couldNotStartEmulator', { reason: err.message }),
           warning: null
         })
       })
@@ -453,7 +453,7 @@ export class Launcher {
           log.warn('emulator', 'exited non-zero after a real session', { ...exit, flagged })
           return resolvePromise({
             startupError: null,
-            warning: flagged ? `The emulator reported: ${flagged}` : null
+            warning: flagged ? t('launch.emulatorReported', { detail: flagged }) : null
           })
         }
 
@@ -472,12 +472,12 @@ export class Launcher {
         })
         return resolvePromise({
           startupError: detail
-            ? `The emulator quit immediately: ${detail}`
+            ? t('launch.quitImmediatelyDetail', { detail })
             : code === 0
               ? // Zero is the least informative thing an exit can say, and
                 // quoting it invites the reply that nothing went wrong.
-                'The emulator quit immediately.'
-              : `The emulator quit immediately (code ${code}).`,
+                t('launch.quitImmediately')
+              : t('launch.quitImmediatelyCode', { code: code ?? 0 }),
           warning: null
         })
       })
@@ -514,7 +514,7 @@ export class Launcher {
   async runEmulator(emulator: EmulatorState): Promise<string> {
     const descriptor = emulatorById(emulator.id)
     if (!descriptor || !emulator.install) {
-      throw new Error(`${emulator.name} is not installed`)
+      throw new Error(t('error.emulatorNotInstalled', { name: emulator.name }))
     }
 
     const prefix = execPrefix(emulator.install, descriptor.env)
@@ -574,7 +574,9 @@ export class Launcher {
             emulator: emulator.id,
             command
           })
-          rejectPromise(new Error(`Could not start ${emulator.name}: ${err.message}`))
+          rejectPromise(
+            new Error(t('launch.couldNotStartNamed', { name: emulator.name, reason: err.message }))
+          )
         })
       )
 
@@ -596,8 +598,8 @@ export class Launcher {
           rejectPromise(
             new Error(
               detail
-                ? `${emulator.name} quit immediately: ${detail}`
-                : `${emulator.name} quit immediately (code ${code}).`
+                ? t('launch.emulatorQuitDetail', { name: emulator.name, detail })
+                : t('launch.emulatorQuitCode', { name: emulator.name, code: code ?? 0 })
             )
           )
         })

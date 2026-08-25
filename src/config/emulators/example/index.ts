@@ -288,6 +288,8 @@ export const example: EmulatorDescriptor = {
    * What to tell the user about files that had to be staged rather than
    * installed. Shown on the BIOS screen beside the folder they went to. Only
    * meaningful for an emulator whose `bios` refuses something.
+   *
+   * A catalogue key, as `setupNotes` are.
    */
   biosStagingNote: undefined,
 
@@ -315,6 +317,9 @@ export const example: EmulatorDescriptor = {
    * makes RomMix look broken — the game is downloaded and RomMix says so, but
    * the emulator's own list is empty. Saying it once, where the game is, is the
    * difference between a setup step and a bug report.
+   *
+   * Catalogue keys — `['setup.edenRoms']`, not the sentence itself. A descriptor
+   * has no language to write one in; `src/shared/i18n/` has all four.
    */
   setupNotes: [],
 

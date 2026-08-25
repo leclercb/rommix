@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import type { InstalledRom, RommRom } from '@shared/types'
-import { formatBytes } from '../../../components'
 import { Icon } from '../../../icons'
+import { useI18n } from '../../../state'
 
 /**
  * The files the game is made of, on the server and on this device.
@@ -12,15 +12,16 @@ import { Icon } from '../../../icons'
  * a thing you can only see by comparing the two.
  */
 export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
+  const { t, formatBytes } = useI18n()
   const local = entry?.files?.length ? entry.files : entry ? [entry.fileName] : []
 
   return (
     <>
       <h3 className="section-title" style={{ fontSize: 17 }}>
-        On the server
+        {t('files.onServer')}
       </h3>
       {rom.files.length === 0 ? (
-        <div className="empty">RomM lists no files for this game.</div>
+        <div className="empty">{t('files.serverEmpty')}</div>
       ) : (
         <ul className="asset-list">
           {rom.files.map((file) => (
@@ -36,10 +37,10 @@ export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom })
       )}
 
       <h3 className="section-title" style={{ fontSize: 17 }}>
-        On this device
+        {t('files.onDevice')}
       </h3>
       {local.length === 0 ? (
-        <div className="empty">Not downloaded.</div>
+        <div className="empty">{t('files.notDownloaded')}</div>
       ) : (
         <ul className="asset-list">
           {local.map((file) => (

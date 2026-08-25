@@ -1,27 +1,20 @@
+import type { MessageKey } from '@shared/i18n'
 import type { DownloadItem, InstalledRom } from '@shared/types'
-import {
-  CoverArt,
-  FocusButton,
-  Hints,
-  Overlay,
-  Spinner,
-  SystemIcon,
-  Tabs,
-  formatBytes
-} from '../../components'
+import { CoverArt, FocusButton, Hints, Overlay, Spinner, SystemIcon, Tabs } from '../../components'
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
-const STATE_LABELS: Record<DownloadItem['state'], string> = {
-  queued: 'Waiting',
-  downloading: 'Downloading',
-  extracting: 'Extracting',
-  done: 'Installed',
-  error: 'Failed',
-  cancelled: 'Cancelled'
-}
+/** How each transfer state reads on a row. */
+const STATE_KEYS = {
+  queued: 'downloads.state.queued',
+  downloading: 'downloads.state.downloading',
+  extracting: 'downloads.state.extracting',
+  done: 'downloads.state.done',
+  error: 'downloads.state.error',
+  cancelled: 'downloads.state.cancelled'
+} as const satisfies Record<DownloadItem['state'], MessageKey>
 
 /** The two jobs this screen does, split so neither buries the other. */
 type Tab = 'activity' | 'device'
@@ -33,11 +26,11 @@ type Tab = 'activity' | 'device'
  */
 type SortMode = 'recent' | 'largest' | 'name'
 
-const SORTS: { id: SortMode; label: string }[] = [
-  { id: 'recent', label: 'Recently added' },
-  { id: 'largest', label: 'Largest first' },
-  { id: 'name', label: 'Name' }
-]
+const SORTS = [
+  { id: 'recent', label: 'downloads.sort.recent' },
+  { id: 'largest', label: 'downloads.sort.largest' },
+  { id: 'name', label: 'downloads.sort.name' }
+] as const satisfies readonly { id: SortMode; label: MessageKey }[]
 
 /** Order two games by the chosen rule. Used flat and inside each group. */
 function compare(a: InstalledRom, b: InstalledRom, sort: SortMode): number {
@@ -62,6 +55,7 @@ function isActive(item: DownloadItem): boolean {
 
 /** Transfer queue plus everything currently on local disk. */
 export function DownloadsScreen(): JSX.Element {
+  const { t, formatBytes } = useI18n()
   const { downloads, installed, navigate, notify, refreshInstalled, settings } = useApp()
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState<{ checked: number; total: number } | null>(null)
@@ -92,12 +86,12 @@ export function DownloadsScreen(): JSX.Element {
       const result = await window.rommix.library.sync()
       await refreshInstalled()
       const parts: string[] = []
-      if (result.adopted > 0) parts.push(`${result.adopted} found on disk`)
-      if (result.removed > 0) parts.push(`${result.removed} no longer there`)
+      if (result.adopted > 0) parts.push(t('downloads.syncFound', { count: result.adopted }))
+      if (result.removed > 0) parts.push(t('downloads.syncRemoved', { count: result.removed }))
       notify(
         parts.length > 0
           ? parts.join(' · ')
-          : `${result.checked} game${result.checked === 1 ? '' : 's'} checked — nothing changed`
+          : t('downloads.syncUnchanged', { count: result.checked })
       )
     } catch {
       // Reported centrally on `app:error`; the spinner still has to stop.
@@ -168,7 +162,7 @@ export function DownloadsScreen(): JSX.Element {
     try {
       await window.rommix.downloads.uninstall(entry.romId)
       await refreshInstalled()
-      notify('Uninstalled', 'ok', {
+      notify(t('downloads.uninstalled'), 'ok', {
         title: entry.name,
         coverPath: entry.coverPath
       })
@@ -179,10 +173,9 @@ export function DownloadsScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">Downloads</h1>
+      <h1 className="page-title">{t('nav.downloads')}</h1>
       <p className="page-subtitle">
-        {installed.length} game{installed.length === 1 ? '' : 's'} on disk ·{' '}
-        {formatBytes(totalOnDisk)}
+        {t('downloads.onDisk', { count: installed.length, size: formatBytes(totalOnDisk) })}
       </p>
 
       {/* Two jobs, two tabs. Watching a transfer and managing a full disk are
@@ -192,24 +185,24 @@ export function DownloadsScreen(): JSX.Element {
         tabs={[
           {
             id: 'activity',
-            label: 'Activity',
+            label: t('downloads.tabActivity'),
             badge: active.length > 0 ? active.length : undefined
           },
-          { id: 'device', label: 'On this device' }
+          { id: 'device', label: t('downloads.tabDevice') }
         ]}
         active={tab}
         onChange={setTab}
       />
 
       {syncing ? (
-        <Overlay title="Checking your library">
+        <Overlay title={t('downloads.checkingTitle')}>
           <p className="muted">
             {progress
-              ? `${progress.checked} of ${progress.total} games checked`
-              : 'Asking RomM what you have…'}
+              ? t('downloads.checkedOf', { checked: progress.checked, total: progress.total })
+              : t('downloads.askingRomM')}
           </p>
           <p className="faint" style={{ fontSize: 13 }}>
-            Every game on the server is compared against the folder it would be installed in.
+            {t('downloads.checkExplainer')}
           </p>
           <Spinner />
         </Overlay>
@@ -218,12 +211,12 @@ export function DownloadsScreen(): JSX.Element {
       {tab === 'activity' ? (
         <>
           {active.length === 0 && finished.length === 0 ? (
-            <div className="empty">Nothing transferring. Pick a game and press Download.</div>
+            <div className="empty">{t('downloads.nothingTransferring')}</div>
           ) : null}
 
           {active.length > 0 ? (
             <>
-              <h2 className="section-title">In progress</h2>
+              <h2 className="section-title">{t('downloads.inProgress')}</h2>
               {active.map((item) => (
                 <ProgressRow
                   key={item.romId}
@@ -237,7 +230,7 @@ export function DownloadsScreen(): JSX.Element {
 
           {finished.length > 0 ? (
             <>
-              <h2 className="section-title">Recent</h2>
+              <h2 className="section-title">{t('downloads.recent')}</h2>
               {finished.map((item) => (
                 <ProgressRow
                   key={item.romId}
@@ -254,12 +247,10 @@ export function DownloadsScreen(): JSX.Element {
                     const cleared = finished.length
                     void window.rommix.downloads
                       .clearFinished()
-                      .then(() =>
-                        notify(`${cleared} finished transfer${cleared === 1 ? '' : 's'} cleared`)
-                      )
+                      .then(() => notify(t('downloads.cleared', { count: cleared })))
                   }}
                 >
-                  Clear finished
+                  {t('downloads.clearFinished')}
                 </FocusButton>
               </div>
             </>
@@ -269,22 +260,26 @@ export function DownloadsScreen(): JSX.Element {
         <>
           <div className="btn-row">
             <FocusButton icon="sort" onSelect={cycleSort} disabled={installed.length === 0}>
-              Sort: {SORTS.find((option) => option.id === sort)?.label}
+              {t('downloads.sortBy', {
+                mode: t(SORTS.find((option) => option.id === sort)?.label ?? SORTS[0].label)
+              })}
             </FocusButton>
             <FocusButton
               icon="group"
               onSelect={() => setGrouped((current) => !current)}
               disabled={installed.length === 0}
             >
-              Group by system: {grouped ? 'Yes' : 'No'}
+              {t('downloads.groupBySystem', {
+                value: grouped ? t('value.yesTitle') : t('value.noTitle')
+              })}
             </FocusButton>
             <FocusButton icon="refresh" onSelect={() => void sync()} disabled={syncing}>
-              {syncing ? 'Checking…' : 'Sync with disk'}
+              {syncing ? t('action.checking') : t('downloads.syncWithDisk')}
             </FocusButton>
           </div>
 
           {installed.length === 0 ? (
-            <div className="empty">Nothing downloaded yet. Pick a game and press Download.</div>
+            <div className="empty">{t('downloads.nothingDownloaded')}</div>
           ) : grouped ? (
             byPlatform.map(([system, entries]) => (
               <PlatformGroup
@@ -317,7 +312,10 @@ export function DownloadsScreen(): JSX.Element {
               {flat.length > shown ? (
                 <div className="btn-row">
                   <FocusButton icon="more" onSelect={() => setShown((count) => count + FLAT_PAGE)}>
-                    Show {Math.min(FLAT_PAGE, flat.length - shown)} more of {flat.length}
+                    {t('downloads.showMore', {
+                      count: Math.min(FLAT_PAGE, flat.length - shown),
+                      total: flat.length
+                    })}
                   </FocusButton>
                 </div>
               ) : null}
@@ -327,17 +325,19 @@ export function DownloadsScreen(): JSX.Element {
       )}
 
       {confirming ? (
-        <Overlay title="Uninstall this game?">
+        <Overlay title={t('uninstall.title')}>
           <p className="muted">
-            {confirming.fileName} will be deleted from {confirming.path.replace(/\/[^/]*$/, '')}.
-            Your saves on RomM are kept.
+            {t('uninstall.body', {
+              file: confirming.fileName,
+              folder: confirming.path.replace(/\/[^/]*$/, '')
+            })}
           </p>
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setConfirming(null)} autoFocus>
-              Keep it
+              {t('action.keep')}
             </FocusButton>
             <FocusButton icon="uninstall" variant="danger" onSelect={() => void remove(confirming)}>
-              Uninstall, freeing {formatBytes(confirming.sizeBytes)}
+              {t('uninstall.freeing', { size: formatBytes(confirming.sizeBytes) })}
             </FocusButton>
           </div>
         </Overlay>
@@ -345,13 +345,16 @@ export function DownloadsScreen(): JSX.Element {
 
       <Hints
         items={[
-          { key: 'A', label: tab === 'device' && grouped ? 'Open · Expand' : 'Open' },
+          {
+            key: 'A',
+            label: tab === 'device' && grouped ? t('downloads.openExpand') : t('action.open')
+          },
           // Row actions are reached sideways, which is worth saying: walking
           // down a list never passes through them.
-          { key: '→', label: 'Row actions' },
-          { key: 'LB', label: 'Previous tab' },
-          { key: 'RB', label: 'Next tab' },
-          { key: 'B', label: 'Back' }
+          { key: '→', label: t('action.rowActions') },
+          { key: 'LB', label: t('action.previousTab') },
+          { key: 'RB', label: t('action.nextTab') },
+          { key: 'B', label: t('action.back') }
         ]}
       />
     </div>
@@ -383,9 +386,10 @@ function PlatformGroup({
   onOpenGame: (entry: InstalledRom) => void
   onRemove: (entry: InstalledRom) => void
 }): JSX.Element {
+  const { t, formatBytes } = useI18n()
   const { ref, props } = useFocusable({
     onSelect: onToggle,
-    actionLabel: open ? 'Collapse' : 'Expand'
+    actionLabel: open ? t('action.collapse') : t('action.expand')
   })
   const size = entries.reduce((sum, entry) => sum + entry.sizeBytes, 0)
 
@@ -398,7 +402,7 @@ function PlatformGroup({
         <SystemIcon system={system} size={30} />
         <span className="group__name">{entries[0].platformName}</span>
         <span className="group__meta">
-          {entries.length} game{entries.length === 1 ? '' : 's'} · {formatBytes(size)}
+          {t('downloads.groupMeta', { count: entries.length, size: formatBytes(size) })}
         </span>
       </div>
 
@@ -437,7 +441,8 @@ function ProgressRow({
   onSelect: () => void
   onCancel?: () => void
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect, actionLabel: 'Open' })
+  const { t, formatBytes } = useI18n()
+  const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
   const percent = item.totalBytes > 0 ? Math.round((item.receivedBytes / item.totalBytes) * 100) : 0
 
   return (
@@ -452,7 +457,7 @@ function ProgressRow({
       <span className="download__name">{item.name}</span>
       <span className="download__state">
         <SystemIcon system={item.system} size={18} />
-        {item.platformName} · {STATE_LABELS[item.state]}
+        {item.platformName} · {t(STATE_KEYS[item.state])}
         {item.state === 'downloading'
           ? ` · ${formatBytes(item.receivedBytes)} / ${formatBytes(item.totalBytes)}`
           : ''}
@@ -460,7 +465,7 @@ function ProgressRow({
       {onCancel ? (
         <div className="download__actions">
           <FocusButton icon="cancel" variant="danger" onSelect={onCancel}>
-            Cancel
+            {t('action.cancel')}
           </FocusButton>
         </div>
       ) : null}
@@ -492,7 +497,8 @@ function InstalledRow({
   onSelect: () => void
   onRemove: () => void
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect, actionLabel: 'Open' })
+  const { t, formatBytes } = useI18n()
+  const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
   const title = entry.name
   const files = entry.files
 
@@ -509,7 +515,9 @@ function InstalledRow({
           <span>{entry.platformName}</span>
           <span>·</span>
           <span>{formatBytes(entry.sizeBytes)}</span>
-          {files.length > 1 ? <span>· {files.length} files</span> : null}
+          {files.length > 1 ? (
+            <span>· {t('downloads.fileCount', { count: files.length })}</span>
+          ) : null}
         </div>
         <ul className="installed__files">
           {files.map((file) => (
@@ -520,7 +528,7 @@ function InstalledRow({
 
       <div className="installed__actions">
         <FocusButton icon="uninstall" variant="danger" onSelect={onRemove}>
-          Uninstall
+          {t('action.uninstall')}
         </FocusButton>
       </div>
     </div>

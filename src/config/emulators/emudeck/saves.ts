@@ -1,3 +1,4 @@
+import type { Text } from '@shared/i18n'
 import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { joinPath, perRom, shared } from '../savepaths.ts'
@@ -66,7 +67,7 @@ function standard(root: string): SavePaths {
 }
 
 /** A memory-card emulator: states are per-game, the card is not. */
-function cards(root: string, reason: string): SavePaths {
+function cards(root: string, reason: Text): SavePaths {
   return {
     saves: shared(joinPath(root, 'saves')),
     states: perRom(joinPath(root, 'states'), [root]),
@@ -103,12 +104,7 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
       { saves: joinPath(root, 'saves'), states: joinPath(root, 'states') }
     ),
 
-  pcsx2: (_ctx, root) =>
-    cards(
-      root,
-      'PCSX2 keeps one memory card shared by every PS2 game, so there is no save file that ' +
-        'belongs to this one. Save states are synced.'
-    ),
+  pcsx2: (_ctx, root) => cards(root, 'saves.pcsx2'),
 
   /**
    * DuckStation names its cards after the game — `Suikoden II_1.mcd` — which is
@@ -121,66 +117,48 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
   dolphin: (_ctx, root) => ({
     saves: shared(joinPath(root, 'GC')),
     states: perRom(joinPath(root, 'StateSaves'), [root]),
-    unsyncableReason:
-      'Dolphin keeps one GameCube memory card per region and one Wii NAND for every game, so ' +
-      'there is no save file that belongs to this one. Save states are synced.'
+    unsyncableReason: 'saves.dolphin'
   }),
   primehack: (_ctx, root) => ({
     saves: shared(joinPath(root, 'GC')),
     states: perRom(joinPath(root, 'StateSaves'), [root]),
-    unsyncableReason:
-      'PrimeHack keeps one memory card for every game, so there is no save file that belongs ' +
-      'to this one. Save states are synced.'
+    unsyncableReason: 'saves.primehack'
   }),
 
   ppsspp: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: shared(joinPath(root, 'states')),
-    unsyncableReason:
-      'PPSSPP files saves under the game id printed inside the disc image rather than under the ' +
-      'ROM name, which RomMix cannot read from outside the emulator.'
+    unsyncableReason: 'saves.ppsspp'
   }),
   rpcs3: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: null,
-    unsyncableReason:
-      'RPCS3 files saves under the PS3 title id rather than the ROM name, which RomMix cannot ' +
-      'match to this game.'
+    unsyncableReason: 'saves.rpcs3'
   }),
   Cemu: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: null,
-    unsyncableReason:
-      'Cemu files saves under the Wii U title id rather than the ROM name, which RomMix cannot ' +
-      'match to this game.'
+    unsyncableReason: 'saves.cemu'
   }),
   Vita3K: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: null,
-    unsyncableReason:
-      'Vita3K files saves under the Vita title id rather than the ROM name, which RomMix cannot ' +
-      'match to this game.'
+    unsyncableReason: 'saves.vita3k'
   }),
   azahar: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: perRom(joinPath(root, 'states'), [root]),
-    unsyncableReason:
-      'Azahar keeps saves inside an emulated SD card tree keyed by title id, which RomMix ' +
-      'cannot match to this game. Save states are synced.'
+    unsyncableReason: 'saves.azaharStates'
   }),
   xemu: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: null,
-    unsyncableReason:
-      'xemu keeps one emulated Xbox hard disk for every game, so there is no save file that ' +
-      'belongs to this one.'
+    unsyncableReason: 'saves.xemu'
   }),
   xenia: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: null,
-    unsyncableReason:
-      'Xenia files saves under the Xbox 360 title id rather than the ROM name, which RomMix ' +
-      'cannot match to this game.'
+    unsyncableReason: 'saves.xenia'
   }),
 
   /**
@@ -191,9 +169,7 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
   flycast: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: perRom(joinPath(root, 'states'), [root]),
-    unsyncableReason:
-      'Flycast keeps two VMU memory cards shared by every Dreamcast game, so there is no save ' +
-      'file that belongs to this one. Save states are synced.'
+    unsyncableReason: 'saves.flycast'
   })
 }
 

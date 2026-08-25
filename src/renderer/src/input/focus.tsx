@@ -12,8 +12,9 @@ import {
 } from 'react'
 import { measure, rectOf, SAME_STEP_PX, type Measure } from './geometry'
 import { gamepadPresent, useGamepad } from './gamepad'
-import { KEYBOARD_LABELS, useKeyboard } from './keyboard'
+import { keyboardLabel, useKeyboard } from './keyboard'
 import { revealElement, scrollToEnd } from './scroll'
+import { useI18n } from '../state'
 import type { Action, Direction, InputKind } from './types'
 
 /**
@@ -543,10 +544,11 @@ export function useFocusContext(): FocusContextValue {
  */
 export function useKeyLabel(): (key: string) => string {
   const { inputKind } = useFocusContext()
+  const { t } = useI18n()
   return useCallback(
     (key: string): string =>
-      inputKind === 'gamepad' ? key : (KEYBOARD_LABELS[key.toUpperCase()] ?? key),
-    [inputKind]
+      inputKind === 'gamepad' ? key : (keyboardLabel(key.toUpperCase(), t) ?? key),
+    [inputKind, t]
   )
 }
 

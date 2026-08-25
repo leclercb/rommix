@@ -5,6 +5,7 @@ import { installFlatpak } from '../host.ts'
 import { log } from '../log.ts'
 import { builtForThisMachine, fetchReleases, installAsset } from '../releases.ts'
 import { RommError } from '../romm.ts'
+import { t } from '../i18n.ts'
 import type { Handle } from './handler.ts'
 
 /** Putting an emulator on the machine, and running one on its own. */
@@ -21,8 +22,8 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
   handle('emulators:run', async (id: string): Promise<string> => {
     const states = await rommix.ensureEmulators()
     const state = states.find((emulator) => emulator.id === id)
-    if (!state) throw new RommError(`RomMix does not know an emulator called ${id}`)
-    if (!state.install) throw new RommError(`${state.name} is not installed`)
+    if (!state) throw new RommError(t('error.unknownEmulator', { id }))
+    if (!state.install) throw new RommError(t('error.emulatorNotInstalled', { name: state.name }))
     return launcher.runEmulator(state)
   })
 
@@ -31,7 +32,7 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     const descriptor = emulatorById(id)
     const source = descriptor ? releaseSource(descriptor) : null
     if (!source) {
-      throw new RommError(`RomMix cannot install ${descriptor?.name ?? id} for you`)
+      throw new RommError(t('error.cannotInstall', { name: descriptor?.name ?? id }))
     }
     return fetchReleases(source)
   })
@@ -47,17 +48,17 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     const descriptor = emulatorById(id)
     const source = descriptor ? releaseSource(descriptor) : null
     if (!source) {
-      throw new RommError(`RomMix cannot install ${descriptor?.name ?? id} for you`)
+      throw new RommError(t('error.cannotInstall', { name: descriptor?.name ?? id }))
     }
     if (!isInstallableAsset(asset.name, source)) {
-      throw new RommError(`${asset.name} is not something RomMix can run`)
+      throw new RommError(t('error.assetNotRunnable', { asset: asset.name }))
     }
     // Re-checked rather than trusted: the list this came from was filtered, but
     // an emulator installed for the wrong architecture is recorded in settings
     // and then reports itself present, so the failure surfaces at every launch
     // instead of here.
     if (!builtForThisMachine(asset.name)) {
-      throw new RommError(`${asset.name} is not built for this machine (${process.arch})`)
+      throw new RommError(t('error.assetWrongArch', { asset: asset.name, arch: process.arch }))
     }
 
     log.info('emulator', 'installing a release asset', {
@@ -88,7 +89,7 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     const descriptor = emulatorById(id)
     const spec = descriptor?.install.find((entry) => entry.kind === 'flatpak')
     if (!descriptor || !spec || spec.kind !== 'flatpak') {
-      throw new RommError(`${descriptor?.name ?? id} is not distributed as a flatpak`)
+      throw new RommError(t('error.notAFlatpak', { name: descriptor?.name ?? id }))
     }
     log.info('emulator', 'installing a flatpak from flathub', {
       emulator: id,

@@ -1,7 +1,9 @@
 import { type JSX, type ReactNode, type Ref } from 'react'
+import type { I18n } from '@shared/i18n'
 import type { RomStorage } from '@shared/types'
 import { useAction, useFocusable } from '../input/focus'
 import { Icon, type IconName } from '../icons'
+import { useI18n } from '../state'
 
 /** The things a controller presses: buttons, fields, tabs and settings rows. */
 
@@ -93,10 +95,11 @@ export function TextField({
   hint?: string
   autoFocus?: boolean
 }): JSX.Element {
+  const { t } = useI18n()
   const { ref, props } = useFocusable({
     onSelect: () => (ref.current as HTMLInputElement | null)?.focus(),
     autoFocus,
-    actionLabel: 'Type'
+    actionLabel: t('action.type')
   })
 
   return (
@@ -241,6 +244,7 @@ export function Toggle({
   on: boolean
   onToggle: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   return (
     <div className="setting">
       <div className="setting__text">
@@ -253,8 +257,8 @@ export function Toggle({
           if ((next === 'on') !== on) onToggle()
         }}
         options={[
-          { value: 'on', label: 'On' },
-          { value: 'off', label: 'Off' }
+          { value: 'on', label: t('value.on') },
+          { value: 'off', label: t('value.off') }
         ]}
       />
     </div>
@@ -298,18 +302,26 @@ export function Choice<T extends string>({
  */
 export type UiScaleChoice = 'auto' | '1' | '1.25' | '1.5' | '2'
 
-export const UI_SCALES: { value: UiScaleChoice; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: '1', label: '100%' },
-  { value: '1.25', label: '125%' },
-  { value: '1.5', label: '150%' },
-  { value: '2', label: '200%' }
-]
+const UI_SCALE_VALUES: UiScaleChoice[] = ['auto', '1', '1.25', '1.5', '2']
+
+/**
+ * The scales as a segmented control's options.
+ *
+ * A function of the catalogue rather than a constant, because one of the five
+ * is a word: `auto` is "however big the screen says", and the other four are
+ * percentages, which read the same in every language RomMix speaks.
+ */
+export function uiScaleOptions(t: I18n['t']): { value: UiScaleChoice; label: string }[] {
+  return UI_SCALE_VALUES.map((value) => ({
+    value,
+    label: value === 'auto' ? t('value.auto') : `${Number(value) * 100}%`
+  }))
+}
 
 /** The stored number as one of the offered choices, falling back to Auto. */
 export function uiScaleChoice(scale: number): UiScaleChoice {
-  const match = UI_SCALES.find((option) => option.value === String(scale))
-  return match ? match.value : 'auto'
+  const match = UI_SCALE_VALUES.find((value) => value === String(scale))
+  return match ?? 'auto'
 }
 
 /**
@@ -323,18 +335,15 @@ export function RomStorageChoice({
   value: RomStorage
   onChange: (value: RomStorage) => void
 }): JSX.Element {
+  const { t } = useI18n()
   return (
     <Choice<RomStorage>
-      label="Where downloaded games go"
-      hint={
-        value === 'rommix'
-          ? 'One folder for everything, which each emulator has to be pointed at once. Changing emulator moves nothing, and a game can be downloaded before anything that runs it is installed.'
-          : "Each emulator's own ROM folder, so games show up in its list when you start it yourself. Changing emulator for a platform means downloading its games again."
-      }
+      label={t('storage.label')}
+      hint={value === 'rommix' ? t('storage.hintShared') : t('storage.hintPerEmulator')}
       value={value}
       options={[
-        { value: 'emulator', label: "Each emulator's folder" },
-        { value: 'rommix', label: 'RomMix folder' }
+        { value: 'emulator', label: t('storage.optionEmulator') },
+        { value: 'rommix', label: t('storage.optionRomMix') }
       ]}
       onChange={onChange}
     />

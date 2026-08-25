@@ -22,6 +22,7 @@
  * `src/main/emulators.ts`.
  */
 
+import type { Text } from '@shared/i18n'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 
 /** Stable identifier for an emulator, e.g. 'retrodeck'. Persisted in settings. */
@@ -446,8 +447,11 @@ export interface EmulatorDescriptor {
   /**
    * What to tell the user about files that had to be staged rather than
    * installed. Shown on the BIOS screen beside the folder they went to.
+   *
+   * A catalogue key, not a sentence — see `Text` in `@shared/i18n`. A descriptor
+   * is a pure function of an install and has no language to write one in.
    */
-  readonly biosStagingNote: string | undefined
+  readonly biosStagingNote: Text | undefined
 
   // -- cores ---------------------------------------------------------------------
 
@@ -478,8 +482,10 @@ export interface EmulatorDescriptor {
    * the emulator's own list is empty, or the game starts unpatched. Saying so
    * once, where the game is, is the difference between a setup step and a bug
    * report.
+   *
+   * Catalogue keys, as `biosStagingNote` is.
    */
-  readonly setupNotes: readonly string[]
+  readonly setupNotes: readonly Text[]
 
   // -- running it ----------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SaveAsset, SaveDeleteScope, SavePushPreview } from '@shared/types'
-import { useApp } from '../../state'
-import { DELETE_SCOPES } from './tabs'
+import { useApp, useI18n } from '../../state'
+import { deleteScopeText } from './tabs'
 
 /** How this game is named and pictured in a toast. */
 type Subject = () => { title: string; coverPath: string | null }
@@ -41,6 +41,7 @@ export function useGameSaves(
   deleting: { asset: SaveAsset; scope: SaveDeleteScope } | null
   setDeleting: (target: { asset: SaveAsset; scope: SaveDeleteScope } | null) => void
 } {
+  const { t } = useI18n()
   const { notify, settings, saveSettings } = useApp()
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   const [busy, setBusy] = useState(false)
@@ -87,9 +88,11 @@ export function useGameSaves(
         notify(
           moved === 0
             ? direction === 'pull'
-              ? 'Nothing newer on RomM'
-              : 'No local saves to send'
-            : `${moved} file${moved === 1 ? '' : 's'} ${direction === 'pull' ? 'downloaded' : 'sent to RomM'}`,
+              ? t('saves.nothingNewer')
+              : t('saves.noLocalSaves')
+            : direction === 'pull'
+              ? t('saves.pulled', { count: moved })
+              : t('saves.pushed', { count: moved }),
           'ok',
           to
         )
@@ -120,7 +123,7 @@ export function useGameSaves(
     try {
       const preview = await window.rommix.saves.pushPreview(romId)
       if (preview.files.length === 0) {
-        notify(preview.skippedReason ?? 'No local saves to send', 'warn', subject())
+        notify(preview.skippedReason ?? t('saves.noLocalSaves'), 'warn', subject())
         return
       }
       setConfirmingPush(preview)
@@ -148,7 +151,7 @@ export function useGameSaves(
       // on screen reads as a button that did something else.
       if (stopAsking) {
         await saveSettings({ confirmSavePush: false })
-        notify('Saves will be sent without asking')
+        notify(t('saves.noAskAgain'))
       }
       const result = await window.rommix.saves.pushSelected(
         romId,
@@ -157,9 +160,7 @@ export function useGameSaves(
       const moved = result.saves + result.states
       notify(
         result.skippedReason ??
-          (moved === 0
-            ? 'Nothing was sent'
-            : `${moved} file${moved === 1 ? '' : 's'} sent to RomM`),
+          (moved === 0 ? t('saves.nothingSent') : t('saves.pushed', { count: moved })),
         result.skippedReason || moved === 0 ? 'warn' : 'ok',
         subject()
       )
@@ -183,7 +184,12 @@ export function useGameSaves(
     setBusy(true)
     try {
       await window.rommix.saves.remove(romId, asset.kind, asset.id, asset.fileName, scope)
-      notify(`${asset.fileName} deleted ${DELETE_SCOPES[scope].where}`)
+      notify(
+        t('saves.deleted', {
+          file: asset.fileName,
+          where: deleteScopeText(scope, t).where
+        })
+      )
       await reload()
     } catch {
       // Reported centrally.

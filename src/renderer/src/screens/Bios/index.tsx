@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { BiosPlatform, BiosReport } from '@shared/types'
-import { FocusButton, Hints, Overlay, PlatformIcon, Spinner, formatBytes } from '../../components'
-import { useApp, type ToastSubject } from '../../state'
+import { FocusButton, Hints, Overlay, PlatformIcon, Spinner } from '../../components'
+import { useApp, useI18n, type ToastSubject } from '../../state'
 
 /**
  * BIOS files, per platform.
@@ -17,6 +17,7 @@ import { useApp, type ToastSubject } from '../../state'
  * something to upload rather than something RomMix could find.
  */
 export function BiosScreen(): JSX.Element {
+  const { t } = useI18n()
   const { notify } = useApp()
   const [report, setReport] = useState<BiosReport | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -53,8 +54,8 @@ export function BiosScreen(): JSX.Element {
       )
       notify(
         outstanding === 0
-          ? 'Checked — every BIOS file is in place'
-          : `Checked — ${outstanding} file${outstanding === 1 ? '' : 's'} still missing`,
+          ? t('bios.checkedAllInPlace')
+          : t('bios.checkedMissing', { count: outstanding }),
         outstanding === 0 ? 'ok' : 'warn'
       )
     } catch (cause) {
@@ -90,7 +91,7 @@ export function BiosScreen(): JSX.Element {
     setBusy(fileName)
     try {
       await window.rommix.bios.install(firmwareId)
-      notify(`${fileName} installed`, 'ok', subject(platform))
+      notify(t('bios.fileInstalled', { file: fileName }), 'ok', subject(platform))
       await load()
     } catch {
       // Announced by the main process on `app:error`; this only stops the
@@ -106,9 +107,11 @@ export function BiosScreen(): JSX.Element {
     setProgress(null)
     try {
       const result = await window.rommix.bios.syncAll(platform?.platformId)
-      const parts = [`${result.installed} installed`]
-      if (result.failed > 0) parts.push(`${result.failed} failed`)
-      if (result.unavailable > 0) parts.push(`${result.unavailable} not on the server`)
+      const parts = [t('bios.syncInstalled', { count: result.installed })]
+      if (result.failed > 0) parts.push(t('bios.syncFailed', { count: result.failed }))
+      if (result.unavailable > 0) {
+        parts.push(t('bios.syncUnavailable', { count: result.unavailable }))
+      }
       notify(
         parts.join(' · '),
         result.failed > 0 ? 'warn' : 'ok',
@@ -126,7 +129,7 @@ export function BiosScreen(): JSX.Element {
   if (error) {
     return (
       <div className="content">
-        <h1 className="page-title">BIOS</h1>
+        <h1 className="page-title">{t('nav.bios')}</h1>
         <div className="notice notice--error">{error}</div>
         <div className="btn-row">
           {/* The same call the Re-check button makes, so a retry that works
@@ -138,7 +141,7 @@ export function BiosScreen(): JSX.Element {
             disabled={rechecking}
             autoFocus
           >
-            {rechecking ? 'Trying…' : 'Try again'}
+            {rechecking ? t('action.trying') : t('action.tryAgain')}
           </FocusButton>
         </div>
       </div>
@@ -148,7 +151,7 @@ export function BiosScreen(): JSX.Element {
   if (!report) {
     return (
       <div className="content">
-        <h1 className="page-title">BIOS</h1>
+        <h1 className="page-title">{t('nav.bios')}</h1>
         <Spinner />
       </div>
     )
@@ -166,16 +169,14 @@ export function BiosScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">BIOS</h1>
+      <h1 className="page-title">{t('nav.bios')}</h1>
       <p className="page-subtitle">
         {missing === 0
-          ? 'Every BIOS file RomMix knows about is in place.'
-          : `${missing} file${missing === 1 ? '' : 's'} missing, ${fetchable} of them on your RomM server`}
+          ? t('bios.allInPlace')
+          : t('bios.missingSummary', { count: missing, fetchable })}
       </p>
       <p className="faint" style={{ fontSize: 14 }}>
-        BIOS files come from your own RomM server — upload them there under a platform, and RomMix
-        copies them into whichever emulator runs that platform. Nothing is downloaded from anywhere
-        else.
+        {t('bios.explainer')}
       </p>
 
       <div className="btn-row">
@@ -186,19 +187,19 @@ export function BiosScreen(): JSX.Element {
           disabled={busy !== null || fetchable === 0}
           autoFocus
         >
-          {fetchable === 0 ? 'Nothing to install' : 'Install all'}
+          {fetchable === 0 ? t('bios.nothingToInstall') : t('action.installAll')}
         </FocusButton>
         <FocusButton
           icon="refresh"
           onSelect={() => void recheck()}
           disabled={busy !== null || rechecking}
         >
-          {rechecking ? 'Checking…' : 'Re-check'}
+          {rechecking ? t('action.checking') : t('bios.recheck')}
         </FocusButton>
       </div>
 
       {report.platforms.length === 0 ? (
-        <div className="empty">No platforms on your RomM server yet.</div>
+        <div className="empty">{t('bios.noPlatforms')}</div>
       ) : (
         report.platforms.map((platform) => (
           <PlatformBios
@@ -212,9 +213,11 @@ export function BiosScreen(): JSX.Element {
       )}
 
       {busy === 'all' || busy?.startsWith('platform:') ? (
-        <Overlay title="Installing BIOS files">
+        <Overlay title={t('bios.installingTitle')}>
           <p className="muted">
-            {progress ? `${progress.done} of ${progress.total}` : 'Working out what is missing…'}
+            {progress
+              ? t('bios.progress', { done: progress.done, total: progress.total })
+              : t('bios.workingOut')}
           </p>
           <Spinner />
         </Overlay>
@@ -222,8 +225,8 @@ export function BiosScreen(): JSX.Element {
 
       <Hints
         items={[
-          { key: 'A', label: 'Install' },
-          { key: 'B', label: 'Back' }
+          { key: 'A', label: t('action.install') },
+          { key: 'B', label: t('action.back') }
         ]}
       />
     </div>
@@ -241,6 +244,7 @@ function PlatformBios({
   onInstall: (firmwareId: number, fileName: string, platform: BiosPlatform) => void
   onInstallAll: (platform: BiosPlatform) => void
 }): JSX.Element | null {
+  const { t, formatBytes } = useI18n()
   // A platform with nothing needed, nothing on the server and no problem to
   // report has nothing to say. Showing it anyway would bury the handful that
   // matter under thirty rows of "fine".
@@ -266,12 +270,12 @@ function PlatformBios({
    */
   const status: { label: string; state: 'ok' | 'warn' | 'off' } =
     platform.biosDir === null
-      ? { label: 'Unknown', state: 'off' }
+      ? { label: t('bios.statusUnknown'), state: 'off' }
       : outstanding > 0
-        ? { label: `${outstanding} missing`, state: 'warn' }
+        ? { label: t('bios.statusMissing', { count: outstanding }), state: 'warn' }
         : platform.setupNote || platform.items.length === 0
-          ? { label: 'Unknown', state: 'off' }
-          : { label: 'Ready', state: 'ok' }
+          ? { label: t('bios.statusUnknown'), state: 'off' }
+          : { label: t('bios.statusReady'), state: 'ok' }
   // What this console alone can be given now: the button is about this section,
   // so a file the server does not hold must not be counted into it.
   const fetchable = platform.items.filter(
@@ -302,7 +306,7 @@ function PlatformBios({
               onSelect={() => onInstallAll(platform)}
               disabled={busy !== null || platform.biosDir === null}
             >
-              Install all
+              {t('action.installAll')}
             </FocusButton>
           </span>
         ) : null}
@@ -333,7 +337,11 @@ function PlatformBios({
                 className="status"
                 data-state={item.installed ? 'ok' : item.required ? 'warn' : 'off'}
               >
-                {item.installed ? 'Installed' : item.required ? 'Required' : 'Optional'}
+                {item.installed
+                  ? t('bios.itemInstalled')
+                  : item.required
+                    ? t('bios.itemRequired')
+                    : t('bios.itemOptional')}
               </span>
               {/* RomM checks uploads against known-good hashes, and a BIOS that
                   is subtly the wrong dump fails in ways that look like a broken
@@ -341,12 +349,12 @@ function PlatformBios({
                   for the file. */}
               {item.verified ? (
                 <span className="status" data-state="ok">
-                  Verified
+                  {t('bios.itemVerified')}
                 </span>
               ) : null}
             </div>
             <div className="bios__meta">
-              {item.note ?? 'Uploaded to RomM for this platform'}
+              {item.note ?? t('bios.uploadedForPlatform')}
               {item.sizeBytes > 0 ? ` · ${formatBytes(item.sizeBytes)}` : ''}
             </div>
             {/* Named per file rather than once per platform: on a row where
@@ -360,7 +368,7 @@ function PlatformBios({
           </div>
           <div className="bios__actions">
             {item.firmwareId == null ? (
-              <span className="faint">Not on your server</span>
+              <span className="faint">{t('bios.notOnServer')}</span>
             ) : (
               <FocusButton
                 icon="install"
@@ -368,7 +376,11 @@ function PlatformBios({
                 disabled={busy !== null || platform.biosDir === null}
                 onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
               >
-                {busy === item.fileName ? 'Installing…' : item.installed ? 'Reinstall' : 'Install'}
+                {busy === item.fileName
+                  ? t('action.installing')
+                  : item.installed
+                    ? t('action.reinstall')
+                    : t('action.install')}
               </FocusButton>
             )}
           </div>

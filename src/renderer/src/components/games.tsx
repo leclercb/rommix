@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useRef, type Ref } from 'react'
 import type { InstalledRom, RommRom } from '@shared/types'
 import { FocusGroup, useFocusable } from '../input/focus'
+import { useI18n } from '../state'
 import { CoverArt, PlatformIcon } from './art'
 
 /** A game as the library draws it: a cover, a title, a shelf of them. */
@@ -59,13 +60,16 @@ export function GameCard({
   onSelect: () => void
   showPlatform?: boolean
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect, actionLabel: 'Open' })
+  const { t } = useI18n()
+  const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
 
   return (
     <button ref={ref as Ref<HTMLButtonElement>} className="card" {...props}>
       <div style={{ position: 'relative' }}>
         <CoverArt path={tile.coverPath} name={tile.title} />
-        {installed ? <span className="card__installed" title="Downloaded" /> : null}
+        {installed ? (
+          <span className="card__installed" title={t('library.downloadedMark')} />
+        ) : null}
       </div>
       <div className="card__title">{tile.title}</div>
       {showPlatform ? (

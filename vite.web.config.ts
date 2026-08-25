@@ -43,6 +43,10 @@ function withoutCsp(): Plugin {
  * The tab is the one label that follows the page wherever it is linked from, and
  * the description says the same thing to anything that unfurls the link.
  *
+ * Written here in English, and rewritten in the reader's own language once the
+ * page runs — see `describePage` in `src/renderer/src/dev/bridge.ts`. One static
+ * build can only carry one of the four, and this is the copy a link unfurls to.
+ *
  * `src/renderer/index.html` is left alone: the app is not the demo, and this is
  * the only build that is.
  */

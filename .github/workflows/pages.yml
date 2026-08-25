@@ -25,6 +25,7 @@ on:
       - 'src/config/**'
       - 'vite.web.config.ts'
       - 'scripts/build-site.sh'
+      - 'scripts/build-landing.mjs'
       - 'package-lock.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:

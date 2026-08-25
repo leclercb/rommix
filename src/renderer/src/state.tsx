@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode
 } from 'react'
+import { createI18n, localeFor, type I18n } from '@shared/i18n'
 import type {
   ConnectionStatus,
   DownloadItem,
@@ -62,6 +63,17 @@ export interface ToastPlatform {
 }
 
 interface AppState {
+  /**
+   * The language everything on screen is written in, with the number and date
+   * formats that go with it.
+   *
+   * Held beside the settings it is derived from rather than in a provider of
+   * its own: `Settings.language` is what decides it, and a second context over
+   * the same value would only be a second thing to keep in step. `useI18n` is
+   * the hook screens actually call.
+   */
+  i18n: I18n
+
   status: ConnectionStatus | null
   refreshStatus: () => Promise<ConnectionStatus>
   settings: Settings | null
@@ -126,6 +138,22 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
 
   const route = history[history.length - 1]
+
+  /**
+   * `auto` asks the browser, which under Electron is the desktop's own locale.
+   * Recomputed from the setting alone, so changing the language in Settings
+   * redraws every screen in it without a restart.
+   */
+  const i18n = useMemo(
+    () => createI18n(localeFor(settings?.language, navigator.language)),
+    [settings?.language]
+  )
+
+  // So the page itself says what it is written in: hyphenation, spell checking
+  // and screen readers all read this rather than guessing from the text.
+  useEffect(() => {
+    document.documentElement.lang = i18n.locale
+  }, [i18n])
 
   const notify = useCallback(
     (message: string, tone: Toast['tone'] = 'ok', subject?: ToastSubject): void => {
@@ -220,8 +248,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           // What happens next differs by policy, and saying nothing about it
           // leaves "available" reading as "and RomMix is doing nothing".
           next.blockedReason
-            ? `RomMix ${next.latest} is available — see Settings`
-            : `RomMix ${next.latest} is available`,
+            ? i18n.t('toast.updateAvailableSettings', { version: next.latest })
+            : i18n.t('toast.updateAvailable', { version: next.latest }),
           next.blockedReason ? 'warn' : 'ok'
         )
       } else if (next.state === 'ready') {
@@ -231,13 +259,13 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           // `UpdateStatus.restartBlocked` — so the instruction is the one that
           // works there rather than a button this toast cannot offer.
           next.restartBlocked
-            ? `RomMix ${next.latest} is ready — quit and start it again`
-            : `RomMix ${next.latest} is ready — restart to use it`,
+            ? i18n.t('toast.updateReadyQuit', { version: next.latest })
+            : i18n.t('toast.updateReadyRestart', { version: next.latest }),
           'ok'
         )
       }
     })
-  }, [notify])
+  }, [notify, i18n])
 
   // Live download progress from the main process.
   //
@@ -258,18 +286,18 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
         const subject = { title: item.name, coverPath: item.coverPath }
         if (item.state === 'done') {
           finished = true
-          notify('Download complete', 'ok', subject)
+          notify(i18n.t('toast.downloadComplete'), 'ok', subject)
         } else if (item.state === 'error' && item.error) {
           notify(item.error, 'error', subject)
         } else if (item.state === 'cancelled') {
-          notify('Download cancelled', 'warn', subject)
+          notify(i18n.t('toast.downloadCancelled'), 'warn', subject)
         }
       }
 
       // A finished download changes what the library can launch.
       if (finished) void refreshInstalled()
     })
-  }, [refreshInstalled, notify])
+  }, [refreshInstalled, notify, i18n])
 
   useEffect(() => {
     return window.rommix.game.onState((state) => {
@@ -302,20 +330,21 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       const count = entries.length
       if (count === 1) {
         const entry = entries[0]
-        notify('Already on disk — added to your library', 'ok', {
+        notify(i18n.t('toast.adoptedOne'), 'ok', {
           title: entry.name || entry.fileName,
           coverPath: entry.coverPath
         })
       } else {
-        notify(`${count} games were already on disk — added to your library`)
+        notify(i18n.t('toast.adoptedMany', { count }))
       }
     })
-  }, [notify])
+  }, [notify, i18n])
 
   const installedIds = useMemo(() => new Set(installed.map((item) => item.romId)), [installed])
 
   const value = useMemo<AppState>(
     () => ({
+      i18n,
       status,
       refreshStatus,
       settings,
@@ -337,6 +366,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       notify
     }),
     [
+      i18n,
       status,
       refreshStatus,
       settings,
@@ -366,4 +396,15 @@ export function useApp(): AppState {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('useApp must be used inside an AppProvider')
   return ctx
+}
+
+/**
+ * The catalogue and the formatters, for a component that only needs words.
+ *
+ * The same object `useApp().i18n` returns — this exists so that a button or a
+ * badge can be translated without reaching for the whole application state, and
+ * so `const { t } = useI18n()` is the one line every screen starts with.
+ */
+export function useI18n(): I18n {
+  return useApp().i18n
 }

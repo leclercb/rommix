@@ -95,7 +95,7 @@ export const eden: EmulatorDescriptor = {
    * `bios/switch` for the user to install from.
    */
   bios: ({ fileName, paths }) => (fileName.toLowerCase().endsWith('.keys') ? paths.bios : null),
-  biosStagingNote: 'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
+  biosStagingNote: 'setup.edenStaging',
   // Eden is one emulator, not a core loader.
   core: undefined,
   /**
@@ -109,10 +109,7 @@ export const eden: EmulatorDescriptor = {
    * all: `flatLibrary` puts them beside the game, which is where Eden's *Use
    * external content from game directories* already looks.
    */
-  setupNotes: [
-    "Add RomMix's ROM folder to Eden: File → Game Directories.",
-    'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.'
-  ],
+  setupNotes: ['setup.edenRoms', 'setup.edenFirmware'],
   /**
    * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
    * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,

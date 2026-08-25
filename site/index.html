@@ -3,28 +3,35 @@
   The RomMix landing page: what it is, where it runs, and a way into the demo
   beside it.
 
-  One file, no build step and no script — `scripts/build-site.sh` copies this
-  next to the browser build of the renderer, which is where both `Open the demo`
-  and the `Show the demo` link on the picture lead. Its palette and its mark are
-  the app's own, from `src/renderer/src/styles/` and
+  A template rather than the page itself. `scripts/build-landing.mjs` renders it
+  once per language into `out/site/`, English at the root and the rest in `fr/`,
+  `de/` and `es/` beside it — one copy of the layout and the stylesheet, four
+  copies of the prose. Every `{{key}}` below comes from `site/text/<lang>.json`,
+  except `{{@some.key}}`, which comes from the *application's* own catalogue in
+  `src/shared/i18n/`: the picture further down is a drawing of RomMix, and its
+  labels have no business drifting from the ones RomMix actually shows.
+
+  There is still no script in the rendered page, and no framework anywhere. Its
+  palette and its mark are the app's own, from `src/renderer/src/styles/` and
   `src/renderer/src/components/`.
 
-  The artwork under `./demo/art/` is the same cover art the demo shows: the
+  The artwork under `demo/art/` is the same cover art the demo shows: the
   homebrew library from RomM's public demo, copied there by the preview build
   (`publicDir` in `vite.web.config.ts`). So this page is only whole once both
-  halves are assembled — `npm run preview:web`, not `site/index.html` opened off
-  disk, where the covers 404 to the app's empty-cover gradient and both links go
-  nowhere.
+  halves are assembled — `npm run preview:web`, not this file opened off disk,
+  where the covers 404 to the app's empty-cover gradient, every link is a
+  placeholder and both ways into the demo go nowhere.
 -->
-<html lang="en">
+<html lang="{{lang}}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RomMix — a Big Picture front end for RomM</title>
-    <meta
-      name="description"
-      content="Browse your RomM library like a console dashboard on a desktop, a handheld or a television. Download a game, play it, and your saves go back to RomM when you quit."
-    />
+    <title>{{page.title}}</title>
+    <meta name="description" content="{{page.description}}" />
+    <!-- The same page in the other three, so a search engine offers a reader
+         the one they can actually read. Written out by the renderer, which is
+         the only thing that knows where each translation ended up. -->
+    {{alternates}}
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230b0d13'/%3E%3Crect x='40' y='82' width='48' height='24' rx='6' fill='%231f7fae'/%3E%3Crect x='22' y='22' width='84' height='68' rx='11' fill='%235ac8fa'/%3E%3Crect x='32' y='32' width='64' height='38' rx='7' fill='%230b0d13'/%3E%3Crect x='50' y='48.5' width='28' height='5' fill='%237ad6ff' opacity='.4'/%3E%3Cg fill='none' stroke='%237ad6ff' stroke-width='4'%3E%3Ccircle cx='50' cy='51' r='9'/%3E%3Ccircle cx='78' cy='51' r='9'/%3E%3C/g%3E%3C/svg%3E"
@@ -126,6 +133,40 @@
           radial-gradient(900px 420px at 18% -10%, rgba(90, 200, 250, 0.16), transparent 70%),
           var(--bg);
         padding: 88px 0 72px;
+      }
+
+      /* The four languages, above everything else and out of the way.
+         Four plain links rather than a menu: there is no script on this page,
+         and a select that needs one to go anywhere is worse than a row of
+         words. Each names itself, which is the only form a reader looking for
+         their own language can be relied on to recognise. */
+      .langs {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-bottom: 28px;
+        font-size: 0.85rem;
+      }
+
+      .langs a,
+      .langs span {
+        padding: 3px 10px;
+        border-radius: 999px;
+        color: var(--text-faint);
+      }
+
+      .langs a:hover {
+        background: var(--surface);
+        color: var(--text-dim);
+        text-decoration: none;
+      }
+
+      /* The page you are on is not a link to itself. */
+      .langs span {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        padding: 2px 9px;
       }
 
       .brand {
@@ -1159,6 +1200,8 @@
   <body>
     <header>
       <div class="wrap">
+        <nav class="langs" aria-label="{{@settings.language}}">{{languages}}</nav>
+
         <div class="brand">
           <!-- The app's own mark: a cartridge whose label is a cassette. -->
           <svg viewBox="22 22 84 84" aria-hidden="true">
@@ -1188,13 +1231,9 @@
           <div class="brand__name">Rom<span>Mix</span></div>
         </div>
 
-        <h1>Your RomM library, wherever you play.</h1>
+        <h1>{{hero.title}}</h1>
 
-        <p class="lede">
-          A Big Picture&ndash;style front end for your own <a href="https://romm.app">RomM</a>
-          server. Browse your library like a console dashboard, download a game, play it &mdash; and
-          your saves go back to RomM when you quit.
-        </p>
+        <p class="lede">{{hero.lede}}</p>
 
         <p class="where">
           <span>
@@ -1202,21 +1241,21 @@
               <rect x="2" y="4" width="20" height="13" rx="2" />
               <path d="M9 21h6M12 17v4" />
             </svg>
-            Desktop
+            {{where.desktop}}
           </span>
           <span>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="2" y="6" width="20" height="12" rx="4" />
               <path d="M7 10v4M5 12h4M16 11h.01M18.5 13.5h.01" />
             </svg>
-            Handheld
+            {{where.handheld}}
           </span>
           <span>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="2" y="5" width="20" height="13" rx="2" />
               <path d="M7 21h10" />
             </svg>
-            Television
+            {{where.television}}
           </span>
         </p>
 
@@ -1225,16 +1264,16 @@
                the window it opens in — it is a fullscreen interface with its own
                Escape and its own back — and there is nothing in it that leads
                back to this page. -->
-          <a class="button primary" href="./demo/" target="_blank" rel="noopener">Open the demo</a>
-          <a class="button" href="https://github.com/leclercb/rommix/releases">Download</a>
-          <a class="button" href="https://github.com/leclercb/rommix">Source on GitHub</a>
+          <a class="button primary" href="{{root}}demo/" target="_blank" rel="noopener"
+            >{{action.demo}}</a
+          >
+          <a class="button" href="https://github.com/leclercb/rommix/releases"
+            >{{action.download}}</a
+          >
+          <a class="button" href="https://github.com/leclercb/rommix">{{action.source}}</a>
         </div>
 
-        <p class="note">
-          The demo is the real interface, browsing the homebrew library on
-          <a href="https://demo.romm.app">RomM's public demo</a>. Nothing to install, and no server
-          needed. Use the arrow keys and Enter, a mouse, or a controller if one is plugged in.
-        </p>
+        <p class="note">{{hero.note}}</p>
 
         <!-- The picture, and the way into the real thing on top of it. -->
         <div class="demo">
@@ -1288,7 +1327,7 @@
                       d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
                     />
                   </svg>
-                  Home
+                  {{@nav.home}}
                 </span>
                 <span>
                   <svg
@@ -1304,7 +1343,7 @@
                     <rect width="7" height="7" x="14" y="14" rx="1" />
                     <rect width="7" height="7" x="3" y="14" rx="1" />
                   </svg>
-                  Library
+                  {{@nav.library}}
                 </span>
                 <span>
                   <svg
@@ -1322,7 +1361,7 @@
                     <path d="M21.946 12.013H2.054" />
                     <path d="M6 16h.01" />
                   </svg>
-                  Downloads<i>2</i>
+                  {{@nav.downloads}}<i>2</i>
                 </span>
                 <span>
                   <svg
@@ -1340,7 +1379,7 @@
                     <path d="M22 4h-4" />
                     <circle cx="4" cy="20" r="2" />
                   </svg>
-                  BIOS
+                  {{@nav.bios}}
                 </span>
                 <span>
                   <svg
@@ -1356,7 +1395,7 @@
                     />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
-                  Settings
+                  {{@nav.settings}}
                 </span>
               </div>
 
@@ -1398,12 +1437,12 @@
             </div>
 
             <div class="mock-body">
-              <div class="mock-wash"><img src="./demo/art/175-shot0.webp" alt="" /></div>
+              <div class="mock-wash"><img src="{{root}}demo/art/175-shot0.webp" alt="" /></div>
 
               <div class="mock-hero">
-                <img class="mock-hero-art" src="./demo/art/175-big.webp" alt="" />
+                <img class="mock-hero-art" src="{{root}}demo/art/175-big.webp" alt="" />
                 <div>
-                  <div class="mock-reason">Continue playing</div>
+                  <div class="mock-reason">{{@home.continuePlaying}}</div>
                   <div class="mock-title">Cave Story</div>
                   <div class="chips">
                     <span class="chip-icon"
@@ -1423,10 +1462,10 @@
               display name, and the app lets it run out of room rather than
               inventing a short one.
             -->
-              <div class="shelf-title">Ready to play</div>
+              <div class="shelf-title">{{@home.readyToPlay}}</div>
               <div class="mock-shelf">
                 <figure class="here">
-                  <img src="./demo/art/169-small.webp" alt="" />
+                  <img src="{{root}}demo/art/169-small.webp" alt="" />
                   <figcaption>
                     <span class="tile-name">Demons of Asteborg</span>
                     <span class="tile-meta"
@@ -1436,7 +1475,7 @@
                   </figcaption>
                 </figure>
                 <figure class="focused here">
-                  <img src="./demo/art/123-small.webp" alt="" />
+                  <img src="{{root}}demo/art/123-small.webp" alt="" />
                   <figcaption>
                     <span class="tile-name">Battle Kid: Fortress Of Peril</span>
                     <span class="tile-meta"
@@ -1446,7 +1485,7 @@
                   </figcaption>
                 </figure>
                 <figure class="here">
-                  <img src="./demo/art/77-small.webp" alt="" />
+                  <img src="{{root}}demo/art/77-small.webp" alt="" />
                   <figcaption>
                     <span class="tile-name">Tobu Tobu Girl</span>
                     <span class="tile-meta"
@@ -1455,7 +1494,7 @@
                   </figcaption>
                 </figure>
                 <figure class="here">
-                  <img src="./demo/art/163-small.webp" alt="" />
+                  <img src="{{root}}demo/art/163-small.webp" alt="" />
                   <figcaption>
                     <span class="tile-name">Super Boss Gaiden</span>
                     <span class="tile-meta"
@@ -1465,7 +1504,7 @@
                   </figcaption>
                 </figure>
                 <figure class="here">
-                  <img src="./demo/art/137-small.webp" alt="" />
+                  <img src="{{root}}demo/art/137-small.webp" alt="" />
                   <figcaption>
                     <span class="tile-name">The Legends of Owlia</span>
                     <span class="tile-meta"
@@ -1475,7 +1514,7 @@
                   </figcaption>
                 </figure>
                 <figure class="here">
-                  <img src="./demo/art/139-small.webp" alt="" />
+                  <img src="{{root}}demo/art/139-small.webp" alt="" />
                   <figcaption>
                     <span class="tile-name">Beneath A Steel Sky</span>
                     <span class="tile-meta"
@@ -1486,20 +1525,20 @@
               </div>
 
               <div class="hintbar">
-                <span class="hintbar__credit">Developed with <i>♥</i> by leclercb</span>
-                <span><b>A</b>Open</span>
-                <span><b>Y</b>Search</span>
-                <span><b>B</b>Back</span>
+                <span class="hintbar__credit">{{@app.credit}}</span>
+                <span><b>A</b>{{@action.open}}</span>
+                <span><b>Y</b>{{@action.search}}</span>
+                <span><b>B</b>{{@action.back}}</span>
               </div>
             </div>
           </div>
 
           <!-- Centred on the picture, and shown only while the pointer is over it. -->
-          <a class="demo__start" href="./demo/" target="_blank" rel="noopener">
+          <a class="demo__start" href="{{root}}demo/" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M8 5v14l11-7z" />
             </svg>
-            Show the demo
+            {{demo.start}}
           </a>
         </div>
       </div>
@@ -1507,11 +1546,8 @@
 
     <section>
       <div class="wrap">
-        <h2>Desktop, handheld, television</h2>
-        <p>
-          One build for all three. RomMix opens fullscreen and everything in it can be reached with
-          a D-pad, so the only real difference is how far away you are sitting.
-        </p>
+        <h2>{{devices.title}}</h2>
+        <p>{{devices.lede}}</p>
 
         <div class="devices">
           <figure class="device device--desktop">
@@ -1523,11 +1559,16 @@
                     ><span class="tab"></span><span class="tab"></span>
                   </div>
                   <div class="mini-row">
-                    <img src="./demo/art/175-small.webp" alt="" loading="lazy" />
-                    <img class="focused" src="./demo/art/169-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/123-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/77-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/163-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/175-small.webp" alt="" loading="lazy" />
+                    <img
+                      class="focused"
+                      src="{{root}}demo/art/169-small.webp"
+                      alt=""
+                      loading="lazy"
+                    />
+                    <img src="{{root}}demo/art/123-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/77-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/163-small.webp" alt="" loading="lazy" />
                   </div>
                 </div>
               </div>
@@ -1535,11 +1576,8 @@
               <div class="device__foot"></div>
             </div>
             <figcaption>
-              <h3>At the desk</h3>
-              <p>
-                One download on any Linux desktop. Keyboard, mouse and controller all work, which is
-                where most people set it up before it ever reaches a television.
-              </p>
+              <h3>{{devices.desk.title}}</h3>
+              <p>{{devices.desk.body}}</p>
             </figcaption>
           </figure>
 
@@ -1552,19 +1590,21 @@
                     ><span class="tab"></span>
                   </div>
                   <div class="mini-row">
-                    <img src="./demo/art/137-small.webp" alt="" loading="lazy" />
-                    <img class="focused" src="./demo/art/139-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/149-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/137-small.webp" alt="" loading="lazy" />
+                    <img
+                      class="focused"
+                      src="{{root}}demo/art/139-small.webp"
+                      alt=""
+                      loading="lazy"
+                    />
+                    <img src="{{root}}demo/art/149-small.webp" alt="" loading="lazy" />
                   </div>
                 </div>
               </div>
             </div>
             <figcaption>
-              <h3>In your hands</h3>
-              <p>
-                On a Steam Deck or any Linux handheld. Add the launcher script to Steam as a
-                non-Steam game, and it opens in game mode with the built-in controls driving it.
-              </p>
+              <h3>{{devices.hands.title}}</h3>
+              <p>{{devices.hands.body}}</p>
             </figcaption>
           </figure>
 
@@ -1577,23 +1617,25 @@
                     ><span class="tab"></span><span class="tab"></span><span class="tab"></span>
                   </div>
                   <div class="mini-row">
-                    <img src="./demo/art/123-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/163-small.webp" alt="" loading="lazy" />
-                    <img class="focused" src="./demo/art/175-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/169-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/77-small.webp" alt="" loading="lazy" />
-                    <img src="./demo/art/139-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/123-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/163-small.webp" alt="" loading="lazy" />
+                    <img
+                      class="focused"
+                      src="{{root}}demo/art/175-small.webp"
+                      alt=""
+                      loading="lazy"
+                    />
+                    <img src="{{root}}demo/art/169-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/77-small.webp" alt="" loading="lazy" />
+                    <img src="{{root}}demo/art/139-small.webp" alt="" loading="lazy" />
                   </div>
                 </div>
               </div>
               <div class="device__stand"></div>
             </div>
             <figcaption>
-              <h3>Across the room</h3>
-              <p>
-                Runs under gamescope, and scales up on a 4K screen so everything still reads from
-                the sofa. Sign in by scanning a code with your phone.
-              </p>
+              <h3>{{devices.room.title}}</h3>
+              <p>{{devices.room.body}}</p>
             </figcaption>
           </figure>
         </div>
@@ -1602,64 +1644,37 @@
 
     <section>
       <div class="wrap">
-        <h2>What it does</h2>
-        <p>
-          RomM holds your library. RomMix puts it on a screen you can drive from the sofa, and gets
-          the files where your emulator will find them.
-        </p>
+        <h2>{{does.title}}</h2>
+        <p>{{does.lede}}</p>
 
         <div class="grid">
           <div class="card">
-            <h3>Your library, laid out for a screen</h3>
-            <p>
-              Shelves for what you were last playing, what is already on this device and your
-              favourites &mdash; then everything on the server, searchable and filtered by platform.
-            </p>
+            <h3>{{does.library.title}}</h3>
+            <p>{{does.library.body}}</p>
           </div>
           <div class="card">
-            <h3>Downloads into your emulator's own folder</h3>
-            <p>
-              A game lands in its emulator's own ROM folder, SD card included, so it is there when
-              you start that emulator yourself. Multi-disc sets are unpacked and the emulator is
-              handed the playlist, not the first disc.
-            </p>
+            <h3>{{does.downloads.title}}</h3>
+            <p>{{does.downloads.body}}</p>
           </div>
           <div class="card">
-            <h3>Saves that follow you</h3>
-            <p>
-              Newer saves come down before you play and go back up when you quit &mdash; after
-              showing you what is about to be sent. Every game has a tab for pulling or pushing by
-              hand.
-            </p>
+            <h3>{{does.saves.title}}</h3>
+            <p>{{does.saves.body}}</p>
           </div>
           <div class="card">
-            <h3>The emulators, installed and assigned</h3>
-            <p>
-              Four of the five install from Settings, and RomMix picks which one runs each platform.
-              Change that per platform whenever you like.
-            </p>
+            <h3>{{does.emulators.title}}</h3>
+            <p>{{does.emulators.body}}</p>
           </div>
           <div class="card">
-            <h3>BIOS from your own server</h3>
-            <p>
-              Per platform: what is needed, what RomM has, and what is already in place &mdash; then
-              RomMix installs the rest. Nothing comes from anywhere but your own server.
-            </p>
+            <h3>{{does.bios.title}}</h3>
+            <p>{{does.bios.body}}</p>
           </div>
           <div class="card">
-            <h3>Sign in from the couch</h3>
-            <p>
-              RomMix shows a code and a QR. Approve it in RomM on your phone &mdash; no password
-              typed on a television keyboard.
-            </p>
+            <h3>{{does.signin.title}}</h3>
+            <p>{{does.signin.body}}</p>
           </div>
           <div class="card">
-            <h3>It updates itself</h3>
-            <p>
-              Nothing updates an AppImage for you. RomMix watches its own releases, says when one is
-              out, and writes it over the file you run &mdash; ready at the next start. Or it just
-              tells you, or nothing at all.
-            </p>
+            <h3>{{does.updates.title}}</h3>
+            <p>{{does.updates.body}}</p>
           </div>
         </div>
       </div>
@@ -1667,27 +1682,22 @@
 
     <section>
       <div class="wrap">
-        <h2>The emulators it drives</h2>
-        <p>
-          Five, and RomMix works out which one runs each system. RetroDECK and EmuDeck each carry a
-          dozen emulators; RetroArch runs one core per system; Eden and shadPS4 each run a single
-          console. Settings &rarr; Platforms shows what every system will use, and lets you change
-          it.
-        </p>
+        <h2>{{emulators.title}}</h2>
+        <p>{{emulators.lede}}</p>
 
         <div class="scroll">
           <table>
             <thead>
               <tr>
-                <th>Emulator</th>
-                <th>Covers</th>
-                <th>Installed by RomMix</th>
+                <th>{{emulators.colEmulator}}</th>
+                <th>{{emulators.colCovers}}</th>
+                <th>{{emulators.colInstalled}}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td><a href="https://retrodeck.net">RetroDECK</a></td>
-                <td>79 systems, the NES to the PS3</td>
+                <td>{{emulators.retrodeck}}</td>
                 <td>
                   <span class="install install--yes">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
@@ -1697,19 +1707,19 @@
               </tr>
               <tr>
                 <td><a href="https://www.emudeck.com">EmuDeck</a></td>
-                <td>74 systems, the NES to the Switch and 360</td>
+                <td>{{emulators.emudeck}}</td>
                 <td>
                   <span class="install install--no">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M18 6 6 18M6 6l12 12" />
                     </svg>
-                    Its own installer
+                    {{emulators.ownInstaller}}
                   </span>
                 </td>
               </tr>
               <tr>
                 <td><a href="https://www.retroarch.com">RetroArch</a></td>
-                <td>69 systems, one libretro core each</td>
+                <td>{{emulators.retroarch}}</td>
                 <td>
                   <span class="install install--yes">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
@@ -1719,7 +1729,7 @@
               </tr>
               <tr>
                 <td><a href="https://eden-emu.dev">Eden</a></td>
-                <td>Nintendo Switch</td>
+                <td>{{emulators.eden}}</td>
                 <td>
                   <span class="install install--yes">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
@@ -1729,11 +1739,11 @@
               </tr>
               <tr>
                 <td><a href="https://shadps4.net">shadPS4</a></td>
-                <td>PlayStation 4</td>
+                <td>{{emulators.shadps4}}</td>
                 <td>
                   <span class="install install--yes">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
-                    Flatpak and AppImage
+                    {{emulators.flatpakAndAppImage}}
                   </span>
                 </td>
               </tr>
@@ -1745,60 +1755,35 @@
 
     <section>
       <div class="wrap">
-        <h2>Getting it</h2>
-        <p>
-          You need Linux, a RomM server at version 5 or newer, and one of the emulators above
-          &mdash; RomMix can install all of them except EmuDeck. Download the AppImage for your
-          machine from the
-          <a href="https://github.com/leclercb/rommix/releases">releases page</a> (<code
-            >x86_64</code
-          >
-          for a PC or a Steam Deck, <code>arm64</code> for an ARM handheld) and run it. There is
-          nothing to install.
-        </p>
+        <h2>{{getting.title}}</h2>
+        <p>{{getting.lede}}</p>
 
         <pre><code><b>chmod</b> +x RomMix-x86_64.AppImage
 <b>./RomMix</b>-x86_64.AppImage</code></pre>
 
-        <p class="note">
-          No version in the file name: updates are written over that same file, so shortcuts keep
-          working. Settings says which version you have.
-        </p>
+        <p class="note">{{getting.note}}</p>
 
-        <h3 class="subhead">From Steam, on a handheld</h3>
-        <p>
-          Download <code>rommix-steam.sh</code> from the same release, keep it
-          <strong>beside</strong> the AppImage, and add <strong>the script</strong> as the non-Steam
-          game — not the AppImage itself.
-        </p>
+        <h3 class="subhead">{{getting.steamTitle}}</h3>
+        <p>{{getting.steamBody}}</p>
 
         <pre><code><b>chmod</b> +x RomMix-x86_64.AppImage rommix-steam.sh</code></pre>
 
-        <p class="note">
-          Steam cannot launch an AppImage directly; the script is what makes it work. The
-          <a href="https://github.com/leclercb/rommix#readme">README</a> covers building RomMix
-          yourself, and what to do when an emulator will not start.
-        </p>
+        <p class="note">{{getting.steamNote}}</p>
       </div>
     </section>
 
     <footer>
       <div class="wrap">
         <div class="links">
-          <a href="./demo/">Demo</a>
+          <a href="{{root}}demo/">{{footer.demo}}</a>
           <a href="https://github.com/leclercb/rommix">GitHub</a>
-          <a href="https://github.com/leclercb/rommix/releases">Releases</a>
-          <a href="https://github.com/leclercb/rommix#readme">Documentation</a>
+          <a href="https://github.com/leclercb/rommix/releases">{{footer.releases}}</a>
+          <a href="https://github.com/leclercb/rommix#readme">{{footer.docs}}</a>
           <a href="https://romm.app">RomM</a>
         </div>
-        RomMix is MIT-licensed, and is not affiliated with, endorsed by or connected to RomM, any
-        emulator it launches, or any console maker or game publisher. It ships no games: the covers
-        on this page and the library in the demo come from
-        <a href="https://demo.romm.app">RomM's own public demo</a>, which is homebrew and freeware
-        throughout, and each game's art and name belong to whoever made it. RomMix shows you what is
-        on a server you run yourself.
+        {{footer.disclaimer}}
 
-        <p class="credit">Developed with <i>♥</i> by leclercb</p>
+        <p class="credit">{{@app.credit}}</p>
       </div>
     </footer>
   </body>

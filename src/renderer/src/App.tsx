@@ -17,7 +17,7 @@ import {
   useSuspendGamepad
 } from './input/focus'
 import { Icon, type IconName } from './icons'
-import { useApp, type Route, type Toast } from './state'
+import { useApp, useI18n, type Route, type Toast } from './state'
 import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
 import { GameScreen } from './screens/Game'
@@ -28,6 +28,7 @@ import { SettingsScreen } from './screens/Settings'
 
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
+  const { t } = useI18n()
   const { route, goBack, canGoBack, navigate, downloads, runningRomId, toasts, status, update } =
     useApp()
   const { enterZone } = useFocusContext()
@@ -106,32 +107,32 @@ export function App(): JSX.Element {
           <nav className="topbar__nav">
             <NavItem
               icon="home"
-              label="Home"
+              label={t('nav.home')}
               route={{ name: 'home' }}
               active={route.name === 'home'}
             />
             <NavItem
               icon="library"
-              label="Library"
+              label={t('nav.library')}
               route={{ name: 'library' }}
               active={route.name === 'library'}
             />
             <NavItem
               icon="downloads"
-              label="Downloads"
+              label={t('nav.downloads')}
               route={{ name: 'downloads' }}
               active={route.name === 'downloads'}
               badge={activeDownloads > 0 ? activeDownloads : undefined}
             />
             <NavItem
               icon="bios"
-              label="BIOS"
+              label={t('nav.bios')}
               route={{ name: 'bios' }}
               active={route.name === 'bios'}
             />
             <NavItem
               icon="settings"
-              label="Settings"
+              label={t('nav.settings')}
               route={{ name: 'settings' }}
               active={route.name === 'settings'}
               badge={updateBadge}
@@ -156,7 +157,7 @@ export function App(): JSX.Element {
               </>
             ) : (
               <span className="topbar__host">
-                <span>Not connected</span>
+                <span>{t('app.notConnected')}</span>
                 <Icon name="warn" size={15} />
               </span>
             )}
@@ -247,11 +248,12 @@ function NavItem({
  * what `useSuspendGamepad` lets through.
  */
 function RunningOverlay(): JSX.Element {
+  const { t } = useI18n()
   const { settings, runningStage } = useApp()
 
   if (runningStage) {
     return (
-      <Overlay title="Getting ready">
+      <Overlay title={t('app.gettingReady')}>
         <p className="muted">{runningStage}</p>
         <Spinner />
       </Overlay>
@@ -259,12 +261,9 @@ function RunningOverlay(): JSX.Element {
   }
 
   return (
-    <Overlay title="Game running">
+    <Overlay title={t('app.gameRunning')}>
       <p className="muted">
-        The emulator has focus. Quit it to come back
-        {settings?.confirmSavePush
-          ? ' — RomMix will ask what to send to RomM.'
-          : ' — saves sync to RomM automatically.'}
+        {settings?.confirmSavePush ? t('app.emulatorHasFocusAsk') : t('app.emulatorHasFocusAuto')}
       </p>
       <RunningActions />
     </Overlay>
@@ -280,6 +279,7 @@ function RunningOverlay(): JSX.Element {
  * never looks while the overlay is up.
  */
 function RunningActions(): JSX.Element {
+  const { t } = useI18n()
   const { notify } = useApp()
   const keyLabel = useKeyLabel()
 
@@ -288,7 +288,7 @@ function RunningActions(): JSX.Element {
     // quit and gives it five seconds to save before killing it, so this overlay
     // stays up for a moment afterwards and would otherwise look like a button
     // that did nothing.
-    notify('Asking the emulator to quit…', 'warn')
+    notify(t('app.askingEmulatorToQuit'), 'warn')
     void window.rommix.game.stop()
   }
 
@@ -297,12 +297,12 @@ function RunningActions(): JSX.Element {
 
   return (
     <>
-      <p className="muted">Hold {keyLabel('START')} to close it from here.</p>
+      <p className="muted">{t('app.holdToClose', { key: keyLabel('START') })}</p>
       <div className="btn-row">
         {/* Not autofocused: the pad cannot reach it while a game is running, and
             a focused danger button nothing can press only looks armed. */}
         <FocusButton icon="cancel" variant="danger" onSelect={stop}>
-          Close the emulator
+          {t('app.closeEmulator')}
         </FocusButton>
       </div>
     </>

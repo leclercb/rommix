@@ -1,3 +1,4 @@
+import type { Text } from '@shared/i18n'
 import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { baseName, directory, joinPath, perRom, shared } from '../savepaths.ts'
@@ -45,7 +46,7 @@ function at(path: string | null, make: (dir: string) => SaveLocation): SaveLocat
  * every PS1 or PS2 game the user has played and uploading it under one game's
  * id would attach the lot to that game.
  */
-function cardEmulator(component: string, reason: string): ComponentSaves {
+function cardEmulator(component: string, reason: Text): ComponentSaves {
   return (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, component, 'memcards'), shared),
     states: at(under(statesRoot(ctx), ctx.system, component), (dir) => perRom(dir)),
@@ -54,16 +55,8 @@ function cardEmulator(component: string, reason: string): ComponentSaves {
 }
 
 const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
-  pcsx2: cardEmulator(
-    'pcsx2',
-    'RetroDECK gives PCSX2 one memory card shared by every PS2 game, so there is no save ' +
-      'file that belongs to this one. Save states are synced.'
-  ),
-  duckstation: cardEmulator(
-    'duckstation',
-    'RetroDECK gives DuckStation one memory card shared by every PS1 game, so there is no ' +
-      'save file that belongs to this one. Save states are synced.'
-  ),
+  pcsx2: cardEmulator('pcsx2', 'saves.retrodeckPcsx2'),
+  duckstation: cardEmulator('duckstation', 'saves.retrodeckDuckstation'),
 
   /**
    * Dolphin keeps GameCube memory cards under a region folder and the Wii NAND
@@ -74,16 +67,12 @@ const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
   dolphin: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'dolphin'), shared),
     states: at(under(statesRoot(ctx), 'dolphin'), (dir) => perRom(dir)),
-    unsyncableReason:
-      'Dolphin keeps one GameCube memory card per region and one Wii NAND for every game, ' +
-      'so there is no save file that belongs to this one. Save states are synced.'
+    unsyncableReason: 'saves.dolphin'
   }),
   primehack: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'primehack'), shared),
     states: at(under(statesRoot(ctx), 'primehack'), (dir) => perRom(dir)),
-    unsyncableReason:
-      'PrimeHack keeps one memory card for every game, so there is no save file that belongs ' +
-      'to this one. Save states are synced.'
+    unsyncableReason: 'saves.primehack'
   }),
 
   /** melonDS names both its `.sav` and its states after the ROM. */
@@ -115,49 +104,37 @@ const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
   ppsspp: (ctx) => ({
     saves: at(under(savesRoot(ctx), 'PSP', 'PPSSPP-SA'), shared),
     states: at(under(statesRoot(ctx), 'PSP', 'PPSSPP-SA'), shared),
-    unsyncableReason:
-      'PPSSPP files saves under the game id printed inside the disc image rather than under ' +
-      'the ROM name, which RomMix cannot read from outside the emulator.'
+    unsyncableReason: 'saves.ppsspp'
   }),
   rpcs3: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'rpcs3'), shared),
     states: at(under(statesRoot(ctx), ctx.system, 'rpcs3'), shared),
-    unsyncableReason:
-      'RPCS3 files saves under the PS3 title id rather than the ROM name, which RomMix cannot ' +
-      'match to this game.'
+    unsyncableReason: 'saves.rpcs3'
   }),
   cemu: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'cemu'), shared),
     states: null,
-    unsyncableReason:
-      'Cemu files saves under the Wii U title id rather than the ROM name, which RomMix cannot ' +
-      'match to this game.'
+    unsyncableReason: 'saves.cemu'
   }),
   vita3k: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'vita3k'), shared),
     states: null,
-    unsyncableReason:
-      'Vita3K files saves under the Vita title id rather than the ROM name, which RomMix ' +
-      'cannot match to this game.'
+    unsyncableReason: 'saves.vita3k'
   }),
   azahar: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'azahar', 'sdmc'), shared),
     states: null,
-    unsyncableReason:
-      'Azahar keeps saves inside an emulated SD card tree keyed by title id, which RomMix ' +
-      'cannot match to this game.'
+    unsyncableReason: 'saves.azahar'
   }),
   xemu: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'xemu'), shared),
     states: null,
-    unsyncableReason:
-      'xemu keeps one emulated Xbox hard disk for every game, so there is no save file that ' +
-      'belongs to this one.'
+    unsyncableReason: 'saves.xemu'
   }),
   xroar: (ctx) => ({
     saves: null,
     states: at(under(statesRoot(ctx), 'xroar', ctx.system), (dir) => perRom(dir)),
-    unsyncableReason: 'XRoar writes no battery saves; only its states are synced.'
+    unsyncableReason: 'saves.xroar'
   }),
   solarus: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'solarus'), directory),

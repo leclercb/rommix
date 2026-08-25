@@ -76,7 +76,7 @@ export const shadps4: EmulatorDescriptor = {
    * shadPS4 scans folders it has been told about, and RomMix's is not one of
    * them until the user says so.
    */
-  setupNotes: ["Add RomMix's ROM folder to shadPS4, so its game list finds what you download."],
+  setupNotes: ['setup.shadps4Roms'],
   env: undefined,
   // `exec` alone opens shadPS4's game list.
   open: undefined,

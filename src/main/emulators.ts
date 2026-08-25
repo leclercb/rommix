@@ -23,6 +23,7 @@ import {
   xdgConfigHome,
   xdgDataHome
 } from './host.ts'
+import { t } from './i18n.ts'
 
 /**
  * Probing the machine for the emulators in the registry.
@@ -326,9 +327,9 @@ async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promis
   // An emulator that owns its library is only useful once that library exists;
   // before that there is nowhere to install to.
   const unavailableReason = !install
-    ? `${descriptor.name} is not installed.`
+    ? t('emulator.reasonNotInstalled', { name: descriptor.name })
     : descriptor.ownsLibrary && !paths.roms
-      ? `${descriptor.name} has not been run yet, so its folders do not exist.`
+      ? t('emulator.reasonNotRun', { name: descriptor.name })
       : null
 
   // What the probe concluded, per emulator: where it was found, and the folders

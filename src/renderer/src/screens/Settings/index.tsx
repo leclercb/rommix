@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
 import { Hints, Spinner, Tabs } from '../../components'
-import { useApp } from '../../state'
+import { useApp, useI18n } from '../../state'
 import { EmulatorChangeNotice, EMULATOR_CHANGE_NOTICE } from './EmulatorChangeNotice'
 import { EmulatorsTab, GamesTab, GeneralTab, SystemTab } from './tabs'
 
@@ -27,6 +27,7 @@ import { EmulatorsTab, GamesTab, GeneralTab, SystemTab } from './tabs'
 type SettingsTab = 'general' | 'emulators' | 'games' | 'system'
 
 export function SettingsScreen(): JSX.Element {
+  const { t } = useI18n()
   const { settings, saveSettings, update } = useApp()
   const [tab, setTab] = useState<SettingsTab>('general')
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
@@ -102,23 +103,23 @@ export function SettingsScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">Settings</h1>
+      <h1 className="page-title">{t('nav.settings')}</h1>
 
       <div className="panel">
         <Tabs<SettingsTab>
           active={tab}
           onChange={setTab}
           tabs={[
-            { id: 'general', label: 'General' },
+            { id: 'general', label: t('settings.tabGeneral') },
             {
               id: 'emulators',
-              label: 'Emulators',
+              label: t('settings.tabEmulators'),
               badge: diagnostics?.emulators.filter((e) => e.available).length || undefined
             },
-            { id: 'games', label: 'Games' },
+            { id: 'games', label: t('settings.tabGames') },
             {
               id: 'system',
-              label: 'System',
+              label: t('settings.tabSystem'),
               // The new version, on the tab that can do something about it. The
               // menu already carries this mark; without it here, arriving in
               // Settings loses the trail one step short of the panel.
@@ -156,10 +157,10 @@ export function SettingsScreen(): JSX.Element {
 
       <Hints
         items={[
-          { key: 'A', label: 'Select' },
-          { key: 'LB', label: 'Previous tab' },
-          { key: 'RB', label: 'Next tab' },
-          { key: 'B', label: 'Back' }
+          { key: 'A', label: t('action.select') },
+          { key: 'LB', label: t('action.previousTab') },
+          { key: 'RB', label: t('action.nextTab') },
+          { key: 'B', label: t('action.back') }
         ]}
       />
     </div>

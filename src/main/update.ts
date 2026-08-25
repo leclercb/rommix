@@ -11,6 +11,7 @@ import { log } from './log.ts'
 // the rule for telling them apart is the one already written there.
 import { builtForThisMachine } from './releases.ts'
 import type { Store } from './store.ts'
+import { t } from './i18n.ts'
 
 /**
  * RomMix updating itself.
@@ -174,10 +175,7 @@ function initialStatus(): UpdateStatus {
     readyPath: null,
     blockedReason: null,
     // Decided once, at start: how RomMix was launched cannot change under it.
-    restartBlocked: startedBySteam()
-      ? 'Steam started RomMix, and it will not let a program restart itself. ' +
-        'Quit RomMix and press Play again — the new version is already in place.'
-      : null,
+    restartBlocked: startedBySteam() ? t('update.steamBlocked') : null,
     error: null,
     checkedAt: null
   }
@@ -292,12 +290,12 @@ export class Updater {
         }
       })
       if (!response.ok) {
-        throw new Error(`GitHub responded ${response.status}`)
+        throw new Error(t('update.githubResponded', { status: response.status }))
       }
 
       const release = (await response.json()) as GithubRelease
       const latest = (release.tag_name ?? '').replace(/^v/i, '')
-      if (!latest) throw new Error('the newest release has no version tag')
+      if (!latest) throw new Error(t('update.noVersionTag'))
 
       const checkedAt = new Date().toISOString()
       const newer = compareVersions(latest, this.current.current) > 0
@@ -342,7 +340,7 @@ export class Updater {
       // step has to be done by hand.
       const blockedReason = this.pending
         ? this.blockedReason()
-        : `Release ${latest} has no build for this machine (${process.arch}).`
+        : t('update.noBuildForMachine', { version: latest, arch: process.arch })
 
       log.info('update', 'a newer version is published', {
         current: this.current.current,
@@ -404,7 +402,7 @@ export class Updater {
     if (this.busy) return this.current
 
     const asset = this.pending
-    if (!asset) throw new Error('There is no new version to download')
+    if (!asset) throw new Error(t('update.nothingToDownload'))
 
     const blocked = this.blockedReason()
     if (blocked) throw new Error(blocked)
@@ -430,7 +428,7 @@ export class Updater {
 
       const response = await fetch(asset.url)
       if (!response.ok || !response.body) {
-        throw new Error(`Download failed: ${asset.url} responded ${response.status}`)
+        throw new Error(t('update.downloadFailed', { url: asset.url, status: response.status }))
       }
 
       const declared = Number(response.headers.get('content-length') ?? 0)
@@ -492,7 +490,7 @@ export class Updater {
    */
   restart(): void {
     if (this.current.state !== 'ready' || !this.current.readyPath) {
-      throw new Error('There is no downloaded version to restart into')
+      throw new Error(t('update.nothingToRestartInto'))
     }
     // The interface offers Quit instead where this is set, so reaching here is
     // a caller that ignored it rather than a user who pressed the wrong thing.
@@ -516,12 +514,9 @@ export class Updater {
   private blockedReason(): string | null {
     if (process.env.APPIMAGE) return null
     if (!app.isPackaged) {
-      return 'This is a development build, so RomMix will not replace it.'
+      return t('update.devBuild')
     }
-    return (
-      'RomMix was not started from an AppImage, so it cannot replace itself. ' +
-      'Download the new version from the releases page.'
-    )
+    return t('update.notAppImage')
   }
 
   /** Fold a change into the status and tell the interface. */
@@ -543,13 +538,10 @@ export class Updater {
 function explain(cause: unknown, dir: string): string {
   const code = (cause as NodeJS.ErrnoException).code
   if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
-    return (
-      `RomMix cannot write to ${dir}, so it cannot replace itself there. ` +
-      'Move the AppImage somewhere you own, or download the new version from the releases page.'
-    )
+    return t('update.cannotWrite', { dir })
   }
   if (code === 'ENOSPC') {
-    return `There is not enough room left on ${dir} for the new version.`
+    return t('update.noRoom', { dir })
   }
   return (cause as Error).message
 }
