@@ -523,6 +523,7 @@ export const en = {
   'setup.edenRoms': "Add RomMix's ROM folder to Eden: File → Game Directories.",
   'setup.edenFirmware':
     'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.',
+  'setup.edenControls': 'Set up your controller in Eden: Emulation → Configure → Controls.',
   'setup.edenExitConfirm':
     'Turn off Eden’s exit confirmation: Emulation → Configure → General → Confirm exit while ' +
     'emulation is running.',

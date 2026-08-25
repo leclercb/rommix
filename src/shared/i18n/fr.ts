@@ -517,6 +517,7 @@ export const fr: Catalog = {
   'setup.edenRoms': 'Ajoutez le dossier de ROM de RomMix à Eden : File → Game Directories.',
   'setup.edenFirmware':
     'Installez le firmware dans Eden : Tools → Install Firmware. Les clés sont copiées pour vous.',
+  'setup.edenControls': 'Configurez votre manette dans Eden : Emulation → Configure → Controls.',
   'setup.edenExitConfirm':
     'Désactivez la confirmation de sortie d’Eden : Emulation → Configure → General → Confirm ' +
     'exit while emulation is running.',

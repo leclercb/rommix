@@ -109,15 +109,23 @@ export const eden: EmulatorDescriptor = {
    * all: `flatLibrary` puts them beside the game, which is where Eden's *Use
    * external content from game directories* already looks.
    *
-   * The last one is about being able to *stop* it. Eden inherits the Yuzu
-   * lineage's confirm-on-exit, so the SIGTERM RomMix sends when Close the
-   * emulator is pressed raises a dialog inside Eden rather than closing it —
-   * and RomMix, waiting on a process that is waiting on a person, sits on
-   * "Asking the emulator to quit…" until somebody answers it there. RomMix does
-   * not write into another program's configuration, so this is asked for rather
-   * than done.
+   * The last two are about playing and then stopping. Nothing maps a pad for
+   * Eden — RomMix hands it the game and the pad, and which button is which is
+   * Eden's own to be told. And Eden inherits the Yuzu lineage's confirm-on-exit,
+   * so the SIGTERM sent when Close the emulator is pressed raises a dialog
+   * inside Eden rather than closing it, leaving RomMix waiting on a process
+   * that is waiting on a person. Neither is done for the user: RomMix does not
+   * write into another program's configuration.
+   *
+   * In the order they are met: get games listed, get them to run, be able to
+   * play them, be able to stop.
    */
-  setupNotes: ['setup.edenRoms', 'setup.edenFirmware', 'setup.edenExitConfirm'],
+  setupNotes: [
+    'setup.edenRoms',
+    'setup.edenFirmware',
+    'setup.edenControls',
+    'setup.edenExitConfirm'
+  ],
   /**
    * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
    * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,

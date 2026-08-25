@@ -528,6 +528,7 @@ export const de: Catalog = {
   'setup.edenRoms': 'Den ROM-Ordner von RomMix in Eden eintragen: File → Game Directories.',
   'setup.edenFirmware':
     'Firmware in Eden installieren: Tools → Install Firmware. Die Schlüssel werden für Sie kopiert.',
+  'setup.edenControls': 'Den Controller in Eden einrichten: Emulation → Configure → Controls.',
   'setup.edenExitConfirm':
     'Die Beenden-Nachfrage von Eden abschalten: Emulation → Configure → General → Confirm exit ' +
     'while emulation is running.',
