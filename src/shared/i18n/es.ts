@@ -894,6 +894,9 @@ export const es: Catalog = {
   'launch.cannotRunSystem':
     '{emulator} no puede ejecutar «{system}». Elige otro emulador para esta plataforma en Ajustes, ' +
     'o instala uno que la cubra.',
+  'launch.launcherMissing':
+    '{emulator} no tiene ningún lanzador instalado para «{system}». Añade uno desde {emulator}, o ' +
+    'elige otro emulador para esta plataforma en Ajustes.',
   'launch.stoppedBeforeStart': 'Detenido antes de que el juego arrancara',
   'launch.syncWarning': 'Aviso de sincronización de partidas: {details}',
   'launch.couldNotStartEmulator': 'No se ha podido arrancar el emulador: {reason}',

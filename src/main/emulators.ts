@@ -1,12 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { orderedEmulators } from '@config/emulators'
+import { launchVariants, orderedEmulators } from '@config/emulators'
 import type {
   DirBase,
   DirSpec,
   EmulationPaths,
   EmulatorDescriptor,
   EmulatorState,
+  LaunchVariant,
   LayoutSource,
   ResolvedInstall
 } from '@config/emulators'
@@ -305,6 +306,49 @@ function discoverLayout(
     },
     extras
   }
+}
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+
+/**
+ * The ways this emulator can really run a system on this machine.
+ *
+ * `launchVariants` is what the descriptor claims; this is what survives being
+ * looked for. The two differ for exactly one kind of install — a directory of
+ * launcher scripts, where the option list describes another program's setup
+ * choices and RomMix has no say in which of them were made. A row naming a
+ * script that is not in that directory describes an emulator this user did not
+ * install, or one upstream has since renamed, and offering it produces a launch
+ * that fails with nothing on screen explaining why.
+ *
+ * Every other install kind passes through untouched: a flatpak or an AppImage
+ * is one program, and its variants are facts about it rather than about the
+ * folder it was found in.
+ */
+export function usableVariants(
+  descriptor: EmulatorDescriptor,
+  system: string,
+  install: ResolvedInstall | null
+): readonly LaunchVariant[] {
+  const declared = launchVariants(descriptor, system)
+  if (install?.kind !== 'scripts') return declared
+
+  const usable = declared.filter(
+    (variant) => !variant.requires || existsSync(join(install.ref, variant.requires))
+  )
+  // Only when something was dropped, and naming what: this is the line that
+  // answers "why is Citron not in the list" without a trip to the filesystem.
+  if (usable.length !== declared.length) {
+    log.debug('probe', 'launchers not installed', {
+      emulator: descriptor.id,
+      system,
+      dir: install.ref,
+      missing: declared.filter((variant) => !usable.includes(variant)).map((variant) => variant.id)
+    })
+  }
+  return usable
 }
 
 // ---------------------------------------------------------------------------

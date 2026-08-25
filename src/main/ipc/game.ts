@@ -1,10 +1,10 @@
-import { emulatorById, launchVariants } from '@config/emulators'
 import { localize } from '@shared/i18n'
 import type { LaunchChoice, LaunchResult } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
-import { i18n } from '../i18n.ts'
+import { i18n, t } from '../i18n.ts'
 import { log } from '../log.ts'
-import { launchContext, launcherKey } from './context.ts'
+import { RommError } from '../romm.ts'
+import { launchContext, launcherKey, launchOptions } from './context.ts'
 import type { Handle } from './handler.ts'
 
 /** Starting a game, and stopping the emulator that is running one. */
@@ -20,9 +20,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
    */
   handle('game:variants', async (romId: number): Promise<LaunchChoice> => {
     const { installed, emulator } = await launchContext(rommix, romId)
-    const descriptor = emulatorById(emulator.id)
-    const options = descriptor ? launchVariants(descriptor, installed.system) : []
-    const recorded = store.settings.systemLaunchers[launcherKey(emulator.id, installed.system)]
+    const { descriptor, options, chosen } = launchOptions(rommix, emulator, installed.system)
 
     return {
       system: installed.system,
@@ -31,19 +29,34 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
       // Resolved here, so the renderer is handed sentences rather than keys.
       setupNotes: (descriptor?.setupNotes ?? []).map((note) => localize(note, i18n())),
       options: options.map((option) => ({ ...option })),
-      // A recorded choice that no longer exists is reported as unanswered, so
-      // the user is asked again rather than being launched into something else.
-      chosen: options.some((option) => option.id === recorded) ? recorded : null
+      chosen
     }
   })
 
   handle('game:launch', async (romId: number, variant?: string): Promise<LaunchResult> => {
     const { installed, emulator } = await launchContext(rommix, romId)
+    const {
+      options,
+      chosen: settled,
+      noLauncher
+    } = launchOptions(rommix, emulator, installed.system)
+
+    // An emulator that claims the system but has no launcher here for it. Said
+    // plainly and before the spawn: the alternative is a script that is not
+    // there being exec'd, which surfaces as a game that does nothing.
+    if (noLauncher) {
+      throw new RommError(
+        t('launch.launcherMissing', { emulator: emulator.name, system: installed.system })
+      )
+    }
 
     // Remembered so the question is asked once per system rather than before
     // every game.
     const key = launcherKey(emulator.id, installed.system)
-    const chosen = variant ?? store.settings.systemLaunchers[key]
+    // `settled` before the descriptor's own default, and the first *usable*
+    // option before neither: passing nothing would let the descriptor fall back
+    // to the head of its table, which is the one row this machine may not have.
+    const chosen = variant ?? settled ?? options[0]?.id
     if (variant && variant !== store.settings.systemLaunchers[key]) {
       store.updateSettings({
         systemLaunchers: { ...store.settings.systemLaunchers, [key]: variant }

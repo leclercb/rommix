@@ -913,6 +913,9 @@ export const fr: Catalog = {
   'launch.cannotRunSystem':
     '{emulator} ne peut pas faire tourner « {system} ». Choisissez un autre émulateur pour cette ' +
     'plateforme dans les Réglages, ou installez-en un qui la couvre.',
+  'launch.launcherMissing':
+    '{emulator} n’a aucun lanceur installé pour « {system} ». Ajoutez-en un depuis {emulator}, ou ' +
+    'choisissez un autre émulateur pour cette plateforme dans les Réglages.',
   'launch.stoppedBeforeStart': 'Arrêté avant le démarrage du jeu',
   'launch.syncWarning': 'Avertissement de synchronisation : {details}',
   'launch.couldNotStartEmulator': 'Impossible de démarrer l’émulateur : {reason}',

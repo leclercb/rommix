@@ -892,6 +892,9 @@ export const en = {
   'launch.cannotRunSystem':
     '{emulator} cannot run "{system}". Choose a different emulator for this platform in ' +
     'Settings, or install one that covers it.',
+  'launch.launcherMissing':
+    '{emulator} has no launcher installed for "{system}". Add one from {emulator}, or choose a ' +
+    'different emulator for this platform in Settings.',
   'launch.stoppedBeforeStart': 'Stopped before the game started',
   'launch.syncWarning': 'Save sync warning: {details}',
   'launch.couldNotStartEmulator': 'Could not start the emulator: {reason}',

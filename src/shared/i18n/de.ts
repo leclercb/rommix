@@ -925,6 +925,9 @@ export const de: Catalog = {
   'launch.cannotRunSystem':
     '{emulator} kann „{system}“ nicht ausführen. Wählen Sie in den Einstellungen einen anderen ' +
     'Emulator für diese Plattform oder installieren Sie einen, der sie abdeckt.',
+  'launch.launcherMissing':
+    '{emulator} hat für „{system}“ keinen Starter installiert. Fügen Sie einen über {emulator} ' +
+    'hinzu oder wählen Sie in den Einstellungen einen anderen Emulator für diese Plattform.',
   'launch.stoppedBeforeStart': 'Vor dem Start des Spiels abgebrochen',
   'launch.syncWarning': 'Warnung beim Spielstand-Abgleich: {details}',
   'launch.couldNotStartEmulator': 'Der Emulator ließ sich nicht starten: {reason}',

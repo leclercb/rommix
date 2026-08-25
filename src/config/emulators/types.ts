@@ -225,6 +225,26 @@ export interface LaunchVariant {
   label: string
   /** Short qualifier shown beside the label, e.g. 'RetroArch'. */
   note?: string
+  /**
+   * A file this variant needs, below the install directory.
+   *
+   * Where the options are somebody else's arrangement rather than RomMix's own,
+   * the list here is a *copy* of which emulators their installer set up and
+   * under what names — and it goes stale on their release cadence, not RomMix's.
+   * EmuDeck has changed its default Switch emulator three times in two years.
+   *
+   * Naming the file turns the claim into something the probe can check. A
+   * variant whose launcher is not on disk is not offered, so an emulator the
+   * user declined to install, or one upstream has since renamed, reads as an
+   * option that is absent rather than one that dies at exec with nothing on
+   * screen to connect it to.
+   *
+   * Undefined means the variant is a fact about the emulator rather than about
+   * the machine — a libretro core RetroArch will load on demand — and is always
+   * offered. Only a `scripts` install resolves this, being the only kind whose
+   * `ref` is a directory, and also the only kind RomMix did not choose itself.
+   */
+  requires?: string
 }
 
 export interface LaunchContext {

@@ -40,15 +40,31 @@ export interface EmuDeckLauncher extends LaunchVariant {
   args: readonly string[]
 }
 
+/**
+ * One entry in the table below.
+ *
+ * `requires` is the script itself. EmuDeck writes one launcher per emulator it
+ * installs, at the moment it installs it, so the file being there is exactly
+ * what says that emulator was set up — which is what makes every row here
+ * checkable rather than merely claimed. See `LaunchVariant.requires`.
+ */
+function launcher(
+  id: string,
+  label: string,
+  note: string,
+  script: string,
+  args: readonly string[]
+): EmuDeckLauncher {
+  return { id, label, note, script, requires: script, args }
+}
+
 /** `retroarch.sh -L <core>_libretro.so <rom>`, EmuDeck's most common shape. */
 function core(id: string, label: string, name: string): EmuDeckLauncher {
-  return {
-    id,
-    label,
-    note: 'RetroArch',
-    script: 'retroarch.sh',
-    args: ['-L', `${name}_libretro.so`, ROM_PLACEHOLDER]
-  }
+  return launcher(id, label, 'RetroArch', 'retroarch.sh', [
+    '-L',
+    `${name}_libretro.so`,
+    ROM_PLACEHOLDER
+  ])
 }
 
 /** A standalone emulator, which EmuDeck gives its own launcher script. */
@@ -58,7 +74,7 @@ function standalone(
   script: string,
   args: readonly string[] = [ROM_PLACEHOLDER]
 ): EmuDeckLauncher {
-  return { id, label, note: 'Standalone', script, args }
+  return launcher(id, label, 'Standalone', script, args)
 }
 
 /**
@@ -68,6 +84,12 @@ function standalone(
  * second or third is listed, EmuDeck installs those too and the choice is a
  * real one — Saturn accuracy versus speed, or which of the four Switch
  * emulators a given game actually runs on — so RomMix asks instead of deciding.
+ *
+ * Nothing here is taken on trust at launch time: every row names the script it
+ * needs, and the probe drops the ones whose script is not in the user's
+ * `launchers` folder. So this table is EmuDeck's *catalogue* rather than a
+ * claim about any particular machine — a user who installed four of its Switch
+ * emulators is offered four, and one who installed none is told so.
  */
 export const EMUDECK_LAUNCHERS: Readonly<Record<string, readonly EmuDeckLauncher[]>> = {
   // -- Nintendo -------------------------------------------------------------
