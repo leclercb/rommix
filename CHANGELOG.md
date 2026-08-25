@@ -4,6 +4,22 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.0 — 2026-08-25
+
+- Offer to force an emulator closed when it ignores the request to quit
+- Add flags to the language setting and an icon to the launch variant buttons
+- Show the favourites button as an icon only
+- Report BIOS and save-preview failures instead of showing an empty result
+- Add a Collections page and assign games to collections from the game details page
+- Add controller setup to Eden's notes
+- Show an emulator's setup steps as soon as it is installed
+- Show the running overlay for an emulator started on its own
+- Tell Eden users to turn off its exit confirmation
+- Move emulators out of Settings onto a page of their own
+- Explain what moving the ROM library costs before it moves
+- Default new installations to the shared RomMix ROM folder
+- Internationalization
+
 ## 0.6.0 — 2026-08-24
 
 - Auto update, split settings page into tabs
