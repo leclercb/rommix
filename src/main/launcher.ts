@@ -4,7 +4,7 @@ import type { ResolvedInstall } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { installCore, missingCore } from './cores.ts'
-import { execPrefix, killFlatpakApp, stopFlatpakApp } from './host.ts'
+import { execPrefix, killFlatpakApp, realHome, stopFlatpakApp } from './host.ts'
 import { log } from './log.ts'
 import type { RommClient } from './romm.ts'
 import type { SaveSync } from './saves.ts'
@@ -587,7 +587,7 @@ export class Launcher {
 
     const prefix = execPrefix(emulator.install, descriptor.env)
     const argv = descriptor.open
-      ? descriptor.open({ exec: prefix, installRef: emulator.install.ref })
+      ? descriptor.open({ exec: prefix, installRef: emulator.install.ref, home: realHome() })
       : prefix
     const command = argv.join(' ')
     log.info('emulator', 'starting on its own, with no game', { emulator: emulator.id, command })

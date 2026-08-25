@@ -163,10 +163,12 @@ function readConfigValues(path: string, source: LayoutSource): Map<string, strin
   }
 
   for (const line of text.split('\n')) {
-    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
+    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
     if (!match) continue
-    const raw = match[2].trim().replace(/^["']|["']$/g, '')
+    const raw = match[2].trim()
     if (!raw) continue
+    // Quotes are the reader's business, not something to strip beforehand:
+    // where they open and close is what decides whether a `$` expands.
     const value = expandShell(raw, values)
     // A value still naming something unresolved is dropped rather than used: a
     // ROM folder called `$emulationPath` is worse than no ROM folder, because
@@ -177,13 +179,24 @@ function readConfigValues(path: string, source: LayoutSource): Map<string, strin
 }
 
 /**
- * Expand the variable references a shell settings file may carry.
+ * Read one value out of a shell settings file, as sourcing it would.
  *
  * These files are *sourced* by the emulator's own scripts, so every form the
- * shell understands is legal in them — and EmuDeck's `settings.sh` really does
- * write `romsPath="$emulationPath/roms"` rather than a literal path. Handling
- * only a leading `$HOME` left that as the string `$emulationPath/roms`, which
- * then became a directory of that name.
+ * shell understands is legal in them, and EmuDeck uses several in the same
+ * file — `romsPath="$emulationPath/roms"` fully quoted, and
+ * `emulationPath="$HOME"/Emulation` with the quotes around the variable only.
+ *
+ * That second form is why this walks the string rather than trimming a quote
+ * off each end and expanding what is left. Stripping the outermost pair leaves
+ * an opening quote with no closing one, and the `"` in the middle of the value
+ * survives into the path: `/home/user"/Emulation`, a directory that cannot
+ * exist, reported as the library root of an EmuDeck install that is sitting
+ * right there.
+ *
+ * What the shell does, and so what this does: quotes delimit rather than
+ * belong; `$name` and `${name}` expand unless single-quoted; `~` is home only
+ * at the very front and only unquoted; an unquoted space ends the value, since
+ * that is where the assignment ends and the next word begins.
  *
  * Only backward references are resolved, which is what sourcing does too: a
  * name is whatever it was last assigned above this line. `HOME` is supplied
@@ -192,26 +205,50 @@ function readConfigValues(path: string, source: LayoutSource): Map<string, strin
  */
 export function expandShell(value: string, known: ReadonlyMap<string, string>): string | null {
   const home = realHome()
+  let out = ''
   let unresolved = false
+  let quote: '"' | "'" | null = null
+  let index = 0
 
-  const expanded = value
-    // `~` is only a home reference at the very front, which is also the only
-    // place a shell expands it.
-    .replace(/^~(?=\/|$)/, home)
-    .replace(
-      /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
-      (_match, braced, bare) => {
-        const name = (braced ?? bare) as string
+  // Before the loop, because this is the one position the shell treats `~`
+  // specially — and it is not special inside quotes, which have not opened yet.
+  if (value.startsWith('~') && (value.length === 1 || value[1] === '/')) {
+    out = home
+    index = 1
+  }
+
+  for (; index < value.length; index += 1) {
+    const char = value[index]
+
+    if (quote === null && (char === '"' || char === "'")) {
+      quote = char
+      continue
+    }
+    if (char === quote) {
+      quote = null
+      continue
+    }
+    // An unquoted space is the end of the assignment, not part of the path.
+    if (quote === null && /\s/.test(char)) break
+
+    // Single quotes are the shell's literal quotes: nothing expands inside them.
+    if (char === '$' && quote !== "'") {
+      const reference = /^(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/.exec(
+        value.slice(index + 1)
+      )
+      if (reference) {
+        const name = reference[1] ?? reference[2]
         const found = name === 'HOME' ? home : known.get(name)
-        if (found === undefined) {
-          unresolved = true
-          return ''
-        }
-        return found
+        if (found === undefined) unresolved = true
+        else out += found
+        index += reference[0].length
+        continue
       }
-    )
+    }
+    out += char
+  }
 
-  return unresolved ? null : expanded
+  return unresolved ? null : out
 }
 
 /**

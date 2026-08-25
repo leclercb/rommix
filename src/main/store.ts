@@ -100,7 +100,11 @@ export class Store {
 
   private settingsCache: Settings
   private serverCache: ServerConfig | null
-  private credentialsCache: StoredCredentials
+  /**
+   * Null until something asks, which is what makes this correct rather than
+   * merely lazy: see `credentials`.
+   */
+  private credentialsCache: StoredCredentials | null = null
   private installedCache: Map<number, InstalledRom>
 
   constructor(dir: string) {
@@ -116,7 +120,6 @@ export class Store {
     })
     this.settingsCache = { ...defaultSettings(), ...raw.settings }
     this.serverCache = raw.server ?? null
-    this.credentialsCache = this.loadCredentials()
     this.installedCache = new Map(
       readJson<{ roms: InstalledRom[] }>(this.installedPath, { roms: [] }).roms.map((r) => [
         r.romId,
@@ -125,18 +128,13 @@ export class Store {
     )
 
     // What RomMix believes at the moment it starts. Which credential kind is
-    // held explains most sign-in questions on its own — a client token that
-    // never expires and a JWT pair behave differently — and the token itself
-    // never leaves this file.
+    // held is just as worth knowing — a client token that never expires and a
+    // JWT pair behave differently — but it is deliberately not read here; that
+    // line comes from `loadCredentials`, whenever the first reader arrives.
     log.info('store', 'state loaded', {
       dir: this.dir,
       server: this.serverCache?.baseUrl ?? null,
       authMode: this.serverCache?.authMode ?? null,
-      credentials: this.credentialsCache.clientToken
-        ? 'client token'
-        : this.credentialsCache.accessToken
-          ? 'access token'
-          : 'none',
       installed: this.installedCache.size
     })
   }
@@ -168,12 +166,30 @@ export class Store {
 
   // -- credentials ----------------------------------------------------------
 
+  /**
+   * Read from disk on first use, not in the constructor.
+   *
+   * `safeStorage` throws outright before the app is ready, and the store is
+   * built while `RomMixApp` is being constructed — which is before
+   * `app.whenReady()`, because the single-instance handlers need the object to
+   * exist. Decrypting there therefore failed on every single start, and the
+   * failure is indistinguishable from having no tokens: RomMix asked the user
+   * to pair, encrypted the new tokens successfully (that write happens after
+   * ready), and then could not read them back the next time either.
+   *
+   * Lazy is not a workaround here but the correct lifetime: nothing wants the
+   * tokens until a request is made, and by then Electron is up.
+   */
   get credentials(): StoredCredentials {
-    return this.credentialsCache
+    this.credentialsCache ??= this.loadCredentials()
+    // A read that *failed* is deliberately not cached. "Could not be read" and
+    // "there are none" are different facts, and caching the first as the second
+    // is what turned one bad read into a permanent signed-out state.
+    return this.credentialsCache ?? { ...EMPTY_CREDENTIALS }
   }
 
   setCredentials(patch: Partial<StoredCredentials>): void {
-    this.credentialsCache = { ...this.credentialsCache, ...patch }
+    this.credentialsCache = { ...this.credentials, ...patch }
     this.persistCredentials()
   }
 
@@ -188,7 +204,7 @@ export class Store {
    * we mark the payload so we know which decoder to use on the way back in.
    */
   private persistCredentials(): void {
-    const json = JSON.stringify(this.credentialsCache)
+    const json = JSON.stringify(this.credentials)
     try {
       if (safeStorage.isEncryptionAvailable()) {
         const blob = safeStorage.encryptString(json)
@@ -207,7 +223,8 @@ export class Store {
     })
   }
 
-  private loadCredentials(): StoredCredentials {
+  /** The stored tokens, or null when the file is there and could not be read. */
+  private loadCredentials(): StoredCredentials | null {
     try {
       if (!existsSync(this.credentialsPath)) return { ...EMPTY_CREDENTIALS }
       const buf = readFileSync(this.credentialsPath)
@@ -216,16 +233,22 @@ export class Store {
       const json =
         magic === 'ENC1' ? safeStorage.decryptString(body) : magic === 'RAW1' ? body.toString() : ''
       if (!json) return { ...EMPTY_CREDENTIALS }
-      return { ...EMPTY_CREDENTIALS, ...(JSON.parse(json) as object) }
+      const loaded = { ...EMPTY_CREDENTIALS, ...(JSON.parse(json) as object) }
+      // The kind, never the token: it is what most sign-in questions turn on.
+      log.info('store', 'credentials loaded', {
+        encrypted: magic === 'ENC1',
+        kind: loaded.clientToken ? 'client token' : loaded.accessToken ? 'access token' : 'none'
+      })
+      return loaded
     } catch (cause) {
       // Reads as "signed out" to the user, which is the wrong explanation: the
       // tokens are there and could not be decrypted, usually because the
       // keyring the OS offered this time is not the one that encrypted them.
-      log.warn('store', 'stored credentials could not be read, treating them as absent', {
+      log.warn('store', 'stored credentials could not be read', {
         path: this.credentialsPath,
         reason: (cause as Error).message
       })
-      return { ...EMPTY_CREDENTIALS }
+      return null
     }
   }
 

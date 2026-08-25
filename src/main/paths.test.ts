@@ -146,6 +146,36 @@ test('a plain absolute path passes through untouched', () => {
   assert.equal(expandShell('/home/deck/Emulation', new Map()), '/home/deck/Emulation')
 })
 
+test('quotes around part of a value do not survive into the path', () => {
+  // What EmuDeck writes today, and what an outermost-pair strip got wrong: the
+  // opening quote came off, the one before `/Emulation` did not, and the
+  // library root became `/home/user"/Emulation` — unopenable, on a machine
+  // where EmuDeck was installed and working.
+  const home = process.env.HOME ?? ''
+  assert.equal(expandShell('"$HOME"/Emulation', new Map()), `${home}/Emulation`)
+  assert.equal(expandShell('"$HOME"/Emulation/tools', new Map()), `${home}/Emulation/tools`)
+  assert.equal(expandShell('"${HOME}"/Emulation', new Map()), `${home}/Emulation`)
+})
+
+test('a fully quoted value reads the same as an unquoted one', () => {
+  const known = new Map([['emulationPath', '/run/media/sd/Emulation']])
+  assert.equal(expandShell('"$emulationPath/roms"', known), '/run/media/sd/Emulation/roms')
+  assert.equal(expandShell("'/games/Emulation'", known), '/games/Emulation')
+})
+
+test('single quotes keep a value literal, as the shell does', () => {
+  // Rare in these files, but the difference is not cosmetic: expanding inside
+  // them would invent a path, and refusing to would drop a real one.
+  assert.equal(expandShell("'$HOME/Emulation'", new Map()), '$HOME/Emulation')
+})
+
+test('an unquoted space ends the value', () => {
+  // `path=/a/b # note` is an assignment followed by two more words, and a
+  // trailing comment is not part of the directory name.
+  assert.equal(expandShell('/games/Emulation # the good one', new Map()), '/games/Emulation')
+  assert.equal(expandShell('"/games/My Emulation"', new Map()), '/games/My Emulation')
+})
+
 // -- builtForThisMachine ----------------------------------------------------
 
 test('a build for another architecture is refused', () => {

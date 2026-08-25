@@ -335,10 +335,11 @@ export const example: EmulatorDescriptor = {
   /**
    * argv to start the emulator on its own, for the Run button beside it in
    * Settings. Only needed where that is not simply `exec` — a launcher
-   * directory has no one program, so EmuDeck points this at its frontend.
+   * directory has no one program, so EmuDeck points this at the configurator
+   * that installed them, which `home` is given for.
    *
    * ```ts
-   * open: ({ exec, installRef }) => [...exec, `${installRef}/es-de/es-de.sh`]
+   * open: ({ home }) => [`${home}/Applications/EmuDeck.AppImage`, '--no-sandbox']
    * ```
    */
   open: undefined,

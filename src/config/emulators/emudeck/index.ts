@@ -1,5 +1,5 @@
 import { emuDeckSavePaths } from './saves.ts'
-import type { EmulatorDescriptor, LaunchVariant } from '../types.ts'
+import type { DirSpec, EmulatorDescriptor, LaunchVariant, LayoutSource } from '../types.ts'
 
 /**
  * EmuDeck.
@@ -248,8 +248,46 @@ export const EMUDECK_LAUNCHERS: Readonly<Record<string, readonly EmuDeckLauncher
   tic80: [core('tic80', 'TIC-80', 'tic80')]
 }
 
-/** EmuDeck's frontend, for the Run button. Below the launchers directory. */
-const EMUDECK_FRONTEND = 'es-de/es-de.sh'
+/**
+ * EmuDeck's configurator, below the user's home.
+ *
+ * A fixed location rather than something discovered: `install.sh` curls it to
+ * exactly this path, chmods it and runs it, and everything else EmuDeck sets up
+ * happens afterwards from inside it.
+ *
+ * `--no-sandbox` because it is an Electron application, and Ubuntu restricts
+ * the unprivileged user namespaces Chromium's sandbox needs
+ * (`kernel.apparmor_restrict_unprivileged_userns=1` since 24.04), so without
+ * the flag it exits during startup rather than opening a window. Not RomMix's
+ * own opinion about sandboxing: EmuDeck's installer passes it on Ubuntu and
+ * writes it into the desktop entry it creates, so this is the same command the
+ * user's own menu entry runs.
+ */
+const EMUDECK_APP = 'Applications/EmuDeck.AppImage'
+
+/**
+ * EmuDeck's `settings.sh`, wherever it is being kept.
+ *
+ * One description of the file rather than two copies of it: the same
+ * `key=value` shell with the same names, and only its location has moved.
+ */
+function settingsSource(file: DirSpec): LayoutSource {
+  return {
+    file,
+    format: 'shell',
+    requires: 'home',
+    keys: {
+      home: 'emulationPath',
+      roms: 'romsPath',
+      saves: 'savesPath',
+      bios: 'biosPath'
+    },
+    // Where the launcher scripts live, which is also how EmuDeck is detected at
+    // all.
+    extras: { tools: 'toolsPath' },
+    defaults: { roms: 'roms', saves: 'saves', bios: 'bios', tools: 'tools' }
+  }
+}
 
 /** The ways EmuDeck can run this system, EmuDeck's own default first. */
 export function emuDeckLaunchers(system: string): readonly EmuDeckLauncher[] {
@@ -279,23 +317,14 @@ export const emudeck: EmulatorDescriptor = {
   // is a path the user chose, and an SD card is the usual reason.
   dirs: {},
   layout: {
+    // Both places EmuDeck has kept that file. `~/emudeck/settings.sh` is the
+    // path its own scripts source and the one to prefer; on a current install
+    // it is a symlink to the copy under `~/.config/EmuDeck`, which is where the
+    // real file now lives — so the second entry is what answers if a version
+    // ever stops leaving the symlink behind.
     sources: [
-      {
-        // `key=value` shell, sourced by EmuDeck's own launcher scripts.
-        file: { base: 'home', path: 'emudeck/settings.sh' },
-        format: 'shell',
-        requires: 'home',
-        keys: {
-          home: 'emulationPath',
-          roms: 'romsPath',
-          saves: 'savesPath',
-          bios: 'biosPath'
-        },
-        // Where the launcher scripts live, which is also how EmuDeck is
-        // detected at all.
-        extras: { tools: 'toolsPath' },
-        defaults: { roms: 'roms', saves: 'saves', bios: 'bios', tools: 'tools' }
-      }
+      settingsSource({ base: 'home', path: 'emudeck/settings.sh' }),
+      settingsSource({ base: 'config', path: 'EmuDeck/settings.sh' })
     ],
     // What EmuDeck keeps below its Emulation folder. `tools` is here too: it is
     // where the launcher scripts live, and therefore what "EmuDeck is
@@ -338,7 +367,11 @@ export const emudeck: EmulatorDescriptor = {
   core: undefined,
   setupNotes: [],
   env: undefined,
-  open: ({ exec, installRef }) => [...exec, `${installRef}/${EMUDECK_FRONTEND}`],
+  // EmuDeck itself, not ES-DE. The button is for the setup only the program can
+  // do — installing another emulator, moving the library to an SD card — and
+  // RomMix is already the frontend the user is looking at, so handing them a
+  // second one is not what "Run EmuDeck" means.
+  open: ({ home }) => [`${home}/${EMUDECK_APP}`, '--no-sandbox'],
   launch: ({ exec, installRef, system, romPath, variant }) => {
     const options = emuDeckLaunchers(system)
     if (options.length === 0) return null

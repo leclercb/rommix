@@ -529,10 +529,15 @@ test('a scripts install builds its launcher path from the install ref', () => {
   assert.ok(argv?.includes('/e/roms/psx/game.chd'), 'the ROM path is never passed')
 })
 
-test('EmuDeck opens its own frontend for the Run button', () => {
-  assert.deepEqual(emudeck.open?.({ exec: [], installRef: '/e/tools/launchers' }), [
-    '/e/tools/launchers/es-de/es-de.sh'
-  ])
+test('EmuDeck opens its own configurator for the Run button', () => {
+  // Not ES-DE: the button is for what only EmuDeck can do, and installing the
+  // emulator behind a missing launcher is the first of those. `--no-sandbox`
+  // is what EmuDeck's own desktop entry passes, and without it the Electron
+  // app exits at startup wherever unprivileged user namespaces are restricted.
+  assert.deepEqual(
+    emudeck.open?.({ exec: [], installRef: '/e/tools/launchers', home: '/home/u' }),
+    ['/home/u/Applications/EmuDeck.AppImage', '--no-sandbox']
+  )
 })
 
 // ---------------------------------------------------------------------------

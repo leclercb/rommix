@@ -515,11 +515,19 @@ export interface EmulatorDescriptor {
    */
   readonly env: Readonly<Record<string, string>> | undefined
   /**
-   * argv to start the emulator on its own, for the Run button. Only needed
-   * where that is not simply `exec` — a launcher directory has no one program,
-   * so EmuDeck points this at its frontend.
+   * argv to start the emulator on its own, for the Run button.
+   *
+   * Only needed where that is not simply `exec`. A `scripts` install has no one
+   * program to start — EmuDeck is a folder of launchers, and the thing to open
+   * is the configurator that put them there, which is what the button is for:
+   * the setup RomMix cannot do, including installing the emulator behind a
+   * launcher it reported as missing.
+   *
+   * `home` is given because that program need not be anywhere below
+   * `installRef`, and for EmuDeck it is not.
    */
-  open: ((ctx: { exec: readonly string[]; installRef: string }) => string[]) | undefined
+  open:
+    ((ctx: { exec: readonly string[]; installRef: string; home: string }) => string[]) | undefined
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
 }
