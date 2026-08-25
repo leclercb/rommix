@@ -27,7 +27,6 @@ export const eden: EmulatorDescriptor = {
   id: 'eden',
   name: 'Eden',
   dispatch: 'rommix',
-  frontend: false,
   install: [
     // Listed first so a packaged build is preferred if one ever appears; today
     // only the AppImage pattern matches anything.

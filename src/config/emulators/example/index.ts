@@ -40,15 +40,6 @@ export const example: EmulatorDescriptor = {
    * RetroArch is plainly a frontend for cores, and is still 'rommix'.
    */
   dispatch: 'rommix',
-  /**
-   * True when this program runs games through other emulators instead of
-   * emulating anything itself — RetroDECK and EmuDeck, and nothing else today.
-   *
-   * It decides whose saves this program is allowed to load: a frontend accepts
-   * a save tagged with any emulator, because one of them is what will open it.
-   * Answer it here rather than anywhere else having to keep a list.
-   */
-  frontend: false,
 
   // -- finding and installing it -------------------------------------------------
 

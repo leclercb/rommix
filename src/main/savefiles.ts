@@ -1,16 +1,17 @@
 import { copyFile, mkdir, readdir, stat, utimes } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
+import type { SavePaths } from '@config/emulators'
 import type { RommRom, SaveSyncState } from '@shared/types'
 
 /**
  * The judgements save sync makes about files, without any of the moving.
  *
- * Two of them decide whether a save is handled correctly at all: whether a file
- * on disk belongs to this game, and which end of a pair is ahead. Both are
- * about names and timestamps rather than about RomM or an emulator, so they are
- * here — testable on their own, which `saves.test.ts` is — and the rest is the
- * filesystem work they imply.
+ * Three of them decide whether a save is handled correctly at all: whether a
+ * file on disk belongs to this game, which end of a pair is ahead, and which
+ * emulator's files these are. None is about RomM or about moving bytes, so they
+ * are here — testable on their own, which `saves.test.ts` is — and the rest is
+ * the filesystem work they imply.
  */
 
 const { maxDepth: MAX_DEPTH } = SAVE_CONVENTIONS
@@ -85,6 +86,44 @@ export function stemMatches(fileStem: string, romStem: string): boolean {
 /** The ROM's name without its extension, which is what saves are named after. */
 export function romStemOf(rom: RommRom, romPath: string): string {
   return rom.fs_name_no_ext || basename(romPath).replace(/\.[^.]+$/, '')
+}
+
+/**
+ * What this device tags a save with: the program that actually wrote it.
+ *
+ * The descriptor's answer where it gave one — a frontend names the emulator it
+ * dispatched to, so RetroDECK running PCSX2 says `pcsx2` — and the descriptor
+ * id otherwise, which is already right for a standalone.
+ *
+ * One function because both directions must agree. A push sends this and a pull
+ * matches on it, and while those were two separate expressions a frontend's
+ * uploads could not match its own downloads.
+ */
+export function localTag(paths: SavePaths, emulatorId: string): string {
+  return paths.emulator ?? emulatorId
+}
+
+/**
+ * Is a remote asset one this emulator could load?
+ *
+ * A save is only meaningful to the program that wrote it — a RetroArch `.srm`
+ * dropped into Eden's folder is at best ignored and at worst loaded as garbage
+ * — so the `emulator` tag RomM records is the filter, matched against the tag
+ * this device would upload under.
+ *
+ * Against `localTag` rather than the descriptor id because for a frontend the
+ * two differ: RetroDECK uploads `pcsx2` and its id is `retrodeck`, so comparing
+ * ids would reject every save it ever wrote. Comparing tags accepts a PCSX2
+ * save from any of the three ways of running PCSX2 and nothing else — where an
+ * id comparison, once widened far enough to let frontends through at all, took
+ * a Yabause save into mednafen's folder.
+ *
+ * An untagged asset is not one RomMix wrote, because every upload carries a
+ * tag. Nothing else on the asset says which program produced it, so there is no
+ * answer to "could this emulator load it" and it is left where it is.
+ */
+export function acceptsTag(local: string, tag: string | null): boolean {
+  return tag ? tag.toLowerCase() === local.toLowerCase() : false
 }
 
 /**

@@ -78,7 +78,6 @@ export const retrodeck: EmulatorDescriptor = {
   id: 'retrodeck',
   name: 'RetroDECK',
   dispatch: 'self',
-  frontend: true,
   install: [{ kind: 'flatpak', appId: RETRODECK_APP_ID }],
   homepage: 'https://retrodeck.net',
   systems: [...new Set([...systemsWithCore(), ...RETRODECK_STANDALONE_SYSTEMS])],

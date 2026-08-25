@@ -180,16 +180,21 @@ export function emuDeckSavePaths(ctx: SaveContext, script: string): SavePaths {
   const folder = emuDeckSaveFolder(script)
   const root = joinPath(ctx.paths.saves, folder)
 
+  // Tagged with the emulator underneath, not with EmuDeck: the file is a
+  // Dolphin or DuckStation save and stays readable as one. Lowercased because
+  // the folder is not: `Cemu` and `Vita3K` are spelled as EmuDeck spells them,
+  // and a tag is compared against what the other ways of running that emulator
+  // send.
+  const emulator = folder.toLowerCase()
+
   const switchName = SWITCH_FOLDERS[folder]
   // The Yuzu-lineage emulators keep a NAND rather than a save folder, and
   // EmuDeck links `<folder>/saves` straight at its `nand/user/save`.
   if (switchName) {
-    return { ...switchSavePaths(ctx, joinPath(root, 'saves'), switchName), emulator: folder }
+    return { ...switchSavePaths(ctx, joinPath(root, 'saves'), switchName), emulator }
   }
 
   const known = FOLDERS[folder]
   const paths = known ? known(ctx, root) : standard(root)
-  // Tagged with the emulator underneath, not with EmuDeck: the file is a
-  // Dolphin or DuckStation save and stays readable as one.
-  return { ...paths, emulator: folder.toLowerCase() }
+  return { ...paths, emulator }
 }

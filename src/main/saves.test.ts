@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { stemMatches, syncStateOf } from './savefiles.ts'
+import { acceptsTag, localTag, stemMatches, syncStateOf } from './savefiles.ts'
 
 /**
- * The two judgements save sync makes that nothing else checks.
+ * The three judgements save sync makes that nothing else checks.
  *
  * `stemMatches` decides whether a file on disk belongs to this game. Too strict
  * and a real save is never uploaded; too loose and one game's memory card is
@@ -15,6 +15,12 @@ import { stemMatches, syncStateOf } from './savefiles.ts'
  * that a server copy is *always* stamped later than the local file it came from,
  * because `updated_at` is the upload time — so "newer on the server" cannot mean
  * "changed elsewhere" without knowing where it came from.
+ *
+ * `localTag` and `acceptsTag` decide whose saves this device will take. They are
+ * tested as a pair because the bug they replaced was not in either rule but in
+ * the gap between them: the push named the emulator underneath a frontend and
+ * the pull compared against the frontend's own id, so the two could not agree
+ * and the difference was papered over by accepting every tag.
  */
 
 test('an exact stem matches', () => {
@@ -103,4 +109,65 @@ test('a local file past the rounding tolerance is still local-newer', () => {
 
 test('an unparseable server timestamp does not invent a conflict', () => {
   assert.equal(syncStateOf(Date.now(), 'not a date', null), 'synced')
+})
+
+/** A descriptor that named no emulator: a standalone, tagged with its own id. */
+const standalone = { saves: null, states: null }
+
+test('a standalone is tagged with its own id', () => {
+  assert.equal(localTag(standalone, 'retroarch'), 'retroarch')
+  assert.equal(localTag(standalone, 'eden'), 'eden')
+})
+
+test('a frontend is tagged with the emulator underneath, not with itself', () => {
+  // The whole reason the two sides have to share this function: RetroDECK's id
+  // is 'retrodeck' and it never appears on a save it writes.
+  assert.equal(localTag({ ...standalone, emulator: 'pcsx2' }, 'retrodeck'), 'pcsx2')
+  assert.equal(localTag({ ...standalone, emulator: 'retroarch' }, 'retrodeck'), 'retroarch')
+})
+
+test('a save from this emulator is accepted', () => {
+  assert.equal(acceptsTag('eden', 'eden'), true)
+})
+
+test('the same emulator reached three ways is one tag', () => {
+  // Standalone PCSX2, RetroDECK's PCSX2 and EmuDeck's all upload 'pcsx2', which
+  // is what makes a memory card written on one readable on the others.
+  const tag = localTag({ ...standalone, emulator: 'pcsx2' }, 'retrodeck')
+  assert.equal(acceptsTag(tag, localTag({ ...standalone, emulator: 'pcsx2' }, 'emudeck')), true)
+  assert.equal(acceptsTag(tag, localTag(standalone, 'pcsx2')), true)
+})
+
+test('case does not decide it, because the frontends disagree on it', () => {
+  // EmuDeck's folders are `Cemu` and `Vita3K`; RetroDECK's components are
+  // lowercase. Both are the same program.
+  assert.equal(acceptsTag('cemu', 'Cemu'), true)
+  assert.equal(acceptsTag('Vita3K', 'vita3k'), true)
+})
+
+test('a save from another emulator is refused', () => {
+  assert.equal(acceptsTag('eden', 'retroarch'), false)
+  assert.equal(acceptsTag('retroarch', 'shadps4'), false)
+})
+
+test('two frontends running different emulators do not swap saves', () => {
+  // The case the old rule got wrong: RetroDECK dispatching Saturn to Yabause
+  // and EmuDeck dispatching it to a libretro core are not interchangeable, and
+  // both being frontends was taken as reason enough to trade files.
+  const emudeck = localTag({ ...standalone, emulator: 'retroarch' }, 'emudeck')
+  assert.equal(acceptsTag(emudeck, 'yabause'), false)
+})
+
+test('a frontend takes back the save it wrote itself', () => {
+  // And the case the old rule was compensating for: comparing against the
+  // descriptor id, 'pcsx2' never equals 'retrodeck'.
+  const tag = localTag({ ...standalone, emulator: 'pcsx2' }, 'retrodeck')
+  assert.equal(acceptsTag(tag, 'pcsx2'), true)
+})
+
+test('an untagged asset is left where it is', () => {
+  // Every RomMix upload carries a tag, so an untagged one was written by
+  // something else and nothing says which emulator could read it.
+  assert.equal(acceptsTag('retroarch', null), false)
+  assert.equal(acceptsTag('retroarch', ''), false)
 })

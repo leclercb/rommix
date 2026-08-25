@@ -37,7 +37,6 @@ export const retroarch: EmulatorDescriptor = {
   id: 'retroarch',
   name: 'RetroArch',
   dispatch: 'rommix',
-  frontend: false,
   install: [
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
     { kind: 'binary', names: ['retroarch'] }

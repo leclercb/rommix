@@ -26,7 +26,6 @@ export const shadps4: EmulatorDescriptor = {
   id: 'shadps4',
   name: 'shadPS4',
   dispatch: 'rommix',
-  frontend: false,
   install: [
     { kind: 'flatpak', appId: 'net.shadps4.shadPS4' },
     { kind: 'binary', names: ['shadps4'] },

@@ -33,7 +33,6 @@ const FIELD_ORDER = [
   'id',
   'name',
   'dispatch',
-  'frontend',
   'install',
   'homepage',
   'systems',

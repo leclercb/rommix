@@ -350,19 +350,6 @@ export interface EmulatorDescriptor {
   readonly id: EmulatorId
   readonly name: string
   readonly dispatch: EmulatorDispatch
-  /**
-   * True when this program runs games through other emulators rather than
-   * emulating anything itself.
-   *
-   * What it decides is whose saves are readable. A standalone emulator accepts
-   * only saves tagged with its own name; a frontend accepts any tag, because
-   * the emulator underneath is what will open the file.
-   *
-   * Not derivable from `dispatch`, which answers a different question — who
-   * picks the emulator, not whether there is one underneath. RetroDECK picks
-   * for itself and EmuDeck lets RomMix pick, and both are frontends.
-   */
-  readonly frontend: boolean
 
   // -- finding and installing it -------------------------------------------------
 

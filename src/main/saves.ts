@@ -20,7 +20,9 @@ import { realHome } from './host.ts'
 import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import {
+  acceptsTag,
   cpDirectory,
+  localTag,
   romStemOf,
   sizeOf,
   stampMtime,
@@ -40,7 +42,8 @@ import { extractZip, zipDirectory } from './zip.ts'
  * emulators ES-DE chose, and which Switch profile owns a title. This file's job
  * is everything that is the same whatever the answer turned out to be: what to
  * upload, what to bring down, and in which order. Which files belong to the
- * game and which end of a pair is ahead are decided in `savefiles.ts`.
+ * game, which end of a pair is ahead, and whose emulator's files they are, are
+ * decided in `savefiles.ts`.
  *
  * Three shapes of save exist and each is handled differently:
  *
@@ -54,9 +57,10 @@ import { extractZip, zipDirectory } from './zip.ts'
  *                 reason the buttons can show, rather than uploading one game's
  *                 card under another game's id.
  *
- * RomM records which emulator produced each save and RomMix sends the
- * descriptor id, so a RetroArch `.srm` is not pulled down into an emulator that
- * would not understand it.
+ * RomM records which emulator produced each save, and both directions use the
+ * same answer for what this device is — `localTag` — so a RetroArch `.srm` is
+ * not pulled down into an emulator that would not understand it, and a save a
+ * frontend wrote is not rejected by the frontend that wrote it.
  *
  * Conflict policy is deliberately conservative: a remote asset only overwrites
  * a local one when it is strictly newer, and the local file is copied aside
@@ -172,6 +176,11 @@ export class SaveSync {
     return location && location.match !== 'shared' ? location : null
   }
 
+  /** The tag this device uploads under — see `localTag` in `savefiles.ts`. */
+  private tagFor(paths: SavePaths, target: SaveTarget): string {
+    return localTag(paths, target.emulator.id)
+  }
+
   /**
    * Find local save/state data belonging to a ROM.
    *
@@ -277,7 +286,7 @@ export class SaveSync {
     let tag: string | null = null
     if (local) {
       const paths = this.locate(local)
-      tag = paths.emulator ?? local.emulator.id
+      tag = this.tagFor(paths, local)
       for (const kind of ['save', 'state'] as const) {
         const location = this.locationFor(paths, kind)
         if (!location) continue
@@ -412,7 +421,7 @@ export class SaveSync {
    */
   async previewPush(target: SaveTarget, since = 0): Promise<SavePushPreview> {
     const paths = this.locate(target)
-    const tag = paths.emulator ?? target.emulator.id
+    const tag = this.tagFor(paths, target)
     const files: PendingSave[] = []
 
     for (const kind of ['save', 'state'] as const) {
@@ -489,7 +498,7 @@ export class SaveSync {
   async pushSelected(target: SaveTarget, chosen: readonly string[]): Promise<SaveSyncResult> {
     const paths = this.locate(target)
     const wanted = new Set(chosen)
-    const tag = paths.emulator ?? target.emulator.id
+    const tag = this.tagFor(paths, target)
     const moved = { saves: 0, states: 0 }
     /** Which of the approved paths this side actually found again. */
     const found = new Set<string>()
@@ -593,30 +602,6 @@ export class SaveSync {
     else await this.client.deleteStates([asset.id])
   }
 
-  /**
-   * Is a remote asset one this emulator could load?
-   *
-   * A save is only meaningful to the emulator that wrote it — a RetroArch
-   * `.srm` dropped into Eden's folder is at best ignored and at worst loaded as
-   * garbage — so the `emulator` tag RomM records is the filter. Three answers
-   * count as ours:
-   *
-   * - no tag at all: provenance unknown, and refusing everything unlabelled
-   *   would ignore saves uploaded through RomM's own web UI. The newer-wins
-   *   rule and the `.rommix-bak` copy still stand behind it.
-   * - the tag is this emulator.
-   * - the tag is the emulator a frontend dispatched to, which is what RomMix
-   *   itself sends for a save written under one.
-   */
-  private accepts(target: SaveTarget, tag: string | null): boolean {
-    if (!tag) return true
-    if (tag.toLowerCase() === target.emulator.id.toLowerCase()) return true
-    // A frontend hands games to other emulators, so a save tagged with one of
-    // those is exactly what the emulator underneath will look for. Which
-    // programs those are is theirs to declare, not this file's to list.
-    return emulatorById(target.emulator.id)?.frontend === true
-  }
-
   private async pullKind(
     target: SaveTarget,
     paths: SavePaths,
@@ -632,7 +617,8 @@ export class SaveSync {
     if (remote.length === 0) return 0
 
     // Only what this emulator could load, and for states only the newest few.
-    const usable = remote.filter((item) => this.accepts(target, item.emulator))
+    const tag = this.tagFor(paths, target)
+    const usable = remote.filter((item) => acceptsTag(tag, item.emulator))
     const wanted =
       kind === 'state'
         ? [...usable]
@@ -775,7 +761,7 @@ export class SaveSync {
     if (!location) return 0
 
     const assets = await this.findLocal(location, target.rom, target.romPath, kind, since)
-    return this.uploadAssets(target, kind, assets, paths.emulator ?? target.emulator.id)
+    return this.uploadAssets(target, kind, assets, this.tagFor(paths, target))
   }
 
   /**
