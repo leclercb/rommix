@@ -140,6 +140,36 @@ export const es: Catalog = {
   'storage.hintPerEmulator':
     'La carpeta de ROM propia de cada emulador, para que los juegos aparezcan en su lista cuando ' +
     'lo abras tú. Cambiar de emulador para una plataforma obliga a descargar sus juegos otra vez.',
+  'storage.toEmulatorTitle': '¿Guardar los juegos en la carpeta de cada emulador?',
+  'storage.toEmulatorBody':
+    'Las descargas irán a la carpeta de ROM del emulador que ejecute su plataforma. Eso es lo que ' +
+    'las pone en su propia lista de juegos cuando lo abres tú, y lo que las ata a él:',
+  'storage.toEmulatorChange':
+    'Cambiar de emulador para una plataforma deja sus juegos en la carpeta del anterior. RomMix ' +
+    'deja de contarlos como descargados y vuelve a ofrecerlos.',
+  'storage.toEmulatorMissing':
+    'Un juego no se puede descargar para una plataforma que aún no tiene ningún emulador ' +
+    'instalado.',
+  'storage.toEmulatorExisting':
+    'Los juegos que ya están en la carpeta de RomMix se quedan ahí y se vuelven a ofrecer; vuelve ' +
+    'atrás y reaparecen.',
+  'storage.toEmulatorKeep': 'Mantener una sola carpeta',
+  'storage.toEmulatorConfirm': 'Usar la carpeta de cada emulador',
+  'storage.toSharedTitle': '¿Guardar todos los juegos en una sola carpeta?',
+  'storage.toSharedBody':
+    'Las descargas irán a la carpeta de ROM propia de RomMix, que no es una carpeta que ningún ' +
+    'emulador lea hasta que se le indique:',
+  'storage.toSharedSetup':
+    'Añade esa carpeta a los directorios de juegos de cada emulador, o no listarán lo que RomMix ' +
+    'haya descargado. La comprobación previa dice cuál es la carpeta.',
+  'storage.toSharedFree':
+    'Cambiar de emulador para una plataforma ya no moverá nada ni obligará a descargar nada otra ' +
+    'vez, y un juego se puede descargar antes de que esté instalado lo que lo ejecuta.',
+  'storage.toSharedExisting':
+    'Los juegos que ya están en la carpeta de un emulador se quedan ahí y se vuelven a ofrecer; ' +
+    'vuelve atrás y reaparecen.',
+  'storage.toSharedKeep': 'Mantener la carpeta de cada emulador',
+  'storage.toSharedConfirm': 'Usar una sola carpeta',
   'storage.optionEmulator': 'La carpeta de cada emulador',
   'storage.optionRomMix': 'Carpeta de RomMix',
 

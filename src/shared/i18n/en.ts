@@ -149,6 +149,35 @@ export const en = {
   'storage.hintPerEmulator':
     "Each emulator's own ROM folder, so games show up in its list when you start it yourself. " +
     'Changing emulator for a platform means downloading its games again.',
+  'storage.toEmulatorTitle': "Keep games in each emulator's folder?",
+  'storage.toEmulatorBody':
+    'Downloads will go to the ROM folder of whichever emulator runs their platform. That is what ' +
+    'puts them in its own game list when you start it yourself, and it is what ties them to it:',
+  'storage.toEmulatorChange':
+    'Changing the emulator for a platform leaves its games in the old one’s folder. RomMix stops ' +
+    'counting them as downloaded and offers them again.',
+  'storage.toEmulatorMissing':
+    'A game cannot be downloaded for a platform with no emulator installed yet.',
+  'storage.toEmulatorExisting':
+    'Games already in the RomMix folder stay there and are offered again; switch back and they ' +
+    'reappear.',
+  'storage.toEmulatorKeep': 'Keep one folder',
+  'storage.toEmulatorConfirm': "Use each emulator's folder",
+  'storage.toSharedTitle': 'Keep every game in one folder?',
+  'storage.toSharedBody':
+    "Downloads will go to RomMix's own ROM folder, which is not a folder any emulator reads " +
+    'until it is told to:',
+  'storage.toSharedSetup':
+    "Add that folder to each emulator's own game directories, or they will not list what RomMix " +
+    'has downloaded. The pre-flight check names the folder.',
+  'storage.toSharedFree':
+    'Changing the emulator for a platform then moves nothing and re-downloads nothing, and a game ' +
+    'can be downloaded before anything that runs it is installed.',
+  'storage.toSharedExisting':
+    "Games already in an emulator's own folder stay there and are offered again; switch back and " +
+    'they reappear.',
+  'storage.toSharedKeep': "Keep each emulator's folder",
+  'storage.toSharedConfirm': 'Use one folder',
   'storage.optionEmulator': "Each emulator's folder",
   'storage.optionRomMix': 'RomMix folder',
 

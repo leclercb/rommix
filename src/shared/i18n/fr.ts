@@ -139,6 +139,37 @@ export const fr: Catalog = {
     'Le dossier de ROM propre à chaque émulateur, pour que les jeux apparaissent dans sa liste ' +
     'quand vous le lancez vous-même. Changer d’émulateur pour une plateforme oblige à ' +
     'retélécharger ses jeux.',
+  'storage.toEmulatorTitle': 'Garder les jeux dans le dossier de chaque émulateur ?',
+  'storage.toEmulatorBody':
+    'Les téléchargements iront dans le dossier de ROM de l’émulateur qui fait tourner leur ' +
+    'plateforme. C’est ce qui les place dans sa propre liste de jeux quand vous le lancez ' +
+    'vous-même, et c’est ce qui les lui attache :',
+  'storage.toEmulatorChange':
+    'Changer d’émulateur pour une plateforme laisse ses jeux dans le dossier de l’ancien. RomMix ' +
+    'cesse de les compter comme téléchargés et les propose de nouveau.',
+  'storage.toEmulatorMissing':
+    'Un jeu ne peut pas être téléchargé pour une plateforme dont aucun émulateur n’est encore ' +
+    'installé.',
+  'storage.toEmulatorExisting':
+    'Les jeux déjà dans le dossier RomMix y restent et sont proposés de nouveau ; revenez en ' +
+    'arrière et ils réapparaissent.',
+  'storage.toEmulatorKeep': 'Garder un seul dossier',
+  'storage.toEmulatorConfirm': 'Utiliser le dossier de chaque émulateur',
+  'storage.toSharedTitle': 'Garder tous les jeux dans un seul dossier ?',
+  'storage.toSharedBody':
+    'Les téléchargements iront dans le dossier de ROM propre à RomMix, qu’aucun émulateur ne lit ' +
+    'tant qu’on ne le lui a pas indiqué :',
+  'storage.toSharedSetup':
+    'Ajoutez ce dossier aux répertoires de jeux de chaque émulateur, sinon ils ne listeront pas ce ' +
+    'que RomMix a téléchargé. La vérification préalable donne le chemin du dossier.',
+  'storage.toSharedFree':
+    'Changer d’émulateur pour une plateforme ne déplacera alors rien et n’obligera à rien ' +
+    'retélécharger, et un jeu peut être téléchargé avant même que ce qui le lance soit installé.',
+  'storage.toSharedExisting':
+    'Les jeux déjà dans le dossier d’un émulateur y restent et sont proposés de nouveau ; revenez ' +
+    'en arrière et ils réapparaissent.',
+  'storage.toSharedKeep': 'Garder le dossier de chaque émulateur',
+  'storage.toSharedConfirm': 'Utiliser un seul dossier',
   'storage.optionEmulator': 'Dossier de chaque émulateur',
   'storage.optionRomMix': 'Dossier RomMix',
 

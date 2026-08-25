@@ -146,6 +146,37 @@ export const de: Catalog = {
     'Der eigene ROM-Ordner jedes Emulators, damit Spiele in seiner Liste auftauchen, wenn Sie ihn ' +
     'selbst starten. Ein Emulatorwechsel für eine Plattform bedeutet, ihre Spiele erneut ' +
     'herunterzuladen.',
+  'storage.toEmulatorTitle': 'Spiele im Ordner des jeweiligen Emulators halten?',
+  'storage.toEmulatorBody':
+    'Downloads gehen dann in den ROM-Ordner des Emulators, der ihre Plattform ausführt. Das ist ' +
+    'es, was sie in dessen eigene Spieleliste bringt, wenn Sie ihn selbst starten — und was sie ' +
+    'an ihn bindet:',
+  'storage.toEmulatorChange':
+    'Ein Emulatorwechsel für eine Plattform lässt ihre Spiele im Ordner des alten zurück. RomMix ' +
+    'zählt sie nicht mehr als heruntergeladen und bietet sie erneut an.',
+  'storage.toEmulatorMissing':
+    'Ein Spiel lässt sich nicht für eine Plattform herunterladen, für die noch kein Emulator ' +
+    'installiert ist.',
+  'storage.toEmulatorExisting':
+    'Spiele, die bereits im RomMix-Ordner liegen, bleiben dort und werden erneut angeboten; ' +
+    'schalten Sie zurück, tauchen sie wieder auf.',
+  'storage.toEmulatorKeep': 'Einen Ordner behalten',
+  'storage.toEmulatorConfirm': 'Ordner des jeweiligen Emulators verwenden',
+  'storage.toSharedTitle': 'Alle Spiele in einem Ordner halten?',
+  'storage.toSharedBody':
+    'Downloads gehen dann in den eigenen ROM-Ordner von RomMix — einen Ordner, den kein Emulator ' +
+    'liest, solange man es ihm nicht sagt:',
+  'storage.toSharedSetup':
+    'Fügen Sie diesen Ordner den Spieleverzeichnissen jedes Emulators hinzu, sonst listen sie ' +
+    'nicht, was RomMix heruntergeladen hat. Die Startklar-Prüfung nennt den Ordner.',
+  'storage.toSharedFree':
+    'Ein Emulatorwechsel für eine Plattform verschiebt dann nichts und lädt nichts erneut, und ein ' +
+    'Spiel lässt sich herunterladen, bevor überhaupt etwas installiert ist, das es startet.',
+  'storage.toSharedExisting':
+    'Spiele, die bereits im Ordner eines Emulators liegen, bleiben dort und werden erneut ' +
+    'angeboten; schalten Sie zurück, tauchen sie wieder auf.',
+  'storage.toSharedKeep': 'Ordner des jeweiligen Emulators behalten',
+  'storage.toSharedConfirm': 'Einen Ordner verwenden',
   'storage.optionEmulator': 'Ordner des jeweiligen Emulators',
   'storage.optionRomMix': 'RomMix-Ordner',
 
