@@ -519,6 +519,9 @@ export const en = {
   'setup.edenRoms': "Add RomMix's ROM folder to Eden: File → Game Directories.",
   'setup.edenFirmware':
     'Install firmware in Eden: Tools → Install Firmware. Keys are copied for you.',
+  'setup.edenExitConfirm':
+    'Turn off Eden’s exit confirmation: Emulation → Configure → General → Confirm exit while ' +
+    'emulation is running. RomMix cannot close Eden while that dialog is waiting for an answer.',
   'setup.edenStaging':
     'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
   'setup.shadps4Roms':

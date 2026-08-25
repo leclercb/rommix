@@ -99,17 +99,25 @@ export const eden: EmulatorDescriptor = {
   // Eden is one emulator, not a core loader.
   core: undefined,
   /**
-   * What is left for the user once RomMix has done what it can — kept to two
-   * lines, since the BIOS screen already explains for every Switch emulator
-   * that keys and firmware come from a console dump.
+   * What is left for the user once RomMix has done what it can — kept short,
+   * since the BIOS screen already explains for every Switch emulator that keys
+   * and firmware come from a console dump.
    *
    * Eden ships no ROM folder, so `dirs.roms` points into RomMix's own, which
    * Eden knows nothing about until it is added. Firmware then has to be
    * registered into its NAND by Eden itself. Updates and DLC need no note at
    * all: `flatLibrary` puts them beside the game, which is where Eden's *Use
    * external content from game directories* already looks.
+   *
+   * The last one is about being able to *stop* it. Eden inherits the Yuzu
+   * lineage's confirm-on-exit, so the SIGTERM RomMix sends when Close the
+   * emulator is pressed raises a dialog inside Eden rather than closing it —
+   * and RomMix, waiting on a process that is waiting on a person, sits on
+   * "Asking the emulator to quit…" until somebody answers it there. RomMix does
+   * not write into another program's configuration, so this is asked for rather
+   * than done.
    */
-  setupNotes: ['setup.edenRoms', 'setup.edenFirmware'],
+  setupNotes: ['setup.edenRoms', 'setup.edenFirmware', 'setup.edenExitConfirm'],
   /**
    * Set by the AppImage's own `wayland-is-broken.hook`, not by Eden itself.
    * Unset, the hook forces the process onto X11 — `QT_QPA_PLATFORM=xcb`,
