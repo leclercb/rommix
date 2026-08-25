@@ -25,6 +25,7 @@ import type { Locale } from './locales.ts'
 
 export {
   DEFAULT_LOCALE,
+  LANGUAGE_FLAGS,
   LANGUAGE_NAMES,
   LOCALES,
   localeFor,

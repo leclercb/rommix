@@ -38,6 +38,25 @@ export const LANGUAGE_NAMES: Record<Locale, string> = {
   es: 'Español'
 }
 
+/**
+ * A flag per language, for the row in Settings.
+ *
+ * A language is not a country and these are approximations: English is spoken
+ * in more places than the United Kingdom, and Spanish in more than Spain. They
+ * are here because a flag is picked out of a row of five faster than a word is,
+ * and the word is next to it either way.
+ *
+ * Emoji rather than artwork: RomMix ships no images, and every desktop that has
+ * an emoji font has these. One that does not falls back to the two letters the
+ * flag is built from, which still reads as a country.
+ */
+export const LANGUAGE_FLAGS: Record<Locale, string> = {
+  en: '🇬🇧',
+  fr: '🇫🇷',
+  de: '🇩🇪',
+  es: '🇪🇸'
+}
+
 /** What RomMix falls back to: the language every other catalogue is written from. */
 export const DEFAULT_LOCALE: Locale = 'en'
 

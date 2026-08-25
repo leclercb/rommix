@@ -1,5 +1,5 @@
 import { type JSX, useState } from 'react'
-import { LANGUAGE_NAMES, LOCALES, type LanguageChoice } from '@shared/i18n'
+import { LANGUAGE_FLAGS, LANGUAGE_NAMES, LOCALES, type LanguageChoice } from '@shared/i18n'
 import {
   Choice,
   FocusButton,
@@ -45,16 +45,20 @@ export function GeneralTab(): JSX.Element {
   }
 
   /**
-   * Auto, then each language written in itself.
+   * Auto, then each language written in itself, behind a flag.
    *
-   * Deliberately untranslated below the first row: somebody hunting for their
-   * own language in this list is, by definition, reading it in one they may not
-   * have, and "Deutsch" is recognisable from across a room in a way that
-   * "German" translated into Spanish is not.
+   * Deliberately untranslated: somebody hunting for their own language is, by
+   * definition, reading a list in one they may not have, and "Deutsch" is
+   * recognisable from across a room in a way that "German" translated into
+   * Spanish is not. The flag is quicker still — see `LANGUAGE_FLAGS`, which
+   * says what it is and is not claiming.
    */
   const languages: { value: LanguageChoice; label: string }[] = [
-    { value: 'auto', label: t('value.auto') },
-    ...LOCALES.map((locale) => ({ value: locale, label: LANGUAGE_NAMES[locale] }))
+    { value: 'auto', label: `🌐 ${t('value.auto')}` },
+    ...LOCALES.map((locale) => ({
+      value: locale,
+      label: `${LANGUAGE_FLAGS[locale]} ${LANGUAGE_NAMES[locale]}`
+    }))
   ]
 
   return (
