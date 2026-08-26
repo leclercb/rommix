@@ -82,7 +82,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc(rommix)
     rommix.createWindow()
     // After the window, which is what the first result is announced to. The
-    // check itself waits half a minute — see `Updater.schedule`.
+    // check itself is delayed — see `Updater.schedule`.
     rommix.updates.schedule()
     log.info('app', 'ready', { ms: took() })
   })

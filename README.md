@@ -199,8 +199,8 @@ and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME` overrides it
 
 **Updates → New versions of RomMix.** Nothing updates an AppImage for you, so
 RomMix checks its own
-[releases](https://github.com/leclercb/rommix/releases) half a minute after
-starting, then every six hours.
+[releases](https://github.com/leclercb/rommix/releases) shortly after starting,
+then every six hours.
 
 - **Automatic**, the default — downloaded in the background, used at the next
   start. Nothing restarts on its own; **Restart now** is there if you want it.

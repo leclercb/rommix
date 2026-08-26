@@ -46,12 +46,13 @@ export const RELEASES_PAGE = 'https://github.com/leclercb/rommix/releases'
  * How long after start the first check waits, and how often it repeats.
  *
  * The delay is not politeness about bandwidth — it is about what start-up is
- * for. The first seconds after launch are the library load, the emulator probe
- * and the window appearing, and a release check is worth none of them. Six hours
- * afterwards is a compromise between a handheld that is woken for an hour a day
- * and a machine in a living room that is never shut down.
+ * for: the library load, the emulator probe and the window appearing get those
+ * first moments to themselves, and a release check is worth none of them. It
+ * stays short enough that a new version is announced while the shelf is still
+ * being read. The repeat is a compromise between a handheld that is woken for
+ * an hour a day and a machine in a living room that is never shut down.
  */
-const FIRST_CHECK_MS = 30_000
+const FIRST_CHECK_MS = 10_000
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 
 /** Progress is emitted on a clock rather than per chunk: this is a 100 MB file. */
