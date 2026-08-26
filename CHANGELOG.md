@@ -4,6 +4,13 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.5 — 2026-08-26
+
+- Add screenshots
+- Update webpage and readme
+- Write down the project's comment conventions for Claude
+- Check for new versions sooner after starting
+
 ## 0.7.4 — 2026-08-25
 
 - Compare save tags against the emulator id, not the frontend id
