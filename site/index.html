@@ -1,26 +1,17 @@
 <!doctype html>
 <!--
-  The RomMix landing page: what it is, where it runs, and a way into the demo
-  beside it.
+  The RomMix landing page.
 
-  A template rather than the page itself. `scripts/build-landing.mjs` renders it
-  once per language into `out/site/`, English at the root and the rest in `fr/`,
-  `de/` and `es/` beside it — one copy of the layout and the stylesheet, four
-  copies of the prose. Every `{{key}}` below comes from `site/text/<lang>.json`,
-  except `{{@some.key}}`, which comes from the *application's* own catalogue in
-  `src/shared/i18n/`: the picture further down is a drawing of RomMix, and its
-  labels have no business drifting from the ones RomMix actually shows.
+  A template, not the page itself: `scripts/build-landing.mjs` renders it once
+  per language into `out/site/`. Every `{{key}}` comes from
+  `site/text/<lang>.json`. `{{@some.key}}` comes from the application's own
+  catalogue in `src/shared/i18n/`, so the mock's labels cannot drift from the
+  ones RomMix shows.
 
-  There is still no script in the rendered page, and no framework anywhere. Its
-  palette and its mark are the app's own, from `src/renderer/src/styles/` and
-  `src/renderer/src/components/`.
-
-  The artwork under `demo/art/` is the same cover art the demo shows: the
-  homebrew library from RomM's public demo, copied there by the preview build
-  (`publicDir` in `vite.web.config.ts`). So this page is only whole once both
-  halves are assembled — `npm run preview:web`, not this file opened off disk,
-  where the covers 404 to the app's empty-cover gradient, every link is a
-  placeholder and both ways into the demo go nowhere.
+  No script in the rendered page, no framework. The palette and the mark are
+  the app's own. The cover art under `demo/art/` is copied in by the preview
+  build, so the page is only whole through `npm run preview:web` — opened off
+  disk, the covers 404 and both ways into the demo go nowhere.
 -->
 <html lang="{{lang}}">
   <head>
@@ -28,9 +19,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{page.title}}</title>
     <meta name="description" content="{{page.description}}" />
-    <!-- The same page in the other three, so a search engine offers a reader
-         the one they can actually read. Written out by the renderer, which is
-         the only thing that knows where each translation ended up. -->
+    <!-- The same page in the other three, so a search engine can offer a reader
+         the one they can read. Written out by the renderer, the only thing that
+         knows where each translation ended up. -->
     {{alternates}}
     <link
       rel="icon"
@@ -50,8 +41,8 @@
         --accent: #5ac8fa;
         --accent-strong: #2aa9e0;
         --accent-contrast: #04121b;
-        /* The app's own two, for the parts of the mock that use them: the dot
-           marking a downloaded game, and the heart in its footer. */
+        /* The app's own two, for the mock: the dot marking a downloaded game, and
+           the heart in its footer. */
         --success: #5ddba0;
         --danger: #ff6b6b;
         --radius: 12px;
@@ -127,22 +118,17 @@
       /* -- header ----------------------------------------------------------- */
 
       header {
-        /* The one lit surface on the page: the glow sits behind the name and
-           fades before the fold, so the rest reads as documentation. */
+        /* The one lit surface on the page: the glow fades before the fold, so the
+           rest reads as documentation. */
         background:
           radial-gradient(900px 420px at 18% -10%, rgba(90, 200, 250, 0.16), transparent 70%),
           var(--bg);
         padding: 88px 0 72px;
       }
 
-      /* The four languages, above everything else and out of the way.
-         Four plain links rather than a menu: there is no script on this page,
-         and a select that needs one to go anywhere is worse than a row of
-         words. Each names itself, which is the only form a reader looking for
-         their own language can be relied on to recognise. */
-      /* The row above everything: where the source is, and what language this
-         is in. Both are things a reader looks for before reading, and neither
-         is worth a line of the page proper. */
+      /* The row above everything: where the source is, and what language this is
+         in. Both are looked for before reading, and neither is worth a line of
+         the page proper. */
       .topline {
         display: flex;
         justify-content: flex-end;
@@ -183,9 +169,8 @@
         color: var(--text);
       }
 
-      /* A dropdown with no script: `details` is the only element that opens and
-         closes on its own. The marker is replaced by a chevron of our own so it
-         sits after the label rather than before it. */
+      /* A dropdown with no script: `details` is the only element that opens on its
+         own. The default marker is replaced so the chevron sits after the label. */
       .langs {
         position: relative;
       }
@@ -264,11 +249,10 @@
       /*
        * The wordmark as the app's own bar draws it: one word, two colours.
        *
-       * It has to be one element. `.brand` is a flex container, so the bare
-       * `Rom` beside the accented `Mix` becomes an anonymous flex item of its
-       * own and the `gap` above lands *inside* the name — RomMix, set as
-       * `Rom Mix`. Its own line box would also push it off the mark's centre
-       * line, hence the `line-height`.
+       * It has to be one element. `.brand` is a flex container, so a bare `Rom`
+       * beside an accented `Mix` becomes a flex item of its own and the `gap` lands
+       * inside the name. Its own line box would also push it off the mark's centre,
+       * hence the `line-height`.
        */
       .brand__name {
         font-size: 2.3rem;
@@ -282,15 +266,13 @@
         color: var(--accent);
       }
 
-      /* No `max-width`: the line is meant to be read in one go, and a measure
-         set in `ch` is what was breaking it across two. */
+      /* No `max-width`: a measure set in `ch` was breaking this line in two. */
       header h1 {
         font-size: clamp(1.6rem, 4vw, 2.35rem);
       }
 
-      /* Held to one line wherever there is room for one — at 2.35rem the
-         sentence runs to about 830px inside a 932px measure. Below that it
-         wraps, which is the only thing it can sensibly do. */
+      /* Sized so the sentence holds one line at the page's measure. Narrower than
+         that it wraps, which is all it can sensibly do. */
       @media (min-width: 900px) {
         header h1 {
           white-space: nowrap;
@@ -397,18 +379,10 @@
       }
 
       /*
-       * Dead centre of the picture, and only there while the pointer is on it —
-       * the way into the demo for anyone who reads the mock as the thing itself
-       * and tries to press it. `Open the demo` in the buttons above is the same
-       * destination, said in words for anyone who does not.
-       *
-       * Hidden the rest of the time because the mock is the page's one big
-       * image and a control parked on it permanently reads as a watermark.
-       * `focus-within` is the same offer made to a keyboard: tab to it and it
-       * appears, rather than being followed while invisible.
-       *
-       * The mock is `aria-hidden`, so this link is the only thing in the block a
-       * screen reader meets, and its label has to stand on its own.
+       * Dead centre of the picture, and only while the pointer or focus is on it:
+       * the way into the demo for anyone who reads the mock as the thing itself.
+       * Parked there permanently it would read as a watermark. The mock is
+       * `aria-hidden`, so this link's label has to stand on its own.
        */
       .demo__start {
         position: absolute;
@@ -456,9 +430,9 @@
       }
 
       /*
-       * Nothing that only appears on hover, where there is no hover: it would be
-       * a control that can be tapped but never seen. `Open the demo` above is
-       * the same link, always visible, which is what a touchscreen gets.
+       * Nothing hover-only where there is no hover: it would be a control that can
+       * be tapped but never seen. `Open the demo` above is the same link, always
+       * visible.
        */
       @media (hover: none) {
         .demo__start {
@@ -469,12 +443,10 @@
       /* -- the mock --------------------------------------------------------- */
 
       /*
-       * The Home screen, rebuilt in CSS around the demo library's own artwork:
-       * the bar, the hero for the game you last played, and a shelf under it
-       * with one cover focused. Not a screenshot, because the demo next door is
-       * the real thing and a stale picture would be the only part of this page
-       * that could go out of date — but the same games, the same covers and the
-       * same layout, down to the ring and the lift focus draws.
+       * The Home screen, rebuilt in CSS around the demo library's own artwork: the
+       * bar, the hero, and a shelf with one cover focused. Not a screenshot — the
+       * demo next door is the real thing, and a stale picture would be the one part
+       * of this page that could go out of date.
        */
       .mock {
         margin-top: 56px;
@@ -562,9 +534,8 @@
         font-weight: 700;
       }
 
-      /* Who you are over which server it is, each with its mark *after* the
-         words: the block is right-aligned, and leading icons would leave the
-         two glyphs in a ragged column against the text. */
+      /* Marks after the words rather than before: the block is right-aligned, and
+         leading icons would leave the two glyphs in a ragged column. */
       .mock-status {
         justify-self: end;
         display: flex;
@@ -706,11 +677,10 @@
         gap: 14px;
       }
 
-      /* `min-width: 0` because a grid track is `minmax(auto, 1fr)`: without it
-         the longest caption on the shelf — the platform names run to `Super
-         Nintendo Entertainment System` — sets its column's floor, and the six
-         covers come out at six different widths. The captions are the things
-         that give way, which is what their ellipsis is for. */
+      /* `min-width: 0` because a grid track is `minmax(auto, 1fr)`: without it the
+         longest caption on the shelf sets its column's floor, and the covers come
+         out at different widths. The captions are what give way, which is what
+         their ellipsis is for. */
       .mock-shelf figure {
         position: relative;
         min-width: 0;
@@ -763,13 +733,12 @@
       }
 
       /*
-       * The app's platform badge: a system's short code on a hue derived from
-       * its name.
+       * The app's platform badge: a system's short code on a hue derived from its
+       * name, `--h` being the one number that changes between them.
        *
-       * This is what the demo actually draws. RomMix asks the RomM server for a
-       * platform icon and falls back to this when none can be fetched — and the
-       * demo has no server, so the fallback is all thirteen systems get. The
-       * hue is `--h`, the one number that changes between them.
+       * This is what the demo draws. RomMix asks the RomM server for a platform
+       * icon and falls back to this when none can be fetched — and the demo has no
+       * server, so every system gets the fallback.
        */
       .pbadge {
         display: inline-flex;
@@ -800,10 +769,9 @@
           0 12px 34px rgba(0, 0, 0, 0.65);
       }
 
-      /* A dot on a cover means the game is on this device. Drawn on the figure,
-         an image having no box of its own to hang a pseudo-element from. Every
-         tile on this shelf has one: `Ready to play` *is* the list of games on
-         disk, so a cover here without a dot could not happen. */
+      /* A dot means the game is on this device. Drawn on the figure, an image
+         having no box of its own to hang a pseudo-element from. Every tile here has
+         one: `Ready to play` *is* the list of games on disk. */
       .mock-shelf .here::after {
         content: '';
         position: absolute;
@@ -827,9 +795,8 @@
         font-size: 0.78rem;
       }
 
-      /* Hard left, the hints staying hard right — an auto margin rather than
-         space-between, which on a wrapped second line would push the two hints
-         left on it apart. */
+      /* An auto margin rather than space-between, which on a wrapped second line
+         would push the two hints on it apart. */
       .hintbar__credit {
         margin-right: auto;
         opacity: 0.75;
@@ -885,19 +852,11 @@
       }
 
       /*
-       * The drawing, in a box of its own so the three captions line up.
-       *
-       * A monitor on a stand and a foot, a handheld with neither, and a
-       * television on one thin stand are three different heights, so captions
-       * placed directly under them started at three different points down the
-       * page. This gives each drawing the same box and stands it on the floor of
-       * it: `At the desk`, `In your hands` and `Across the room` then share a
-       * line, and the shapes still differ, which is the whole point of them.
-       *
-       * The height is fixed rather than a ratio because the frames below are
-       * capped in pixels — 260, 290 and 300 — so past a column of about 300px
-       * they stop growing, and the tallest of the three comes to ~195px there. A
-       * ratio would keep opening dead space above them on a wide column.
+       * The drawing, boxed so the three captions line up. A monitor on a stand, a
+       * handheld with none and a television on one are three different heights, so
+       * captions placed straight under them started at three different points down
+       * the page. The height is fixed rather than a ratio because the frames below
+       * are capped in pixels, and a ratio would open dead space above them.
        */
       .device__art {
         display: flex;
@@ -907,20 +866,15 @@
       }
 
       /*
-       * Three shapes around one screen. The frames are drawn here rather than
-       * photographed because the point is the proportion — the same shelf at
-       * arm's length, in your hands, and across a room — and a real television
-       * in a stock photo would say less about the interface than the covers do.
+       * Three shapes around one screen, drawn rather than photographed: the point
+       * is the proportion — the same shelf at arm's length, in your hands, and
+       * across a room.
        */
       /*
-       * The chassis, in the same grey as the stand and the foot it is attached
-       * to — so each device reads as one object standing on the page.
-       *
-       * It used to be `#05070c` against a `#0b0d13` page: a near-black shape on
-       * a near-black ground, separated by a 1px border and nothing else, which
-       * left all three drawings hard to make out. The screen inside stays
-       * `--bg`, because that genuinely is the colour the app draws on, and a
-       * dark screen in a light bezel is the way round that reads as switched on.
+       * The chassis, in the same grey as the stand and foot it is attached to, so
+       * each device reads as one object standing on the page. The screen inside
+       * stays `--bg`, which genuinely is the colour the app draws on: a dark screen
+       * in a lighter bezel is the way round that reads as switched on.
        */
       .device__frame {
         display: flex;
@@ -1046,9 +1000,8 @@
         width: 30%;
       }
 
-      /* The pad and the four buttons, cut into the chassis rather than drawn on
-         it: they were `--bg-hover`, which is now the chassis itself, and would
-         have disappeared into it. */
+      /* The pad and the buttons, cut into the chassis rather than drawn on it: at
+         `--bg-hover` they would disappear into the chassis itself. */
       .device--handheld .device__frame::before,
       .device--handheld .device__frame::after {
         content: '';
@@ -1114,31 +1067,51 @@
         margin: 0;
       }
 
-      /* -- feature grid ----------------------------------------------------- */
+      /* -- feature list ----------------------------------------------------- */
 
-      .grid {
+      .features {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 18px;
-        margin-top: 36px;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        gap: 12px;
+        margin: 36px 0 0;
+        padding: 0;
+        list-style: none;
       }
 
-      .card {
+      .features li {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 15px 17px;
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        background: var(--bg-raised);
-        padding: 22px;
-      }
-
-      .card h3 {
-        font-size: 1.05rem;
-        margin-bottom: 8px;
-      }
-
-      .card p {
-        color: var(--text-dim);
+        /* A wash off the top-left corner, so a row of these reads as raised
+           cards rather than as flat boxes on a flat page. */
+        background:
+          linear-gradient(150deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+          var(--bg-raised);
         font-size: 0.95rem;
-        margin: 0;
+        line-height: 1.45;
+      }
+
+      /* The icon in a tinted square, the way the app draws one on a button. It
+         is decoration — the sentence beside it carries the meaning, which is
+         why the svg is `aria-hidden`. */
+      .features li > span {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid rgba(90, 200, 250, 0.18);
+        background: rgba(90, 200, 250, 0.1);
+        color: var(--accent);
+      }
+
+      .features svg {
+        width: 19px;
+        height: 19px;
       }
 
       /* -- tables ----------------------------------------------------------- */
@@ -1280,9 +1253,8 @@
     <header>
       <div class="wrap">
         <div class="topline">
-          <!-- The star count is written in at build time — see
-               `scripts/build-landing.mjs`. It is as fresh as the last deploy,
-               which is the price of a page that runs no script. -->
+          <!-- The star count is written in at build time, so it is as fresh as the
+               last deploy — the price of a page that runs no script. -->
           <a
             class="stars"
             href="https://github.com/leclercb/rommix"
@@ -1363,10 +1335,8 @@
         </p>
 
         <div class="actions">
-          <!-- A new tab, both here and on the picture below: the demo takes over
-               the window it opens in — it is a fullscreen interface with its own
-               Escape and its own back — and there is nothing in it that leads
-               back to this page. -->
+          <!-- A new tab, here and on the picture below: the demo takes over the window
+               it opens in, and nothing in it leads back to this page. -->
           <a class="button primary" href="{{root}}demo/" target="_blank" rel="noopener"
             >{{action.demo}}</a
           >
@@ -1383,9 +1353,8 @@
           <div class="mock" aria-hidden="true">
             <div class="mock-bar">
               <div class="mock-brand">
-                <!-- The same mark as the page's own, gradient and contacts and
-                   all: it is one logo, and a flatter copy of it here made the
-                   bar look like a drawing of the app rather than the app. -->
+                <!-- The page's own mark, gradient and contacts and all: a flatter copy here
+                     made the bar look like a drawing of the app rather than the app. -->
                 <svg viewBox="22 22 84 84">
                   <defs>
                     <linearGradient id="bar-mark" x1="0" y1="0" x2="0.6" y2="1">
@@ -1559,12 +1528,9 @@
                 </div>
               </div>
 
-              <!--
-              The first six of the demo's `Ready to play`, in its order and with
-              its names in full: a shelf tile carries the platform's whole
-              display name, and the app lets it run out of room rather than
-              inventing a short one.
-            -->
+              <!-- The first six of the demo's `Ready to play`, in its order and with its
+                   names in full: a shelf tile carries the platform's whole display name,
+                   and the app lets it run out of room rather than inventing a short one. -->
               <div class="shelf-title">{{@home.readyToPlay}}</div>
               <div class="mock-shelf">
                 <figure class="here">
@@ -1747,39 +1713,227 @@
 
     <section>
       <div class="wrap">
-        <h2>{{does.title}}</h2>
-        <p>{{does.lede}}</p>
+        <h2>{{features.title}}</h2>
 
-        <div class="grid">
-          <div class="card">
-            <h3>{{does.library.title}}</h3>
-            <p>{{does.library.body}}</p>
-          </div>
-          <div class="card">
-            <h3>{{does.downloads.title}}</h3>
-            <p>{{does.downloads.body}}</p>
-          </div>
-          <div class="card">
-            <h3>{{does.saves.title}}</h3>
-            <p>{{does.saves.body}}</p>
-          </div>
-          <div class="card">
-            <h3>{{does.emulators.title}}</h3>
-            <p>{{does.emulators.body}}</p>
-          </div>
-          <div class="card">
-            <h3>{{does.bios.title}}</h3>
-            <p>{{does.bios.body}}</p>
-          </div>
-          <div class="card">
-            <h3>{{does.signin.title}}</h3>
-            <p>{{does.signin.body}}</p>
-          </div>
-          <div class="card">
-            <h3>{{does.updates.title}}</h3>
-            <p>{{does.updates.body}}</p>
-          </div>
-        </div>
+        <ul class="features">
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect width="7" height="7" x="3" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="14" rx="1" />
+                <rect width="7" height="7" x="3" y="14" rx="1" />
+              </svg>
+            </span>
+            {{features.browse}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+                <path
+                  d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                />
+              </svg>
+            </span>
+            {{features.shelves}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m21 21-4.34-4.34" />
+                <circle cx="11" cy="11" r="8" />
+              </svg>
+            </span>
+            {{features.search}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10 16h.01" />
+                <path
+                  d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+                />
+                <path d="M21.946 12.013H2.054" />
+                <path d="M6 16h.01" />
+              </svg>
+            </span>
+            {{features.downloads}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M6 12c0-1.7.7-3.2 1.8-4.2" />
+                <circle cx="12" cy="12" r="2" />
+                <path d="M18 12c0 1.7-.7 3.2-1.8 4.2" />
+              </svg>
+            </span>
+            {{features.multidisc}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+                />
+                <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+                <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+              </svg>
+            </span>
+            {{features.saves}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+                />
+                <path d="M20 2v4" />
+                <path d="M22 4h-4" />
+                <circle cx="4" cy="20" r="2" />
+              </svg>
+            </span>
+            {{features.bios}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="6" x2="10" y1="11" y2="11" />
+                <line x1="8" x2="8" y1="9" y2="13" />
+                <line x1="15" x2="15.01" y1="12" y2="12" />
+                <line x1="18" x2="18.01" y1="10" y2="10" />
+                <path
+                  d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"
+                />
+              </svg>
+            </span>
+            {{features.emulators}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 22v-5" />
+                <path d="M15 8V2" />
+                <path d="M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z" />
+                <path d="M9 8V2" />
+              </svg>
+            </span>
+            {{features.signin}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M21 17a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2Z"
+                />
+                <path d="M6 15v-2" />
+                <path d="M12 15V9" />
+                <circle cx="12" cy="6" r="3" />
+              </svg>
+            </span>
+            {{features.controller}}
+          </li>
+          <li>
+            <span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M8 16H3v5" />
+              </svg>
+            </span>
+            {{features.updates}}
+          </li>
+        </ul>
       </div>
     </section>
 

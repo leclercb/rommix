@@ -1,10 +1,8 @@
 # RomMix
 
 A Big Picture–style front end for your own [RomM](https://romm.app) server.
-
 Browse your library like a console dashboard, download a game into your
-emulator's ROM folder, play it, and let your saves go back to RomM when you
-quit. Fullscreen and controller-driven, on a desktop, a handheld or a TV.
+emulator's ROM folder, play it, and your saves go back to RomM when you quit.
 
 **[rommix on the web →](https://leclercb.github.io/rommix/)** — with a
 [live demo](https://leclercb.github.io/rommix/demo/) of the interface in your
@@ -14,38 +12,25 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
 
 ## Features
 
-- **Your library, laid out for a screen.** Shelves for what you were last
-  playing, what is on this device and your favourites; everything else
-  searchable and filtered by platform.
-- **Driven with a controller.** Every screen reachable on a D-pad, fullscreen,
-  and drawn at double size on a 4K panel so it still reads from a sofa.
-- **Downloads into one folder you point every emulator at.** Or into each
-  emulator's own ROM folder, SD card included, if you would rather. The queue
-  keeps running while you browse.
-- **Multi-disc handled.** A cue+bin or a multi-disc set is unpacked into its own
-  folder, and the emulator is handed the `.m3u` or `.cue`, not the `.bin`.
-- **Saves both ways.** Newer saves and states come down before you play and go
-  back up when you quit, after showing you what is about to be sent. A per-game
-  tab marks which side is ahead and pulls or pushes by hand.
-- **BIOS from your own server.** Per platform: what is needed, what RomM holds
-  and what the emulator already has — then the missing files are put in place.
-- **It installs the emulators.** RetroDECK, RetroArch and shadPS4 from Flathub,
-  Eden as an AppImage, all from Settings — and it picks which one runs each
-  platform, which you can change per platform.
-- **Sign in from the couch.** A code and a QR approved in RomM from your phone.
-  Credentials are encrypted with the system keyring.
-- **Pre-flight check.** Names what is actually wrong — flatpak missing, no
-  emulator, an unwritable ROM folder — instead of failing at launch.
-- **It keeps itself current.** Nothing updates an AppImage for you, so RomMix
-  watches its own releases, says when one is out, and swaps the image in for the
-  next start — or leaves it to you, if you would rather.
+- Browse your whole RomM library, searchable and filtered by platform
+- Shelves for what you played last, what is on this device and your favourites
+- Your RomM collections, and the ones RomM builds itself
+- Downloads into your emulator's own ROM folder, or one folder you point them all at
+- Multi-disc sets unpacked and launched as one game
+- Saves and states synced both ways, plus a per-game tab to do it by hand
+- BIOS files installed from your own server
+- Emulators installed and assigned by RomMix, changeable per platform
+- Sign in by scanning a code with your phone
+- Controller-driven and fullscreen, desk to television
+- A pre-flight check that names what is wrong before a launch fails
+- It updates itself
 
 ---
 
 ## Requirements
 
 - **Linux**, x86_64 or arm64. Plus `flatpak` for the emulators packaged that
-  way; RomMix adds the Flathub remote itself the first time you install one.
+  way; RomMix adds the Flathub remote itself.
 - **A RomM server** you can reach, version 5.x or newer, with an account.
 - **A controller**, recommended but not required.
 - **At least one emulator**, from the five RomMix drives:
@@ -58,12 +43,8 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
   | **Eden**      | Nintendo Switch                           | ✅ AppImage                                   |
   | **shadPS4**   | PlayStation 4                             | ✅ Flatpak and AppImage                       |
 
-  RetroDECK and EmuDeck are front ends carrying a dozen emulators each, and a
-  game goes to whichever one that system is configured for; RetroArch runs the
-  libretro core RomMix names for the system; Eden and shadPS4 each run one
-  console. Settings → **Platforms** shows what every system resolves to. Start
-  with RetroDECK if you have none — it covers the most platforms and picks the
-  emulator for each system itself.
+  **Emulators** → **Platforms** shows what every system resolves to. Start with
+  RetroDECK if you have none — it covers the most platforms.
 
 ---
 
@@ -71,8 +52,7 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
 
 Download the AppImage from
 [Releases](https://github.com/leclercb/rommix/releases) — `x86_64` for a PC or a
-Steam Deck, `arm64` for an ARM handheld (`uname -m` says which). Nothing is
-installed and no permissions are needed.
+Steam Deck, `arm64` for an ARM handheld (`uname -m` says which).
 
 ```bash
 chmod +x RomMix-x86_64.AppImage
@@ -80,8 +60,7 @@ chmod +x RomMix-x86_64.AppImage
 gamescope -f -- ./RomMix-x86_64.AppImage    # gamescope session
 ```
 
-No version in the file name: updates are written over that same file, so
-shortcuts keep working. Settings says which version you have.
+No version in the file name: updates are written over that same file.
 
 ### From Steam
 
@@ -124,17 +103,17 @@ readable only by you where no keyring is reachable.
 
 ## Controls
 
-| Button             | Action                                |
-| ------------------ | ------------------------------------- |
-| Left stick / D-pad | Navigate                              |
-| A                  | Select                                |
-| B                  | Back                                  |
-| X / Start          | Open Settings                         |
-| Y                  | Search                                |
-| LB / RB            | Previous / next tab, on a game's page |
+| Button             | Action              |
+| ------------------ | ------------------- |
+| Left stick / D-pad | Navigate            |
+| A                  | Select              |
+| B                  | Back                |
+| X / Start          | Open Settings       |
+| Y                  | Search              |
+| LB / RB            | Previous / next tab |
 
-Keyboard: arrows, Enter, Escape or Backspace to go back, Tab and Shift-Tab for
-tabs, `/` to search, `m` for Settings.
+Keyboard: arrows, Enter or Space, Escape or Backspace to go back, Tab and
+Shift-Tab for tabs, `/` to search, `m` for Settings.
 
 ---
 
@@ -142,81 +121,40 @@ tabs, `/` to search, `m` for Settings.
 
 - **Home** — the game you last played, what is on this device, your favourites
   and recent additions.
-- **Library** — everything on your server, searchable and filtered by platform.
-  A dot on a cover means the game is downloaded.
-- **A game's page** — download, play, uninstall, and what RomM holds for it.
-  Where an emulator offers more than one way to run a platform, RomMix asks once
-  and remembers; **Run with…** changes the answer later.
+- **Library** — everything on your server. A dot on a cover means it is
+  downloaded.
+- **Collections** — the collections you made on RomM, and the virtual ones RomM
+  builds itself.
 - **Downloads** — the queue, and everything on this device by platform. **Sync
   with disk** forgets games you deleted by hand and adopts ROMs you copied in.
 - **BIOS** — per platform, then copies the missing files into place. They come
   from your own server only: upload them to RomM under a platform. Switch, PS3,
   Vita, 3DS and Wii U need a dump from a real console instead, and say so.
+- **Emulators** — what is installed, and which one runs each platform (below).
+- **A game's page** — download, play, uninstall, favourite it, put it in a
+  collection, and four tabs: **Details**, **Saves**, **Files**, **Screenshots**.
+  Where an emulator offers more than one way to run a platform, RomMix asks once
+  and remembers; **Run with…** changes the answer.
 
 ---
 
-## Settings
+## Emulators
 
-Four tabs — **General**, **Emulators**, **Games**, **System** — with LB/RB (or
-Tab) to move between them.
+Its own page, above Settings in the sidebar.
 
-**Interface → Scale.** The interface is laid out for a 1080p television, so
-**Auto** doubles it on a 4K one. Pick a number if your panel is nearer or
-further away. A desktop that already scales itself is left alone.
-
-**Emulators.** What RomMix found, what each covers and where it keeps its games.
+**The list.** What RomMix found, what each covers and where it keeps its games.
 Buttons install them, or **Run** one on its own — needed for the setup only the
 emulator can do: RetroDECK creates its folders on first run, RetroArch needs its
 cores, Eden its keys, shadPS4 to be told where the games are.
 
-**Games on disk.** Downloads go to each emulator's own ROM folder, or to one
-RomMix folder you point every emulator at — everything in one place, and
-changing which emulator runs a platform then moves nothing.
+The order is the preference: a platform you have not chosen for goes to the
+first emulator in the list that is installed and covers it, so **Move up** makes
+one the default for everything it can run.
 
 **Platforms.** One row per platform, showing which emulator runs it; press to
 cycle. Each emulator keeps games in its own folder, so pointing a platform
 elsewhere means RomMix offers those games for download again. Nothing is
 deleted, and pointing it back brings them straight back.
-
-**Save sync.**
-
-- **Download newer saves before playing** — only ever replaces an _older_ local
-  save, keeping it as `*.rommix-bak` first.
-- **Upload saves after playing** — sends only what the session wrote.
-- **Ask before sending saves to RomM** — on by default. Lists the files and
-  sends only what you approve; **Send and don't ask again** turns it off from
-  the dialog itself.
-
-Saves named after the ROM sync cleanly, and Switch-family saves are matched by
-title id. Emulators that share one memory card between every game cannot be
-synced, and RomMix says so rather than uploading the wrong data.
-
-**Downloads → Ask before deleting a downloaded game**, on by default.
-
-**RomMix folder.** Settings, credentials, the download index and any emulator
-RomMix installed live in `~/rommix`. Set a new path and RomMix copies it across
-and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME` overrides it.
-
-**Updates → New versions of RomMix.** Nothing updates an AppImage for you, so
-RomMix checks its own
-[releases](https://github.com/leclercb/rommix/releases) shortly after starting,
-then every six hours.
-
-- **Automatic**, the default — downloaded in the background, used at the next
-  start. Nothing restarts on its own; **Restart now** is there if you want it.
-- **Tell me** — notification and a version badge on Settings; nothing is
-  downloaded until you press **Download**.
-- **Off** — never checks by itself. **Check now** still does.
-
-The new image is written over the file you run, so shortcuts keep working and
-nothing is renamed. It is safe while running: the image is renamed into place
-and the running copy keeps reading the file it started from.
-
-Two cases RomMix cannot finish on its own, both of which it says on screen:
-**started from Steam**, where Steam forbids a program restarting itself — quit
-and press Play again; and an image it **cannot write to** or was not started
-from, where the check still reports the new version and the releases page is the
-way to get it.
 
 ### EmuDeck
 
@@ -228,6 +166,65 @@ EmuDeck's own configuration, cloud saves included, is what runs the game.
 
 Where EmuDeck installed several emulators for one system, RomMix asks which to
 use the first time you play something on that platform.
+
+---
+
+## Settings
+
+Three tabs — **General**, **Games**, **System** — with LB/RB (or Tab) to move
+between them.
+
+**General → Server.** Your address, who you are signed in as, and RomM's
+version, with **Disconnect**.
+
+**General → Interface.** Language, and **Scale**: the interface is laid out for a
+1080p television, so **Auto** doubles it on a 4K one. Pick a number if your panel
+is nearer or further away.
+
+**Games → Games on disk.** Downloads go to each emulator's own ROM folder, or to
+one RomMix folder you point every emulator at.
+
+**Games → Save sync.**
+
+- **Download newer saves before playing** — only ever replaces an _older_ local
+  save, keeping it as `*.rommix-bak` first.
+- **Upload saves after playing** — sends only what the session wrote.
+- **Ask before sending saves to RomM** — on by default. Lists the files and
+  sends only what you approve.
+
+Saves named after the ROM sync cleanly, and Switch-family saves are matched by
+title id. Emulators that share one memory card between every game cannot be
+synced, and RomMix says so rather than uploading the wrong data.
+
+**Games → Downloads → Ask before deleting a downloaded game**, on by default.
+
+**System → Pre-flight check.** Whether `flatpak` and Flathub are there, whether
+each emulator has been run, whether the ROM folder is writable — named, rather
+than left to fail at launch.
+
+**System → RomMix folder.** Settings, credentials, the download index and any
+emulator RomMix installed live in `~/rommix`. Set a new path and RomMix copies it across
+and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME` overrides it.
+
+**System → Updates.** Nothing updates an AppImage for you, so
+RomMix checks its own
+[releases](https://github.com/leclercb/rommix/releases) shortly after starting,
+then every few hours.
+
+- **Automatic**, the default — downloaded in the background, used at the next
+  start. Nothing restarts on its own; **Restart now** is there if you want it.
+- **Tell me** — notification and a version badge on Settings; nothing is
+  downloaded until you press **Download**.
+- **Off** — never checks by itself. **Check now** still does.
+
+The new image is written over the file you run. It is
+safe while running: the image is renamed into place and the running copy keeps
+reading the file it started from.
+
+Two cases RomMix cannot finish on its own, both of which it says on screen:
+**started from Steam**, where Steam forbids a program restarting itself — quit
+and press Play again; and an image it **cannot write to**, where the releases
+page is the way to get the new version.
 
 ### Settings that are not on screen
 
@@ -261,15 +258,16 @@ somewhere RomMix would not look.
 | Log file                              | `~/rommix/logs/rommix.log`                             |
 
 By default ROMs go into each emulator's own library, so a game is still there
-when you start that emulator yourself — RetroDECK's is wherever you told
-RetroDECK to put it, SD card included. Settings → **Games on disk** switches
-that to one RomMix folder instead.
+when you start that emulator yourself. Settings → Games → **Games on disk**
+switches that
+to one RomMix folder instead.
 
 ---
 
 ## Troubleshooting
 
-Settings → **Pre-flight check** names the common problems, and **Re-run check**
+Settings → System → **Pre-flight check** names the common problems, and
+**Re-run check**
 re-tests after you fix one.
 
 **RomMix does not start, or the Steam shortcut does nothing.** Run it from a
@@ -312,7 +310,7 @@ Also on NixOS: leave `programs.appimage.binfmt` off, and an AppImage emulator
 needs `programs.nix-ld.enable` too.
 
 **"flatpak is not installed".** Most of the emulators are flatpaks, so without
-the command none can be found or installed. Install it and re-run the check.
+the command none can be found or installed.
 
 **"Flathub is not set up for your user".** RomMix adds the remote the first time
 you install an emulator; by hand:
@@ -322,13 +320,13 @@ flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/fl
 ```
 
 **"… has not been run yet, so its folders do not exist".** Press **Run** beside
-it in Settings → Emulators, let it start, then re-run the check.
+it on the **Emulators** page, let it start, then re-run the check.
 
 **"The ROM folder is not writable".** Check its permissions, and that the drive
 it is on is mounted.
 
 **"No installed emulator can run …".** Nothing installed covers that platform —
-Settings → Platforms shows what each resolves to.
+Emulators → Platforms shows what each resolves to.
 
 **"RomMix does not know which folder … maps to".** Add a `systemOverrides` entry.
 
@@ -345,7 +343,8 @@ check: Chromium hides pads until one is used. A pad listed as `(unmapped)` is
 one Chromium does not recognise; the buttons RomMix uses still work, and any
 that do not are worth reporting with that name.
 
-**The interface is tiny on a 4K television.** Settings → Interface → **Scale**;
+**The interface is tiny on a 4K television.** Settings → General → Interface →
+**Scale**;
 set 200% by hand if Auto did not.
 
 ### The log
@@ -383,14 +382,12 @@ refuses to cut a tag without. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
 layout, the house style and how to add an emulator — which, like adding a system
 or a BIOS requirement, is a change in `src/config/` and nowhere else.
 
-`npm run preview:app` runs the renderer as a web page against a stub library,
-for looking at the front end where starting Electron is not worth it.
+`npm run preview:app` runs the renderer as a web page against a stub library.
 `npm run build:site` assembles it with the landing page into `out/site` — what
 [Pages](.github/workflows/pages.yml) publishes. The landing page is a template,
 [site/index.html](site/index.html), rendered once per language from
 [site/text/](site/text) by [scripts/build-landing.mjs](scripts/build-landing.mjs):
-English at the root, French, German and Spanish in folders beside it. The demo is
-built once and picks its language in the browser, as the app does.
+English at the root, French, German and Spanish in folders beside it.
 
 ### Releasing
 
