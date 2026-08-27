@@ -114,7 +114,7 @@ export function descendantsOf(psOutput: string, roots: readonly number[]): numbe
 }
 
 /**
- * SIGTERM a list of processes, one at a time.
+ * Signal a list of processes, one at a time.
  *
  * `process.kill` rather than the `kill` program: it is one fewer binary to
  * assume exists, it has no argv-length ceiling, and — the reason that matters —
@@ -126,10 +126,10 @@ export function descendantsOf(psOutput: string, roots: readonly number[]): numbe
  * a line: the tree is read from one snapshot, and an emulator shutting down
  * takes its children with it while this is still walking the list.
  */
-function signal(pids: readonly number[]): void {
+function signal(pids: readonly number[], sig: NodeJS.Signals = 'SIGTERM'): void {
   for (const pid of pids) {
     try {
-      process.kill(pid, 'SIGTERM')
+      process.kill(pid, sig)
     } catch (cause) {
       const code = (cause as NodeJS.ErrnoException).code
       if (code === 'ESRCH') continue
@@ -190,6 +190,30 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
   })
   await run(['flatpak', 'kill', appId])
   return true
+}
+
+/**
+ * Kill a process and everything underneath it.
+ *
+ * What RomMix spawns is usually not the emulator. An AppImage runs its payload
+ * as a child of its own runtime, a launcher script under `scripts` starts one
+ * and waits, and either way a signal to the process that was spawned kills the
+ * wrapper and leaves the emulator holding the screen — a force-close button
+ * that closes nothing.
+ *
+ * The root goes first so that a wrapper watching its child cannot start another
+ * one, and the descendants come from a snapshot taken before that, since a
+ * process reparented by the kill would no longer be found under it.
+ *
+ * SIGKILL throughout: this is only reached once the user has been told the
+ * emulator is not responding and has chosen to lose whatever it had not
+ * written. See `forceQuit`.
+ */
+export async function killProcessTree(pid: number): Promise<void> {
+  const ps = await run(['ps', '-eo', 'pid=,ppid='])
+  const targets = [pid, ...descendantsOf(ps ?? '', [pid])]
+  log.warn('host', 'killing a process tree on request — unsaved data is lost', { pid, targets })
+  signal(targets, 'SIGKILL')
 }
 
 /**

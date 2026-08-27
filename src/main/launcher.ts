@@ -4,7 +4,7 @@ import type { ResolvedInstall } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { installCore, missingCore } from './cores.ts'
-import { execPrefix, killFlatpakApp, realHome, stopFlatpakApp } from './host.ts'
+import { execPrefix, killFlatpakApp, killProcessTree, realHome, stopFlatpakApp } from './host.ts'
 import { log } from './log.ts'
 import type { RommClient } from './romm.ts'
 import type { SaveSync } from './saves.ts'
@@ -141,6 +141,11 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
  * off-screen or hung never answers it. A direct emulator then had nothing left
  * to try, so RomMix waited on it for as long as it stayed up.
  *
+ * The whole tree, not the process that was spawned: an AppImage's runtime and a
+ * launcher script both stand between RomMix and the emulator, and killing one
+ * of those leaves the emulator exactly where it was — which is what a force
+ * close that appeared to do nothing was. See `killProcessTree`.
+ *
  * Anything the emulator had not written is lost, which is why nothing calls
  * this until the user has been told so and pressed again.
  */
@@ -151,7 +156,9 @@ function forceQuit(child: ChildProcess, install: ResolvedInstall | null): void {
     ref: install?.ref ?? null
   })
   if (install?.kind === 'flatpak') void killFlatpakApp(install.ref)
-  else child.kill('SIGKILL')
+  // No pid means the spawn itself never got off the ground, and there is
+  // nothing running to signal.
+  else if (child.pid) void killProcessTree(child.pid)
 }
 
 /**
@@ -547,7 +554,11 @@ export class Launcher {
       log.info('launch', force ? 'forcing the running game closed' : 'stopping the running game', {
         romId: this.current.romId
       })
-      if (force) this.current.forceKill?.()
+      // A session that has not spawned anything yet has nothing to signal, and
+      // a force press that quietly does nothing is the worst answer available:
+      // abandoning the session is what closing means while a core is still
+      // downloading. See the session set up in `launch`.
+      if (force && this.current.forceKill) this.current.forceKill()
       else this.current.kill()
       return
     }
