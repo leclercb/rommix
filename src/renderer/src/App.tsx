@@ -48,13 +48,18 @@ export function App(): JSX.Element {
   const [confirmingQuit, setConfirmingQuit] = useState(false)
 
   /**
-   * B / Escape, and what it means once the history runs out.
+   * B / Escape, and what it means once there is nothing above.
    *
-   * Going back is the whole of it while there is somewhere to go. On the first
-   * screen there is not, and a button that does nothing is a button the player
-   * assumes is broken — so it climbs instead, the way every console does it:
-   * out of the page to the menu, and from the menu out of RomMix. Quitting is
-   * asked rather than done, because the same press arrives there by accident.
+   * Going up is the whole of it while something is: a game hangs off the
+   * section it was opened from, a collection's contents off Collections. On a
+   * section itself nothing is, and a button that does nothing is a button the
+   * player assumes is broken — so it climbs instead, the way every console does
+   * it: out of the page to the menu, and from the menu out of RomMix. Quitting
+   * is asked rather than done, because the same press arrives there by
+   * accident.
+   *
+   * Three presses from anywhere, then, and never more: what `navigate` keeps is
+   * the path to the current screen and not the screens visited on the way.
    */
   const back = useCallback((): void => {
     if (canGoBack) return goBack()

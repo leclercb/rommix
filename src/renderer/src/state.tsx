@@ -42,6 +42,38 @@ export type Route =
   | { name: 'emulators' }
   | { name: 'settings' }
 
+/**
+ * The screens that are a place rather than a thing: what the menu bar offers.
+ *
+ * Going to one of these starts a path instead of continuing one — see
+ * `navigate` — which is what keeps B a way *out* rather than a replay of the
+ * evening. Everything not named here is something looked at inside a place: a
+ * game, a collection's contents.
+ */
+const SECTIONS: readonly Route['name'][] = [
+  'home',
+  'library',
+  'collections',
+  'downloads',
+  'bios',
+  'emulators',
+  'settings'
+]
+
+/**
+ * Is this the same screen, rather than one of the same kind?
+ *
+ * What decides whether a move continues the path or returns along it. Opening
+ * the game already two steps back is going back to it, and pushing a second
+ * copy would make the next B press look like it did nothing.
+ */
+function sameRoute(a: Route, b: Route): boolean {
+  if (a.name !== b.name) return false
+  if (a.name === 'game' && b.name === 'game') return a.romId === b.romId
+  if (a.name === 'collection' && b.name === 'collection') return a.collectionId === b.collectionId
+  return true
+}
+
 export interface Toast {
   id: number
   message: string
@@ -122,6 +154,16 @@ interface AppState {
   refreshUpdate: () => Promise<void>
 
   route: Route
+  /**
+   * Go to a screen, keeping the way back to where it hangs from.
+   *
+   * A path, not a log. A section replaces whatever was on screen, because a
+   * section is where a path starts; anything else is a step deeper and is
+   * pushed onto the one being walked, unless it is already on it, in which case
+   * this is a walk back to it. So the most B ever has to undo is collections,
+   * then a collection, then a game — never the ten screens somebody looked at
+   * on the way, which was a back button that took a dozen presses to leave.
+   */
   navigate: (route: Route) => void
   /**
    * Go somewhere and throw the history away.
@@ -135,7 +177,7 @@ interface AppState {
    */
   replace: (route: Route) => void
   goBack: () => void
-  /** Whether there is a screen behind this one. See `App`, where B runs out. */
+  /** Whether this screen hangs off another. See `navigate`, and `App.back`. */
   canGoBack: boolean
 
   toasts: Toast[]
@@ -214,7 +256,11 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [])
 
   const navigate = useCallback((next: Route): void => {
-    setHistory((current) => [...current, next])
+    setHistory((current) => {
+      if (SECTIONS.includes(next.name)) return [next]
+      const at = current.findIndex((step) => sameRoute(step, next))
+      return at >= 0 ? current.slice(0, at + 1) : [...current, next]
+    })
   }, [])
 
   const replace = useCallback((next: Route): void => {
