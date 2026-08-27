@@ -34,9 +34,7 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
     <>
       <ul className="asset-list">
         {shown.map((file) => {
-          const stale = file.replaces
-            ? Date.parse(file.replaces.updatedAt) > Date.parse(file.modifiedAt)
-            : false
+          const stale = file.replaces?.isNewer === true
 
           return (
             <li key={`${file.kind}-${file.path}`}>

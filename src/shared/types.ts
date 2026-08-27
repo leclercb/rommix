@@ -684,6 +684,16 @@ export interface PendingSave {
     emulator: string | null
     /** Whether this device uploaded it; null when RomM recorded no origin. */
     fromThisDevice: boolean | null
+    /**
+     * Whether RomM's copy is a change this file does not have.
+     *
+     * Not the two timestamps compared: `updated_at` is when the copy was
+     * uploaded, which is later than the mtime of the very file it was uploaded
+     * from, so a push of an untouched save would warn about replacing itself.
+     * Decided by the same judgement as `SaveAsset.sync`, which is also what
+     * keeps the dialog and the game screen from disagreeing about one pair.
+     */
+    isNewer: boolean
   } | null
 }
 
