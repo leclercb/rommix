@@ -95,10 +95,11 @@ export function GameCard({
  * independently of the page — and the margin is horizontal so the next batch
  * is requested while the end of the shelf is still off to the right.
  *
- * A focus group, keyed by the shelf's own title: walking down onto a shelf
- * arrives at its first card, or at the card last left on it, rather than at
- * whichever one happens to sit under the column the press came down. See
- * `FocusGroup`.
+ * A focus group, keyed by the shelf's own title: walking onto a shelf from the
+ * hero arrives at its first card, or at the card last left on it, rather than
+ * at whichever one happens to sit under the column the press came down. From
+ * one shelf to the next the geometry decides, so Down lands on the tile drawn
+ * below the highlight. See `FocusGroup`.
  */
 export function GameRow({
   title,

@@ -123,15 +123,17 @@ const ZoneContext = createContext('root')
  * where it *lands* inside the region it arrives in. The two are different
  * problems, and the home screen is where the second one shows: the hero spans
  * the page, so its centre column is somewhere around the fourth card of the
- * shelf below it, and Down off the hero picks that card — a different one on
- * every library, for a reason nothing on screen explains. A shelf that has been
- * scrolled sideways is worse again, because the card nearest that column is
- * then whatever the scroll position left there.
+ * shelf below it, and Down off the hero would pick that card — a different one
+ * on every library, for a reason nothing on screen explains.
  *
- * So a group is entered at its first item, or — once it has been visited — at
- * the item last left in it, which is the answer a shelf that was scrolled
- * halfway along actually wants. Movement *within* a group is untouched: Left
- * and Right walk it one card at a time exactly as before.
+ * So a group reached from outside one is entered at its first item, or — once
+ * it has been visited — at the item last left in it.
+ *
+ * From inside a group the geometry stands, and that is the whole of the rule:
+ * between two shelves the card above or below the highlight is the one the
+ * player is looking at, and sending the press somewhere else instead is what
+ * would read as arbitrary. Movement *within* a group is untouched too — Left
+ * and Right walk it one card at a time.
  */
 const GroupContext = createContext('')
 
@@ -331,12 +333,16 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       }
 
       /**
-       * Where a press that arrives in a *different* group actually lands.
+       * Where a press that arrives in a group from outside every group lands.
        *
        * The geometry picked a member of that group; which member is not the
        * geometry's business, because the whole point of a group is that it is
        * entered at a stated place. Where it was left if it has been visited,
        * its first item otherwise.
+       *
+       * A press that starts inside a group keeps what the geometry picked: one
+       * shelf to the next is a move between two things the player can see, and
+       * the tile below the highlight is the one they mean. See `GroupContext`.
        *
        * "First" is document order rather than the left-most rect: a shelf runs
        * to several hundred cards once it has paged a few times, and measuring
@@ -353,9 +359,9 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
        * where they went.
        */
       const landing = (id: string): string => {
-        if (!vertical) return id
+        if (!vertical || current.group) return id
         const group = entries.current.get(id)?.group
-        if (!group || group === current.group) return id
+        if (!group) return id
 
         const remembered = groupMemory.current.get(group)
         if (remembered && candidates.some((entry) => entry.id === remembered)) return remembered
