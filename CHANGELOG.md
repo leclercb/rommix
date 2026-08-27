@@ -4,6 +4,11 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.7 — 2026-08-27
+
+- Stop back walking through every screen you have visited
+- Make force close reach the emulator, not just its wrapper
+
 ## 0.7.6 — 2026-08-27
 
 - Give the home page's featured game a backdrop
