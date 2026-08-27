@@ -4,6 +4,13 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.6 — 2026-08-27
+
+- Give the home page's featured game a backdrop
+- Land on the tile below when moving between shelves
+- Stop the push dialog warning about a save RomM already matches
+- Stop a save reading as newer on RomM right after you push it
+
 ## 0.7.5 — 2026-08-26
 
 - Add screenshots
