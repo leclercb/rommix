@@ -445,6 +445,10 @@ export class SaveSync {
 
       for (const asset of local) {
         const existing = remote.find((item) => item.file_name === asset.fileName)
+        const fromThisDevice =
+          existing && 'origin_device_id' in existing && existing.origin_device_id
+            ? existing.origin_device_id === thisDevice
+            : null
         files.push({
           kind,
           fileName: asset.fileName,
@@ -458,10 +462,9 @@ export class SaveSync {
                 sizeBytes: existing.file_size_bytes,
                 updatedAt: existing.updated_at,
                 emulator: existing.emulator,
-                fromThisDevice:
-                  'origin_device_id' in existing && existing.origin_device_id
-                    ? existing.origin_device_id === thisDevice
-                    : null
+                fromThisDevice,
+                isNewer:
+                  syncStateOf(asset.mtimeMs, existing.updated_at, fromThisDevice) === 'remote-newer'
               }
             : null
         })
@@ -802,12 +805,12 @@ export class SaveSync {
           payload = staged
         }
 
-        if (kind === 'save') {
-          await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag)
-        } else {
-          await this.client.uploadState(target.rom.id, payload, asset.fileName, tag)
-        }
+        const sent =
+          kind === 'save'
+            ? await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag)
+            : await this.client.uploadState(target.rom.id, payload, asset.fileName, tag)
         uploaded += 1
+        await this.stampUploaded(asset, Date.parse(sent.updated_at))
       } catch (cause) {
         // Keep going; a partial sync beats aborting on the first failure. The
         // count the interface shows cannot say which file was left behind, so
@@ -823,5 +826,28 @@ export class SaveSync {
       }
     }
     return uploaded
+  }
+
+  /**
+   * Date a file that has just been sent as the copy the server now holds.
+   *
+   * The mirror of what a pull does, and for the same reason: `updated_at` is
+   * when the upload happened, which is later than the mtime of the very file it
+   * was made from. Left alone, a save reads as older than its own copy the
+   * moment it is pushed, and the game screen lists it as waiting to be pulled
+   * back.
+   *
+   * A directory is stamped file by file, since `findLocal` reads a folder
+   * save's age as the newest mtime anywhere under it. An `updated_at` that does
+   * not parse leaves every mtime alone: the file is still the file, and the
+   * only cost is a badge that invites a pull of what is already here.
+   */
+  private async stampUploaded(asset: LocalAsset, remoteTime: number): Promise<void> {
+    if (!Number.isFinite(remoteTime)) return
+    if (!asset.isDirectory) {
+      await stampMtime(asset.path, remoteTime)
+      return
+    }
+    for (const file of await walk(asset.path)) await stampMtime(file, remoteTime)
   }
 }
