@@ -95,7 +95,7 @@ function MosaicCell({ path }: { path: string }): JSX.Element {
 }
 
 /**
- * The wash of artwork behind a game's hero.
+ * The wash of artwork behind a hero.
  *
  * A still from the game where RomM has one, its cover where it does not: blurred
  * far past legibility and faded into the page, so it reads as the colour of the

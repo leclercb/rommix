@@ -120,13 +120,16 @@
  * dissolved into the page at the bottom so the banner has no edge to notice.
  *
  * Scaled up because a blur of this radius samples past the edges of the image
- * and would otherwise leave a soft grey border around all four sides.
+ * and would otherwise leave a soft grey border around all four sides. Rounded
+ * with whatever holds it: full-bleed on the game screen, a card on the home
+ * one.
  */
 .backdrop {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  border-radius: inherit;
 }
 
 .backdrop img {

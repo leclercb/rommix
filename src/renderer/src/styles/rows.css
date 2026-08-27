@@ -55,8 +55,14 @@
    -------------------------------------------------------------------------- */
 
 /* The horizontal padding is what the focus ring needs: it is drawn on the
-   hero's own edge, so with no inset it sat flush against the cover art. */
+   hero's own edge, so with no inset it sat flush against the cover art.
+
+   Positioned for the artwork behind it, which is `.backdrop` — the same wash
+   the game screen carries, so the first screen of the evening is coloured by
+   the game it is offering. Not clipped here either: the focus ring falls
+   outside these edges, and the backdrop clips itself. */
 .hero {
+  position: relative;
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 30px;
@@ -73,10 +79,19 @@
   box-shadow: var(--focus-ring);
 }
 
+/* Both halves of the hero are positioned, and that is what puts them in front
+   of the artwork: `.backdrop` is a positioned child of the same box, and a
+   positioned element paints over in-flow content whatever the source order
+   says. */
 .hero__art {
+  position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+.hero__text {
+  position: relative;
 }
 
 .hero__hint {

@@ -1,6 +1,7 @@
 import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
 import {
+  ArtBackdrop,
   CoverArt,
   GameRow,
   Hints,
@@ -205,7 +206,13 @@ export function HomeScreen(): JSX.Element {
   )
 }
 
-/** The featured game. Focusable: it is the first thing on the screen. */
+/**
+ * The featured game. Focusable: it is the first thing on the screen.
+ *
+ * Drawn over its own artwork, the same wash the game screen uses, so the first
+ * thing RomMix shows is coloured by the game it is offering rather than by the
+ * page it is drawn on.
+ */
 function Hero({
   rom,
   reason,
@@ -225,10 +232,13 @@ function Hero({
 
   return (
     <div ref={ref as Ref<HTMLDivElement>} className="hero" {...props}>
+      <ArtBackdrop
+        paths={[rom.merged_screenshots?.[0], rom.path_cover_large, rom.path_cover_small]}
+      />
       <div className="hero__art">
         <CoverArt path={rom.path_cover_large ?? rom.path_cover_small} name={title} />
       </div>
-      <div>
+      <div className="hero__text">
         <div className="hero__reason">{reason}</div>
         <h1 className="hero__title">{title}</h1>
         <div className="hero__meta">
