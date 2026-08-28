@@ -22,10 +22,10 @@ import { useI18n } from '../../../state'
 /** How each side reads on a row. */
 const WHERE: Record<
   'both' | 'server' | 'device',
-  { label: MessageKey; hint: MessageKey; tone: 'ok' | 'warn' | 'off'; icon: IconName }
+  { label: MessageKey; hint: MessageKey; tone: 'ok' | 'warn' | 'info'; icon: IconName }
 > = {
   both: { label: 'files.tagBoth', hint: 'files.hintBoth', tone: 'ok', icon: 'confirm' },
-  server: { label: 'files.tagServer', hint: 'files.hintServer', tone: 'off', icon: 'server' },
+  server: { label: 'files.tagServer', hint: 'files.hintServer', tone: 'info', icon: 'server' },
   device: { label: 'files.tagDevice', hint: 'files.hintDevice', tone: 'warn', icon: 'folder' }
 }
 
