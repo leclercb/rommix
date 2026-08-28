@@ -36,6 +36,13 @@ npm test
 CI runs exactly these four, in this order, on every pull request. `npm run
 format` fixes the first one for you.
 
+`npm run test:coverage` runs the same suite with Node's coverage report and a
+floor under it. The floor is there to stop the number sliding, not to be aimed
+at: a module worth adding is worth testing, and the report says which lines of
+it nothing has run. Only files a test actually imports appear — the renderer,
+the IPC wiring and anything that drives Electron or spawns a process are
+deliberately absent, and are covered by running the application.
+
 ## Where things live
 
 `src/config/` is the part most changes belong in.

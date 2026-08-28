@@ -66,8 +66,18 @@ registerHooks({
             'anything that genuinely drives Electron belongs in the app, not here.'
           )
         }
-        // Enough to satisfy an import. Every one of these throws when used.
-        export const app = { getVersion: refuse('app.getVersion'), on: refuse('app.on') }
+        // Enough to satisfy an import. Every one of these throws when used —
+        // except \`isReady\`, which answers, because it is the one question that
+        // has a true answer out here: no Electron app is running, so \`i18n()\`
+        // falls back to English instead of asking for the desktop's locale.
+        // Without it every message the main process throws is a TypeError from
+        // inside the translator rather than the sentence under test.
+        export const app = {
+          isReady: () => false,
+          getVersion: refuse('app.getVersion'),
+          getLocale: refuse('app.getLocale'),
+          on: refuse('app.on')
+        }
         export const safeStorage = {
           isEncryptionAvailable: refuse('safeStorage.isEncryptionAvailable'),
           encryptString: refuse('safeStorage.encryptString'),

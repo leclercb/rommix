@@ -3,16 +3,28 @@ import { after, test } from 'node:test'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { descendantsOf, findMatchingFile } from './host.ts'
+import type { ResolvedInstall } from '@config/emulators'
+import {
+  binaryPath,
+  descendantsOf,
+  execPrefix,
+  findMatchingFile,
+  isWritable,
+  realHome,
+  xdgConfigHome,
+  xdgDataHome
+} from './host.ts'
 
 /**
- * The two pure pieces of host handling: reading a process tree, and matching a
- * file name against a descriptor's glob.
+ * What RomMix can ask the machine without starting a subprocess: reading a
+ * process tree, matching a file name against a descriptor's glob, and building
+ * the argv an emulator is started with.
  *
- * Both feed decisions that are hard to see going wrong. A missed descendant is
- * a Close button that does nothing, because the process actually running the
- * game was never signalled. A glob that matches too much is RomMix adopting
- * some other program as an emulator.
+ * All of it feeds decisions that are hard to see going wrong. A missed
+ * descendant is a Close button that does nothing, because the process actually
+ * running the game was never signalled. A glob that matches too much is RomMix
+ * adopting some other program as an emulator. A variable on the wrong side of
+ * a flatpak's application id is one the emulator never receives.
  */
 
 const roots: string[] = []
@@ -116,4 +128,88 @@ test('regex metacharacters in a pattern are literal', async () => {
 
 test('a missing directory is an answer, not an error', async () => {
   assert.equal(await findMatchingFile('/nonexistent/rommix/path', ['*.appimage']), null)
+})
+
+/**
+ * The rest of what RomMix asks the machine, minus the parts that are a
+ * subprocess: how an install is started, where other applications keep their
+ * settings, and whether a folder can be written into.
+ *
+ * `execPrefix` is the one worth stating plainly. It is the argv every emulator
+ * is started with, so an `--env` on the wrong side of a flatpak's application
+ * id is a variable the emulator never sees and a launch that fails for reasons
+ * nothing on screen explains.
+ */
+
+const environment = {
+  home: process.env.HOME,
+  config: process.env.XDG_CONFIG_HOME,
+  data: process.env.XDG_DATA_HOME
+}
+
+after(() => {
+  for (const [name, value] of Object.entries({
+    HOME: environment.home,
+    XDG_CONFIG_HOME: environment.config,
+    XDG_DATA_HOME: environment.data
+  })) {
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+  }
+})
+
+test("the user's own directories follow the environment, and fall back to the home", () => {
+  process.env.HOME = '/home/player'
+  delete process.env.XDG_CONFIG_HOME
+  delete process.env.XDG_DATA_HOME
+
+  assert.equal(realHome(), '/home/player')
+  assert.equal(xdgConfigHome(), '/home/player/.config')
+  assert.equal(xdgDataHome(), '/home/player/.local/share')
+
+  process.env.XDG_CONFIG_HOME = '/elsewhere/config'
+  process.env.XDG_DATA_HOME = '/elsewhere/data'
+  assert.equal(xdgConfigHome(), '/elsewhere/config')
+  assert.equal(xdgDataHome(), '/elsewhere/data')
+})
+
+test('a flatpak is started through flatpak run, with any variables before the app id', () => {
+  const install: ResolvedInstall = { kind: 'flatpak', ref: 'net.retrodeck.retrodeck' }
+
+  assert.deepEqual(execPrefix(install, { SDL_VIDEODRIVER: 'wayland' }), [
+    'flatpak',
+    'run',
+    '--env=SDL_VIDEODRIVER=wayland',
+    'net.retrodeck.retrodeck'
+  ])
+})
+
+test('an AppImage is run directly, and a scripts install has no program of its own', () => {
+  assert.deepEqual(execPrefix({ kind: 'appimage', ref: '/home/player/Eden.AppImage' }), [
+    '/home/player/Eden.AppImage'
+  ])
+  assert.deepEqual(execPrefix({ kind: 'binary', ref: '/usr/bin/retroarch' }), [
+    '/usr/bin/retroarch'
+  ])
+  assert.deepEqual(execPrefix({ kind: 'scripts', ref: '/home/player/emudeck/tools' }), [])
+})
+
+test('a name that is not a plain program name is never handed to a shell', async () => {
+  // The string would run `id` if it reached `sh -c`. It has to be refused on
+  // sight: descriptors are data, and data does not get to write commands.
+  assert.equal(await binaryPath(['retroarch; id']), null)
+})
+
+test('a program on PATH is found by its absolute path', async () => {
+  const found = await binaryPath(['sh'])
+
+  assert.ok(found?.endsWith('/sh'))
+})
+
+test('a directory RomMix cannot write to, and one that is not there at all', async () => {
+  const dir = scratch([])
+
+  assert.equal(await isWritable(dir), true)
+  assert.equal(await isWritable(join(dir, 'not-created')), false)
+  assert.equal(await isWritable(null), false)
 })
