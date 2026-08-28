@@ -116,6 +116,15 @@ jobs:
       contents: write
 
     steps:
+      # For CHANGELOG.md, which is what the release page is written from.
+      - uses: actions/checkout@v7
+
+      # Named rather than left to whatever the runner image ships, for the same
+      # reason the build job names it.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
       # Both legs into one folder. `rommix-steam.sh` is identical in each, and
       # `merge-multiple` overwrites rather than nesting, so it lands once.
       - uses: actions/download-artifact@v8
@@ -124,19 +133,15 @@ jobs:
           merge-multiple: true
           path: dist
 
-      # generate_release_notes has GitHub write the changelog from the commits
-      # and pull requests since the last tag; `body` is prepended to it, and is
-      # kept to what somebody standing at the download needs — which file, and
-      # what to do with it. Why the script is needed at all, and what to do when
-      # it is not enough, is the README's job: it is read once, while this page
-      # is republished with every release. A tag like v0.2.0-rc1 is a
+      # The section for this version, plus how to run what is attached. The
+      # build job has already refused the tag if that section is missing, so
+      # this cannot publish a release with nothing to read.
+      - name: Write the release notes
+        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > release-notes.md
+
+      # The notes are RomMix's own — see `scripts/release-notes.mjs` for why
+      # they are not GitHub's generated ones. A tag like v0.2.0-rc1 is a
       # pre-release; v0.2.0 is not.
-      #
-      # The file names are written out rather than derived from the tag: they no
-      # longer carry the version. See `appImage.artifactName` in
-      # electron-builder.yml for why — RomMix replaces its own image in place,
-      # and a name that changed with the release would break every shortcut
-      # pointing at it.
       - name: Publish the release
         uses: softprops/action-gh-release@v3
         with:
@@ -144,25 +149,6 @@ jobs:
             dist/*.AppImage
             dist/rommix-steam.sh
           name: RomMix ${{ github.ref_name }}
-          generate_release_notes: true
+          body_path: release-notes.md
           prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
-          body: |
-            ### Run
-
-            `RomMix-x86_64.AppImage` for a PC or Steam Deck,
-            `RomMix-arm64.AppImage` for an ARM handheld (`uname -m` says which).
-
-            ```bash
-            chmod +x RomMix-x86_64.AppImage
-            ./RomMix-x86_64.AppImage
-            ```
-
-            No version in the file name: updates are written over that same
-            file, so a shortcut pointing at it keeps working.
-
-            ### From Steam
-
-            Download `rommix-steam.sh` too, `chmod +x` it, keep it beside the
-            AppImage, and add **the script** as the non-Steam game — Steam
-            cannot launch the AppImage directly.

@@ -60,7 +60,7 @@
   "emulators.flatpakAndAppImage": "Flatpak y AppImage",
 
   "getting.title": "Descargar",
-  "getting.lede": "Requiere Linux, un servidor RomM en la versión 5 o posterior, y uno de los emuladores de arriba. Coge la AppImage de la <a href=\"https://github.com/leclercb/rommix/releases\">página de versiones</a> &mdash; <code>x86_64</code> para un PC o una Steam Deck, <code>arm64</code> para una portátil ARM &mdash; y ejecútala.",
+  "getting.lede": "Requiere Linux, un servidor RomM en la versión 5 o posterior, y uno de los emuladores de arriba. Coge la AppImage de la <a href=\"https://github.com/leclercb/rommix/releases\">página de versiones</a> y ejecútala &mdash; elige <code>x86_64</code> o <code>arm64</code> según la arquitectura de tu máquina.",
   "getting.note": "Sin número de versión en el nombre del archivo: las actualizaciones se escriben encima de ese mismo archivo.",
   "getting.steamTitle": "Desde Steam",
   "getting.steamBody": "Descarga <code>rommix-steam.sh</code> de la misma versión, guárdalo <strong>junto</strong> a la AppImage, y añade <strong>el script</strong> como juego ajeno a Steam — no la AppImage en sí.",

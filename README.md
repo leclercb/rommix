@@ -51,8 +51,8 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
 ## Install
 
 Download the AppImage from
-[Releases](https://github.com/leclercb/rommix/releases) — `x86_64` for a PC or a
-Steam Deck, `arm64` for an ARM handheld (`uname -m` says which).
+[Releases](https://github.com/leclercb/rommix/releases) and choose `x86_64` or
+`arm64` depending on your machine's architecture.
 
 ```bash
 chmod +x RomMix-x86_64.AppImage
@@ -400,7 +400,8 @@ npm run release -- --dry-run   # npm eats flags that come without the --
 version, writes the [CHANGELOG.md](CHANGELOG.md) entry, commits, tags and pushes;
 a `v*` tag publishes a release with the AppImage attached, and a version with a
 suffix — `0.2.0-rc1` — publishes as a pre-release. The entry falls back to commit
-subjects, so write the `## <version>` section by hand first if you want prose.
+subjects, so write the `## <version>` section by hand first if you want prose —
+it is what the release page says under **What's new**.
 
 ---
 
