@@ -26,11 +26,49 @@
   box-shadow: var(--focus-ring);
 }
 
-/* A transfer that can still be cancelled carries a button, which needs a column
-   of its own — added only where there is one, so a finished row does not end in
-   an empty track and the gap that comes with it. */
+/*
+ * A queue row: artwork, what the game is doing, how far it has got, and the
+ * buttons.
+ *
+ * Four columns rather than one long line, because three of the four things on
+ * the row grow unpredictably — a game's name, a platform's, the file of a disc
+ * set arriving — and strung together they pushed the buttons off the end. Only
+ * the text column gives way; the count and the buttons stay where the eye last
+ * found them.
+ */
+.download--row {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+}
+
+/* A transfer that can still be acted on carries buttons, which need a column of
+   their own — added only where there are some, so a finished row does not end
+   in an empty track and the gap that comes with it. */
 .download--action {
-  grid-template-columns: 52px 1fr auto auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto auto;
+}
+
+/* The two lines of text stack in one column, and it is the one that shrinks. */
+.download__text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* The reason a failed transfer gives, under the row it failed on — lined up
+   with the words above it rather than starting under the artwork. */
+.download__state {
+  grid-column: 2 / -1;
+  font-size: 14px;
+  color: var(--text-dim);
+  min-width: 0;
+}
+
+/* Never wrapped, never re-laid-out as it counts up. */
+.download__size {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .download__actions {
@@ -43,11 +81,16 @@
    that column the label is squeezed into 52px and spills over the size beside
    it. */
 .download--bare {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* One line, cut with an ellipsis: a full game name with its region and revision
+   tags is longer than any row, and wrapping it would push the bar down. */
 .download__name {
   font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .download__bar {
@@ -65,10 +108,57 @@
   transition: width 200ms linear;
 }
 
-.download__state {
+/*
+ * The line under the name: where the game is from, and which of its files is
+ * arriving.
+ *
+ * Every part is a flex row of its own so the marks sit on the centre line of
+ * the words rather than on their baseline — an icon nudged into place with
+ * `vertical-align` lands differently at every text size, and this row is drawn
+ * at three of them once the interface is scaled.
+ */
+.download__facts {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
   font-size: 14px;
   color: var(--text-dim);
+}
+
+.download__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   white-space: nowrap;
+}
+
+/* The one part allowed to run long, and so the one that gives way. */
+.download__fact--file {
+  min-width: 0;
+}
+
+.download__filename {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The state and the count on one line, hard against the buttons: two things
+   that change, read together and aligned down the list. The badge leads,
+   because what a row is doing decides whether its figures are worth reading. */
+.download__figures {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+/* Under the words rather than under the cover as well: the bar belongs to the
+   text it is measuring, and starting it at the edge of the artwork made the row
+   look like two things stacked rather than one. */
+.download--row .download__bar {
+  grid-column: 2 / -1;
 }
 
 /* One way of installing an emulator: the button that takes it, and what it

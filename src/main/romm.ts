@@ -12,6 +12,7 @@ import type {
   RommFirmware,
   RommPlatform,
   RommRom,
+  RommRomFile,
   RommRomPage,
   RommSave,
   RommState,
@@ -84,6 +85,48 @@ const RESUME_ATTEMPTS = 5
 
 /** A pause between attempts, so a server refusing everything is not hammered. */
 const RESUME_DELAY_MS = 500
+
+/**
+ * How long a transfer may deliver nothing before RomMix gives up on it and
+ * asks again.
+ *
+ * Not every broken connection is closed. A VPN switched on or off, a handheld
+ * that moved between access points, a router rebooted — each leaves a socket
+ * that is not refused and simply never delivers another byte, and the only
+ * thing that ends it otherwise is a timeout meant for a slow server rather than
+ * a dead route, minutes away. Timing it here turns those into the same brief
+ * interruption as a closed connection, resumed from the same place.
+ *
+ * Generous, because it is measured against silence rather than against slowness:
+ * a ROM crawling in at a few kilobytes a second is still arriving, and only a
+ * transfer that has stopped completely reaches this.
+ */
+const STALL_TIMEOUT_MS = 20_000
+
+/** What a caller can say about one transfer. */
+interface TransferOptions {
+  /** Continue the `.part` already on disk rather than replacing it. */
+  resume?: boolean
+  /**
+   * Whether what is being fetched can be resumed at all. See `supportsRange`.
+   *
+   * A transfer that cannot be is handled the opposite way round in both places
+   * it matters. It is never given up on for going quiet, because the socket
+   * recovering is the only way the download survives — a stalled connection
+   * that comes back has cost nothing, while abandoning it costs everything
+   * transferred so far. And a break is a failure rather than something to try
+   * again, because trying again means fetching the whole thing a second time,
+   * which is not a decision to take on the user's behalf on a metered
+   * connection.
+   */
+  resumable?: boolean
+}
+
+/** Where a transfer in progress is written. The file itself appears only once
+ * it is whole. */
+export function partialPathOf(destination: string): string {
+  return `${destination}.part`
+}
 
 /** Strip trailing slashes so we can concatenate paths safely. */
 export function normaliseBaseUrl(input: string): string {
@@ -508,28 +551,218 @@ export class RommClient {
    * beginning again is, on a slow link, indistinguishable from RomMix simply
    * being unable to download the game at all. See `RESUME_ATTEMPTS`.
    */
+  /**
+   * Where one file of a multi-file game is served from.
+   *
+   * Keyed by the *file's* id rather than the game's, and it is an ordinary file
+   * on the server's disk — which is the whole reason RomMix asks for these one
+   * at a time. See `downloadRomFile`.
+   */
+  private fileContentPath(file: RommRomFile): string {
+    return `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}`
+  }
+
+  /** Where the whole game is served from, as one file or as an archive. */
+  private romContentPath(rom: RommRom): string {
+    return `/api/roms/${rom.id}/content/${encodeURIComponent(rom.fs_name)}`
+  }
+
+  /**
+   * What a ranged request to an endpoint answers, without fetching anything.
+   *
+   * One byte, asked for by range. `206` means the server can seek into what it
+   * is serving and a transfer that breaks can be picked up; `404` means the
+   * endpoint is not there at all, which is how a server too old to serve files
+   * individually says so; anything else means it is there and cannot be
+   * resumed.
+   */
+  private async probeRange(path: string): Promise<number> {
+    const res = await this.request(path, { headers: { Range: 'bytes=0-0' } })
+    // Released rather than read: the answer is in the status line, and the body
+    // is either one byte or the whole ROM starting to arrive.
+    await res.body?.cancel().catch(() => undefined)
+    return res.status
+  }
+
+  /**
+   * Can this game be fetched one file at a time, and can those be resumed?
+   *
+   * Asked before the transfer rather than discovered during it. What hangs on
+   * the answer is not only how a break is handled but what the screen offers: a
+   * Pause button on a download that cannot resume is a promise RomMix cannot
+   * keep.
+   *
+   * A probe that fails answers no to both. It is the safe way round — the cost
+   * of believing a transfer resumable when it is not is a download thrown away.
+   */
+  async fileTransfers(rom: RommRom): Promise<{ available: boolean; resumable: boolean }> {
+    const file = rom.files[0]
+    if (!file || rom.files.length < 2) return { available: false, resumable: false }
+    try {
+      const status = await this.probeRange(this.fileContentPath(file))
+      // Only an answer that actually carried the file counts as this endpoint
+      // working. A 404 is a server too old to have it; anything else — a 403, a
+      // 500 — is a reason to leave the strategy alone rather than to fetch a
+      // game through an endpoint that has just refused one byte of it.
+      const answer = { available: status === 206 || status === 200, resumable: status === 206 }
+      log.info('romm', 'asked whether this game can be fetched file by file', {
+        romId: rom.id,
+        files: rom.files.length,
+        status,
+        ...answer
+      })
+      return answer
+    } catch (cause) {
+      log.warn('romm', 'could not tell whether this game can be fetched file by file', {
+        romId: rom.id,
+        reason: (cause as Error).message
+      })
+      return { available: false, resumable: false }
+    }
+  }
+
+  /**
+   * Can this ROM be fetched in pieces, or only from the beginning?
+   *
+   * One byte, asked for by range. A `206` means the server can seek into the
+   * file and a transfer that breaks can be picked up; anything else means it
+   * cannot, and RomM answers that way for a good reason — a game of several
+   * files has no file to seek into, because the zip is built for each request
+   * and is not even the same size twice.
+   *
+   * Asked before the transfer rather than discovered during it. What hangs on
+   * the answer is not only how a break is handled but what the screen offers:
+   * a Pause button on a download that cannot resume is a promise RomMix cannot
+   * keep.
+   *
+   * A probe that fails answers "no". It is the safe way round: the cost of
+   * believing a transfer resumable when it is not is a download thrown away.
+   */
+  async supportsRange(rom: RommRom): Promise<boolean> {
+    try {
+      const status = await this.probeRange(this.romContentPath(rom))
+      const ranged = status === 206
+      log.info('romm', ranged ? 'this ROM can be resumed' : 'this ROM cannot be resumed', {
+        romId: rom.id,
+        status
+      })
+      return ranged
+    } catch (cause) {
+      log.warn('romm', 'could not tell whether this ROM can be resumed', {
+        romId: rom.id,
+        reason: (cause as Error).message
+      })
+      return false
+    }
+  }
+
   async downloadRom(
     rom: RommRom,
     destination: string,
     onProgress: (progress: DownloadProgress) => void,
-    signal: AbortSignal
+    signal: AbortSignal,
+    options: TransferOptions = {}
   ): Promise<void> {
-    const path = `/api/roms/${rom.id}/content/${encodeURIComponent(rom.fs_name)}`
-    const partial = `${destination}.part`
-    // Never resumed across calls: a `.part` left by an earlier download is of
-    // unknown provenance — a different release of the same game, a file the
-    // server has since replaced — and appending to it would produce a corrupt
-    // ROM that looks complete.
-    await rm(partial, { force: true }).catch(() => undefined)
+    await this.fetchToFile(
+      this.romContentPath(rom),
+      destination,
+      rom.fs_size_bytes,
+      { kind: 'ROM', romId: rom.id },
+      onProgress,
+      signal,
+      options
+    )
+  }
+
+  /**
+   * One file of a game made of several, straight to disk.
+   *
+   * The reason RomMix asks for these one at a time rather than for the archive
+   * RomM would build: the archive is generated per request, so the server has
+   * nothing to seek into and a transfer that breaks starts again from nothing.
+   * These are ordinary files on its disk, so each one resumes — and the sum of
+   * them is a few hundred bytes *smaller* than the archive, which only adds zip
+   * headers around bytes it does not compress.
+   */
+  async downloadRomFile(
+    file: RommRomFile,
+    destination: string,
+    onProgress: (progress: DownloadProgress) => void,
+    signal: AbortSignal,
+    options: TransferOptions = {}
+  ): Promise<void> {
+    await this.fetchToFile(
+      this.fileContentPath(file),
+      destination,
+      file.file_size_bytes,
+      { kind: 'file', romId: file.rom_id, fileName: file.file_name },
+      onProgress,
+      signal,
+      options
+    )
+  }
+
+  /**
+   * Fetch one thing to one path, picking it up again where it breaks.
+   *
+   * Shared by both of the above, because everything hard about a transfer — the
+   * partial file, the range, the stall, the retries — is the same whether what
+   * is arriving is a whole ROM or one track of a disc.
+   */
+  private async fetchToFile(
+    path: string,
+    destination: string,
+    sizeHint: number,
+    subject: { kind: string; romId: number; fileName?: string },
+    onProgress: (progress: DownloadProgress) => void,
+    signal: AbortSignal,
+    options: TransferOptions = {}
+  ): Promise<number> {
+    const resumable = options.resumable !== false
+    const attempts = resumable ? RESUME_ATTEMPTS : 1
+    const partial = partialPathOf(destination)
+
+    /**
+     * Bytes already on disk, kept only when the caller says they belong to
+     * what is being fetched now.
+     *
+     * A `.part` nobody vouched for is of unknown provenance — a different
+     * release of the same game, a file the server has since replaced — and
+     * appending to it produces a corrupt ROM that looks complete. What makes
+     * resuming safe is the queue's own record of what it was downloading; see
+     * `PendingDownload`.
+     */
+    let received = 0
+    if (options.resume) received = (await stat(partial).catch(() => null))?.size ?? 0
+    else await rm(partial, { force: true }).catch(() => undefined)
 
     const took = log.since()
-    let received = 0
-    let total = rom.fs_size_bytes
+    let total = sizeHint
+    if (received > 0) {
+      log.info('romm', 'resuming a transfer that was part-done', { ...subject, received, total })
+      onProgress({ received, total })
+    }
 
     for (let attempt = 1; ; attempt += 1) {
+      // One controller per attempt: it carries the caller's cancellation and
+      // the stall timeout below, so the transfer can be given up on without the
+      // caller having asked for anything.
+      const attemptStopped = new AbortController()
+      const relay = (): void => attemptStopped.abort()
+      signal.addEventListener('abort', relay, { once: true })
+      let idle: NodeJS.Timeout | null = null
+      const waitForBytes = (): void => {
+        if (!resumable) return
+        if (idle) clearTimeout(idle)
+        idle = setTimeout(() => attemptStopped.abort(), STALL_TIMEOUT_MS)
+        idle.unref()
+      }
+
       try {
+        if (signal.aborted) attemptStopped.abort()
+        waitForBytes()
         const res = await this.request(path, {
-          signal,
+          signal: attemptStopped.signal,
           headers: received > 0 ? { Range: `bytes=${received}-` } : {}
         })
         if (!res.ok) throw await this.toError(res)
@@ -545,8 +778,8 @@ export class RommClient {
          */
         const resumed = received > 0 && res.status === 206
         if (received > 0 && !resumed) {
-          log.warn('romm', 'the server ignored the range, starting the ROM again', {
-            romId: rom.id,
+          log.warn('romm', 'the server ignored the range, starting again', {
+            ...subject,
             status: res.status,
             discarded: received
           })
@@ -554,38 +787,39 @@ export class RommClient {
           received = 0
         }
 
-        // On a 206 the length is what is left to come, not the size of the ROM.
+        // On a 206 the length is what is left to come, not the whole size.
         const declared = Number(res.headers.get('content-length') ?? 0)
-        total = (resumed ? received + declared : declared) || rom.fs_size_bytes
+        total = (resumed ? received + declared : declared) || sizeHint
 
         const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
         source.on('data', (chunk: Buffer) => {
           received += chunk.length
+          waitForBytes()
           onProgress({ received, total })
         })
 
         await pipeline(source, createWriteStream(partial, { flags: resumed ? 'a' : 'w' }), {
-          signal
+          signal: attemptStopped.signal
         })
         break
       } catch (cause) {
         // Cancelling is not a failure to retry: the user asked for it, and the
-        // two look identical by the time the queue sees the exception.
+        // two look identical by the time the queue sees the exception. What
+        // happens to the part-downloaded file is the queue's decision, not this
+        // one's — cancelling throws it away, an interruption keeps it.
         if (signal.aborted) {
-          log.info('romm', 'ROM download cancelled', { romId: rom.id, received, total, ms: took() })
-          await rm(partial, { force: true }).catch(() => undefined)
+          log.info('romm', 'transfer cancelled', { ...subject, received, total, ms: took() })
           throw cause
         }
 
-        if (attempt >= RESUME_ATTEMPTS) {
-          log.error('romm', 'ROM download failed', cause, {
-            romId: rom.id,
+        if (attempt >= attempts) {
+          log.error('romm', 'transfer failed', cause, {
+            ...subject,
             received,
             total,
             attempts: attempt,
             ms: took()
           })
-          await rm(partial, { force: true }).catch(() => undefined)
           // Said in RomMix's own words rather than passed on. What arrives here
           // is whatever the network layer called it — undici says `terminated`
           // for a connection that died mid-response — and that word on its own,
@@ -603,27 +837,26 @@ export class RommClient {
         // What actually reached the disk, which is behind what the stream
         // counted: the chunks in flight when the connection died were reported
         // to `onProgress` and never written. Resuming from the counter would
-        // leave a hole in the middle of the ROM.
+        // leave a hole in the middle of the file.
         received = (await stat(partial).catch(() => null))?.size ?? 0
         onProgress({ received, total })
-        log.warn('romm', 'the ROM transfer broke, picking it up again', {
-          romId: rom.id,
+        log.warn('romm', 'the transfer broke, picking it up again', {
+          ...subject,
           received,
           total,
           attempt,
           reason: (cause as Error).message
         })
         await new Promise((resolve) => setTimeout(resolve, RESUME_DELAY_MS))
+      } finally {
+        if (idle) clearTimeout(idle)
+        signal.removeEventListener('abort', relay)
       }
     }
 
     await rename(partial, destination)
-    log.info('romm', 'ROM content downloaded', {
-      romId: rom.id,
-      bytes: received,
-      ms: took(),
-      destination
-    })
+    log.info('romm', 'content downloaded', { ...subject, bytes: received, ms: took(), destination })
+    return received
   }
 
   // -- firmware (BIOS) ------------------------------------------------------

@@ -1,21 +1,22 @@
 import type { MessageKey } from '@shared/i18n'
 import type { DownloadItem, InstalledRom } from '@shared/types'
-import { CoverArt, FocusButton, Hints, Overlay, Spinner, SystemIcon, Tabs } from '../../components'
+import {
+  CoverArt,
+  DownloadBadge,
+  DownloadBar,
+  FocusButton,
+  Hints,
+  Overlay,
+  Spinner,
+  SystemIcon,
+  Tabs
+} from '../../components'
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
 import { useApp, useI18n } from '../../state'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
 /** How each transfer state reads on a row. */
-const STATE_KEYS = {
-  queued: 'downloads.state.queued',
-  downloading: 'downloads.state.downloading',
-  extracting: 'downloads.state.extracting',
-  done: 'downloads.state.done',
-  error: 'downloads.state.error',
-  cancelled: 'downloads.state.cancelled'
-} as const satisfies Record<DownloadItem['state'], MessageKey>
-
 /** The two jobs this screen does, split so neither buries the other. */
 type Tab = 'activity' | 'device'
 
@@ -48,9 +49,19 @@ function compare(a: InstalledRom, b: InstalledRom, sort: SortMode): number {
  */
 const FLAT_PAGE = 40
 
-/** Is this transfer still going? */
+/**
+ * Is this transfer still going, or waiting to?
+ *
+ * A paused one counts: it is not finished, and this is the list the user comes
+ * to when they want to finish it. See `DownloadState`.
+ */
 function isActive(item: DownloadItem): boolean {
-  return item.state === 'queued' || item.state === 'downloading' || item.state === 'extracting'
+  return (
+    item.state === 'queued' ||
+    item.state === 'downloading' ||
+    item.state === 'extracting' ||
+    item.state === 'paused'
+  )
 }
 
 /** Transfer queue plus everything currently on local disk. */
@@ -223,6 +234,8 @@ export function DownloadsScreen(): JSX.Element {
                   item={item}
                   onSelect={() => navigate({ name: 'game', romId: item.romId })}
                   onCancel={() => void window.rommix.downloads.cancel(item.romId)}
+                  onPause={() => void window.rommix.downloads.pause(item.romId)}
+                  onResume={() => void window.rommix.downloads.start(item.romId)}
                 />
               ))}
             </>
@@ -435,49 +448,104 @@ function PlatformGroup({
 function ProgressRow({
   item,
   onSelect,
-  onCancel
+  onCancel,
+  onPause,
+  onResume
 }: {
   item: DownloadItem
   onSelect: () => void
   onCancel?: () => void
+  onPause?: () => void
+  onResume?: () => void
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
   const percent = item.totalBytes > 0 ? Math.round((item.receivedBytes / item.totalBytes) * 100) : 0
+  const paused = item.state === 'paused'
+  const resumable = paused && onResume !== undefined
+  /**
+   * Whether Pause is a thing this transfer can honestly offer.
+   *
+   * Extracting is out because unpacking an archive is nobody's to interrupt
+   * half-way. A ROM the server cannot send in pieces is out for a better
+   * reason: pausing it would lose everything transferred, which is what Cancel
+   * is for — two buttons for one outcome, one of them lying about it.
+   */
+  const stoppable =
+    onPause !== undefined &&
+    item.resumable !== false &&
+    (item.state === 'downloading' || item.state === 'queued')
+  // The column the buttons need is added for the buttons there actually are,
+  // not for one of them: a row that only offers Resume needs it just as much.
+  const acts = Boolean(onCancel) || resumable || stoppable
 
   return (
     <div
       ref={ref as Ref<HTMLDivElement>}
-      className={`download ${onCancel ? 'download--action' : ''}`}
+      className={`download download--row ${acts ? 'download--action' : ''}`}
       {...props}
     >
       <div className="download__art">
         <CoverArt path={item.coverPath} name={item.name} />
       </div>
-      <span className="download__name">{item.name}</span>
-      <span className="download__state">
-        <SystemIcon system={item.system} size={18} />
-        {item.platformName} · {t(STATE_KEYS[item.state])}
-        {item.state === 'downloading'
-          ? ` · ${formatBytes(item.receivedBytes)} / ${formatBytes(item.totalBytes)}`
-          : ''}
-      </span>
-      {onCancel ? (
+      {/* The game over what is happening to it, in two lines of one column.
+          Everything here is text that can run long — a game's name, a platform,
+          the file of a disc set on the wire — so it is the part that gives way,
+          and the figures and buttons beside it keep their place. */}
+      <div className="download__text">
+        <span className="download__name">{item.name}</span>
+        <span className="download__facts">
+          <span className="download__fact">
+            <SystemIcon system={item.system} size={16} />
+            {item.platformName}
+          </span>
+          {/* Said rather than left to be inferred from a missing button. */}
+          {item.state === 'downloading' && item.resumable === false ? (
+            <span className="download__fact">{t('downloads.notResumable')}</span>
+          ) : null}
+          {/* Which of a disc set's files is on the wire, which is the only
+              thing that moves through twenty minutes of the same bar. Only
+              while one actually is: a transfer that has stopped is not
+              halfway through anything. */}
+          {item.state === 'downloading' && item.currentFile ? (
+            <span className="download__fact download__fact--file">
+              <Icon name="file" size={13} />
+              <span className="download__filename">{item.currentFile}</span>
+            </span>
+          ) : null}
+        </span>
+      </div>
+      {/* The state and how far it has got, together and to the right — the two
+          things that change, where they can be read down the list without the
+          words beside them moving anything sideways. */}
+      <div className="download__figures">
+        <DownloadBadge state={item.state} />
+        {item.state === 'downloading' || paused ? (
+          <span className="download__size">
+            {formatBytes(item.receivedBytes)} / {formatBytes(item.totalBytes)}
+          </span>
+        ) : null}
+      </div>
+      {acts ? (
         <div className="download__actions">
-          <FocusButton icon="cancel" variant="danger" onSelect={onCancel}>
-            {t('action.cancel')}
-          </FocusButton>
+          {resumable ? (
+            <FocusButton icon="download" onSelect={onResume}>
+              {t('action.resume')}
+            </FocusButton>
+          ) : null}
+          {stoppable ? (
+            <FocusButton icon="pause" onSelect={onPause}>
+              {t('action.pause')}
+            </FocusButton>
+          ) : null}
+          {onCancel ? (
+            <FocusButton icon="cancel" variant="danger" onSelect={onCancel}>
+              {t('action.cancel')}
+            </FocusButton>
+          ) : null}
         </div>
       ) : null}
-      <div className="download__bar" style={{ gridColumn: '2 / -1' }}>
-        <div
-          className="download__fill"
-          style={{
-            width: `${item.state === 'done' ? 100 : percent}%`,
-            background: item.state === 'error' ? 'var(--danger)' : undefined
-          }}
-        />
-      </div>
+      <DownloadBar state={item.state} percent={percent} />
       {item.error ? <span className="download__state faint">{item.error}</span> : null}
     </div>
   )

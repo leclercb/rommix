@@ -27,6 +27,7 @@ export {
   uiScaleOptions,
   type UiScaleChoice
 } from './controls'
+export { DownloadBadge, DownloadBar } from './downloads'
 export { GameCard, GameRow, tileFromInstalled, tileFromRom, type GameTile } from './games'
 export { Hints, Overlay, QuitOverlay, Spinner } from './overlay'
 export { QrCode, ScanToOpen } from './qr'

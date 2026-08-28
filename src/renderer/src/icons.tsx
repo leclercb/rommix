@@ -38,6 +38,7 @@ import {
   LogOut,
   Maximize,
   Package,
+  Pause,
   Play,
   Plug,
   Power,
@@ -146,7 +147,9 @@ export const ICONS = {
   add: Plus,
   collection: BookMarked,
   note: ClipboardList,
-  next: ChevronRight
+  next: ChevronRight,
+  /** Stopping a transfer without giving it up. */
+  pause: Pause
 } as const
 
 export type IconName = keyof typeof ICONS

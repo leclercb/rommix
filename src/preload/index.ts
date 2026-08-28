@@ -87,6 +87,7 @@ const bridge: RomMixBridge = {
   downloads: {
     list: () => ipcRenderer.invoke('downloads:list'),
     start: (romId: number) => ipcRenderer.invoke('downloads:start', romId),
+    pause: (romId: number) => ipcRenderer.invoke('downloads:pause', romId),
     cancel: (romId: number) => ipcRenderer.invoke('downloads:cancel', romId),
     clearFinished: () => ipcRenderer.invoke('downloads:clearFinished'),
     uninstall: (romId: number) => ipcRenderer.invoke('downloads:uninstall', romId),

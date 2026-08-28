@@ -1,9 +1,16 @@
 import { safeStorage } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync
+} from 'node:fs'
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
-import type { InstalledRom, ServerConfig, Settings } from '@shared/types'
+import type { InstalledRom, PendingDownload, ServerConfig, Settings } from '@shared/types'
 import { log } from './log.ts'
 
 /**
@@ -98,6 +105,7 @@ export class Store {
   private readonly settingsPath: string
   private readonly credentialsPath: string
   private readonly installedPath: string
+  private readonly pendingPath: string
 
   private settingsCache: Settings
   private serverCache: ServerConfig | null
@@ -114,6 +122,7 @@ export class Store {
     this.settingsPath = join(this.dir, 'settings.json')
     this.credentialsPath = join(this.dir, 'credentials.bin')
     this.installedPath = join(this.dir, 'downloaded_roms.json')
+    this.pendingPath = join(this.dir, 'pending_downloads.json')
 
     const raw = readJson<{ settings: Settings; server: ServerConfig | null }>(this.settingsPath, {
       settings: defaultSettings(),
@@ -274,18 +283,24 @@ export class Store {
   }
 
   /**
-   * Drop index entries whose files have been deleted.
+   * Drop index entries whose games are not on the disk after all.
    *
    * A missing *directory* is not a missing game: an unmounted SD card takes a
    * whole library's worth of paths with it, and forgetting them would leave the
    * user re-downloading games that are sitting on a card they plug back in a
-   * minute later. Only a file that has gone from a folder still there counts.
+   * minute later. Only a path that has gone from a folder still there counts.
+   *
+   * An empty directory counts as well, and is the one case where a path that
+   * exists is not a game. A multi-file game is its files; a folder holding none
+   * of them is what a cancelled transfer leaves behind, and while the index
+   * believes it the game reads as installed on every screen and cannot be
+   * downloaded, because RomMix thinks it already has it. Nothing is deleted
+   * here — the folder is left where it is, and only the claim about it goes.
    */
   pruneInstalled(): number {
     let removed = 0
     for (const [romId, entry] of this.installedCache) {
-      if (existsSync(entry.path)) continue
-      if (!existsSync(dirname(entry.path))) continue
+      if (!this.hasGone(entry)) continue
       this.installedCache.delete(romId)
       removed += 1
     }
@@ -293,7 +308,49 @@ export class Store {
     return removed
   }
 
+  /** Is this entry's game no longer where the index says it is? */
+  private hasGone(entry: InstalledRom): boolean {
+    if (!existsSync(entry.path)) {
+      // The whole folder went with the card it was on, so the game has not.
+      return existsSync(dirname(entry.path))
+    }
+    if (!entry.isDirectory) return false
+    try {
+      return readdirSync(entry.path).length === 0
+    } catch {
+      // Unreadable is not empty, and a permissions problem is no reason to
+      // forget a game.
+      return false
+    }
+  }
+
   private persistInstalled(): void {
     writeJsonAtomic(this.installedPath, { roms: [...this.installedCache.values()] })
+  }
+
+  // -- downloads that have not finished -------------------------------------
+
+  /**
+   * The transfers that were interrupted, read from disk on every call.
+   *
+   * Not cached, unlike the index above: this list is short, it is read when a
+   * screen asks and when a download starts, and what actually matters is the
+   * part-downloaded files it points at. A cache would be one more place for the
+   * two to disagree.
+   */
+  get pending(): PendingDownload[] {
+    return readJson<{ downloads: PendingDownload[] }>(this.pendingPath, { downloads: [] }).downloads
+  }
+
+  /** Record an interrupted transfer, replacing any earlier one for that ROM. */
+  setPending(entry: PendingDownload): void {
+    const kept = this.pending.filter((item) => item.romId !== entry.romId)
+    writeJsonAtomic(this.pendingPath, { downloads: [...kept, entry] })
+  }
+
+  /** Forget one — it finished, or the user cancelled it. */
+  removePending(romId: number): void {
+    const kept = this.pending.filter((item) => item.romId !== romId)
+    writeJsonAtomic(this.pendingPath, { downloads: kept })
   }
 }

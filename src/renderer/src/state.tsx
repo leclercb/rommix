@@ -367,6 +367,25 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           notify(item.error, 'error', subject)
         } else if (item.state === 'cancelled') {
           notify(i18n.t('toast.downloadCancelled'), 'warn', subject)
+        } else if (item.state === 'paused' && previous !== undefined) {
+          /**
+           * A transfer that stopped, however it stopped.
+           *
+           * Both ways it happens are worth saying: a network that went away
+           * takes a download with it silently otherwise, and a pause the user
+           * asked for is confirmed the same way cancelling one is.
+           *
+           * Only where the row was already being watched. A transfer restored
+           * at start-up arrives paused with nothing before it, and announcing
+           * that would greet every launch with news of something that happened
+           * yesterday.
+           */
+          notify(i18n.t('toast.downloadPaused'), 'warn', subject)
+        } else if (previous === 'paused') {
+          // The one transition that can only be a resume, which is why it is
+          // read from where it came rather than from where it is going: a
+          // download becomes queued when it starts, too.
+          notify(i18n.t('toast.downloadResumed'), 'ok', subject)
         }
       }
 

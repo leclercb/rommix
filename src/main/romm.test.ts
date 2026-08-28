@@ -546,7 +546,7 @@ describe('downloading a ROM', () => {
     assert.equal(readFileSync(destination, 'utf8'), '0123456789')
   })
 
-  test('a transfer that keeps breaking is a failure, and leaves nothing behind', async () => {
+  test('a transfer that keeps breaking is a failure, and leaves what arrived', async () => {
     const { store } = fakeStore()
     const destination = join(scratch(), 'sonic.md')
     const sent = serve(() => new Response(broken('01')))
@@ -563,7 +563,9 @@ describe('downloading a ROM', () => {
     // screen used to show.
     assert.match(failure.message, /RomM/)
     assert.equal(existsSync(destination), false)
-    assert.equal(existsSync(`${destination}.part`), false)
+    // Kept, not deleted: whether a part-downloaded ROM is worth keeping is the
+    // queue's decision — see `DownloadManager.keepPartial`.
+    assert.equal(readFileSync(`${destination}.part`, 'utf8'), '01')
     // Tried again rather than given up on at the first break.
     assert.ok(sent.length > 1)
   })
@@ -581,13 +583,12 @@ describe('downloading a ROM', () => {
       new RommClient(store).downloadRom(rom, destination, () => undefined, controller.signal)
     )
     assert.equal(sent.length, 1)
-    assert.equal(existsSync(`${destination}.part`), false)
   })
 
   test('a ROM left half-downloaded by an earlier attempt is never appended to', async () => {
     const { store } = fakeStore()
     const destination = join(scratch(), 'sonic.md')
-    // A `.part` from some previous run: same name, unknown contents.
+    // A `.part` from some previous run, which nothing has vouched for.
     writeFileSync(`${destination}.part`, 'from another download')
     serve(() => new Response('0123456789'))
 
@@ -599,6 +600,27 @@ describe('downloading a ROM', () => {
     )
 
     assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('a partial the caller vouches for is continued rather than fetched again', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    writeFileSync(`${destination}.part`, '01234')
+    const seen: number[] = []
+    const sent = serve(() => new Response('56789', { status: 206 }))
+
+    await new RommClient(store).downloadRom(
+      rom,
+      destination,
+      (progress) => seen.push(progress.received),
+      new AbortController().signal,
+      { resume: true }
+    )
+
+    assert.equal(sent[0].headers.get('range'), 'bytes=5-')
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+    // The bar starts from what is already there rather than from zero.
+    assert.equal(seen[0], 5)
   })
 
   test('a response with no body is a failure, not an empty ROM', async () => {

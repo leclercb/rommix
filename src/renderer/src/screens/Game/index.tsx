@@ -2,7 +2,8 @@ import { type JSX, useEffect, useState } from 'react'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import type { BiosPlatform, InstalledRom, LaunchChoice, RommRom } from '@shared/types'
-import { FocusButton, Hints, Spinner, Tabs } from '../../components'
+import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
+import { Icon } from '../../icons'
 import { useApp, useI18n } from '../../state'
 import { CollectionsDialog } from './CollectionsDialog'
 import { GameHero } from './GameHero'
@@ -172,18 +173,25 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
   const startDownload = async (): Promise<void> => {
     setBusy(true)
+    // Read before the call, because the answer changes it: the same button
+    // finishes a transfer that was stopped, and that is announced centrally as
+    // a resume — see the queue watcher in `state`. Saying "download started"
+    // here as well would report one press twice.
+    const resuming = download?.state === 'paused'
     try {
       const item = await window.rommix.downloads.start(romId)
       // Already on disk: the main process adopts it instead of queueing, so
       // saying "download started" would be a plain lie.
-      notify(
-        item.state === 'done' ? t('game.alreadyDownloaded') : t('game.downloadStarted'),
-        'ok',
-        {
-          title: item.name,
-          coverPath: item.coverPath
-        }
-      )
+      if (!resuming) {
+        notify(
+          item.state === 'done' ? t('game.alreadyDownloaded') : t('game.downloadStarted'),
+          'ok',
+          {
+            title: item.name,
+            coverPath: item.coverPath
+          }
+        )
+      }
     } catch {
       // Reported centrally on `app:error`; this only keeps the screen from
       // claiming a download that never started.
@@ -385,14 +393,30 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             {running ? t('game.running') : t('game.play')}
           </FocusButton>
         ) : active ? (
-          <FocusButton
-            icon="cancel"
-            variant="danger"
-            onSelect={() => void window.rommix.downloads.cancel(romId)}
-            autoFocus
-          >
-            {t('game.cancelDownload', { percent: progress })}
-          </FocusButton>
+          <>
+            {/* Stopping and giving up are different answers, and the one that
+                costs nothing goes first: a transfer paused here keeps every
+                byte it has, and the same Download button below finishes it.
+                Offered only where that is true — against a server that will
+                not serve part of a file, pausing keeps nothing. */}
+            {download?.resumable !== false ? (
+              <FocusButton
+                icon="pause"
+                onSelect={() => void window.rommix.downloads.pause(romId)}
+                autoFocus
+              >
+                {t('game.pauseDownload', { percent: progress })}
+              </FocusButton>
+            ) : null}
+            <FocusButton
+              icon="cancel"
+              variant="danger"
+              onSelect={() => void window.rommix.downloads.cancel(romId)}
+              autoFocus={download?.resumable === false}
+            >
+              {t('game.cancelDownload', { percent: progress })}
+            </FocusButton>
+          </>
         ) : (
           <FocusButton
             icon="download"
@@ -401,9 +425,29 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             disabled={working}
             autoFocus
           >
-            {t('action.download')}
+            {/* The same button either way: what the player wants is the game,
+                and whether that means starting or finishing a transfer is not
+                a second decision to make. How far it got is on the button, as
+                it is on the two that stopped it. */}
+            {download?.state === 'paused'
+              ? t('game.resumeDownload', { percent: progress })
+              : t('action.download')}
           </FocusButton>
         )}
+
+        {/* A transfer that was stopped is still a transfer to be rid of, and
+            this was the one screen with no way to say so — Resume was the only
+            thing on offer, and the queue was the only place to change one's
+            mind. */}
+        {download?.state === 'paused' ? (
+          <FocusButton
+            icon="cancel"
+            variant="danger"
+            onSelect={() => void window.rommix.downloads.cancel(romId)}
+          >
+            {t('game.cancelDownload', { percent: progress })}
+          </FocusButton>
+        ) : null}
 
         {/* Marked on RomM, so the Favourites row on the home screen and the
             same game in a browser agree. Always offered: a game does not have
@@ -478,17 +522,31 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         </FocusButton>
       </GameHero>
 
-      {active ? (
+      {/* Paused as well as moving: where a transfer stopped is the thing being
+          decided about, and the bar is what shows it.
+
+          The same panel the queue draws, minus the game — which game this is is
+          the rest of this screen, and repeating it here would be the only thing
+          on the page saying it twice. */}
+      {active || download?.state === 'paused' ? (
         <div className="download download--bare">
-          <span className="download__name">
-            {download?.state === 'extracting' ? t('game.extracting') : t('game.downloading')}
+          <span className="download__facts">
+            {download?.state === 'downloading' && download.currentFile ? (
+              <span className="download__fact download__fact--file">
+                <Icon name="file" size={13} />
+                <span className="download__filename">{download.currentFile}</span>
+              </span>
+            ) : null}
           </span>
-          <span className="download__state">
-            {formatBytes(download?.receivedBytes ?? 0)} / {formatBytes(download?.totalBytes ?? 0)}
-          </span>
-          <div className="download__bar">
-            <div className="download__fill" style={{ width: `${progress}%` }} />
+          {/* State then figures, in that order and in that corner, exactly as a
+              queue row has them — the two screens show the same transfer. */}
+          <div className="download__figures">
+            <DownloadBadge state={download?.state ?? 'downloading'} />
+            <span className="download__size">
+              {formatBytes(download?.receivedBytes ?? 0)} / {formatBytes(download?.totalBytes ?? 0)}
+            </span>
           </div>
+          <DownloadBar state={download?.state ?? 'downloading'} percent={progress} />
         </div>
       ) : null}
 

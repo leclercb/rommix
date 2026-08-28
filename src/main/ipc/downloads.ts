@@ -6,7 +6,17 @@ import type { Handle } from './handler.ts'
 export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
   const { client, downloads } = rommix
 
-  handle('downloads:list', () => downloads.items)
+  /**
+   * The queue, with whatever was interrupted put back into it first.
+   *
+   * Restored on the way past rather than at start-up: the transfers only matter
+   * once something is looking at them, and this is the call every screen that
+   * shows them makes.
+   */
+  handle('downloads:list', async () => {
+    await downloads.restorePending()
+    return downloads.items
+  })
 
   handle('downloads:start', async (romId: number): Promise<DownloadItem> => {
     // Probe first so an emulator installed since startup is seen.
@@ -38,6 +48,7 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
     return downloads.enqueue(rom)
   })
 
+  handle('downloads:pause', (romId: number) => downloads.pause(romId))
   handle('downloads:cancel', (romId: number) => downloads.cancel(romId))
   handle('downloads:clearFinished', () => downloads.clearFinished())
   handle('downloads:uninstall', (romId: number) => downloads.uninstall(romId))

@@ -144,6 +144,12 @@
   color: var(--accent);
 }
 
+/* Not a warning but a failure — a download that stopped and will not finish on
+   its own. `warn` is for something that still might. */
+.status[data-state='bad'] {
+  color: var(--danger);
+}
+
 /* A chip that carries a glyph instead of the dot: the arrow says which way the
    file would move, which the dot cannot, and two marks on one chip would be
    one mark too many. */

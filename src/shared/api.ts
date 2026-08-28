@@ -196,6 +196,12 @@ export interface RomMixBridge {
   downloads: {
     list(): Promise<DownloadItem[]>
     start(romId: number): Promise<DownloadItem>
+    /**
+     * Stop a transfer, keeping what has arrived so it can be finished later.
+     * `start` is what resumes it. See `DownloadState`.
+     */
+    pause(romId: number): Promise<void>
+    /** Stop it and throw away the part that arrived. */
     cancel(romId: number): Promise<void>
     clearFinished(): Promise<void>
     uninstall(romId: number): Promise<void>

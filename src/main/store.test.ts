@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { InstalledRom } from '@shared/types'
@@ -230,6 +230,26 @@ describe('pruning the index against the disk', () => {
 
     assert.equal(store.pruneInstalled(), 0)
     assert.equal(store.installed.length, 1)
+  })
+
+  test('a game recorded as a folder with nothing in it is not installed', () => {
+    const dir = scratch()
+    const empty = join(dir, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
+    const full = join(dir, 'roms', 'psx', 'Final Fantasy VII')
+    mkdirSync(empty, { recursive: true })
+    mkdirSync(full, { recursive: true })
+    writeFileSync(join(full, 'disc1.cue'), 'x')
+    const store = new Store(dir)
+    store.addInstalled(installed({ romId: 1, path: empty, isDirectory: true }))
+    store.addInstalled(installed({ romId: 2, path: full, isDirectory: true }))
+
+    assert.equal(store.pruneInstalled(), 1)
+    assert.deepEqual(
+      store.installed.map((entry) => entry.romId),
+      [2]
+    )
+    // The claim goes; the folder itself is left where it is.
+    assert.equal(existsSync(empty), true)
   })
 
   test('nothing to prune leaves the file alone', () => {

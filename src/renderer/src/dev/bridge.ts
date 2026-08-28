@@ -197,8 +197,24 @@ const INSTALLED: InstalledRom[] = (
   }
 })
 
+/**
+ * How far through a game a row is, as a share of its own size.
+ *
+ * Written as a fraction rather than a number of bytes so a row cannot end up
+ * further along than the game is big — the demo library is a real one, and its
+ * games are of every size from a 128 KB cartridge upwards.
+ */
+function part(id: number, share: number): number {
+  return Math.round(romById(id).fs_size_bytes * share)
+}
+
 /** A queue with one of everything, so the Downloads screen has all its rows. */
-function queued(id: number, state: DownloadItem['state'], received: number): DownloadItem {
+function queued(
+  id: number,
+  state: DownloadItem['state'],
+  received: number,
+  resumable = true
+): DownloadItem {
   const rom = romById(id)
   const system = systemOf(rom)
   return {
@@ -211,7 +227,8 @@ function queued(id: number, state: DownloadItem['state'], received: number): Dow
     receivedBytes: received,
     totalBytes: rom.fs_size_bytes,
     error: state === 'error' ? say('demo.connectionClosed') : null,
-    targetPath: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`
+    targetPath: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`,
+    resumable
   }
 }
 
@@ -226,12 +243,20 @@ function queued(id: number, state: DownloadItem['state'], received: number): Dow
  * import time.
  */
 const downloadQueue = (): DownloadItem[] => [
-  // Four games none of which are in `INSTALLED`, the finished one excepted:
+  // Seven games none of which are in `INSTALLED`, the finished one excepted:
   // that is what `done` means, and it is why Beneath a Steel Sky is on the
   // shelf above. At 69 MB it is also the only game here big enough to have been
   // worth watching arrive, so it is the one the queue remembers.
   queued(83, 'downloading', 1_500_000),
+  // One from a server that cannot send a game in pieces, which is the row that
+  // offers Cancel and no Pause, and says why.
+  queued(163, 'downloading', part(163, 0.55), false),
+  // A disc set, fetched a track at a time: the row names the one arriving.
+  { ...queued(154, 'downloading', part(154, 0.25)), currentFile: 'Track 02.bin' },
   queued(144, 'queued', 0),
+  // A transfer the network took away, kept so it can be finished — the one row
+  // on this screen that offers something to press other than Cancel.
+  queued(149, 'paused', part(149, 0.4)),
   queued(139, 'done', romById(139).fs_size_bytes),
   queued(95, 'error', 0)
 ]
@@ -631,6 +656,7 @@ const bridge: RomMixBridge = {
   downloads: {
     list: () => later(downloadQueue()),
     start: (romId: number) => later(queued(romId, 'queued', 0)),
+    pause: () => later(undefined),
     cancel: () => later(undefined),
     clearFinished: () => later(undefined),
     uninstall: () => later(undefined),
