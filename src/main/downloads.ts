@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { chooseLaunchFile, isLaunchable } from '@shared/gamefiles'
+import { chooseLaunchFile, isLaunchable, type GameFile } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import { SHARED_LIBRARY } from '@shared/types'
@@ -662,6 +662,37 @@ export class DownloadManager extends EventEmitter {
     )
     const chosen = chooseLaunchFile(sized, entry.system)
     return chosen ? join(dir, chosen) : entry.path
+  }
+
+  /**
+   * What each of an installed game's files weighs on this disk.
+   *
+   * Measured on demand rather than recorded at install time: the index keeps
+   * one total for the game, and the files themselves outlive it — an emulator
+   * converts a disc image in place, a missing track is copied in by hand. A
+   * file the index names and the disk no longer has is left out, so the game
+   * screen shows nothing for it rather than nothing at all.
+   */
+  async localFiles(romId: number): Promise<GameFile[]> {
+    const entry = this.store.getInstalled(romId)
+    if (!entry) return []
+
+    // Loose in the system folder: the entry's names are siblings of `path`,
+    // not children of it.
+    const dir = entry.isDirectory ? entry.path : dirname(entry.path)
+    const sized = await Promise.all(
+      entry.files.map(async (name) => {
+        const found = await stat(join(dir, name)).catch(() => null)
+        if (!found) return null
+        // A directory install lists whatever sits at its top level, which for
+        // a game that arrived with its own subfolders includes directories.
+        const sizeBytes = found.isDirectory()
+          ? await directorySize(join(dir, name)).catch(() => 0)
+          : found.size
+        return { name, sizeBytes }
+      })
+    )
+    return sized.filter((file) => file !== null)
   }
 
   /**

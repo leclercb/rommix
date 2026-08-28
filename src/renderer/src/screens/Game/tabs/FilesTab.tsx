@@ -1,4 +1,5 @@
-import type { JSX } from 'react'
+import { type JSX, useEffect, useState } from 'react'
+import type { GameFile } from '@shared/gamefiles'
 import type { MessageKey } from '@shared/i18n'
 import type { InstalledRom, RommRom } from '@shared/types'
 import { Icon, type IconName } from '../../../icons'
@@ -28,7 +29,7 @@ const WHERE: Record<
   device: { label: 'files.tagDevice', hint: 'files.hintDevice', tone: 'warn', icon: 'folder' }
 }
 
-/** One file, wherever it is. `sizeBytes` is null for a file only this disk has. */
+/** One file, wherever it is. `sizeBytes` is the server's, null when it has none. */
 interface FileRow {
   name: string
   where: 'both' | 'server' | 'device'
@@ -66,6 +67,29 @@ function merge(rom: RommRom, entry: InstalledRom | undefined): FileRow[] {
 export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
   const { t, formatBytes } = useI18n()
   const rows = merge(rom, entry)
+  /**
+   * What the copies on this disk weigh, by lowercased name.
+   *
+   * Asked of the main process rather than taken from the installed entry,
+   * which carries one total for the whole game: a file the server does not
+   * have has no other size to show, and a row with a blank where every other
+   * row has a figure reads as a file with nothing in it.
+   */
+  const [local, setLocal] = useState<Map<string, number>>(new Map())
+  // Read out before the effect, so what it depends on is what it uses.
+  const romId = rom.id
+  const installed = entry !== undefined
+  useEffect(() => {
+    setLocal(new Map())
+    if (!installed) return
+    void window.rommix.library
+      .files(romId)
+      .then((files: GameFile[]) =>
+        setLocal(new Map(files.map((file) => [file.name.toLowerCase(), file.sizeBytes])))
+      )
+      // A stat that fails leaves the sizes off, not an error over the list.
+      .catch(() => setLocal(new Map()))
+  }, [romId, installed])
 
   if (rows.length === 0) return <div className="empty">{t('files.empty')}</div>
 
@@ -73,6 +97,7 @@ export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom })
     <ul className="asset-list">
       {rows.map((row) => {
         const where = WHERE[row.where]
+        const sizeBytes = row.sizeBytes ?? local.get(row.name.toLowerCase()) ?? null
         return (
           <li key={`${row.where}-${row.name}`}>
             <span className="asset__icon">
@@ -83,9 +108,7 @@ export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom })
               {t(where.label)}
             </span>
             <span className="asset__name">{row.name}</span>
-            <span className="asset__meta">
-              {row.sizeBytes === null ? '' : formatBytes(row.sizeBytes)}
-            </span>
+            <span className="asset__meta">{sizeBytes === null ? '' : formatBytes(sizeBytes)}</span>
           </li>
         )
       })}

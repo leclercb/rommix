@@ -28,6 +28,7 @@ import type {
   Settings,
   AuthMode
 } from './types'
+import type { GameFile } from './gamefiles'
 
 /** Payload for `server:connect`. */
 export interface ConnectPayload {
@@ -126,6 +127,11 @@ export interface RomMixBridge {
      */
     setCollection(romId: number, collectionId: number, member: boolean): Promise<void>
     installed(): Promise<InstalledRom[]>
+    /**
+     * Every file of an installed game, with the size it has on this disk.
+     * Empty for a game that is not installed.
+     */
+    files(romId: number): Promise<GameFile[]>
     /**
      * Check every ROM on the server against the disk: forget what has been
      * deleted, adopt what is there. Slow by design, so it is a button.

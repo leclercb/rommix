@@ -554,6 +554,10 @@ const bridge: RomMixBridge = {
       return later(undefined)
     },
     installed: () => later(INSTALLED),
+    files: (romId: number) => {
+      const entry = INSTALLED.find((item) => item.romId === romId)
+      return later(entry ? [{ name: entry.fileName, sizeBytes: entry.sizeBytes }] : [])
+    },
     sync: () => later({ checked: ROMS.length, removed: 0, adopted: 0 }, 900),
     onSyncProgress: noSubscription,
     onInstalledChanged: noSubscription,

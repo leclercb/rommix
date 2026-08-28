@@ -46,6 +46,15 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   })
 
   /**
+   * The sizes of this game's files as they are on this disk.
+   *
+   * Separate from `library:installed`, which carries one total per game: the
+   * files screen lists them one by one, and the copy on this device is the
+   * only side that can answer for a file the server has never had.
+   */
+  handle('library:files', (romId: number) => downloads.localFiles(romId))
+
+  /**
    * Check the whole library against the disk, rather than only the ROMs a
    * screen has loaded. Reports progress because a large library takes a while
    * and a frozen button is indistinguishable from a broken one.
