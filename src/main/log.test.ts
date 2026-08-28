@@ -141,6 +141,23 @@ test('a value that cannot be serialised does not take the line down with it', ()
  * file into the past.
  */
 
+/**
+ * A single line long enough to put the file past the size limit.
+ *
+ * Written with the console mirror muted: `log.info` also writes every line to
+ * stdout, and filler on this scale is not something anyone running the suite
+ * wants to scroll through.
+ */
+function pastTheLimit(fill: string): void {
+  const stdout = process.stdout.write
+  process.stdout.write = () => true
+  try {
+    log.info('test', fill.repeat(6 * 1024 * 1024))
+  } finally {
+    process.stdout.write = stdout
+  }
+}
+
 /** A file in the logs folder, dated whenever the test needs it to be. */
 function oldLog(name: string, daysAgo: number): string {
   const path = join(root, 'logs', name)
@@ -153,7 +170,7 @@ function oldLog(name: string, daysAgo: number): string {
 test('a file past the size limit is rolled over, and the live name starts again', () => {
   log.info('test', 'before the rollover')
   // Past the limit in one line, so the next write is the one that rolls it.
-  log.info('test', 'x'.repeat(6 * 1024 * 1024))
+  pastTheLimit('x')
   log.info('test', 'after the rollover')
 
   const rolled = readdirSync(join(root, 'logs')).filter((name) => /^rommix-.*\.log$/.test(name))
@@ -198,7 +215,7 @@ test('a rolled-over file older than the keeping is deleted, a recent one is not'
 
   // The sweep runs with the rollover: one line past the limit, and the next
   // line is the one that rolls the file and clears out the old ones.
-  log.info('test', 'y'.repeat(6 * 1024 * 1024))
+  pastTheLimit('y')
   log.info('test', 'the line that rolls it')
 
   assert.equal(existsSync(stale), false)
@@ -210,7 +227,7 @@ test('a file somebody put there themselves is left alone, however old', () => {
   const kept = oldLog('rommix.log.for-the-bug-report', 90)
   const notes = oldLog('notes.txt', 90)
 
-  log.info('test', 'z'.repeat(6 * 1024 * 1024))
+  pastTheLimit('z')
   log.info('test', 'the line that rolls it')
 
   assert.equal(existsSync(kept), true)
