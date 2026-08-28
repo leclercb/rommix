@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, renameSync, statSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { rootPaths } from './root.ts'
 
@@ -37,13 +37,26 @@ function configuredLevel(): LogLevel | 'off' {
 const LEVEL = configuredLevel()
 
 /**
- * When the current file is rolled over, and how many are kept.
+ * When the current file is rolled over and a fresh one started.
  *
- * One generation, because the question a log answers here is "what happened
- * just now"; a handheld with a full SD card is a worse problem than a lost
- * session from last week.
+ * A size as well as the day below, because the two catch different things. A
+ * day's worth of `ROMMIX_LOG=debug` through a large download is hundreds of
+ * megabytes in one file that nothing would ever divide; a quiet installation
+ * writes so little that a file would otherwise carry lines from months ago and
+ * never reach an age at which anything sweeps it.
  */
 const MAX_BYTES = 5 * 1024 * 1024
+
+/**
+ * How long a rolled-over file is kept.
+ *
+ * Long enough to cover the gap between a problem happening and somebody being
+ * asked for the log — a fault noticed on a Sunday is reported the following
+ * weekend — and short enough that a handheld does not fill its card with
+ * sessions nobody will ever read. Nothing is kept beyond it, whatever the size:
+ * an old log is not evidence, it is clutter with a date on it.
+ */
+const KEEP_DAYS = 15
 
 /** Resolved once: relocating the root only takes effect on the next start. */
 let logFile: string | null = null
@@ -58,6 +71,10 @@ function filePath(): string | null {
     const dir = join(rootPaths().root, 'logs')
     mkdirSync(dir, { recursive: true })
     logFile = join(dir, 'rommix.log')
+    // Once, as the first line of the session is written. A machine that logs
+    // little enough never to roll a file over would otherwise keep the last one
+    // for ever, and the sweep is the only thing that ends that.
+    sweep(dir)
     return logFile
   } catch (cause) {
     fileDisabled = true
@@ -66,14 +83,81 @@ function filePath(): string | null {
   }
 }
 
-/** Roll the file over once it is big enough, keeping the previous one. */
+/**
+ * What a rolled-over file is called: the live name, stamped with the last moment
+ * it covers.
+ *
+ * The file's own time rather than the current one, so a session that runs past
+ * midnight files yesterday's lines under yesterday. And a stamp rather than a
+ * number, because numbers have to be shuffled along on every rotation — with
+ * several files kept, `.1` becoming `.2` becoming `.3` is a rename per file per
+ * rollover, and a crash half way through renames one log over another. A name
+ * nothing else will ever take needs no shuffling.
+ */
+function rolledName(path: string, until: Date): string {
+  const at = [
+    until.getFullYear(),
+    String(until.getMonth() + 1).padStart(2, '0'),
+    String(until.getDate()).padStart(2, '0'),
+    String(until.getHours()).padStart(2, '0'),
+    String(until.getMinutes()).padStart(2, '0')
+  ].join('-')
+  return path.replace(/\.log$/, `-${at}.log`)
+}
+
+/** The local day a moment falls on, which is the one a person means. */
+function dayOf(at: Date): string {
+  return `${at.getFullYear()}-${at.getMonth()}-${at.getDate()}`
+}
+
+/**
+ * Roll the file over once it is a day old or big enough.
+ *
+ * The day is read from the file's own last write rather than from a timer: it
+ * is the same `stat` the size needs, it survives RomMix not running for a week,
+ * and it costs nothing on a session that started five minutes ago.
+ */
 function rotate(path: string): void {
   try {
-    if (statSync(path).size < MAX_BYTES) return
-    renameSync(path, `${path}.1`)
+    const info = statSync(path)
+    const wrote = new Date(info.mtimeMs)
+    if (info.size < MAX_BYTES && dayOf(wrote) === dayOf(new Date())) return
+    renameSync(path, rolledName(path, wrote))
+    sweep(join(path, '..'))
   } catch {
     // No file yet, or a rename that lost a race with another rotation. Either
     // way the append below is still the right next step.
+  }
+}
+
+/**
+ * Delete rolled-over logs past their keeping. See `KEEP_DAYS`.
+ *
+ * Only files this module wrote: the folder is RomMix's own, but a person who
+ * has been asked for a log has often copied one aside in it, and a directory
+ * sweep that took those as well would delete the very thing they were keeping.
+ * The live file is never a candidate, whatever its date.
+ */
+function sweep(dir: string): void {
+  const cutoff = Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return
+  }
+
+  for (const name of entries) {
+    // The stamped names above, and the `.1` written by the version that kept
+    // one generation — which is still on the disk of anyone who used it.
+    if (!/^rommix-[\d-]+\.log$/.test(name) && !/^rommix\.log\.\d+$/.test(name)) continue
+    const path = join(dir, name)
+    try {
+      if (statSync(path).mtimeMs < cutoff) unlinkSync(path)
+    } catch {
+      // Gone already, or not ours to delete. Neither is worth a line in the
+      // log this is making room for.
+    }
   }
 }
 

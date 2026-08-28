@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -121,4 +129,90 @@ test('a value that cannot be serialised does not take the line down with it', ()
   const circular: Record<string, unknown> = { romId: 1 }
   circular.self = circular
   assert.doesNotThrow(() => log.info('test', 'circular', circular))
+})
+
+/**
+ * Rolling the file over, and how long the old ones last.
+ *
+ * The log is the one thing a bug report is made of, so it has to survive long
+ * enough to be asked for — and it lives on handhelds, where a folder that only
+ * ever grows is a card that eventually fills. Both halves are checked against
+ * real files: the rollover by writing past the limit, the sweep by dating a
+ * file into the past.
+ */
+
+/** A file in the logs folder, dated whenever the test needs it to be. */
+function oldLog(name: string, daysAgo: number): string {
+  const path = join(root, 'logs', name)
+  writeFileSync(path, 'an old session\n')
+  const when = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)
+  utimesSync(path, when, when)
+  return path
+}
+
+test('a file past the size limit is rolled over, and the live name starts again', () => {
+  log.info('test', 'before the rollover')
+  // Past the limit in one line, so the next write is the one that rolls it.
+  log.info('test', 'x'.repeat(6 * 1024 * 1024))
+  log.info('test', 'after the rollover')
+
+  const rolled = readdirSync(join(root, 'logs')).filter((name) => /^rommix-.*\.log$/.test(name))
+  assert.equal(rolled.length, 1)
+  // The live file is the new one: what a person opens is always the session
+  // they are in.
+  assert.match(written(), /after the rollover/)
+  assert.equal(written().includes('before the rollover'), false)
+  assert.match(readFileSync(join(root, 'logs', rolled[0]), 'utf8'), /before the rollover/)
+})
+
+test('a file left over from yesterday is rolled over on the first line of today', () => {
+  log.info('test', 'yesterday evening')
+  // The file as RomMix would find it after a night switched off. Nothing is
+  // scheduled — the next line written is what notices.
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  utimesSync(logFile, yesterday, yesterday)
+
+  log.info('test', 'this morning')
+
+  const stamp = [
+    yesterday.getFullYear(),
+    String(yesterday.getMonth() + 1).padStart(2, '0'),
+    String(yesterday.getDate()).padStart(2, '0')
+  ].join('-')
+  const rolled = readdirSync(join(root, 'logs')).filter((name) =>
+    name.startsWith(`rommix-${stamp}`)
+  )
+  assert.equal(rolled.length, 1)
+  // Named for the day it holds, not the day it was renamed on.
+  assert.match(readFileSync(join(root, 'logs', rolled[0]), 'utf8'), /yesterday evening/)
+  assert.match(written(), /this morning/)
+  assert.equal(written().includes('yesterday evening'), false)
+})
+
+test('a rolled-over file older than the keeping is deleted, a recent one is not', () => {
+  const stale = oldLog('rommix-2026-01-01-00-00-00.log', 40)
+  const recent = oldLog('rommix-2026-08-01-00-00-00.log', 2)
+  // The name the version that kept one generation wrote, which is still on the
+  // disk of anyone who used it.
+  const legacy = oldLog('rommix.log.1', 40)
+
+  // The sweep runs with the rollover: one line past the limit, and the next
+  // line is the one that rolls the file and clears out the old ones.
+  log.info('test', 'y'.repeat(6 * 1024 * 1024))
+  log.info('test', 'the line that rolls it')
+
+  assert.equal(existsSync(stale), false)
+  assert.equal(existsSync(legacy), false)
+  assert.equal(existsSync(recent), true)
+})
+
+test('a file somebody put there themselves is left alone, however old', () => {
+  const kept = oldLog('rommix.log.for-the-bug-report', 90)
+  const notes = oldLog('notes.txt', 90)
+
+  log.info('test', 'z'.repeat(6 * 1024 * 1024))
+  log.info('test', 'the line that rolls it')
+
+  assert.equal(existsSync(kept), true)
+  assert.equal(existsSync(notes), true)
 })

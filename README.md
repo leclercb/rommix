@@ -357,8 +357,9 @@ Credentials are stripped on the way in, so it is safe to paste into a bug report
 tail -f ~/rommix/logs/rommix.log
 ```
 
-It rolls over at 5 MB. `ROMMIX_LOG=debug` adds every request and probe;
-`ROMMIX_LOG=off` writes nothing.
+A new file each day, or sooner if one gets large; the old ones sit beside it
+under the date they cover and are deleted after a fortnight. `ROMMIX_LOG=debug`
+adds every request and probe; `ROMMIX_LOG=off` writes nothing.
 
 ---
 
