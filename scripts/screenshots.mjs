@@ -29,6 +29,17 @@ import { join, resolve } from 'node:path'
 const WIDTH = 1920
 const HEIGHT = 1080
 
+/**
+ * How hard the pictures are squeezed on the way out.
+ *
+ * WebP rather than PNG, because these are the largest thing the landing page
+ * asks a visitor to download and a lossless screenshot of an interface is
+ * several megabytes of flat colour. High enough that the text in them stays
+ * text: this is a picture of an interface, and a screenshot with soft edges
+ * reads as a photograph of a screen rather than the thing itself.
+ */
+const QUALITY = 0.92
+
 /** Where the built demo is, and where the pictures go. */
 const DEMO = resolve('out/site/demo/index.html')
 const IMAGES = resolve('site/img')
@@ -69,6 +80,30 @@ const SETTLED = `new Promise((resolve) => {
       setTimeout(() => resolve(true), 300)
     }
   }, 50)
+})`
+
+/**
+ * Re-encode a capture, using the page that was photographed as the encoder.
+ *
+ * Electron hands back a PNG and has no other format to offer, and Chromium — the
+ * thing already running here — writes WebP. So the picture goes back into the
+ * page as a data URL, through a canvas, and comes out an order of magnitude
+ * smaller. The page's own policy allows exactly this and nothing more: `img-src`
+ * takes a `data:` URL, which is why this is an image element rather than a
+ * fetch.
+ */
+const encode = (dataUrl) => `new Promise((resolve, reject) => {
+  const picture = new Image()
+  picture.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = picture.naturalWidth
+    canvas.height = picture.naturalHeight
+    canvas.getContext('2d').drawImage(picture, 0, 0)
+    // Only the bytes: the caller has no use for the "data:image/webp" in front.
+    resolve(canvas.toDataURL('image/webp', ${QUALITY}).split(',')[1])
+  }
+  picture.onerror = () => reject(new Error('the capture could not be decoded'))
+  picture.src = ${JSON.stringify(dataUrl)}
 })`
 
 /** Click something the way a visitor would, and fail loudly if it is not there. */
@@ -118,9 +153,12 @@ async function shoot() {
     await window.webContents.executeJavaScript(SETTLED)
 
     const image = await window.webContents.capturePage()
-    const path = join(IMAGES, `${shot.name}.png`)
-    writeFileSync(path, image.toPNG())
-    console.log(`${path}  ${image.getSize().width}x${image.getSize().height}`)
+    const webp = await window.webContents.executeJavaScript(encode(image.toDataURL()))
+    const path = join(IMAGES, `${shot.name}.webp`)
+    const bytes = Buffer.from(webp, 'base64')
+    writeFileSync(path, bytes)
+    const { width, height } = image.getSize()
+    console.log(`${path}  ${width}x${height}  ${Math.round(bytes.length / 1024)} KB`)
 
     // Back to where every route is reachable from, so each shot starts from the
     // same place rather than from wherever the last one left the interface.

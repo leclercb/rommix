@@ -26,6 +26,11 @@ mkdir -p "$OUT"
 # The pictures of the interface, shared by all four languages — `{{root}}` puts
 # every page's link to them at the top of the site. Taken by
 # `npm run screenshots`, and committed, so building the site needs no display.
+#
+# Replaced rather than copied into: `cp` of a directory onto one that exists
+# nests it, and the second build of the day would put the pictures in
+# `img/img/` while the pages went on asking for `img/`.
+rm -rf "$OUT/img"
 cp -r site/img "$OUT/img"
 # `--experimental-transform-types` so it can read the application's own
 # catalogue: the picture on the page is a drawing of RomMix, and its labels come
