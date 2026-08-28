@@ -60,7 +60,27 @@ Rules:
 - Do not push, tag, or release unless the user asks. Releases go through
   `npm run release` (release-it), not a hand-written `Release x.y.z` commit.
 
+## 4. Say what is next
+
+Right after reporting the commit, name the next item still outstanding — one
+line, the item as the user worded it:
+
+```
+Committed as <sha>. Next up: <the next item>.
+```
+
+Then start it. Where nothing is left, say the queue is empty rather than
+inventing work.
+
+This is what keeps a list of updates from losing its place: the user asked for
+several things in one message, each has been through its own approval since,
+and by the time one is committed the rest have scrolled well out of sight.
+
 ## Several updates in a row
 
 Each update is its own implement → propose → approve → commit cycle. Do not batch
 them into one commit.
+
+Keep the outstanding list in view: repeat what remains, in the order asked, and
+carry over anything the user has since added or reworded. An item the user
+dropped or answered differently is gone from the list — do not resurrect it.
