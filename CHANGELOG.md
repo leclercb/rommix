@@ -4,6 +4,17 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.8.0 — 2026-08-28
+
+- Stop the log rotation tests from flooding the console
+- Save the landing page's screenshots as WebP instead of PNG
+- Show real screenshots on the landing page
+- Log rotation and retention
+- Put the changelog on the release page
+- Let downloads be paused and resumed
+- Fix clicks on buttons inside a focusable row
+- Pick a broken ROM download up where it stopped
+
 ## 0.7.8 — 2026-08-28
 
 - Run the checks before every commit
