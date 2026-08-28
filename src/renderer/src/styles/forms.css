@@ -39,6 +39,76 @@
   margin-top: 6px;
 }
 
+/*
+ * The library's filter block: three questions, one answer each.
+ *
+ * Grouped on their own ground and boxed, because they are what the grid below
+ * is showing rather than part of the page's heading — and lined up in one label
+ * column, so from a sofa the block reads as a short list of what is being asked
+ * for instead of three rows of loose buttons.
+ */
+.filters {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 22px;
+  padding: 16px 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.filters .filter,
+.filters .field {
+  display: grid;
+  /* Wide enough for the longest of the three labels in the languages RomMix
+     ships, so none of them wraps to two lines beside its control. */
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+/* One label treatment for the three rows: the search field brings `.field__label`
+   with it, which is dimmer and heavier than a bare span, and two labels in a
+   column of three is what made the block look unfinished. */
+.filters .filter__label,
+.filters .field__label {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+/* The controls supply their own spacing everywhere else; inside the block the
+   grid's gap is what separates the rows. */
+.filters .segmented {
+  margin: 0;
+}
+
+/* Long enough for a game title, short enough that the row does not read as a
+   page-wide form field with a word in front of it. */
+.filters .field__input {
+  max-width: 520px;
+}
+
+.filters .field__hint {
+  grid-column: 2;
+  margin: 0;
+}
+
+/* On a narrow window the labels sit above their controls rather than squeezing
+   the platform chips into a column. */
+@media (max-width: 800px) {
+  .filters .filter,
+  .filters .field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .filters .field__hint {
+    grid-column: 1;
+  }
+}
+
 .notice {
   padding: 14px 18px;
   border-radius: var(--radius);

@@ -1,10 +1,33 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
-import type { RommPlatform, RommRom } from '@shared/types'
-import { GameCard, Hints, PlatformIcon, Spinner, TextField, tileFromRom } from '../../components'
+import { resolveSystem } from '@config/systems'
+import type { InstalledRom, RommPlatform, RommRom } from '@shared/types'
+import {
+  GameCard,
+  Hints,
+  PlatformIcon,
+  SegmentedControl,
+  Spinner,
+  TextField,
+  tileFromInstalled,
+  tileFromRom
+} from '../../components'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
 import { useApp, useI18n } from '../../state'
 
 const PAGE_SIZE = 60
+
+/**
+ * Which games the grid is drawn from.
+ *
+ * `downloaded` is not the same query with a flag on it: what is on this device
+ * is local knowledge the server does not have, so it cannot be asked for in a
+ * page of results. Filtering the server's pages by it instead would leave the
+ * grid showing the handful of downloaded games that happened to fall in the
+ * first sixty, and the endless scroll fetching page after page to find more.
+ * So that scope is answered from the installed index, which is complete, small
+ * and already in hand.
+ */
+type Scope = 'all' | 'downloaded'
 
 /**
  * The full library browser: search, filter by platform, and an endless grid.
@@ -17,9 +40,10 @@ const PAGE_SIZE = 60
  */
 export function LibraryScreen(): JSX.Element {
   const { t } = useI18n()
-  const { installedIds, navigate } = useApp()
+  const { installed, installedIds, navigate, settings } = useApp()
   const keyLabel = useKeyLabel()
 
+  const [scope, setScope] = useState<Scope>('all')
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
   const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
   const [search, setSearch] = useState('')
@@ -49,7 +73,9 @@ export function LibraryScreen(): JSX.Element {
 
   const load = useCallback(
     async (offset: number): Promise<void> => {
-      if (inFlight.current) return
+      // Nothing to fetch for the downloaded scope, and the effect below runs
+      // again with a fresh page when the grid goes back to the server.
+      if (scope === 'downloaded' || inFlight.current) return
       inFlight.current = true
       setLoading(true)
       setError(null)
@@ -69,7 +95,7 @@ export function LibraryScreen(): JSX.Element {
         setLoading(false)
       }
     },
-    [debouncedSearch, selectedPlatform]
+    [debouncedSearch, selectedPlatform, scope]
   )
 
   // Reset to the first page whenever the query changes.
@@ -86,7 +112,7 @@ export function LibraryScreen(): JSX.Element {
    */
   useEffect(() => {
     const sentinel = sentinelRef.current
-    if (!sentinel) return
+    if (!sentinel || scope === 'downloaded') return
     if (roms.length === 0 || roms.length >= total) return
 
     const observer = new IntersectionObserver(
@@ -97,7 +123,7 @@ export function LibraryScreen(): JSX.Element {
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [load, roms.length, total])
+  }, [load, roms.length, total, scope])
 
   // Y jumps to the search box, as the hint bar advertises.
   useAction('search', () => {
@@ -105,61 +131,112 @@ export function LibraryScreen(): JSX.Element {
     input?.focus()
   })
 
-  const platformName = useMemo(
-    () => platforms.find((p) => p.id === selectedPlatform)?.display_name,
+  const chosen = useMemo(
+    () => platforms.find((p) => p.id === selectedPlatform),
     [platforms, selectedPlatform]
   )
+  const platformName = chosen?.display_name
+
+  /**
+   * The downloaded games, narrowed by whatever the two filters above say.
+   *
+   * Matched on the ES-DE system rather than the platform: the index records
+   * which folder a game was installed into, not the RomM platform it came
+   * from, and `resolveSystem` is the same rule that decided that folder.
+   */
+  const downloaded = useMemo(() => {
+    if (scope !== 'downloaded') return []
+    const system = chosen
+      ? resolveSystem(chosen.slug, chosen.fs_slug, settings?.systemOverrides)
+      : null
+    // A platform RomMix cannot place has no folder to have downloaded into, so
+    // the honest answer for it is none rather than every game on the device.
+    if (chosen && !system) return []
+    const term = search.trim().toLowerCase()
+    const titleOf = (entry: InstalledRom): string => entry.name || entry.fileName
+    return installed
+      .filter((entry) => (system ? entry.system === system : true))
+      .filter((entry) => (term ? titleOf(entry).toLowerCase().includes(term) : true))
+      .sort((a, b) => titleOf(a).localeCompare(titleOf(b)))
+  }, [scope, installed, chosen, search, settings?.systemOverrides])
+
+  const tiles = useMemo(
+    () => (scope === 'downloaded' ? downloaded.map(tileFromInstalled) : roms.map(tileFromRom)),
+    [scope, downloaded, roms]
+  )
+  const count = scope === 'downloaded' ? tiles.length : total
+  // Only the server scope has anything to wait for.
+  const busy = loading && scope === 'all'
 
   return (
     <div className="content">
       <h1 className="page-title">{t('library.title')}</h1>
       <p className="page-subtitle">
-        {total === 0
+        {count === 0
           ? t('library.browseAll')
           : platformName
-            ? t('library.countOnPlatform', { count: total, platform: platformName })
-            : t('library.count', { count: total })}
+            ? t('library.countOnPlatform', { count, platform: platformName })
+            : t('library.count', { count })}
       </p>
 
-      <div ref={searchRef} className="form">
-        <TextField
-          label={t('action.search')}
-          value={search}
-          onChange={setSearch}
-          placeholder={t('library.searchPlaceholder')}
-          hint={t('library.searchHint', { key: keyLabel('Y') })}
-        />
-      </div>
-
-      <div className="segmented">
-        <PlatformChip
-          label={t('library.allPlatforms')}
-          active={selectedPlatform === undefined}
-          onSelect={() => setSelectedPlatform(undefined)}
-        />
-        {platforms.map((platform) => (
-          <PlatformChip
-            key={platform.id}
-            label={t('library.platformChip', {
-              name: platform.display_name,
-              count: platform.rom_count
-            })}
-            icon={<PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />}
-            active={platform.id === selectedPlatform}
-            onSelect={() => setSelectedPlatform(platform.id)}
+      {/* One block, in the order the questions narrow: which library, then a
+          title, then which platform of it. */}
+      <div className="filters">
+        <div className="filter">
+          <span className="filter__label">{t('library.scopeLabel')}</span>
+          <SegmentedControl<Scope>
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'all', label: t('library.scopeAll') },
+              { value: 'downloaded', label: t('library.scopeDownloaded') }
+            ]}
           />
-        ))}
+        </div>
+
+        <div ref={searchRef}>
+          <TextField
+            label={t('library.searchLabel')}
+            value={search}
+            onChange={setSearch}
+            placeholder={t('library.searchPlaceholder')}
+            hint={t('library.searchHint', { key: keyLabel('Y') })}
+          />
+        </div>
+
+        <div className="filter">
+          <span className="filter__label">{t('library.platformLabel')}</span>
+          <div className="segmented">
+            <PlatformChip
+              label={t('library.allPlatforms')}
+              active={selectedPlatform === undefined}
+              onSelect={() => setSelectedPlatform(undefined)}
+            />
+            {platforms.map((platform) => (
+              <PlatformChip
+                key={platform.id}
+                label={t('library.platformChip', {
+                  name: platform.display_name,
+                  count: platform.rom_count
+                })}
+                icon={<PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />}
+                active={platform.id === selectedPlatform}
+                onSelect={() => setSelectedPlatform(platform.id)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {error ? <div className="notice notice--error">{error}</div> : null}
 
       <div className="grid">
-        {roms.map((rom) => (
+        {tiles.map((tile) => (
           <GameCard
-            key={rom.id}
-            tile={tileFromRom(rom)}
-            installed={installedIds.has(rom.id)}
-            onSelect={() => navigate({ name: 'game', romId: rom.id })}
+            key={tile.romId}
+            tile={tile}
+            installed={installedIds.has(tile.romId)}
+            onSelect={() => navigate({ name: 'game', romId: tile.romId })}
             showPlatform={selectedPlatform === undefined}
           />
         ))}
@@ -168,13 +245,19 @@ export function LibraryScreen(): JSX.Element {
       {/* Sits directly below the grid: crossing it is what pulls the next page. */}
       <div ref={sentinelRef} aria-hidden="true" />
 
-      {loading ? <Spinner /> : null}
+      {busy ? <Spinner /> : null}
 
-      {!loading && roms.length === 0 && !error ? (
-        <div className="empty">{t('library.noMatches')}</div>
+      {/* A scope with nothing in it at all is not a search that found nothing,
+          and on a fresh install the downloaded grid is the empty one. */}
+      {!busy && tiles.length === 0 && !error ? (
+        <div className="empty">
+          {scope === 'downloaded' && !search && selectedPlatform === undefined
+            ? t('library.noneDownloaded')
+            : t('library.noMatches')}
+        </div>
       ) : null}
 
-      {!loading && roms.length > 0 && roms.length >= total ? (
+      {!busy && scope === 'all' && roms.length > 0 && roms.length >= total ? (
         <div className="empty" style={{ padding: '28px 0' }}>
           {t('library.thatIsAll', { count: total })}
         </div>
