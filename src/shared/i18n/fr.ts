@@ -872,6 +872,8 @@ export const fr: Catalog = {
   'error.rommReturned': 'RomM a répondu {status} : {detail}',
   'error.wrongCredentials': 'Identifiant ou mot de passe incorrect',
   'error.sessionExpired': 'Session expirée — reconnectez-vous',
+  'error.downloadInterrupted':
+    'Le transfert depuis RomM n’a cessé d’être interrompu, après {received} sur {total}',
   'error.emptyResponseBody': 'RomM a renvoyé un corps de réponse vide',
   'error.emptyAssetBody': 'Corps de fichier vide',
   'error.credentialsRequired': 'L’identifiant et le mot de passe sont obligatoires',

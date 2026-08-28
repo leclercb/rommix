@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RommRom } from '@shared/types'
@@ -58,6 +58,32 @@ function serve(reply: (sent: Sent, index: number) => Response): Sent[] {
     return reply(record, sent.length - 1)
   }) as typeof globalThis.fetch
   return sent
+}
+
+/**
+ * A response body that delivers some bytes and then loses the connection.
+ *
+ * The error comes on the pull *after* the chunk rather than beside it: a stream
+ * that fails in the same turn it enqueues never hands the bytes over at all,
+ * which is a connection that dropped before sending anything and not the case
+ * these tests are about.
+ */
+function broken(prefix: string): ReadableStream {
+  let delivered = false
+  return new ReadableStream({
+    async pull(controller) {
+      if (delivered) {
+        // A turn of the loop before the failure, so the chunk above is read,
+        // written and counted first. Failing any sooner is a connection that
+        // dropped before delivering anything, which resuming has no use for.
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        controller.error(new Error('terminated'))
+        return
+      }
+      delivered = true
+      controller.enqueue(new TextEncoder().encode(prefix))
+    }
+  })
 }
 
 function json(body: unknown, status = 200): Response {
@@ -472,31 +498,107 @@ describe('downloading a ROM', () => {
     assert.deepEqual(seen, [10])
   })
 
-  test('a transfer that fails leaves no half-written ROM behind', async () => {
+  test('a transfer that breaks is picked up where it stopped, not started again', async () => {
     const { store } = fakeStore()
     const destination = join(scratch(), 'sonic.md')
-    serve(
-      () =>
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(new TextEncoder().encode('012'))
-              controller.error(new Error('connection reset'))
-            }
-          })
-        )
+    const seen: number[] = []
+    const sent = serve((_request, index) =>
+      index === 0
+        ? // Half the ROM, then the connection dies — which is what a proxy in
+          // front of RomM capping a response looks like from here.
+          new Response(broken('01234'))
+        : new Response('56789', { status: 206 })
     )
 
-    await assert.rejects(() =>
-      new RommClient(store).downloadRom(
-        rom,
-        destination,
-        () => undefined,
-        new AbortController().signal
-      )
+    await new RommClient(store).downloadRom(
+      rom,
+      destination,
+      (progress) => seen.push(progress.received),
+      new AbortController().signal
     )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+    assert.equal(sent[1].headers.get('range'), 'bytes=5-')
+    // Progress never goes backwards past what is on disk, and ends at the whole
+    // ROM rather than at what the second leg carried.
+    assert.equal(seen.at(-1), 10)
+  })
+
+  test('a server that ignores the range starts the ROM again rather than doubling it', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    serve((_request, index) =>
+      index === 0
+        ? new Response(broken('01234'))
+        : // 200, not 206: the whole file again, from a server that does not do
+          // ranges. Appending it to what is on disk is the corruption this
+          // guards against.
+          new Response('0123456789')
+    )
+
+    await new RommClient(store).downloadRom(
+      rom,
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('a transfer that keeps breaking is a failure, and leaves nothing behind', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    const sent = serve(() => new Response(broken('01')))
+
+    const failure = await new RommClient(store)
+      .downloadRom(rom, destination, () => undefined, new AbortController().signal)
+      .then(
+        () => null,
+        (cause: Error) => cause
+      )
+
+    assert.ok(failure instanceof RommError)
+    // Not `terminated`, which is what the network layer calls it and what the
+    // screen used to show.
+    assert.match(failure.message, /RomM/)
     assert.equal(existsSync(destination), false)
     assert.equal(existsSync(`${destination}.part`), false)
+    // Tried again rather than given up on at the first break.
+    assert.ok(sent.length > 1)
+  })
+
+  test('a cancelled transfer is not picked up again', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    const controller = new AbortController()
+    const sent = serve(() => {
+      controller.abort()
+      return new Response(broken('01'))
+    })
+
+    await assert.rejects(() =>
+      new RommClient(store).downloadRom(rom, destination, () => undefined, controller.signal)
+    )
+    assert.equal(sent.length, 1)
+    assert.equal(existsSync(`${destination}.part`), false)
+  })
+
+  test('a ROM left half-downloaded by an earlier attempt is never appended to', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    // A `.part` from some previous run: same name, unknown contents.
+    writeFileSync(`${destination}.part`, 'from another download')
+    serve(() => new Response('0123456789'))
+
+    await new RommClient(store).downloadRom(
+      rom,
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
   })
 
   test('a response with no body is a failure, not an empty ROM', async () => {

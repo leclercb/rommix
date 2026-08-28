@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { Blob } from 'node:buffer'
 import { createWriteStream } from 'node:fs'
-import { readFile, rename, rm } from 'node:fs/promises'
+import { readFile, rename, rm, stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type {
@@ -19,7 +19,7 @@ import type {
   RommUser,
   RomQuery
 } from '@shared/types'
-import { t } from './i18n.ts'
+import { i18n, t } from './i18n.ts'
 import { log } from './log.ts'
 import type { Store } from './store.ts'
 
@@ -70,6 +70,20 @@ export interface DownloadProgress {
   received: number
   total: number
 }
+
+/**
+ * How many times a broken ROM transfer is picked up again before it is called a
+ * failure.
+ *
+ * Enough that a connection dropped repeatedly still finishes a large game — the
+ * usual shape is a proxy cutting every response at the same point, so each
+ * attempt carries the same amount further — and few enough that a server which
+ * is simply gone is reported rather than retried all evening.
+ */
+const RESUME_ATTEMPTS = 5
+
+/** A pause between attempts, so a server refusing everything is not hammered. */
+const RESUME_DELAY_MS = 500
 
 /** Strip trailing slashes so we can concatenate paths safely. */
 export function normaliseBaseUrl(input: string): string {
@@ -485,6 +499,14 @@ export class RommClient {
    * files, so the caller decides whether the result needs extracting.
    * Writes to `${destination}.part` and renames on success, so an interrupted
    * download never looks like a complete ROM.
+   *
+   * A transfer that breaks part-way is picked up where it stopped rather than
+   * started again. A ROM is the largest thing RomMix moves and the one most
+   * likely to outlive the connection carrying it — a reverse proxy in front of
+   * RomM with a response cap or a time limit, a handheld that changed access
+   * point, a server restarted mid-copy. Losing a gigabyte to any of those and
+   * beginning again is, on a slow link, indistinguishable from RomMix simply
+   * being unable to download the game at all. See `RESUME_ATTEMPTS`.
    */
   async downloadRom(
     rom: RommRom,
@@ -493,39 +515,115 @@ export class RommClient {
     signal: AbortSignal
   ): Promise<void> {
     const path = `/api/roms/${rom.id}/content/${encodeURIComponent(rom.fs_name)}`
-    const res = await this.request(path, { signal })
-    if (!res.ok) throw await this.toError(res)
-    if (!res.body) throw new RommError(t('error.emptyResponseBody'))
-
-    const total = Number(res.headers.get('content-length') ?? 0) || rom.fs_size_bytes
-    let received = 0
-
     const partial = `${destination}.part`
-    const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
-    source.on('data', (chunk: Buffer) => {
-      received += chunk.length
-      onProgress({ received, total })
-    })
+    // Never resumed across calls: a `.part` left by an earlier download is of
+    // unknown provenance — a different release of the same game, a file the
+    // server has since replaced — and appending to it would produce a corrupt
+    // ROM that looks complete.
+    await rm(partial, { force: true }).catch(() => undefined)
 
     const took = log.since()
-    try {
-      await pipeline(source, createWriteStream(partial), { signal })
-      await rename(partial, destination)
-      log.info('romm', 'ROM content downloaded', {
-        romId: rom.id,
-        bytes: received,
-        ms: took(),
-        destination
-      })
-    } catch (cause) {
-      // Distinguished here rather than upstream: a cancelled transfer and a
-      // broken one look identical by the time the queue sees the exception.
-      const detail = { romId: rom.id, received, total, ms: took() }
-      if (signal.aborted) log.info('romm', 'ROM download cancelled', detail)
-      else log.error('romm', 'ROM download failed', cause, detail)
-      await rm(partial, { force: true }).catch(() => undefined)
-      throw cause
+    let received = 0
+    let total = rom.fs_size_bytes
+
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const res = await this.request(path, {
+          signal,
+          headers: received > 0 ? { Range: `bytes=${received}-` } : {}
+        })
+        if (!res.ok) throw await this.toError(res)
+        if (!res.body) throw new RommError(t('error.emptyResponseBody'))
+
+        /**
+         * Whether the server honoured the range, which only a 206 says.
+         *
+         * A server that ignores it answers 200 with the whole file, and
+         * appending that to what is already on disk is how a resumed download
+         * silently produces a ROM twice the size it should be. So the bytes
+         * already fetched are thrown away instead and the attempt starts over.
+         */
+        const resumed = received > 0 && res.status === 206
+        if (received > 0 && !resumed) {
+          log.warn('romm', 'the server ignored the range, starting the ROM again', {
+            romId: rom.id,
+            status: res.status,
+            discarded: received
+          })
+          await rm(partial, { force: true }).catch(() => undefined)
+          received = 0
+        }
+
+        // On a 206 the length is what is left to come, not the size of the ROM.
+        const declared = Number(res.headers.get('content-length') ?? 0)
+        total = (resumed ? received + declared : declared) || rom.fs_size_bytes
+
+        const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
+        source.on('data', (chunk: Buffer) => {
+          received += chunk.length
+          onProgress({ received, total })
+        })
+
+        await pipeline(source, createWriteStream(partial, { flags: resumed ? 'a' : 'w' }), {
+          signal
+        })
+        break
+      } catch (cause) {
+        // Cancelling is not a failure to retry: the user asked for it, and the
+        // two look identical by the time the queue sees the exception.
+        if (signal.aborted) {
+          log.info('romm', 'ROM download cancelled', { romId: rom.id, received, total, ms: took() })
+          await rm(partial, { force: true }).catch(() => undefined)
+          throw cause
+        }
+
+        if (attempt >= RESUME_ATTEMPTS) {
+          log.error('romm', 'ROM download failed', cause, {
+            romId: rom.id,
+            received,
+            total,
+            attempts: attempt,
+            ms: took()
+          })
+          await rm(partial, { force: true }).catch(() => undefined)
+          // Said in RomMix's own words rather than passed on. What arrives here
+          // is whatever the network layer called it — undici says `terminated`
+          // for a connection that died mid-response — and that word on its own,
+          // in red, over a download that was going fine, explains nothing.
+          //
+          // Sized the way the rest of the interface sizes things: this sentence
+          // is read beside a progress bar counting in gigabytes, and a raw byte
+          // count is a number nobody converts in their head.
+          const size = i18n().formatBytes
+          throw new RommError(
+            t('error.downloadInterrupted', { received: size(received), total: size(total) })
+          )
+        }
+
+        // What actually reached the disk, which is behind what the stream
+        // counted: the chunks in flight when the connection died were reported
+        // to `onProgress` and never written. Resuming from the counter would
+        // leave a hole in the middle of the ROM.
+        received = (await stat(partial).catch(() => null))?.size ?? 0
+        onProgress({ received, total })
+        log.warn('romm', 'the ROM transfer broke, picking it up again', {
+          romId: rom.id,
+          received,
+          total,
+          attempt,
+          reason: (cause as Error).message
+        })
+        await new Promise((resolve) => setTimeout(resolve, RESUME_DELAY_MS))
+      }
     }
+
+    await rename(partial, destination)
+    log.info('romm', 'ROM content downloaded', {
+      romId: rom.id,
+      bytes: received,
+      ms: took(),
+      destination
+    })
   }
 
   // -- firmware (BIOS) ------------------------------------------------------

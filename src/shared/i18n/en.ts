@@ -851,6 +851,8 @@ export const en = {
   'error.rommReturned': 'RomM returned {status}: {detail}',
   'error.wrongCredentials': 'Wrong username or password',
   'error.sessionExpired': 'Session expired — sign in again',
+  'error.downloadInterrupted':
+    'The transfer from RomM kept breaking off, after {received} of {total}',
   'error.emptyResponseBody': 'RomM returned an empty response body',
   'error.emptyAssetBody': 'Empty asset body',
   'error.credentialsRequired': 'Username and password are required',

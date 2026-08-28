@@ -884,6 +884,8 @@ export const de: Catalog = {
   'error.rommReturned': 'RomM antwortete {status}: {detail}',
   'error.wrongCredentials': 'Falscher Benutzername oder falsches Passwort',
   'error.sessionExpired': 'Sitzung abgelaufen — melden Sie sich erneut an',
+  'error.downloadInterrupted':
+    'Die Übertragung von RomM brach immer wieder ab, nach {received} von {total}',
   'error.emptyResponseBody': 'RomM hat einen leeren Antwortkörper geliefert',
   'error.emptyAssetBody': 'Leerer Dateiinhalt',
   'error.credentialsRequired': 'Benutzername und Passwort sind erforderlich',
