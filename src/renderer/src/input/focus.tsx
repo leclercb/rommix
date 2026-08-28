@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject
 } from 'react'
@@ -588,7 +589,7 @@ interface UseFocusableResult {
   props: {
     'data-focused': boolean
     onMouseEnter: () => void
-    onClick: () => void
+    onClick: (event: ReactMouseEvent) => void
     tabIndex: -1
   }
 }
@@ -650,7 +651,20 @@ export function useFocusable(options: {
     props: {
       'data-focused': focusedId === id,
       onMouseEnter: () => enabled && setFocus(id),
-      onClick: () => selectRef.current?.(),
+      /**
+       * The innermost focusable takes the click, and nothing above it does.
+       *
+       * Focusables nest: a download row is one, and the Pause and Cancel
+       * buttons inside it are others. A click on a button reaches the row as
+       * well unless it is stopped here, so pausing a transfer also opened the
+       * game — two things happening from one press, only one of which was
+       * asked for. The controller has never had this problem, because a press
+       * goes to whatever is focused and to nothing else.
+       */
+      onClick: (event: ReactMouseEvent) => {
+        event.stopPropagation()
+        selectRef.current?.()
+      },
       tabIndex: -1
     }
   }
