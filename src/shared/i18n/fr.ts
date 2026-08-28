@@ -610,6 +610,9 @@ export const fr: Catalog = {
   'settings.disconnect': 'Se déconnecter',
   'settings.disconnected': 'Déconnecté de RomM',
   'settings.interface': 'Interface',
+  'settings.sounds': 'Sons de navigation',
+  'settings.soundsHint':
+    'Un clic discret quand la sélection se déplace, à la validation et au retour.',
   'settings.scaleHint': 'Auto suit l’écran : deux fois plus grand sur un téléviseur 4K.',
   'settings.language': 'Langue',
   'settings.languageHint': 'Auto suit la langue configurée sur cette machine.',

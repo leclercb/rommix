@@ -368,6 +368,7 @@ const SETTINGS: Settings = {
   setupComplete: true,
   syncSavesDown: true,
   syncSavesUp: true,
+  navigationSounds: true,
   confirmUninstall: true,
   confirmSavePush: true,
   dismissedNotices: [],

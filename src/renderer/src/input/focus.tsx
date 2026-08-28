@@ -14,6 +14,7 @@ import { measure, rectOf, SAME_STEP_PX, type Measure } from './geometry'
 import { gamepadPresent, useGamepad } from './gamepad'
 import { keyboardLabel, useKeyboard } from './keyboard'
 import { revealElement, scrollToEnd } from './scroll'
+import { playCue } from './sound'
 import { useI18n } from '../state'
 import type { Action, Direction, InputKind } from './types'
 
@@ -296,6 +297,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       const current = focusedRef.current ? entries.current.get(focusedRef.current) : undefined
       if (!current || !current.element.isConnected) {
         setFocus(candidates[0].id)
+        playCue('move')
         return
       }
 
@@ -420,6 +422,9 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
 
       const arrived = landing(target)
       applyFocus(arrived)
+      // Only where a press actually moved: every return above is a press that
+      // found nothing, and a click for those would say the opposite.
+      playCue('move')
       // A horizontal move re-anchors on where it landed, so the next vertical
       // run travels down the new column rather than the one before it. So does
       // entering a group at its own head: the column the run was travelling
@@ -433,7 +438,10 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const activate = useCallback((): void => {
     const id = focusedRef.current
     if (!id) return
-    entries.current.get(id)?.onSelect?.()
+    const select = entries.current.get(id)?.onSelect
+    if (!select) return
+    playCue('select')
+    select()
   }, [])
 
   const onAction = useCallback(
@@ -456,7 +464,11 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     const list = actionHandlers.current.get(action) ?? []
     const onLayer = list.filter((h) => h.layer === layerRef.current)
     const target = onLayer.length > 0 ? onLayer[onLayer.length - 1] : undefined
-    target?.handler()
+    if (!target) return
+    // Leaving has its own cue; the rest — the menu, the search box, a tab — are
+    // the interface moving, which is what the move cue says.
+    playCue(action === 'back' ? 'back' : 'move')
+    target.handler()
   }, [])
 
   // Starts as whatever is plugged in, then follows whatever is actually used.

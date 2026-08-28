@@ -622,6 +622,9 @@ export const de: Catalog = {
   'settings.disconnect': 'Verbindung trennen',
   'settings.disconnected': 'Verbindung zu RomM getrennt',
   'settings.interface': 'Oberfläche',
+  'settings.sounds': 'Navigationsklänge',
+  'settings.soundsHint':
+    'Ein leises Klicken, wenn die Auswahl wandert, bestätigt oder zurückgegangen wird.',
   'settings.scaleHint':
     'Auto richtet sich nach dem Bildschirm: doppelt so groß auf einem 4K-Fernseher.',
   'settings.language': 'Sprache',

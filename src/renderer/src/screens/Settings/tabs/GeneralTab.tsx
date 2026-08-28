@@ -5,6 +5,7 @@ import {
   FocusButton,
   Overlay,
   ScanToOpen,
+  Toggle,
   uiScaleChoice,
   uiScaleOptions,
   type UiScaleChoice
@@ -92,6 +93,12 @@ export function GeneralTab(): JSX.Element {
         value={uiScaleChoice(settings?.uiScale ?? 0)}
         options={uiScaleOptions(t)}
         onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
+      />
+      <Toggle
+        label={t('settings.sounds')}
+        hint={t('settings.soundsHint')}
+        on={settings?.navigationSounds ?? true}
+        onToggle={() => void saveSettings({ navigationSounds: !settings?.navigationSounds })}
       />
 
       <h2 className="section-title">{t('settings.support')}</h2>

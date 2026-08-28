@@ -406,6 +406,15 @@ export interface Settings {
   syncSavesDown: boolean
   /** Push saves/states back to RomM after the game exits. */
   syncSavesUp: boolean
+  /**
+   * A quiet click as focus moves, and when something is chosen or left.
+   *
+   * On by default: RomMix is driven from a sofa, where the highlight is often
+   * on the far side of the screen from what is being looked at, and the click
+   * is what says a press landed. Off is for a room where it would be heard by
+   * somebody who is not playing. See `playCue`.
+   */
+  navigationSounds: boolean
   /** Ask for confirmation before deleting a downloaded game. */
   confirmUninstall: boolean
   /**

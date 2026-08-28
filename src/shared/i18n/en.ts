@@ -613,6 +613,8 @@ export const en = {
   'settings.disconnect': 'Disconnect',
   'settings.disconnected': 'Disconnected from RomM',
   'settings.interface': 'Interface',
+  'settings.sounds': 'Navigation sounds',
+  'settings.soundsHint': 'A quiet click as the highlight moves, and when you choose or go back.',
   'settings.scaleHint': 'Auto follows the screen: twice the size on a 4K television.',
   'settings.language': 'Language',
   'settings.languageHint': 'Auto follows the language this machine is set to.',

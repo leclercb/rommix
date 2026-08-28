@@ -18,6 +18,7 @@ import type {
   Settings,
   UpdateStatus
 } from '@shared/types'
+import { setSoundEnabled } from './input/sound'
 
 /** Application-wide state: connection, settings, downloads and navigation. */
 
@@ -217,6 +218,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   useEffect(() => {
     document.documentElement.lang = i18n.locale
   }, [i18n])
+
+  // Told to the input layer rather than read by it: the cues are played from
+  // inside the focus engine, which has no business holding a settings object.
+  // Silent until the settings have arrived, so nothing clicks on a screen the
+  // user has not reached yet.
+  useEffect(() => {
+    setSoundEnabled(settings?.navigationSounds ?? false)
+  }, [settings?.navigationSounds])
 
   const notify = useCallback(
     (message: string, tone: Toast['tone'] = 'ok', subject?: ToastSubject): void => {

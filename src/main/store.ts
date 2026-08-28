@@ -62,6 +62,7 @@ function defaultSettings(): Settings {
     setupComplete: false,
     syncSavesDown: true,
     syncSavesUp: true,
+    navigationSounds: true,
     confirmUninstall: true,
     confirmSavePush: true,
     dismissedNotices: [],
