@@ -125,9 +125,12 @@ jobs:
           path: dist
 
       # generate_release_notes has GitHub write the changelog from the commits
-      # and pull requests since the last tag; `body` is prepended to it, which is
-      # where the part a release page actually needs — how to run the thing —
-      # goes. A tag like v0.2.0-rc1 is a pre-release; v0.2.0 is not.
+      # and pull requests since the last tag; `body` is prepended to it, and is
+      # kept to what somebody standing at the download needs — which file, and
+      # what to do with it. Why the script is needed at all, and what to do when
+      # it is not enough, is the README's job: it is read once, while this page
+      # is republished with every release. A tag like v0.2.0-rc1 is a
+      # pre-release; v0.2.0 is not.
       #
       # The file names are written out rather than derived from the tag: they no
       # longer carry the version. See `appImage.artifactName` in
@@ -147,32 +150,19 @@ jobs:
           body: |
             ### Run
 
-            `RomMix-x86_64.AppImage` for an ordinary PC or a Steam Deck,
-            `RomMix-arm64.AppImage` for an ARM handheld or single-board
-            machine. `uname -m` says which you are on: `x86_64` or `aarch64`.
+            `RomMix-x86_64.AppImage` for a PC or Steam Deck,
+            `RomMix-arm64.AppImage` for an ARM handheld (`uname -m` says which).
 
             ```bash
             chmod +x RomMix-x86_64.AppImage
             ./RomMix-x86_64.AppImage
             ```
 
-            The file name carries no version on purpose: RomMix updates itself
-            by writing the new release over this same file, so the path you
-            point a shortcut at keeps working. Settings shows which version you
-            are running, and updating never asks you to rename anything.
+            No version in the file name: updates are written over that same
+            file, so a shortcut pointing at it keeps working.
 
             ### From Steam
 
-            Download `rommix-steam.sh` as well, keep it beside the AppImage, and
-            add **the script** as the non-Steam game:
-
-            ```bash
-            chmod +x RomMix-x86_64.AppImage rommix-steam.sh
-            ```
-
-            Steam launches a game with `PR_SET_NO_NEW_PRIVS`, under which the
-            kernel ignores the setuid bit — so `fusermount` cannot mount and an
-            AppImage started directly by Steam never unpacks itself. The script
-            unpacks it instead. It still `exec`s the image, so RomMix stays the
-            emulator's parent process, which is what lets Steam manage the
-            window the emulator opens.
+            Download `rommix-steam.sh` too, `chmod +x` it, keep it beside the
+            AppImage, and add **the script** as the non-Steam game — Steam
+            cannot launch the AppImage directly.
