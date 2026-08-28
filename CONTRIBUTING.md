@@ -36,6 +36,13 @@ npm test
 CI runs exactly these four, in this order, on every pull request. `npm run
 format` fixes the first one for you.
 
+`npm install` also installs a pre-commit hook that runs them — plus `npm run
+build`, which is the one thing CI does that the tests do not, a renderer being
+perfectly capable of typechecking and then failing to bundle. It takes about six
+seconds. `git commit --no-verify` skips it, which is the right answer for a
+work-in-progress commit on a branch and the wrong one for anything you are about
+to push.
+
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
 at: a module worth adding is worth testing, and the report says which lines of

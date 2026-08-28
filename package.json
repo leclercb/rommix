@@ -27,7 +27,8 @@
     "pack:dir": "npm run build && electron-builder --linux dir",
     "package": "electron-builder --linux AppImage --publish never",
     "appimage": "npm run build && npm run package",
-    "release": "release-it"
+    "release": "release-it",
+    "prepare": "husky"
   },
   "dependencies": {
     "lucide-react": "^1.33.0",
@@ -43,6 +44,7 @@
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "husky": "^9.1.7",
     "oxlint": "^1.79.0",
     "prettier": "^3.9.6",
     "react": "^19.0.0",

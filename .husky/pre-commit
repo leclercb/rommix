@@ -1,0 +1,13 @@
+# The four CI checks, plus the build, before anything is committed.
+#
+# Same order as the pull request runs them in, cheapest first, so a missing
+# semicolon is reported in a second rather than after a bundle. The build is
+# here as well because it is the one step CI runs that `npm test` does not
+# exercise at all: a renderer that fails to bundle typechecks perfectly.
+#
+# Together about six seconds. A hook slower than that is a hook people pass
+# `--no-verify` to, which is the same as not having one.
+npm run format:check
+npm run lint
+npm run build
+npm test
