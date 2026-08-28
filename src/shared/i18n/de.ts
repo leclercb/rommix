@@ -437,6 +437,8 @@ export const de: Catalog = {
   'game.downloading': 'Download…',
   'game.openBios': 'BIOS öffnen',
   'setup.dontShowAgain': 'Nicht mehr anzeigen',
+  'game.readMore': 'Mehr lesen',
+  'game.showLess': 'Weniger anzeigen',
   'game.tabDetails': 'Details',
   'game.tabSaves': 'Spielstände',
   'game.tabFiles': 'Dateien',

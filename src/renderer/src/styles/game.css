@@ -71,14 +71,50 @@
   font-weight: 700;
 }
 
+.game-hero__about {
+  max-width: 78ch;
+}
+
+/*
+ * A few lines of it, and the rest a press away.
+ *
+ * A button rather than a paragraph so the pad can reach it, but drawn as the
+ * text it is: the padding is given back as a negative margin, so the words
+ * still start on the banner's own left edge and only the focus ring shows
+ * there is anything to press.
+ */
 .game-hero__summary {
   color: var(--text-dim);
-  max-width: 78ch;
-  margin: 0;
+  text-align: left;
+  width: 100%;
+  padding: 6px 10px;
+  margin: -6px -10px;
+  border-radius: var(--radius);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  transition: var(--transition);
+}
+
+.game-hero__summary[data-expanded='true'] {
+  display: block;
+  overflow: visible;
+}
+
+.game-hero__summary[data-focused='true'] {
+  color: var(--text);
+  background: rgba(6, 8, 12, 0.55);
+  box-shadow: var(--focus-ring);
+}
+
+/* Says which way the press goes, for anyone not reading the hint bar. */
+.game-hero__more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--accent);
 }
 
 /* The chips sit on artwork rather than on the page, so they carry their own

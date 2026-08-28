@@ -421,6 +421,8 @@ export const es: Catalog = {
   'game.downloading': 'Descargando…',
   'game.openBios': 'Abrir BIOS',
   'setup.dontShowAgain': 'No mostrar esto otra vez',
+  'game.readMore': 'Leer más',
+  'game.showLess': 'Mostrar menos',
   'game.tabDetails': 'Detalles',
   'game.tabSaves': 'Partidas',
   'game.tabFiles': 'Archivos',

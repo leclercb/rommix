@@ -1,6 +1,7 @@
-import type { JSX, ReactNode } from 'react'
+import { type JSX, type ReactNode, type Ref, useEffect, useState } from 'react'
 import type { InstalledRom, RommRom } from '@shared/types'
 import { ArtBackdrop, CoverArt, PlatformIcon } from '../../components'
+import { useFocusable } from '../../input/focus'
 import { Icon } from '../../icons'
 import { useI18n } from '../../state'
 
@@ -88,11 +89,75 @@ export function GameHero({
               </span>
             ))}
           </div>
-          {rom.summary ? <p className="game-hero__summary">{rom.summary}</p> : null}
+          {rom.summary ? <Summary text={rom.summary} /> : null}
 
           <div className="btn-row">{children}</div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * What the game is about, clamped to a few lines until it is asked for.
+ *
+ * The banner is a glance — artwork, platform, how big it is — and a synopsis
+ * that ran to a dozen lines would push the buttons off the bottom of a
+ * television. So it opens in place rather than in a dialog: the text stays
+ * where it was being read, and a summary long enough to need scrolling is
+ * scrolled the way every other page here is, by walking down it.
+ *
+ * Focusable only when there is more to see. A press that visibly does nothing
+ * is worse than no press at all, and the hint bar would be advertising it.
+ */
+function Summary({ text }: { text: string }): JSX.Element {
+  const { t } = useI18n()
+  const [expanded, setExpanded] = useState(false)
+  const [clipped, setClipped] = useState(false)
+  const { ref, props } = useFocusable({
+    onSelect: () => setExpanded((open) => !open),
+    enabled: clipped,
+    actionLabel: expanded ? t('game.showLess') : t('game.readMore')
+  })
+
+  // A fresh game is a fresh question, and one whose summary fits leaves nothing
+  // focused where the last one had something.
+  useEffect(() => setExpanded(false), [text])
+
+  /**
+   * Whether the clamp is actually hiding anything.
+   *
+   * Measured rather than guessed from the length of the string: how many lines
+   * it takes depends on the width of the banner and on `Settings.uiScale`, so
+   * the observer re-asks whenever the box is resized. Not while it is open —
+   * an expanded box hides nothing by definition, and believing that would take
+   * the focus out from under the button being read.
+   */
+  useEffect(() => {
+    const element = ref.current
+    if (!element || expanded) return
+    const measure = (): void => setClipped(element.scrollHeight > element.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref, text, expanded])
+
+  return (
+    <div className="game-hero__about">
+      <button
+        ref={ref as Ref<HTMLButtonElement>}
+        className="game-hero__summary"
+        data-expanded={expanded}
+        {...props}
+      >
+        {text}
+      </button>
+      {clipped ? (
+        <span className="game-hero__more">
+          {expanded ? t('game.showLess') : t('game.readMore')}
+        </span>
+      ) : null}
     </div>
   )
 }

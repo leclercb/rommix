@@ -426,6 +426,8 @@ export const fr: Catalog = {
   'game.downloading': 'Téléchargement…',
   'game.openBios': 'Ouvrir BIOS',
   'setup.dontShowAgain': 'Ne plus afficher',
+  'game.readMore': 'Lire la suite',
+  'game.showLess': 'Réduire',
   'game.tabDetails': 'Détails',
   'game.tabSaves': 'Sauvegardes',
   'game.tabFiles': 'Fichiers',

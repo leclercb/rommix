@@ -426,6 +426,8 @@ export const en = {
   'game.downloading': 'Downloading…',
   'game.openBios': 'Open BIOS',
   'setup.dontShowAgain': "Don't show this again",
+  'game.readMore': 'Read more',
+  'game.showLess': 'Show less',
   'game.tabDetails': 'Details',
   'game.tabSaves': 'Saves',
   'game.tabFiles': 'Files',
