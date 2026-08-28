@@ -579,6 +579,10 @@ export const es: Catalog = {
   'files.empty':
     'RomM no lista ningún archivo de este juego, y en este dispositivo no hay ninguno.',
   'shots.empty': 'RomM no tiene capturas de este juego.',
+  'shots.view': 'Ver',
+  'shots.previous': 'Captura anterior',
+  'shots.next': 'Captura siguiente',
+  'shots.position': '{index} de {total}',
 
   // -- ajustes --------------------------------------------------------------
 

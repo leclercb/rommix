@@ -75,12 +75,82 @@
 }
 
 .shot {
+  display: block;
+  padding: 0;
   width: 100%;
   height: 170px;
-  object-fit: cover;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg-raised);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.shot[data-focused='true'] {
+  box-shadow: var(--focus-ring);
+  transform: scale(1.03);
+}
+
+/* Cropped, not letterboxed: the grid is an index of what there is, and a row of
+   pictures that all start at the same edge is what makes it readable as one.
+   The whole shot is a press away. */
+.shot__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/*
+ * The screenshot viewer: one picture, as large as the screen will show it.
+ *
+ * Darker than a dialog's backdrop and with nothing else on it — a picture is
+ * judged against what surrounds it, and a panel with a title above it would be
+ * the brightest thing in the room.
+ */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 5, 8, 0.94);
+  padding: var(--safe-y) var(--safe-x);
+}
+
+/* The arrows flank the picture rather than sit under it, so Left and Right find
+   them where the movement they make is going. */
+.viewer__frame {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Contained, and the one thing on screen allowed to set its own shape. */
+.viewer__image {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+.viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.viewer__count {
+  font-size: 15px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 /* A chip carrying an icon beside its text. */

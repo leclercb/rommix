@@ -588,6 +588,10 @@ export const en = {
   'files.hintDevice': 'On this device only. RomM does not list it.',
   'files.empty': 'RomM lists no files for this game, and none are on this device.',
   'shots.empty': 'RomM has no screenshots for this game.',
+  'shots.view': 'View',
+  'shots.previous': 'Previous screenshot',
+  'shots.next': 'Next screenshot',
+  'shots.position': '{index} of {total}',
 
   // -- settings -------------------------------------------------------------
 

@@ -585,6 +585,10 @@ export const fr: Catalog = {
   'files.hintDevice': 'Uniquement sur cet appareil. RomM ne le liste pas.',
   'files.empty': 'RomM ne liste aucun fichier pour ce jeu, et il n’y en a aucun sur cet appareil.',
   'shots.empty': 'RomM n’a aucune capture pour ce jeu.',
+  'shots.view': 'Voir',
+  'shots.previous': 'Capture précédente',
+  'shots.next': 'Capture suivante',
+  'shots.position': '{index} sur {total}',
 
   // -- réglages -------------------------------------------------------------
 

@@ -597,6 +597,10 @@ export const de: Catalog = {
   'files.empty':
     'RomM führt für dieses Spiel keine Dateien, und auf diesem Gerät liegen auch keine.',
   'shots.empty': 'RomM hat keine Screenshots für dieses Spiel.',
+  'shots.view': 'Ansehen',
+  'shots.previous': 'Vorheriger Screenshot',
+  'shots.next': 'Nächster Screenshot',
+  'shots.position': '{index} von {total}',
 
   // -- Einstellungen --------------------------------------------------------
 
