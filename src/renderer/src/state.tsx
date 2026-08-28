@@ -402,17 +402,29 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     })
   }, [])
 
-  // Anything that failed in the main process, whoever asked for it.
-  //
-  // Repeats are dropped for a few seconds: one broken server answers every call
-  // a screen makes on the way in with the same message, and three identical
-  // toasts say nothing the first one did not.
+  /**
+   * Anything that failed in the main process, whoever asked for it.
+   *
+   * Repeats are dropped for a few seconds: one broken server answers every call
+   * a screen makes on the way in with the same message, the pairing screen goes
+   * on asking on a timer while it waits, and three identical toasts say nothing
+   * the first one did not.
+   *
+   * The web preview is the one place that rule is wrong. Nothing there polls
+   * and nothing there is broken: every error it raises is the demo turning down
+   * a button that was just pressed, so collapsing them answers the second press
+   * with silence — which is the thing the message was added to prevent. The
+   * flag is a compile-time constant, so this is dropped from the bundle the app
+   * ships.
+   */
   const lastError = useRef<{ message: string; at: number } | null>(null)
   useEffect(() => {
     return window.rommix.system.onError((message) => {
-      const previous = lastError.current
-      if (previous && previous.message === message && Date.now() - previous.at < 5000) return
-      lastError.current = { message, at: Date.now() }
+      if (!import.meta.env.VITE_WEB_PREVIEW) {
+        const previous = lastError.current
+        if (previous && previous.message === message && Date.now() - previous.at < 5000) return
+        lastError.current = { message, at: Date.now() }
+      }
       notify(message, 'error')
     })
   }, [notify])

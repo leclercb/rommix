@@ -28,9 +28,16 @@ import type {
  * same length, every cover the same shape.
  *
  * It is a mannequin, not a simulator. Nothing is persisted, nothing reaches a
- * RomM server, and the actions that would touch a disk or an emulator report
- * plausible success without doing anything. Judge layout and navigation here;
- * judge behaviour in the real app.
+ * RomM server, and nothing touches a disk or an emulator.
+ *
+ * What that leaves an action to do depends on what miming it would claim. A
+ * BIOS file is in place or it is not, so `bios.install` marks it in place and
+ * the screen is telling the truth. A transfer is not a state but a process: a
+ * row that says it is downloading and never moves, or a Download button that
+ * accepts the press, tells a visitor this page can fetch them a game. So the
+ * things that would need a disk, a server or an emulator refuse instead, in the
+ * app's own words and on the app's own error channel — see `refuse`. Judge
+ * layout and navigation here; judge behaviour in the real app.
  *
  * The module is imported only under the `VITE_WEB_PREVIEW` flag that
  * `vite.web.config.ts` sets, so it is never part of a shipped bundle.
@@ -435,6 +442,28 @@ function later<T>(value: T, ms = 220): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
+/** Everyone listening on the channel the app reports failures over. */
+const errorListeners = new Set<(message: string) => void>()
+
+/**
+ * Turn down something the demo cannot do, the way the app turns down anything
+ * else that fails.
+ *
+ * Both halves are needed. Rejecting is what stops the caller announcing
+ * success, since a screen only says "uninstalled" once the call has come back.
+ * Saying it on the error channel is what the visitor actually sees: in the app
+ * the main process has already reported the failure over `app:error` by the
+ * time the promise rejects, so every one of these callers catches and says
+ * nothing itself — the comment at each of them is some version of "reported
+ * centrally". A stub that only rejects inherits all that silence, which is a
+ * button that does nothing at all.
+ */
+function refuse<T>(key: MessageKey = 'demo.notAvailable'): Promise<T> {
+  const message = say(key)
+  for (const listener of errorListeners) listener(message)
+  return Promise.reject(new Error(message))
+}
+
 /**
  * What the Settings screen prints about RomMix's own version.
  *
@@ -622,8 +651,8 @@ const bridge: RomMixBridge = {
   },
   saves: {
     list: (romId: number) => later(romId === CAVE_STORY ? SAVES : []),
-    pull: () => later({ saves: 1, states: 0, skippedReason: null }, 600),
-    push: () => later({ saves: 1, states: 1, skippedReason: null }, 600),
+    pull: () => refuse(),
+    push: () => refuse(),
     pushPreview: () =>
       later({
         files: [
@@ -647,9 +676,8 @@ const bridge: RomMixBridge = {
         skippedReason: null,
         deviceName: SETTINGS.deviceName
       }),
-    pushSelected: (_romId: number, paths: string[]) =>
-      later({ saves: paths.length, states: 0, skippedReason: null }, 600),
-    remove: () => later(undefined)
+    pushSelected: () => refuse(),
+    remove: () => refuse()
   },
   bios: {
     list: () => later({ platforms: biosPlatforms() }),
@@ -662,7 +690,7 @@ const bridge: RomMixBridge = {
       const item = biosPlatforms()
         .flatMap((platform) => platform.items)
         .find((candidate) => candidate.firmwareId === firmwareId)
-      if (!item) return Promise.reject(new Error(say('demo.noFirmware')))
+      if (!item) return refuse('demo.noFirmware')
       item.installed = true
       return later(`${item.dir}/${item.fileName}`, 500)
     },
@@ -685,12 +713,20 @@ const bridge: RomMixBridge = {
     onProgress: noSubscription
   },
   downloads: {
+    /**
+     * A queue that stands still.
+     *
+     * Every row the screen can draw is in it, which is the point — but nothing
+     * transfers, so nothing advances and nothing arrives. `onUpdate` never
+     * emits for the same reason: there is no progress to report, and a stub
+     * that invented some would be inventing the one thing this cannot show.
+     */
     list: () => later(downloadQueue()),
-    start: (romId: number) => later(queued(romId, 'queued', 0)),
-    pause: () => later(undefined),
-    cancel: () => later(undefined),
-    clearFinished: () => later(undefined),
-    uninstall: () => later(undefined),
+    start: () => refuse(),
+    pause: () => refuse(),
+    cancel: () => refuse(),
+    clearFinished: () => refuse(),
+    uninstall: () => refuse(),
     onUpdate: noSubscription
   },
   game: {
@@ -714,7 +750,7 @@ const bridge: RomMixBridge = {
         chosen: null
       })
     },
-    launch: () => Promise.reject(new Error(say('demo.noEmulator')))
+    launch: () => refuse('demo.noEmulator')
   },
   running: {
     stop: () => later(undefined),
@@ -733,8 +769,8 @@ const bridge: RomMixBridge = {
      */
     status: () => later(previewUpdate()),
     check: () => later(previewUpdate(), 700),
-    download: () => Promise.reject(new Error(say('demo.notAvailable'))),
-    restart: () => Promise.reject(new Error(say('demo.notAvailable'))),
+    download: () => refuse(),
+    restart: () => refuse(),
     onStatus: noSubscription
   },
   system: {
@@ -748,9 +784,9 @@ const bridge: RomMixBridge = {
       return later(SETTINGS)
     },
     emulatorReleases: () => later([]),
-    installEmulator: () => Promise.reject(new Error(say('demo.notAvailable'))),
-    installEmulatorFlatpak: () => Promise.reject(new Error(say('demo.notAvailable'))),
-    runEmulator: () => Promise.reject(new Error(say('demo.notAvailable'))),
+    installEmulator: () => refuse(),
+    installEmulatorFlatpak: () => refuse(),
+    runEmulator: () => refuse(),
     onInstallProgress: noSubscription,
     diagnostics: () =>
       later({
@@ -770,7 +806,7 @@ const bridge: RomMixBridge = {
         fallback: PREVIEW_ROOT,
         fromEnvironment: false
       }),
-    setRoot: () => Promise.reject(new Error(say('demo.notAvailable'))),
+    setRoot: () => refuse(),
     restart: () => later(undefined),
     /**
      * Cover art and screenshots resolve to the copies bundled with the preview;
@@ -780,14 +816,19 @@ const bridge: RomMixBridge = {
      */
     imageUrl: (path: string | null) => artFor(path),
     toggleFullscreen: () => later(false),
-    quit: () => later(undefined),
+    quit: () => refuse(),
     // The preview is already in a browser, so the desktop's link handler is
     // simply a new tab.
     openExternal: (url: string) => {
       window.open(url, '_blank', 'noopener')
       return later(undefined)
     },
-    onError: noSubscription
+    onError: (listener) => {
+      errorListeners.add(listener)
+      return () => {
+        errorListeners.delete(listener)
+      }
+    }
   }
 }
 
