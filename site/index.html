@@ -8,11 +8,12 @@
   catalogue in `src/shared/i18n/`, so a word this page borrows from RomMix
   cannot drift from the one RomMix says.
 
-  No script in the rendered page, no framework. The palette and the mark are the
-  app's own, and the picture of the interface is a photograph of it — see
-  `scripts/screenshots.mjs`. The demo it links to is built beside this page, so
-  the page is only whole through `npm run preview:web`; opened off disk, the way
-  into the demo goes nowhere.
+  No framework, and the only script is the handful of lines under the strip of
+  pictures that keep its arrows from scrolling the page — see `.shot__step`. The
+  palette and the mark are the app's own, and the picture of the interface is a
+  photograph of it — see `scripts/screenshots.mjs`. The demo it links to is
+  built beside this page, so the page is only whole through
+  `npm run preview:web`; opened off disk, the way into the demo goes nowhere.
 -->
 <html lang="{{lang}}">
   <head>
@@ -431,12 +432,20 @@
         border: 1px solid var(--border);
         background: rgba(11, 13, 19, 0.72);
         color: var(--text);
-        font-size: 26px;
-        line-height: 1;
         text-decoration: none;
         transition:
           background 160ms ease,
           border-color 160ms ease;
+      }
+
+      .shot__step svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
 
       .shot__step:hover,
@@ -968,19 +977,28 @@
           home screen in markup, as current as the last time somebody remembered
           it existed.
 
-          A strip that snaps, rather than anything that has to be driven: this
-          page carries no script, and a scroller is what a phone already knows
-          how to swipe and a trackpad already knows how to push. The arrows are
-          links to the next picture along, so they work for the same reason.
+          A strip that snaps, rather than anything that has to be driven: a
+          scroller is what a phone already knows how to swipe and a trackpad
+          already knows how to push. The arrows are links to the next picture
+          along, so they work for the same reason.
+
+          Being links is also the one thing that needs undoing. Following a
+          fragment puts the target on screen by its leading edge, which walks
+          the page down to the figure as well as the strip across to it, and the
+          reader loses their place every time they press an arrow. The script at
+          the end of the page cancels that. Without it the arrows still change
+          the picture; they just take the page with them.
         -->
         <div class="demo" role="group" aria-label="{{demo.alt}}">
           <div class="shots" tabindex="0">
             <figure class="shot" id="shot-home">
               <img src="{{root}}img/home.webp" width="1920" height="1080" alt="{{@nav.home}}" />
               <a class="shot__step shot__step--back" href="#shot-settings" aria-hidden="true"
-                >&lsaquo;</a
-              >
-              <a class="shot__step shot__step--on" href="#shot-game" aria-hidden="true">&rsaquo;</a>
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
+              <a class="shot__step shot__step--on" href="#shot-game" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{@nav.home}}</figcaption>
             </figure>
             <figure class="shot" id="shot-game">
@@ -992,11 +1010,11 @@
                 loading="lazy"
               />
               <a class="shot__step shot__step--back" href="#shot-home" aria-hidden="true"
-                >&lsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
               <a class="shot__step shot__step--on" href="#shot-library" aria-hidden="true"
-                >&rsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{demo.shotGame}}</figcaption>
             </figure>
             <figure class="shot" id="shot-library">
@@ -1008,11 +1026,11 @@
                 loading="lazy"
               />
               <a class="shot__step shot__step--back" href="#shot-game" aria-hidden="true"
-                >&lsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
               <a class="shot__step shot__step--on" href="#shot-downloads" aria-hidden="true"
-                >&rsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{@nav.library}}</figcaption>
             </figure>
             <figure class="shot" id="shot-downloads">
@@ -1024,9 +1042,11 @@
                 loading="lazy"
               />
               <a class="shot__step shot__step--back" href="#shot-library" aria-hidden="true"
-                >&lsaquo;</a
-              >
-              <a class="shot__step shot__step--on" href="#shot-bios" aria-hidden="true">&rsaquo;</a>
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
+              <a class="shot__step shot__step--on" href="#shot-bios" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{@nav.downloads}}</figcaption>
             </figure>
             <figure class="shot" id="shot-bios">
@@ -1038,11 +1058,11 @@
                 loading="lazy"
               />
               <a class="shot__step shot__step--back" href="#shot-downloads" aria-hidden="true"
-                >&lsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
               <a class="shot__step shot__step--on" href="#shot-emulators" aria-hidden="true"
-                >&rsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{@nav.bios}}</figcaption>
             </figure>
             <figure class="shot" id="shot-emulators">
@@ -1054,11 +1074,11 @@
                 loading="lazy"
               />
               <a class="shot__step shot__step--back" href="#shot-bios" aria-hidden="true"
-                >&lsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
               <a class="shot__step shot__step--on" href="#shot-settings" aria-hidden="true"
-                >&rsaquo;</a
-              >
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{@nav.emulators}}</figcaption>
             </figure>
             <figure class="shot" id="shot-settings">
@@ -1070,9 +1090,11 @@
                 loading="lazy"
               />
               <a class="shot__step shot__step--back" href="#shot-emulators" aria-hidden="true"
-                >&lsaquo;</a
-              >
-              <a class="shot__step shot__step--on" href="#shot-home" aria-hidden="true">&rsaquo;</a>
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg
+              ></a>
+              <a class="shot__step shot__step--on" href="#shot-home" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+              ></a>
               <figcaption>{{@nav.settings}}</figcaption>
             </figure>
           </div>
@@ -1510,5 +1532,32 @@
         <p class="credit">{{@app.credit}}</p>
       </div>
     </footer>
+
+    <!--
+      The arrows on the strip of pictures, taken off the browser's own handling
+      of a fragment link.
+
+      Following one scrolls the target into view by its leading edge in every
+      direction at once: across the strip, which is wanted, and down the page to
+      the top of the figure, which is not. `nearest` is the difference — it
+      leaves an axis alone when the target already sits inside it, so the strip
+      moves and the page stays where the reader left it. The hash is left off
+      the address bar for the same reason: restoring it on a reload would scroll
+      the page down to the strip before the reader had asked for anything.
+
+      Everything here is an improvement on behaviour that already works. With
+      the script absent or broken the arrows are still links, and still reach
+      the next picture.
+    -->
+    <script>
+      for (const step of document.querySelectorAll('.shot__step')) {
+        step.addEventListener('click', (event) => {
+          const shot = document.querySelector(step.getAttribute('href'))
+          if (!shot) return
+          event.preventDefault()
+          shot.scrollIntoView({ block: 'nearest', inline: 'center' })
+        })
+      }
+    </script>
   </body>
 </html>
