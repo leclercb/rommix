@@ -13,7 +13,6 @@
 
   "hero.title": "Tu biblioteca de RomM, juegues donde juegues.",
   "hero.lede": "Una interfaz al estilo Big Picture para tu propio servidor <a href=\"https://romm.app\">RomM</a>. Explora, descarga, juega &mdash; las partidas se sincronizan con RomM.",
-  "hero.note": "La interfaz de verdad, sobre la biblioteca de <a href=\"https://demo.romm.app\">la demo pública de RomM</a>.",
 
   "where.desktop": "Ordenador",
   "where.handheld": "Portátil",
@@ -22,7 +21,8 @@
   "action.demo": "Abrir la demo",
   "action.download": "Descargar",
   "action.source": "Código en GitHub",
-  "demo.start": "Ver la demo",
+  "demo.alt": "La pantalla de inicio de RomMix, con el último juego jugado arriba y los que están en este dispositivo debajo",
+  "demo.shotGame": "Detalles del juego",
 
   "devices.title": "Dispositivos compatibles",
   "devices.lede": "Una sola versión para ordenadores, portátiles y televisores Linux.",

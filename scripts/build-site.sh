@@ -22,6 +22,11 @@ npx vite build --config vite.web.config.ts
 
 echo "==> Rendering the landing page"
 mkdir -p "$OUT"
+
+# The pictures of the interface, shared by all four languages — `{{root}}` puts
+# every page's link to them at the top of the site. Taken by
+# `npm run screenshots`, and committed, so building the site needs no display.
+cp -r site/img "$OUT/img"
 # `--experimental-transform-types` so it can read the application's own
 # catalogue: the picture on the page is a drawing of RomMix, and its labels come
 # from what RomMix actually says. Nothing is bundled and the pages carry no

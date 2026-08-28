@@ -18,7 +18,6 @@
 
   "hero.title": "Your RomM library, wherever you play.",
   "hero.lede": "A Big Picture&ndash;style front end for your own <a href=\"https://romm.app\">RomM</a> server. Browse, download, play &mdash; saves sync back to RomM.",
-  "hero.note": "The real interface, on <a href=\"https://demo.romm.app\">RomM's public demo</a> library.",
 
   "where.desktop": "Desktop",
   "where.handheld": "Handheld",
@@ -27,7 +26,8 @@
   "action.demo": "Open the demo",
   "action.download": "Download",
   "action.source": "Source on GitHub",
-  "demo.start": "Show the demo",
+  "demo.alt": "The RomMix home screen, with the game you were last playing at the top and the ones on this device below it",
+  "demo.shotGame": "Game details",
 
   "devices.title": "Supported devices",
   "devices.lede": "One build for Linux desktops, handhelds and televisions.",

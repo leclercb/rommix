@@ -13,7 +13,6 @@
 
   "hero.title": "Ihre RomM-Bibliothek, wo immer Sie spielen.",
   "hero.lede": "Eine Oberfläche im Big-Picture-Stil für Ihren eigenen <a href=\"https://romm.app\">RomM</a>-Server. Durchsuchen, herunterladen, spielen &mdash; die Spielstände werden mit RomM synchronisiert.",
-  "hero.note": "Die echte Oberfläche, auf der Bibliothek der <a href=\"https://demo.romm.app\">öffentlichen Demo von RomM</a>.",
 
   "where.desktop": "Rechner",
   "where.handheld": "Handheld",
@@ -22,7 +21,8 @@
   "action.demo": "Demo öffnen",
   "action.download": "Herunterladen",
   "action.source": "Quellcode auf GitHub",
-  "demo.start": "Demo ansehen",
+  "demo.alt": "Der RomMix-Startbildschirm: oben das zuletzt gespielte Spiel, darunter die Spiele auf diesem Gerät",
+  "demo.shotGame": "Spieldetails",
 
   "devices.title": "Unterstützte Geräte",
   "devices.lede": "Ein Build für Linux-Rechner, Handhelds und Fernseher.",

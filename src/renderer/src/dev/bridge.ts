@@ -121,11 +121,27 @@ const UNMATCHED: RommRom = {
 /** Cave Story, which the Home screen shows as the game last played. */
 const CAVE_STORY = 175
 
+/**
+ * When each of these was last played, newest first.
+ *
+ * A shelf is a shelf: one game on `Continue playing` shows the row working
+ * without showing what it is *for*, which is picking up the thing you were in
+ * the middle of from among the several you have going. Every one of them is in
+ * `INSTALLED` — a game cannot be continued from a machine it is not on — and
+ * Cave Story leads because the hero above the shelf is the first of them, and it
+ * is the game the rest of the demo is written around.
+ */
+const PLAYED: Readonly<Record<number, string>> = {
+  [CAVE_STORY]: '2026-08-21T21:40:00Z',
+  169: '2026-08-21T18:05:00Z',
+  137: '2026-08-20T22:30:00Z',
+  123: '2026-08-19T20:15:00Z',
+  163: '2026-08-17T09:50:00Z'
+}
+
 const ROMS: RommRom[] = [
   ...LIBRARY.map((rom) =>
-    rom.id === CAVE_STORY
-      ? { ...rom, rom_user: { ...rom.rom_user, last_played: '2026-08-19T21:40:00Z' } }
-      : rom
+    PLAYED[rom.id] ? { ...rom, rom_user: { ...rom.rom_user, last_played: PLAYED[rom.id] } } : rom
   ),
   UNMATCHED
 ]
@@ -557,10 +573,25 @@ const bridge: RomMixBridge = {
         if (query.last_played && !rom.rom_user.last_played) return false
         return true
       })
+      /**
+       * The one ordering a screen depends on, rather than every one RomM has.
+       *
+       * `Continue playing` asks for the most recent first, and a shelf that
+       * came back in library order would put the game you played last week in
+       * front of the one you left an hour ago. Everything else is asked for in
+       * the order this library is already in.
+       */
+      const ordered =
+        query.order_by === 'last_played'
+          ? [...matched].sort((a, b) =>
+              (b.rom_user.last_played ?? '').localeCompare(a.rom_user.last_played ?? '')
+            )
+          : matched
+
       const offset = query.offset ?? 0
       const limit = query.limit ?? 50
       return later({
-        items: matched.slice(offset, offset + limit),
+        items: ordered.slice(offset, offset + limit),
         total: matched.length,
         limit,
         offset
