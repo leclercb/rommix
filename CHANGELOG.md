@@ -4,6 +4,19 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.7.8 — 2026-08-28
+
+- Run the checks before every commit
+- Name the next queued update after each commit
+- Shorten the release page's instructions
+- Cover the main process with unit tests
+- Expand/collapse game description
+- Add navigation sounds
+- Add a downloaded-only filter to the library
+- Make remote tag more readable in game files tab
+- Add screenshot viewer in game details page
+- Show the size of local game files
+
 ## 0.7.7 — 2026-08-27
 
 - Stop back walking through every screen you have visited
