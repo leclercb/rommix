@@ -4,6 +4,14 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.8.1 — 2026-08-29
+
+- Give the tabs and the page's links their icons
+- Show screenshots and badges in the README
+- Stop the pairing countdown restarting when the screen redraws
+- Say when an action is not available in the demo
+- Centre the landing page's arrows and stop them scrolling the page
+
 ## 0.8.0 — 2026-08-28
 
 - Stop the log rotation tests from flooding the console
