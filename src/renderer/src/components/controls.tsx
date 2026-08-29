@@ -181,7 +181,7 @@ export function Tabs<T extends string>({
   onChange
 }: {
   /** `badge` is a count, as the Saves tab has, or a short word — a version. */
-  tabs: { id: T; label: string; badge?: number | string }[]
+  tabs: { id: T; label: string; icon?: IconName; badge?: number | string }[]
   active: T
   onChange: (id: T) => void
 }): JSX.Element {
@@ -200,6 +200,7 @@ export function Tabs<T extends string>({
         <TabButton
           key={tab.id}
           label={tab.label}
+          icon={tab.icon}
           badge={tab.badge}
           active={tab.id === active}
           onSelect={() => onChange(tab.id)}
@@ -211,11 +212,13 @@ export function Tabs<T extends string>({
 
 function TabButton({
   label,
+  icon,
   badge,
   active,
   onSelect
 }: {
   label: string
+  icon?: IconName
   badge?: number | string
   active: boolean
   onSelect: () => void
@@ -223,6 +226,9 @@ function TabButton({
   const { ref, props } = useFocusable({ onSelect })
   return (
     <button ref={ref as Ref<HTMLButtonElement>} className="tab" data-active={active} {...props}>
+      {/* Never instead of the word: a strip of marks alone is a puzzle from the
+          sofa, and the shoulder buttons move through it without reading it. */}
+      {icon ? <Icon name={icon} size={17} /> : null}
       {label}
       {badge != null ? <span className="tab__badge">{badge}</span> : null}
     </button>

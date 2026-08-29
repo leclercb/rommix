@@ -26,6 +26,8 @@ import {
   HardDrive,
   Heart,
   House,
+  Images,
+  Info,
   Joystick,
   Languages,
   Layers,
@@ -37,6 +39,7 @@ import {
   ListOrdered,
   LogOut,
   Maximize,
+  MonitorCog,
   Package,
   Pause,
   Play,
@@ -48,6 +51,7 @@ import {
   Search,
   Server,
   Settings,
+  SlidersHorizontal,
   Sparkles,
   Star,
   Tag,
@@ -149,7 +153,16 @@ export const ICONS = {
   note: ClipboardList,
   next: ChevronRight,
   /** Stopping a transfer without giving it up. */
-  pause: Pause
+  pause: Pause,
+  /** The settings that are preferences rather than machinery. */
+  preferences: SlidersHorizontal,
+  /** The machine RomMix is running on, as opposed to the library on it. */
+  system: MonitorCog,
+  /** What is known about a game, as opposed to what can be done with it. */
+  details: Info,
+  screenshots: Images,
+  /** This machine's own copy of something, as opposed to the server's. */
+  device: HardDrive
 } as const
 
 export type IconName = keyof typeof ICONS

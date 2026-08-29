@@ -48,6 +48,11 @@
 
 .tab {
   appearance: none;
+  /* The mark, the word and the count on one line, so a tab is one thing to
+     press rather than three that happen to sit together. */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
@@ -73,7 +78,6 @@
 }
 
 .tab__badge {
-  margin-left: 8px;
   padding: 1px 8px;
   border-radius: 999px;
   background: var(--surface);

@@ -71,11 +71,12 @@ export function SettingsScreen(): JSX.Element {
           active={tab}
           onChange={setTab}
           tabs={[
-            { id: 'general', label: t('settings.tabGeneral') },
-            { id: 'games', label: t('settings.tabGames') },
+            { id: 'general', label: t('settings.tabGeneral'), icon: 'preferences' },
+            { id: 'games', label: t('settings.tabGames'), icon: 'roms' },
             {
               id: 'system',
               label: t('settings.tabSystem'),
+              icon: 'system',
               // The new version, on the tab that can do something about it. The
               // menu already carries this mark; without it here, arriving in
               // Settings loses the trail one step short of the panel.

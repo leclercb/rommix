@@ -196,9 +196,10 @@ export function DownloadsScreen(): JSX.Element {
           {
             id: 'activity',
             label: t('downloads.tabActivity'),
+            icon: 'download',
             badge: active.length > 0 ? active.length : undefined
           },
-          { id: 'device', label: t('downloads.tabDevice') }
+          { id: 'device', label: t('downloads.tabDevice'), icon: 'device' }
         ]}
         active={tab}
         onChange={setTab}

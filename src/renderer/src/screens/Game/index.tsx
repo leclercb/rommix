@@ -601,12 +601,18 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           active={tab}
           onChange={setTab}
           tabs={[
-            { id: 'details', label: t('game.tabDetails') },
-            { id: 'saves', label: t('game.tabSaves'), badge: assets?.length },
-            { id: 'files', label: t('game.tabFiles'), badge: rom.files.length || undefined },
+            { id: 'details', label: t('game.tabDetails'), icon: 'details' },
+            { id: 'saves', label: t('game.tabSaves'), icon: 'saves', badge: assets?.length },
+            {
+              id: 'files',
+              label: t('game.tabFiles'),
+              icon: 'file',
+              badge: rom.files.length || undefined
+            },
             {
               id: 'screenshots',
               label: t('game.tabScreenshots'),
+              icon: 'screenshots',
               badge: rom.merged_screenshots?.length || undefined
             }
           ]}
