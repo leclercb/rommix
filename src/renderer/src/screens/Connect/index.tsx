@@ -382,6 +382,16 @@ function PairingOverlay({
   const [secondsLeft, setSecondsLeft] = useState(pairing.expires_in)
   const settled = useRef(false)
 
+  // Read at fire time rather than closed over. The two callbacks are rebuilt
+  // on every render of the screen behind this overlay, and an effect depending
+  // on them would tear the poll down and start it again — deadline included —
+  // every time a toast or an update notice redrew that screen, leaving a code
+  // the server has long expired still counting down as if it were fresh.
+  const handlers = useRef({ onPaired, onError, t })
+  useEffect(() => {
+    handlers.current = { onPaired, onError, t }
+  })
+
   useEffect(() => {
     settled.current = false
     const intervalMs = Math.max(pairing.interval, 1) * 1000
@@ -395,7 +405,7 @@ function PairingOverlay({
       if (settled.current) return
       if (Date.now() > deadline) {
         settled.current = true
-        onError(t('connect.pairExpired'))
+        handlers.current.onError(handlers.current.t('connect.pairExpired'))
         return
       }
       void window.rommix.server
@@ -403,12 +413,12 @@ function PairingOverlay({
         .then((approved) => {
           if (approved && !settled.current) {
             settled.current = true
-            onPaired()
+            handlers.current.onPaired()
           }
         })
         .catch((cause: Error) => {
           settled.current = true
-          onError(cause.message)
+          handlers.current.onError(cause.message)
         })
     }, intervalMs)
 
@@ -416,7 +426,7 @@ function PairingOverlay({
       window.clearInterval(tick)
       window.clearInterval(poll)
     }
-  }, [pairing, baseUrl, onPaired, onError, t])
+  }, [pairing, baseUrl])
 
   // The address is whatever was typed into the field, which may well have no
   // scheme — and a QR code of `romm.local/…` is one a phone cannot open. The

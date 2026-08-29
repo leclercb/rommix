@@ -430,7 +430,6 @@ export class DownloadManager extends EventEmitter {
     if (this.running) return
     this.running = true
     try {
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const item = this.queue.find((i) => i.state === 'queued')
         if (!item) break

@@ -16,7 +16,6 @@ import { useFocusable } from '../../input/focus'
 import { useApp, useI18n } from '../../state'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
-/** How each transfer state reads on a row. */
 /** The two jobs this screen does, split so neither buries the other. */
 type Tab = 'activity' | 'device'
 
