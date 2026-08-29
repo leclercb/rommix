@@ -1,33 +1,75 @@
+<div align="center">
+
+<img src="packaging/icon.png" width="128" alt="RomMix logo">
+
 # RomMix
 
-A Big Picture–style front end for your own [RomM](https://romm.app) server.
+**A Big Picture–style front end for your own [RomM](https://romm.app) server.**
+
+[![Build and tests](https://img.shields.io/github/actions/workflow/status/leclercb/rommix/release.yml?branch=main&label=build%20%26%20tests&style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/leclercb/rommix/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/leclercb/rommix?style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/leclercb/rommix/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/leclercb/rommix/total?style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/leclercb/rommix/releases)
+[![Linux](https://img.shields.io/badge/linux-x86__64%20%C2%B7%20arm64-2aa9e0?style=flat-square&labelColor=0b0d13)](#-install)
+[![Licence](https://img.shields.io/badge/licence-MIT-2aa9e0?style=flat-square&labelColor=0b0d13)](LICENSE)
+
+</div>
+
 Browse your library like a console dashboard, download a game into your
 emulator's ROM folder, play it, and your saves go back to RomM when you quit.
 
-**[rommix on the web →](https://leclercb.github.io/rommix/)** — with a
-[live demo](https://leclercb.github.io/rommix/demo/) of the interface in your
-browser, on the homebrew library from [RomM's public demo](https://demo.romm.app).
+Website: https://leclercb.github.io/rommix/
+
+Demo: https://leclercb.github.io/rommix/demo/
+
+<div align="center">
+
+<img src="site/img/home.webp" alt="Home">
+
+</div>
 
 ---
 
-## Features
+## Contents
 
-- Browse your whole RomM library, searchable and filtered by platform
-- Shelves for what you played last, what is on this device and your favourites
-- Your RomM collections, and the ones RomM builds itself
-- Downloads into your emulator's own ROM folder, or one folder you point them all at
-- Multi-disc sets unpacked and launched as one game
-- Saves and states synced both ways, plus a per-game tab to do it by hand
-- BIOS files installed from your own server
-- Emulators installed and assigned by RomMix, changeable per platform
-- Sign in by scanning a code with your phone
-- Controller-driven and fullscreen, desk to television
-- A pre-flight check that names what is wrong before a launch fails
-- It updates itself
+[Features](#-features) · [Screenshots](#-screenshots) ·
+[Requirements](#-requirements) · [Install](#-install) ·
+[Signing in](#-signing-in) · [Controls](#-controls) · [Using it](#-using-it) ·
+[Emulators](#-emulators) · [Settings](#-settings) ·
+[Where your files go](#-where-your-files-go) ·
+[Troubleshooting](#-troubleshooting) · [Development](#-development) ·
+[Contributing](#-contributing) · [Support](#-support) · [Licence](#-licence)
 
 ---
 
-## Requirements
+## ✨ Features
+
+- 🗄️ Browse your whole RomM library, searchable and filtered by platform
+- 🏠 Shelves for what you played last, what is on this device and your favourites
+- 📚 Your RomM collections, and the ones RomM builds itself
+- ⬇️ Downloads into your emulator's own ROM folder, or one folder you point them all at
+- 💿 Multi-disc sets unpacked and launched as one game
+- ☁️ Saves and states synced both ways, plus a per-game tab to do it by hand
+- 🧩 BIOS files installed from your own server
+- 🎛️ Emulators installed and assigned by RomMix, changeable per platform
+- 📱 Sign in by scanning a code with your phone
+- 🎮 Controller-driven and fullscreen, desk to television
+- 🩺 A pre-flight check that names what is wrong before a launch fails
+- 🌍 English, French, German and Spanish
+- 🔄 It updates itself
+
+---
+
+## 📸 Screenshots
+
+|                                                                      |                                                                   |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| <img src="site/img/library.webp" alt="Library"><br>**Library**       | <img src="site/img/game.webp" alt="A game"><br>**A game**         |
+| <img src="site/img/downloads.webp" alt="Downloads"><br>**Downloads** | <img src="site/img/bios.webp" alt="BIOS"><br>**BIOS**             |
+| <img src="site/img/emulators.webp" alt="Emulators"><br>**Emulators** | <img src="site/img/settings.webp" alt="Settings"><br>**Settings** |
+
+---
+
+## 📦 Requirements
 
 - **Linux**, x86_64 or arm64. Plus `flatpak` for the emulators packaged that
   way; RomMix adds the Flathub remote itself.
@@ -48,7 +90,7 @@ browser, on the homebrew library from [RomM's public demo](https://demo.romm.app
 
 ---
 
-## Install
+## 📥 Install
 
 Download the AppImage from
 [Releases](https://github.com/leclercb/rommix/releases) and choose `x86_64` or
@@ -88,7 +130,7 @@ other one.
 
 ---
 
-## Signing in
+## 🔑 Signing in
 
 On first launch RomMix asks for your server address and one of:
 
@@ -101,23 +143,21 @@ readable only by you where no keyring is reachable.
 
 ---
 
-## Controls
+## 🎮 Controls
 
-| Button             | Action              |
-| ------------------ | ------------------- |
-| Left stick / D-pad | Navigate            |
-| A                  | Select              |
-| B                  | Back                |
-| X / Start          | Open Settings       |
-| Y                  | Search              |
-| LB / RB            | Previous / next tab |
-
-Keyboard: arrows, Enter or Space, Escape or Backspace to go back, Tab and
-Shift-Tab for tabs, `/` to search, `m` for Settings.
+| Action              | Controller         | Keyboard         |
+| ------------------- | ------------------ | ---------------- |
+| Navigate            | Left stick / D-pad | Arrow keys       |
+| Select              | A                  | Enter or Space   |
+| Back                | B                  | Esc or Backspace |
+| Settings            | X or Start         | M                |
+| Search              | Y                  | /                |
+| Previous / next tab | LB / RB            | Shift-Tab / Tab  |
+| Back from a game    | Start, held        | —                |
 
 ---
 
-## Using it
+## 🧭 Using it
 
 - **Home** — the game you last played, what is on this device, your favourites
   and recent additions.
@@ -138,14 +178,12 @@ Shift-Tab for tabs, `/` to search, `m` for Settings.
 
 ---
 
-## Emulators
+## 🔌 Emulators
 
-Its own page, above Settings in the sidebar.
-
-**The list.** What RomMix found, what each covers and where it keeps its games.
-Buttons install them, or **Run** one on its own — needed for the setup only the
-emulator can do: RetroDECK creates its folders on first run, RetroArch needs its
-cores, Eden its keys, shadPS4 to be told where the games are.
+**The list.** Buttons install an emulator, or **Run** one on its own — needed
+for the setup only the emulator can do: RetroDECK creates its folders on first
+run, RetroArch needs its cores, Eden its keys, shadPS4 to be told where the
+games are.
 
 The order is the preference: a platform you have not chosen for goes to the
 first emulator in the list that is installed and covers it, so **Move up** makes
@@ -169,13 +207,7 @@ use the first time you play something on that platform.
 
 ---
 
-## Settings
-
-Three tabs — **General**, **Games**, **System** — with LB/RB (or Tab) to move
-between them.
-
-**General → Server.** Your address, who you are signed in as, and RomM's
-version, with **Disconnect**.
+## 🔧 Settings
 
 **General → Interface.** Language, and **Scale**: the interface is laid out for a
 1080p television, so **Auto** doubles it on a 4K one. Pick a number if your panel
@@ -203,23 +235,19 @@ each emulator has been run, whether the ROM folder is writable — named, rather
 than left to fail at launch.
 
 **System → RomMix folder.** Settings, credentials, the download index and any
-emulator RomMix installed live in `~/rommix`. Set a new path and RomMix copies it across
-and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME` overrides it.
+emulator RomMix installed live in `~/rommix`. Set a new path and RomMix copies
+it across and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME`
+overrides it.
 
-**System → Updates.** Nothing updates an AppImage for you, so
-RomMix checks its own
-[releases](https://github.com/leclercb/rommix/releases) shortly after starting,
-then every few hours.
+**System → Updates.** Nothing updates an AppImage for you, so RomMix checks its
+own [releases](https://github.com/leclercb/rommix/releases) shortly after
+starting, then every few hours.
 
 - **Automatic**, the default — downloaded in the background, used at the next
   start. Nothing restarts on its own; **Restart now** is there if you want it.
 - **Tell me** — notification and a version badge on Settings; nothing is
   downloaded until you press **Download**.
 - **Off** — never checks by itself. **Check now** still does.
-
-The new image is written over the file you run. It is
-safe while running: the image is renamed into place and the running copy keeps
-reading the file it started from.
 
 Two cases RomMix cannot finish on its own, both of which it says on screen:
 **started from Steam**, where Steam forbids a program restarting itself — quit
@@ -246,7 +274,7 @@ somewhere RomMix would not look.
 
 ---
 
-## Where your files go
+## 📁 Where your files go
 
 | What                                  | Where                                                  |
 | ------------------------------------- | ------------------------------------------------------ |
@@ -259,16 +287,14 @@ somewhere RomMix would not look.
 
 By default ROMs go into each emulator's own library, so a game is still there
 when you start that emulator yourself. Settings → Games → **Games on disk**
-switches that
-to one RomMix folder instead.
+switches that to one RomMix folder instead.
 
 ---
 
-## Troubleshooting
+## 🩺 Troubleshooting
 
-Settings → System → **Pre-flight check** names the common problems, and
-**Re-run check**
-re-tests after you fix one.
+Settings → System → **Pre-flight check** names the common problems, and **Re-run
+check** re-tests after you fix one.
 
 **RomMix does not start, or the Steam shortcut does nothing.** Run it from a
 terminal — an AppImage that cannot start says why there and nowhere else. If it
@@ -344,8 +370,7 @@ one Chromium does not recognise; the buttons RomMix uses still work, and any
 that do not are worth reporting with that name.
 
 **The interface is tiny on a 4K television.** Settings → General → Interface →
-**Scale**;
-set 200% by hand if Auto did not.
+**Scale**; set 200% by hand if Auto did not.
 
 ### The log
 
@@ -363,7 +388,7 @@ adds every request and probe; `ROMMIX_LOG=off` writes nothing.
 
 ---
 
-## Development
+## 🧰 Development
 
 ```bash
 npm install
@@ -371,17 +396,21 @@ npx install-electron   # Electron 43 no longer fetches its binary on install
 npm run dev            # against a live RomM server
 npm run preview:app    # the front end alone, in a browser, on :5273
 npm run preview:web    # the whole public site, built and served, on :5274
-npm run format:check
+npm run format:check   # npm run format fixes what it complains about
 npm run lint
 npm run typecheck
 npm test
+npm run test:coverage  # the same suite, against the floor in package.json
 npm run appimage       # build dist/RomMix-<arch>.AppImage
 ```
 
 Those four checks are what CI runs, in that order, and what `npm run release`
-refuses to cut a tag without. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
+refuses to cut a tag without. `npm install` installs a pre-commit hook that runs
+them too, plus `npm run build`. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
 layout, the house style and how to add an emulator — which, like adding a system
 or a BIOS requirement, is a change in `src/config/` and nowhere else.
+
+### The web preview and the site
 
 `npm run preview:app` runs the renderer as a web page against a stub library.
 `npm run build:site` assembles it with the landing page into `out/site` — what
@@ -389,6 +418,10 @@ or a BIOS requirement, is a change in `src/config/` and nowhere else.
 [site/index.html](site/index.html), rendered once per language from
 [site/text/](site/text) by [scripts/build-landing.mjs](scripts/build-landing.mjs):
 English at the root, French, German and Spanish in folders beside it.
+
+`npm run screenshots` builds that demo and photographs it, writing the pictures
+in [site/img/](site/img) — the ones the landing page and this README use. Run it
+after a change to a screen.
 
 ### Releasing
 
@@ -406,7 +439,7 @@ it is what the release page says under **What's new**.
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 [CONTRIBUTING.md](CONTRIBUTING.md) — how to get set up, what CI checks, and where
 each kind of change belongs.
@@ -417,6 +450,12 @@ rather than a public issue — see [SECURITY.md](SECURITY.md).
 
 ---
 
-## Licence
+## ☕ Support
+
+<a href="https://buymeacoffee.com/leclercb"><img src="https://img.shields.io/badge/buy%20me%20a%20coffee-2aa9e0?style=for-the-badge&logo=buymeacoffee&logoColor=0b0d13&labelColor=0b0d13" alt="Buy me a coffee"></a>
+
+---
+
+## 📄 Licence
 
 MIT — see [LICENSE](LICENSE).

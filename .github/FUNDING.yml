@@ -1,0 +1,3 @@
+# Puts a Sponsor button on the repository page. The same link is in the app,
+# under Settings -> General -- see SUPPORT_URL in the renderer's GeneralTab.
+buy_me_a_coffee: leclercb
