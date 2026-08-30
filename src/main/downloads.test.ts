@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs'
 import { readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -458,6 +466,47 @@ describe('adopting what is already on disk', () => {
     assert.equal(announcements, 1)
     assert.ok(store.getInstalled(1))
     assert.ok(store.getInstalled(2))
+  })
+
+  test('a folder read a moment ago is read again once RomMix has written to it', async () => {
+    const made = manager({ contents: '0123456789' })
+    const dir = join(made.root, 'roms', 'genesis')
+    const streets = rom({
+      id: 2,
+      name: 'Streets of Rage',
+      fs_name: 'Streets of Rage (USA).md',
+      fs_name_no_ext: 'Streets of Rage (USA)',
+      files: [{ file_name: 'Streets of Rage (USA).md' }] as RommRom['files']
+    })
+
+    // Nothing there yet, which is the answer that gets remembered.
+    assert.deepEqual(await made.downloads.adopt([streets]), [])
+
+    const finished = new Promise<void>((resolve) => {
+      made.downloads.on('update', (items: { state: string }[]) => {
+        if (items.some((item) => item.state === 'done' || item.state === 'error')) resolve()
+      })
+    })
+    made.downloads.enqueue(rom())
+    await finished
+    writeFileSync(join(dir, 'Streets of Rage (USA).md'), '0'.repeat(32))
+
+    // The download changed the folder, so the reading taken before it is not
+    // the one this is answered from.
+    assert.equal((await made.downloads.adopt([streets])).length, 1)
+  })
+
+  test('a ROM linked in from another library is the game it points at', async () => {
+    const made = manager()
+    const dir = join(made.root, 'roms', 'genesis')
+    mkdirSync(dir, { recursive: true })
+    // A library kept on another drive and linked into the emulator's folder,
+    // which is how a shared collection is usually arranged.
+    const elsewhere = join(made.root, 'elsewhere.md')
+    writeFileSync(elsewhere, '0'.repeat(32))
+    symlinkSync(elsewhere, join(dir, 'Sonic the Hedgehog (USA).md'))
+
+    assert.equal((await made.downloads.adopt([rom()])).length, 1)
   })
 
   test('a game already known is not looked for again', async () => {

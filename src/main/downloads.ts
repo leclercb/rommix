@@ -60,6 +60,16 @@ import { t } from './i18n.ts'
 const PROGRESS_INTERVAL_MS = 250
 
 /**
+ * How long a system folder's contents are answered for from the last reading.
+ *
+ * Long enough that walking a library reads each folder once rather than once
+ * per page of covers, short enough that a game copied in from a file manager is
+ * recognised the next time a page is looked at rather than after a restart.
+ * Anything RomMix writes itself drops the lot — see `forgetListings`.
+ */
+const LISTING_LIFETIME_MS = 5_000
+
+/**
  * What a transfer in progress is holding on disk.
  *
  * One file, or a directory and the names inside it — the same two shapes
@@ -128,6 +138,14 @@ export class DownloadManager extends EventEmitter {
    * where it is decided.
    */
   private readonly pausing = new Set<number>()
+  /**
+   * System folders as they were last read, for a moment. See
+   * `LISTING_LIFETIME_MS`.
+   *
+   * The reading, not what it produced: two pages of a library asking about the
+   * same folder at once then wait on one `readdir` rather than starting two.
+   */
+  private readonly listings = new Map<string, { at: number; reading: Promise<DirListing> }>()
 
   constructor(
     private readonly store: Store,
@@ -587,6 +605,7 @@ export class DownloadManager extends EventEmitter {
       this.store.removePending(rom.id)
 
       const entry = await this.installedEntry(rom, system, emulatorId, installed)
+      this.forgetListings()
       this.store.addInstalled(entry)
       this.emit('installed', entry)
       item.targetPath = installed.path
@@ -881,6 +900,27 @@ export class DownloadManager extends EventEmitter {
     return entry
   }
 
+  /** What is in a system folder, read again only once the last reading is old. */
+  private async listing(dir: string): Promise<DirListing> {
+    const held = this.listings.get(dir)
+    if (held && Date.now() - held.at < LISTING_LIFETIME_MS) return held.reading
+    const reading = listDir(dir)
+    this.listings.set(dir, { at: Date.now(), reading })
+    return reading
+  }
+
+  /**
+   * Forget every folder reading, because RomMix has just changed one.
+   *
+   * All of them rather than the one written to: a game is installed into a
+   * system folder, but which folder that is depends on the emulator in charge
+   * of the platform, and a multi-file game changes the folder above it as well.
+   * There are a handful of these and re-reading one costs a `readdir`.
+   */
+  private forgetListings(): void {
+    this.listings.clear()
+  }
+
   /**
    * Adopt ROMs that are already on disk but missing from the index.
    *
@@ -898,17 +938,6 @@ export class DownloadManager extends EventEmitter {
    */
   async adopt(roms: readonly RommRom[]): Promise<InstalledRom[]> {
     const adopted: InstalledRom[] = []
-    // One listing per system folder, shared across the whole batch: a library
-    // page is 200 ROMs and most of them land in a handful of folders.
-    const listings = new Map<string, DirListing>()
-    const listing = async (dir: string): Promise<DirListing> => {
-      const cached = listings.get(dir)
-      if (cached) return cached
-      const found = await listDir(dir)
-      listings.set(dir, found)
-      return found
-    }
-
     const unfinished = new Set(this.store.pending.map((entry) => entry.romId))
 
     for (const rom of roms) {
@@ -953,6 +982,15 @@ export class DownloadManager extends EventEmitter {
       }
 
       /**
+       * The folder as it stands, for the two questions no single path answers.
+       *
+       * Held across calls as well as within one, so a library scrolled from the
+       * top reads each system folder once rather than once per page of covers.
+       * See `listing`.
+       */
+      const present = await this.listing(target.dir)
+
+      /**
        * A game installed loose, for an emulator that reads its library flat.
        *
        * There is no one path to stat: the game is several files sharing the
@@ -962,7 +1000,6 @@ export class DownloadManager extends EventEmitter {
        * adopted as complete is a Play button that fails at load.
        */
       if (target.flat && rom.files.length > 1) {
-        const present = await listing(target.dir)
         const wanted = rom.files.map((file) => file.file_name)
         const found = wanted.filter((name) => present.byName.has(name.toLowerCase()))
 
@@ -990,6 +1027,11 @@ export class DownloadManager extends EventEmitter {
       // The shapes an install can take, matching what `plan` and `unpack`
       // produce. Both names are tried for a file: `installName` is what a fresh
       // download is called, `fs_name` what one from before that rule was.
+      //
+      // Asked of the filesystem rather than of the reading above, which is
+      // indexed from a `readdir` and so answers for the link rather than for
+      // what it points at. A ROM library kept elsewhere and linked into the
+      // emulator's folder is a game like any other, and `stat` is what says so.
       const asFile = join(target.dir, installName(rom))
       const asNamedOnServer = join(target.dir, rom.fs_name)
       const asDirectory = join(target.dir, rom.fs_name_no_ext)
@@ -1029,7 +1071,7 @@ export class DownloadManager extends EventEmitter {
        * failed — so a folder holding both `Game.bin` and `Game.md` as separate
        * library entries still resolves each to its own file.
        */
-      const sibling = (await listing(target.dir)).byStem.get(rom.fs_name_no_ext.toLowerCase())
+      const sibling = present.byStem.get(rom.fs_name_no_ext.toLowerCase())
       if (sibling) await record(join(target.dir, sibling.name), sibling.isDirectory())
     }
 
@@ -1181,6 +1223,7 @@ export class DownloadManager extends EventEmitter {
     } else {
       await rm(entry.path, { recursive: true, force: true })
     }
+    this.forgetListings()
     this.store.removeInstalled(romId)
   }
 }
