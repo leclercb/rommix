@@ -683,7 +683,11 @@ export class DownloadManager extends EventEmitter {
       const entry = await this.installedEntry(rom, system, emulatorId, installed)
       this.forgetListings()
       this.store.addInstalled(entry)
-      this.emit('installed', entry)
+      // Without the entry: every listener is handed the whole index anyway, and
+      // one that reads the argument would be right here and wrong for adoption,
+      // which announces a page at a time. Whoever wants the new games asks for
+      // `installed`, or listens on `adopted`.
+      this.emit('installed')
       item.targetPath = installed.path
 
       item.state = 'done'
@@ -1219,7 +1223,7 @@ export class DownloadManager extends EventEmitter {
       })
       // Before the news of what was adopted, so the screen that shows it is
       // reading a library the new games are already in.
-      this.emit('installed', null)
+      this.emit('installed')
       this.emit('adopted', adopted)
     }
     return adopted
@@ -1259,7 +1263,7 @@ export class DownloadManager extends EventEmitter {
       onProgress?.(checked, total)
     } while (checked < total)
 
-    if (removed > 0) this.emit('installed', null)
+    if (removed > 0) this.emit('installed')
     return { checked, removed, adopted }
   }
 
