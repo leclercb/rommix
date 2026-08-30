@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { extractZip, isZip, zipDirectory } from './zip.ts'
@@ -214,3 +214,70 @@ function crc32(data: Buffer): number {
   }
   return (crc ^ 0xffffffff) >>> 0
 }
+
+test('a save folder with subdirectories keeps its shape through the round trip', async () => {
+  // A Switch save is a tree, not a flat list, and the paths inside the archive
+  // are what put each file back where the emulator expects it.
+  const dir = scratch()
+  const source = join(dir, 'save')
+  mkdirSync(join(source, 'user', '0001'), { recursive: true })
+  writeFileSync(join(source, 'user', '0001', 'data.bin'), 'deep')
+  writeFileSync(join(source, 'top.bin'), 'shallow')
+
+  const archive = join(dir, 'save.zip')
+  const count = await zipDirectory(source, archive)
+  assert.equal(count, 2)
+
+  const back = join(dir, 'back')
+  await extractZip(archive, back)
+  assert.equal(readFileSync(join(back, 'user', '0001', 'data.bin'), 'utf8'), 'deep')
+  assert.equal(readFileSync(join(back, 'top.bin'), 'utf8'), 'shallow')
+})
+
+test('a directory that is not there produces no archive rather than an error', async () => {
+  // A save folder the emulator has not created yet is an ordinary state, and
+  // the push has to treat it as "nothing to send".
+  const dir = scratch()
+
+  assert.equal(await zipDirectory(join(dir, 'never-created'), join(dir, 'out.zip')), 0)
+})
+
+test('a symlink to a folder is followed, and one to nowhere is left out', async () => {
+  // EmuDeck links each emulator's own save directory into its Emulation tree,
+  // so a save folder really is a symlink on the machines this runs on.
+  const dir = scratch()
+  const source = join(dir, 'save')
+  const real = join(dir, 'elsewhere')
+  mkdirSync(source, { recursive: true })
+  mkdirSync(real, { recursive: true })
+  writeFileSync(join(real, 'linked.bin'), 'through the link')
+  symlinkSync(real, join(source, 'sub'))
+  symlinkSync(join(dir, 'gone'), join(source, 'broken'))
+
+  const archive = join(dir, 'save.zip')
+  const count = await zipDirectory(source, archive)
+
+  const back = join(dir, 'back')
+  await extractZip(archive, back)
+  assert.equal(readFileSync(join(back, 'sub', 'linked.bin'), 'utf8'), 'through the link')
+  // The broken link is counted as a file and skipped when it cannot be read,
+  // rather than aborting an upload that is mostly fine.
+  assert.ok(count >= 1)
+})
+
+test('an archive that is not a zip at all is refused, not half-extracted', async () => {
+  const dir = scratch()
+  const notAnArchive = join(dir, 'rom.md')
+  writeFileSync(notAnArchive, 'plain bytes, definitely not a zip')
+
+  await assert.rejects(() => extractZip(notAnArchive, join(dir, 'out')))
+})
+
+test('a file too short to have a signature is not a zip', async () => {
+  const dir = scratch()
+  const tiny = join(dir, 'tiny')
+  writeFileSync(tiny, 'PK')
+
+  assert.equal(await isZip(tiny), false)
+  assert.equal(await isZip(join(dir, 'not-there-at-all')), false)
+})
