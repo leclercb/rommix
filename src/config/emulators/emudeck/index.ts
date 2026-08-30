@@ -349,8 +349,10 @@ export const emudeck: EmulatorDescriptor = {
    *
    * Which emulator that was is not a guess: it is the launcher the user already
    * chose, recorded in `settings.systemLaunchers` and handed back here as
-   * `variant`. An unrecognised or absent variant resolves to EmuDeck's own
-   * default for the system, which is the same one `launch` would have run.
+   * `variant`. Absent, it is EmuDeck's own default for the system — the one
+   * `launch` would run. Unrecognised, it is nothing at all, for the reason
+   * `launch` gives: a recorded choice that no longer exists is not a licence to
+   * answer with some other emulator's folders.
    */
   saves: (ctx) => {
     const options = emuDeckLaunchers(ctx.system)
