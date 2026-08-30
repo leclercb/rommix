@@ -53,10 +53,14 @@ export function GameHero({
           <h1 className="game-hero__title">{title}</h1>
           <div className="game-hero__meta">
             <span className="chip chip--icon">
+              {/* Larger than the marks on the chips beside it, this being the
+                  one that says what the game runs on — but not so large that it
+                  sets the chip's height, which would leave this one standing a
+                  little taller than the rest of the line. */}
               <PlatformIcon
                 slug={rom.platform_slug}
                 system={system}
-                size={22}
+                size={18}
                 label={rom.platform_display_name}
               />
               {rom.platform_display_name}

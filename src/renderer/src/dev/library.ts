@@ -135,10 +135,44 @@ export const ART: Readonly<Record<string, string>> = {
   '/assets/romm/resources/roms/9/137/screenshots/1.jpg': './art/137-shot1.webp'
 }
 
+/**
+ * The console logos, which RomMix asks the server for by name.
+ *
+ * Taken from RomM's own `systematic` set and copied in beside the covers, so
+ * the demo draws the same marks the application draws rather than falling back
+ * to the short-code badge — which exists for a server that has no icon for a
+ * platform, and had become what every platform looked like here.
+ *
+ * Keyed by the name in the path rather than by the whole path: RomMix tries
+ * `/assets/platforms/systematic/<name>.svg` and then `/assets/platforms/
+ * <name>.svg`, and asks under both the RomM slug and the ES-DE system name.
+ * See `PLATFORM_ICON_PATHS` and `PlatformIcon`.
+ */
+const PLATFORM_ICONS: Record<string, string> = Object.fromEntries(
+  [
+    'atari2600',
+    'atari7800',
+    'c64',
+    'dos',
+    'gamegear',
+    'gb',
+    'gba',
+    'gbc',
+    'genesis',
+    'nes',
+    'scummvm',
+    'sms',
+    'snes'
+  ].map((name) => [name, `./platforms/${name}.svg`])
+)
+
 /** Resolve a RomM resource path to the bundled stand-in, if there is one. */
 export function artFor(path: string | null): string | null {
   if (!path) return null
-  return ART[path.split('?')[0]] ?? null
+  const clean = path.split('?')[0]
+  const icon = /^\/assets\/platforms\/(?:systematic\/)?(.+)\.svg$/.exec(clean)
+  if (icon) return PLATFORM_ICONS[icon[1]] ?? null
+  return ART[clean] ?? null
 }
 
 export const PLATFORMS: RommPlatform[] = [
