@@ -386,16 +386,23 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           /**
            * A transfer that stopped, however it stopped.
            *
-           * Both ways it happens are worth saying: a network that went away
+           * Every way it happens is worth saying: a network that went away
            * takes a download with it silently otherwise, and a pause the user
            * asked for is confirmed the same way cancelling one is.
+           *
+           * A row that carries a reason stopped for one, and the reason is what
+           * gets said. A file refused for its hash pauses like any other —
+           * the rest of a multi-file game is still on disk and worth keeping —
+           * so the generic phrase would be the only account of bytes that were
+           * thrown away. See `DownloadManager.runOne`.
            *
            * Only where the row was already being watched. A transfer restored
            * at start-up arrives paused with nothing before it, and announcing
            * that would greet every launch with news of something that happened
            * yesterday.
            */
-          notify(i18n.t('toast.downloadPaused'), 'warn', subject)
+          if (item.error) notify(item.error, 'error', subject)
+          else notify(i18n.t('toast.downloadPaused'), 'warn', subject)
         } else if (previous === 'paused') {
           // The one transition that can only be a resume, which is why it is
           // read from where it came rather than from where it is going: a
