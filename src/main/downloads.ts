@@ -397,6 +397,7 @@ export class DownloadManager extends EventEmitter {
     if (item.state === 'paused') {
       const recorded = this.store.pending.find((entry) => entry.romId === romId)
       if (recorded) await discardHeld(recorded)
+      this.forgetListings()
       this.store.removePending(romId)
     }
     item.state = 'cancelled'
@@ -807,6 +808,7 @@ export class DownloadManager extends EventEmitter {
 
     if (cancelled || onDisk === 0) {
       await discardHeld(holding)
+      this.forgetListings()
       this.store.removePending(romId)
       return 0
     }
@@ -911,6 +913,12 @@ export class DownloadManager extends EventEmitter {
 
   /**
    * Forget every folder reading, because RomMix has just changed one.
+   *
+   * Called wherever the ROM tree is written to, which includes deleting from
+   * it: the files a cancelled multi-file transfer had already fetched are real
+   * files under their real names, and a reading taken before they went says the
+   * game is complete. Adoption believes it, and records an entry pointing at
+   * nothing.
    *
    * All of them rather than the one written to: a game is installed into a
    * system folder, but which folder that is depends on the emulator in charge

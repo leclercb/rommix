@@ -1203,4 +1203,54 @@ describe('a game fetched one file at a time', () => {
     assert.equal(existsSync(dir), true)
     assert.deepEqual(store.pending, [])
   })
+
+  test('what a cancelled transfer took with it is not adopted from a stale reading', async () => {
+    const { downloads, store, root } = manager()
+    const dir = join(root, 'roms', 'switch')
+    mkdirSync(dir, { recursive: true })
+    // Already fetched when the transfer was stopped: a real file, under the
+    // name the server has for it.
+    writeFileSync(join(dir, 'game.nsp'), '0'.repeat(64))
+    store.setPending({
+      romId: 2,
+      name: 'A Switch game',
+      coverPath: null,
+      system: 'switch',
+      platformName: 'Nintendo Switch',
+      targetPath: dir,
+      files: ['game.nsp'],
+      ownsFolder: false,
+      fileName: 'A Switch game',
+      totalBytes: 104,
+      pausedAt: '2026-08-28T00:00:00.000Z'
+    })
+    await downloads.restorePending()
+
+    const switchRom = (fields: Partial<RommRom>): RommRom =>
+      rom({
+        platform_slug: 'switch',
+        platform_fs_slug: 'switch',
+        fs_extension: 'nsp',
+        ...fields
+      })
+
+    // A page that reads the folder and finds nothing of its own, which is what
+    // leaves a reading of it behind.
+    assert.deepEqual(
+      await downloads.adopt([
+        switchRom({ id: 8, fs_name: 'elsewhere.nsp', fs_name_no_ext: 'elsewhere' })
+      ]),
+      []
+    )
+
+    await downloads.cancel(2)
+
+    // The bytes are gone, so the game is not on this device — whatever a
+    // reading taken before the cancellation still says.
+    assert.deepEqual(
+      await downloads.adopt([switchRom({ id: 9, fs_name: 'game.nsp', fs_name_no_ext: 'game' })]),
+      []
+    )
+    assert.equal(store.getInstalled(9), undefined)
+  })
 })

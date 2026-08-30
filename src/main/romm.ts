@@ -943,7 +943,7 @@ export class RommClient {
   private async verify(
     partial: string,
     { algorithm, expected }: Checksum,
-    subject: { kind: string; romId: number; fileName?: string }
+    subject: { kind: string; fileName?: string; romId?: number; firmwareId?: number }
   ): Promise<void> {
     const actual = await hashOf(partial, algorithm)
     if (actual === expected.toLowerCase()) {
@@ -987,11 +987,9 @@ export class RommClient {
     await this.verify(
       destination,
       { algorithm: 'md5', expected: item.md5_hash },
-      {
-        kind: 'firmware',
-        romId: item.id,
-        fileName: item.file_name
-      }
+      // Under its own name: a firmware id logged as a ROM id sends whoever
+      // reads the line looking for a game that does not exist.
+      { kind: 'firmware', firmwareId: item.id, fileName: item.file_name }
     )
     log.info('romm', 'firmware downloaded', {
       firmwareId: item.id,
