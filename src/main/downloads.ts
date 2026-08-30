@@ -1030,8 +1030,8 @@ export class DownloadManager extends EventEmitter {
      * contents until something was downloaded — and a library of any size is
      * that folder's worth of entries per platform visited, kept for nothing.
      */
-    for (const [at, entry] of this.listings) {
-      if (now - entry.at >= LISTING_LIFETIME_MS) this.listings.delete(at)
+    for (const [path, entry] of this.listings) {
+      if (now - entry.at >= LISTING_LIFETIME_MS) this.listings.delete(path)
     }
 
     const reading = listDir(dir)
