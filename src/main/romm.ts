@@ -69,6 +69,21 @@ export class RommError extends Error {
   }
 }
 
+/**
+ * What arrived is not what RomM holds. See `RommClient.verify`.
+ *
+ * Its own type because the queue answers for it differently from a transfer
+ * that merely stopped: a break with bytes worth keeping is a row waiting to be
+ * finished and has nothing to report, while bytes that failed a hash check were
+ * refused, and a row that said only "Paused" would never say so.
+ */
+export class CorruptDownloadError extends RommError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'CorruptDownloadError'
+  }
+}
+
 export interface DownloadProgress {
   received: number
   total: number
@@ -976,7 +991,7 @@ export class RommClient {
       expected,
       actual
     })
-    throw new RommError(t('error.downloadCorrupt'))
+    throw new CorruptDownloadError(t('error.downloadCorrupt'))
   }
 
   // -- firmware (BIOS) ------------------------------------------------------

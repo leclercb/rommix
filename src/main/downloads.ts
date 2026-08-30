@@ -23,7 +23,7 @@ import {
   type InstallResult
 } from './install.ts'
 import { log } from './log.ts'
-import { partialPathOf, RommClient, RommError } from './romm.ts'
+import { CorruptDownloadError, partialPathOf, RommClient, RommError } from './romm.ts'
 import { rootPaths } from './root.ts'
 import { isZip } from './zip.ts'
 import type { Store } from './store.ts'
@@ -732,7 +732,19 @@ export class DownloadManager extends EventEmitter {
           : asked || carried > 0
             ? 'paused'
             : 'error'
-      item.error = cancelled || asked || overtaken || carried > 0 ? null : (cause as Error).message
+      // A stop the user asked for has nothing to explain, and neither has a
+      // connection that broke with bytes worth keeping: that row is waiting to
+      // be finished rather than failing.
+      //
+      // A file refused for its hash is the exception. It pauses like the
+      // others, because a multi-file game keeps every file that did arrive, but
+      // nothing about the row would otherwise say that a copy was thrown away —
+      // and the one thing that must not happen quietly is bytes being refused.
+      const corrupt = cause instanceof CorruptDownloadError
+      item.error =
+        cancelled || asked || overtaken || (carried > 0 && !corrupt)
+          ? null
+          : (cause as Error).message
       item.receivedBytes = carried > 0 ? carried : item.receivedBytes
 
       if (overtaken)

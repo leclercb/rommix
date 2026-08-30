@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type DownloadItem, type InstalledRom, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
-import { RommError, type RommClient } from './romm.ts'
+import { CorruptDownloadError, RommError, type RommClient } from './romm.ts'
 import { Store } from './store.ts'
 
 /**
@@ -100,6 +100,13 @@ function fakeClient(
     ranges?: boolean
     /** Whether the server can serve the game's files one at a time. */
     perFile?: boolean
+    /**
+     * The file, counted from one, that fails its hash check.
+     *
+     * What `RommClient.verify` does: the part-file is deleted and the transfer
+     * throws, leaving whatever landed before it in place.
+     */
+    corruptFile?: number
   } = {}
 ): {
   client: RommClient
@@ -121,6 +128,10 @@ function fakeClient(
       opts: { resume?: boolean } = {}
     ) {
       resumed.push(opts.resume === true)
+      if (options.corruptFile === resumed.length) {
+        await rm(`${destination}.part`, { force: true })
+        throw new CorruptDownloadError('what arrived is not what RomM holds')
+      }
       // The break happens on the first file only, for the same reason the whole
       // -ROM fake breaks once: what is under test is what RomMix does next.
       if (options.breakAfter !== undefined && resumed.length === 1) {
@@ -176,6 +187,7 @@ function manager(
     breakAfter?: number
     ranges?: boolean
     perFile?: boolean
+    corruptFile?: number
     roms?: Record<number, RommRom>
   } = {}
 ): {
@@ -1155,6 +1167,42 @@ describe('a game fetched one file at a time', () => {
     // The descriptor, not the largest track.
     assert.equal(installed?.launchPath, join(dir, 'disc.cue'))
     assert.equal(installed?.sizeBytes, 104)
+  })
+
+  test('a file refused for its hash pauses the game, and the row says so', async () => {
+    /**
+     * The rest of the game is real and worth keeping, so this pauses rather
+     * than failing — and pausing silently would be the one way for bytes to be
+     * thrown away without the screen ever mentioning it. Resuming re-fetches
+     * the refused file, whose part-file `verify` took with it.
+     */
+    const { downloads, store, root } = manager({ perFile: true, corruptFile: 2 })
+
+    downloads.enqueue(multi())
+    const item = await settled(downloads, 2)
+
+    assert.equal(item.state, 'paused')
+    assert.ok(item.error, 'the row has to carry the reason, not just say "paused"')
+    // The first file arrived and is kept; the refused one is gone.
+    const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
+    assert.deepEqual(await readdir(dir), ['disc (Track 1).bin'])
+    // Still recorded, so the row can be finished later.
+    assert.deepEqual(
+      store.pending.map((row) => row.romId),
+      [2]
+    )
+  })
+
+  test('a connection that broke with bytes worth keeping has nothing to report', async () => {
+    // The counterpart to the check above: this row is waiting to be finished,
+    // not failing, so it says only that it is paused.
+    const { downloads } = manager({ perFile: true, breakAfter: 4 })
+
+    downloads.enqueue(multi())
+    const item = await settled(downloads, 2)
+
+    assert.equal(item.state, 'paused')
+    assert.equal(item.error, null)
   })
 
   test('progress counts every file, not each one from zero', async () => {
