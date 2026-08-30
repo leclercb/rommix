@@ -958,33 +958,35 @@ export class RommClient {
   }
 
   /**
-   * Refuse to let a file become the game unless it is the file RomM holds.
+   * Refuse to let a file stand unless it is the file RomM holds.
    *
-   * Before the rename, so what fails is the download rather than the launch: a
-   * ROM whose bytes are wrong starts, runs and corrupts a save, or does not
+   * A ROM whose bytes are wrong starts, runs and corrupts a save, or does not
    * start and is blamed on the emulator. The one thing that cannot happen is
-   * for it to be noticed, which is what this is.
+   * for it to go unnoticed, which is what this is.
    *
    * A resumed transfer is what this exists for. Where the bytes came from is
    * decided by a range header and a record of what was being fetched, and every
    * part of that is true right up until the file on the server is replaced
    * between two halves of one download.
    *
-   * The part-file goes with the failure. It cannot be picked up — resuming
-   * would append to bytes already known to be wrong — and leaving it behind
-   * offers a Resume button that could only ever produce the same file again.
+   * The file goes with the failure, whichever it is. `fetchToFile` checks the
+   * `.part` before the rename, so what fails there is the download rather than
+   * a launch, and nothing is left to resume onto — bytes already known to be
+   * wrong could only ever produce the same file again. `downloadFirmware`
+   * writes no part-file and so is checked in place, where the same deletion
+   * takes the BIOS that would otherwise sit in the emulator looking installed.
    */
   private async verify(
-    partial: string,
+    file: string,
     { algorithm, expected }: Checksum,
     subject: { kind: string; fileName?: string; romId?: number; firmwareId?: number }
   ): Promise<void> {
-    const actual = await hashOf(partial, algorithm)
+    const actual = await hashOf(file, algorithm)
     if (actual === expected.toLowerCase()) {
       log.debug('romm', 'the file matches what RomM holds', { ...subject, algorithm })
       return
     }
-    await rm(partial, { force: true }).catch(() => undefined)
+    await rm(file, { force: true }).catch(() => undefined)
     log.error('romm', 'the file that arrived is not the one RomM holds', undefined, {
       ...subject,
       algorithm,
