@@ -12,6 +12,7 @@ import type {
   EmulatorAsset,
   EmulatorInstallProgress,
   RomQuery,
+  RomUserStatus,
   SaveDeleteScope,
   Settings,
   UpdateStatus
@@ -49,6 +50,8 @@ const bridge: RomMixBridge = {
     favourite: (romId: number) => ipcRenderer.invoke('library:favourite', romId),
     setFavourite: (romId: number, favourite: boolean) =>
       ipcRenderer.invoke('library:setFavourite', romId, favourite),
+    setStatus: (romId: number, status: RomUserStatus | null) =>
+      ipcRenderer.invoke('library:setStatus', romId, status),
     setCollection: (romId: number, collectionId: number, member: boolean) =>
       ipcRenderer.invoke('library:setCollection', romId, collectionId, member),
     installed: () => ipcRenderer.invoke('library:installed'),

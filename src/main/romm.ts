@@ -16,6 +16,7 @@ import type {
   RommRomFile,
   RommRomPage,
   RommSave,
+  RomUserStatus,
   RommState,
   RommTokenResponse,
   RommUser,
@@ -530,6 +531,24 @@ export class RommClient {
    * separately because the shelves a user makes for themselves are the general
    * case and the star is the special one, not the other way round.
    */
+  /**
+   * PUT /api/roms/{id}/props — the per-user overlay, of which RomMix sets one
+   * field.
+   *
+   * The endpoint takes the whole overlay and treats an absent key as "leave it
+   * alone", so sending only the status cannot disturb a rating or a backlog
+   * flag set from RomM's own interface.
+   */
+  async setStatus(romId: number, status: RomUserStatus | null): Promise<void> {
+    const res = await this.request(`/api/roms/${romId}/props`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+    if (!res.ok) throw await this.toError(res)
+    log.info('romm', 'status set', { romId, status })
+  }
+
   async setCollectionMembership(
     collectionId: number,
     romId: number,

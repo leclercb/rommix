@@ -268,6 +268,18 @@ export const en = {
   'collections.subtitle': 'Collections you made on RomM, and the ones RomM builds itself.',
   'collections.empty': 'No collections on your RomM server yet.',
   'collections.emptyShelf': 'Nothing in this collection.',
+  // How far through a game the user says they are, kept on RomM so a browser
+  // and another device agree. `status.none` is the way back to having not said.
+  'status.button': 'Progress',
+  'status.dialogTitle': 'How far are you?',
+  'status.none': 'Not said',
+  'status.incomplete': 'Playing',
+  'status.finished': 'Finished',
+  'status.completed_100': 'Completed',
+  'status.retired': 'Given up',
+  'status.never_playing': 'Not for me',
+  'status.set': 'Marked as {status}',
+  'status.cleared': 'Progress cleared',
   'collections.button': 'Collections',
   'collections.dialogTitle': 'Which collections?',
   'collections.none': 'You have no collections on RomM yet. Make one there and it appears here.',

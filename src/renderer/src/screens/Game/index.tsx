@@ -1,11 +1,18 @@
 import { type JSX, useEffect, useState } from 'react'
 import { emulatorById } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
-import type { BiosPlatform, InstalledRom, LaunchChoice, RommRom } from '@shared/types'
+import type {
+  BiosPlatform,
+  InstalledRom,
+  LaunchChoice,
+  RommRom,
+  RomUserStatus
+} from '@shared/types'
 import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
 import { Icon } from '../../icons'
 import { useApp, useDownloads, useI18n } from '../../state'
 import { CollectionsDialog } from './CollectionsDialog'
+import { StatusDialog } from './StatusDialog'
 import { GameHero } from './GameHero'
 import {
   DeleteAssetDialog,
@@ -44,6 +51,15 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
   const [tab, setTab] = useState<GameTab>('details')
   /** Null until RomM has been asked, which is what the button waits on. */
   const [favourite, setFavourite] = useState<boolean | null>(null)
+  const [choosingStatus, setChoosingStatus] = useState(false)
+  /**
+   * The progress the server holds, kept beside the ROM rather than read from it.
+   *
+   * Set here as soon as it is chosen, so the button says the new answer without
+   * waiting for the game to be fetched again — and put back if the server
+   * refuses it.
+   */
+  const [status, setStatus] = useState<RomUserStatus | null>(null)
   const [bios, setBios] = useState<BiosPlatform | null>(null)
   /** True while the shelves this game is on are being looked at or changed. */
   const [choosingCollections, setChoosingCollections] = useState(false)
@@ -53,7 +69,10 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     setTab('details')
     void window.rommix.library
       .rom(romId)
-      .then(setRom)
+      .then((fetched) => {
+        setRom(fetched)
+        setStatus(fetched.rom_user.status)
+      })
       .catch((cause: Error) => setError(cause.message))
   }, [romId])
 
@@ -290,6 +309,32 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     }
   }
 
+  /**
+   * Record how far through the game the player says they are.
+   *
+   * Shown as chosen before the server has agreed, for the same reason the heart
+   * is: the round trip is not a thing worth watching, and a button that does
+   * nothing for a moment reads as a button that did nothing. A refusal puts the
+   * previous answer back and says why.
+   */
+  const chooseStatus = async (next: RomUserStatus | null): Promise<void> => {
+    const previous = status
+    if (next === previous) return
+    setStatus(next)
+    try {
+      await window.rommix.library.setStatus(romId, next)
+      // Said because the change is on the server, not here: this is what
+      // confirms a browser and another device now agree.
+      notify(
+        next ? t('status.set', { status: t(`status.${next}`) }) : t('status.cleared'),
+        'ok',
+        subjectOf()
+      )
+    } catch {
+      setStatus(previous)
+    }
+  }
+
   /** Re-open the picker for a platform that has already been answered. */
   const openChooser = async (): Promise<void> => {
     try {
@@ -381,7 +426,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
   return (
     <div className="content">
-      <GameHero rom={rom} entry={entry} system={system}>
+      <GameHero rom={rom} entry={entry} system={system} status={status}>
         {entry ? (
           <FocusButton
             icon="play"
@@ -460,6 +505,16 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           actionLabel={favourite ? t('game.removeFavourite') : t('game.addFavourite')}
           onSelect={() => void toggleFavourite()}
           disabled={favourite === null}
+        />
+
+        {/* And how far through it you are, next to the heart for the same
+            reason: both are a mark on the game rather than on the copy here.
+            Icon only — the answer is already a tag under the title, and the
+            button would have said it a second time. */}
+        <FocusButton
+          icon="note"
+          actionLabel={t('status.button')}
+          onSelect={() => setChoosingStatus(true)}
         />
 
         {/* Collections on RomM. Beside the heart because both mark the game on
@@ -636,6 +691,17 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         <div className="notice notice--warn">
           {settings?.confirmSavePush ? t('game.runningAsk') : t('game.runningAuto')}
         </div>
+      ) : null}
+
+      {choosingStatus ? (
+        <StatusDialog
+          current={status}
+          onChoose={(next) => {
+            setChoosingStatus(false)
+            void chooseStatus(next)
+          }}
+          onClose={() => setChoosingStatus(false)}
+        />
       ) : null}
 
       {choosingCollections ? (

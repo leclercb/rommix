@@ -1,4 +1,4 @@
-import type { LibrarySyncResult } from '@shared/types'
+import type { LibrarySyncResult, RomUserStatus } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { log } from '../log.ts'
 import type { Handle } from './handler.ts'
@@ -36,6 +36,9 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   )
   handle('library:setFavourite', (romId: number, favourite: boolean) =>
     client.setFavourite(romId, favourite)
+  )
+  handle('library:setStatus', (romId: number, status: RomUserStatus | null) =>
+    client.setStatus(romId, status)
   )
   handle('library:installed', async () => {
     // The probe decides which entries belong to the emulator now in charge, so

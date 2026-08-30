@@ -1,9 +1,10 @@
 import { type JSX, type ReactNode, type Ref, useEffect, useState } from 'react'
-import type { InstalledRom, RommRom } from '@shared/types'
+import type { InstalledRom, RommRom, RomUserStatus } from '@shared/types'
 import { ArtBackdrop, CoverArt, PlatformIcon } from '../../components'
 import { useFocusable } from '../../input/focus'
 import { Icon } from '../../icons'
 import { useI18n } from '../../state'
+import { StatusTag } from './StatusDialog'
 
 /**
  * The game's own banner: a still of it washed out behind the cover and the
@@ -20,12 +21,15 @@ export function GameHero({
   rom,
   entry,
   system,
+  status,
   children
 }: {
   rom: RommRom
   entry?: InstalledRom
   /** The ES-DE system this game resolves to, for the platform icon. */
   system: string | null
+  /** How far through it the player says they are, or null if they have not. */
+  status: RomUserStatus | null
   /** The action row: Play, Download, Pull saves, and the rest. */
   children: ReactNode
 }): JSX.Element {
@@ -68,7 +72,12 @@ export function GameHero({
               </span>
             ) : null}
             {/* The year only; the full release date is a row in Details. */}
-            {year !== null ? <span className="chip">{year}</span> : null}
+            {year !== null ? (
+              <span className="chip chip--icon">
+                <Icon name="time" size={14} />
+                {year}
+              </span>
+            ) : null}
             {/* Which dump this is, where the game itself is named — the pair
                 that decides whether a copy boots and which of two files of
                 the same game you are looking at. */}
@@ -79,15 +88,34 @@ export function GameHero({
               </span>
             ) : null}
             {rom.revision ? (
-              <span className="chip">{t('game.revision', { revision: rom.revision })}</span>
+              <span className="chip chip--icon">
+                <Icon name="revision" size={14} />
+                {t('game.revision', { revision: rom.revision })}
+              </span>
             ) : null}
-            <span className="chip">{formatBytes(rom.fs_size_bytes)}</span>
-            {entry ? <span className="chip chip--on">{t('library.downloadedMark')}</span> : null}
+            <span className="chip chip--icon">
+              <Icon name="size" size={14} />
+              {formatBytes(rom.fs_size_bytes)}
+            </span>
+            {entry ? (
+              <span className="chip chip--icon chip--on">
+                <Icon name="download" size={14} />
+                {t('library.downloadedMark')}
+              </span>
+            ) : null}
+            {/* The genres are the one run of chips left unmarked: three of them
+                carrying the same glyph in a row reads as a pattern rather than
+                as three facts, and nothing about a genre needs saying twice. */}
             {rom.metadatum.genres.slice(0, 3).map((genre) => (
               <span className="chip" key={genre}>
                 {genre}
               </span>
             ))}
+            {/* Last on the line, after everything the game is: this is the one
+                thing here the player put there themselves. Absent until they
+                have — a chip reading "not said" on every game in the library
+                would be a fact about nothing. */}
+            {status ? <StatusTag status={status} /> : null}
           </div>
           {rom.summary ? <Summary text={rom.summary} /> : null}
 

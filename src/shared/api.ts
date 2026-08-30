@@ -16,6 +16,7 @@ import type {
   RommRom,
   RommRomPage,
   RomQuery,
+  RomUserStatus,
   EmulatorAsset,
   EmulatorInstallProgress,
   EmulatorRelease,
@@ -119,6 +120,8 @@ export interface RomMixBridge {
     favourite(romId: number): Promise<boolean>
     /** Put it in or take it out; resolves to the state it ended up in. */
     setFavourite(romId: number, favourite: boolean): Promise<boolean>
+    /** How far through the game the user says they are. Null clears it. */
+    setStatus(romId: number, status: RomUserStatus | null): Promise<void>
     /**
      * Put a game in one of the user's own collections, or take it out.
      *

@@ -10,6 +10,7 @@ import type {
   RommVirtualCollection,
   RommRom,
   RomQuery,
+  RomUserStatus,
   SaveAsset,
   Settings,
   UpdateStatus
@@ -499,6 +500,16 @@ function previewUpdate(): UpdateStatus {
 const favourites = new Set<number>([175, 123, 149, 99, 54])
 
 /**
+ * How far through each game the visitor has said they are.
+ *
+ * Live rather than fixed, and read back by `rom`, for the same reason
+ * collection membership is: the button on a game's page writes here, and a
+ * button that changes nothing is worse than no button. Empty to begin with —
+ * nothing in RomM's demo library has been played by anybody.
+ */
+const statuses = new Map<number, RomUserStatus | null>()
+
+/**
  * A couple of shelves someone might have made, so the Collections page has
  * something to be.
  *
@@ -626,12 +637,22 @@ const bridge: RomMixBridge = {
         offset
       })
     },
-    rom: (id: number) => later(romById(id)),
+    rom: (id: number) => {
+      const rom = romById(id)
+      const said = statuses.get(id)
+      return later(
+        said === undefined ? rom : { ...rom, rom_user: { ...rom.rom_user, status: said } }
+      )
+    },
     favourite: (romId: number) => later(favourites.has(romId)),
     setFavourite: (romId: number, favourite: boolean) => {
       if (favourite) favourites.add(romId)
       else favourites.delete(romId)
       return later(favourite)
+    },
+    setStatus: (romId: number, status: RomUserStatus | null) => {
+      statuses.set(romId, status)
+      return later(undefined)
     },
     setCollection: (romId: number, collectionId: number, member: boolean) => {
       const collection = COLLECTIONS.find((entry) => entry.id === collectionId)

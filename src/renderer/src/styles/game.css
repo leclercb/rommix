@@ -132,6 +132,16 @@
   color: var(--success);
 }
 
+/* And the same again for the progress tag, for the same reason `--on` needs
+   it here: `.game-hero .chip` above puts a dark ground under every chip in the
+   banner, which would otherwise take the colour straight back off this one. A
+   little stronger than the panel version, as the green beside it is. */
+.game-hero .chip--status {
+  background: color-mix(in srgb, var(--chip-tone) 20%, transparent);
+  border-color: color-mix(in srgb, var(--chip-tone) 45%, transparent);
+  color: var(--chip-tone);
+}
+
 /* The buttons are the last thing in the banner; the row's own top margin is
    enough and its bottom one would only push the tabs away. */
 .game-hero .btn-row {
@@ -200,4 +210,36 @@
   background: rgba(93, 219, 160, 0.14);
   border-color: rgba(93, 219, 160, 0.4);
   color: var(--success);
+}
+
+/*
+ * The same treatment as `--on` above, in whichever colour the state calls for:
+ * a tint of it behind, an edge of it around, and the word itself solid.
+ *
+ * Mixed from the palette rather than written out as four more sets of rgba,
+ * which is what `--on` does and what would leave eight literals to keep in step
+ * with two colours if either were ever tuned.
+ */
+.chip--status {
+  background: color-mix(in srgb, var(--chip-tone) 14%, transparent);
+  border-color: color-mix(in srgb, var(--chip-tone) 40%, transparent);
+  color: var(--chip-tone);
+}
+
+.chip--status[data-state='ok'] {
+  --chip-tone: var(--success);
+}
+
+.chip--status[data-state='warn'] {
+  --chip-tone: var(--warning);
+}
+
+/* For the one that is neither finished nor abandoned: it is under way, which is
+   what the accent says everywhere else in the interface. */
+.chip--status[data-state='info'] {
+  --chip-tone: var(--accent);
+}
+
+.chip--status[data-state='off'] {
+  --chip-tone: var(--text-faint);
 }

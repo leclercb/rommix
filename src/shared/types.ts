@@ -85,6 +85,16 @@ export interface RommRomFile {
   sha1_hash: string | null
 }
 
+/**
+ * How far through a game the user says they are.
+ *
+ * RomM's own five, by the names it stores them under. Set from the game screen
+ * and kept on the server, so the answer is the same in a browser and on another
+ * device — which is the whole reason it is not a RomMix-local flag.
+ */
+export type RomUserStatus =
+  'incomplete' | 'finished' | 'completed_100' | 'retired' | 'never_playing'
+
 /** `RomUserSchema` — the per-user overlay on a ROM. */
 export interface RommRomUser {
   id: number
@@ -96,7 +106,8 @@ export interface RommRomUser {
   rating: number
   difficulty: number
   completion: number
-  status: string | null
+  /** Null until somebody has said. See `RomUserStatus`. */
+  status: RomUserStatus | null
 }
 
 /** `RomMetadataSchema` — merged metadata across providers. */

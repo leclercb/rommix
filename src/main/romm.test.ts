@@ -442,6 +442,37 @@ describe('favourites', () => {
   })
 })
 
+describe('how far through a game', () => {
+  test('setting the progress sends only that field', async () => {
+    const { store } = fakeStore({ clientToken: 'rmm_token' })
+    const sent = serve(() => new Response(null, { status: 200 }))
+
+    await new RommClient(store).setStatus(7, 'finished')
+
+    assert.equal(sent[0].method, 'PUT')
+    assert.match(sent[0].url, /\/api\/roms\/7\/props$/)
+    // Only the status: the endpoint leaves out what it is not sent, so a rating
+    // or a backlog flag set in RomM's own interface survives this.
+    assert.deepEqual(JSON.parse(sent[0].body ?? '{}'), { status: 'finished' })
+  })
+
+  test('clearing it is a status of null, not an absent one', async () => {
+    const { store } = fakeStore({ clientToken: 'rmm_token' })
+    const sent = serve(() => new Response(null, { status: 200 }))
+
+    await new RommClient(store).setStatus(7, null)
+
+    assert.deepEqual(JSON.parse(sent[0].body ?? '{}'), { status: null })
+  })
+
+  test('a server that refuses it says so', async () => {
+    const { store } = fakeStore({ clientToken: 'rmm_token' })
+    serve(() => new Response(JSON.stringify({ detail: 'nope' }), { status: 403 }))
+
+    await assert.rejects(new RommClient(store).setStatus(7, 'retired'), RommError)
+  })
+})
+
 describe('saves and states', () => {
   test('deleting none of them asks the server nothing at all', async () => {
     const { store } = fakeStore()
