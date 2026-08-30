@@ -99,6 +99,16 @@ const FocusContext = createContext<FocusContextValue | null>(null)
 const LayerContext = createContext(0)
 
 /**
+ * How far beyond the screen a focusable still counts as being on it.
+ *
+ * A share of the viewport rather than a length, so it means the same thing on a
+ * handheld and on a television. The band reaches past the edge because that is
+ * where the likeliest target of a press is: the row a move is about to scroll
+ * into view is, by definition, not on screen yet.
+ */
+const NEARBY_MARGIN = '100%'
+
+/**
  * The region of the screen a subtree belongs to.
  *
  * Zones are what stop the navigation bar and the page from competing. Purely
@@ -151,6 +161,36 @@ export function FocusGroup({ id, children }: { id: string; children: ReactNode }
 
 export function FocusProvider({ children }: { children: ReactNode }): JSX.Element {
   const entries = useRef(new Map<string, FocusableEntry>())
+  /**
+   * The focusables the browser reports as on or near the screen.
+   *
+   * What a directional press is measured against. Measuring is a rect per
+   * candidate, and a library grid that has paged a few times holds hundreds of
+   * cards no press could ever land on — the nearest thing in any direction is
+   * within a screen or so of the one focus is on. An IntersectionObserver keeps
+   * this answer current without anything on this thread measuring for it, and a
+   * WeakSet cannot outlive the elements it names.
+   *
+   * An optimisation and never an authority: it is filled asynchronously, so an
+   * element registered a moment ago is not in it yet. See `pick`, where a press
+   * that finds nothing among these measures everything instead.
+   */
+  const onScreen = useRef(new WeakSet<Element>())
+  const nearby = useMemo(
+    () =>
+      new IntersectionObserver(
+        (records) => {
+          for (const record of records) {
+            if (record.isIntersecting) onScreen.current.add(record.target)
+            else onScreen.current.delete(record.target)
+          }
+        },
+        { rootMargin: NEARBY_MARGIN }
+      ),
+    [onScreen]
+  )
+  useEffect(() => () => nearby.disconnect(), [nearby])
+
   const actionHandlers = useRef(new Map<Action, { handler: () => void; layer: number }[]>())
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const focusedRef = useRef<string | null>(null)
@@ -281,13 +321,16 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const register = useCallback(
     (entry: FocusableEntry): (() => void) => {
       entries.current.set(entry.id, entry)
+      nearby.observe(entry.element)
       settleLayer()
       return () => {
         entries.current.delete(entry.id)
+        nearby.unobserve(entry.element)
+        onScreen.current.delete(entry.element)
         settleLayer()
       }
     },
-    [settleLayer]
+    [settleLayer, nearby, onScreen]
   )
 
   const move = useCallback(
@@ -315,25 +358,38 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
        * The nearest candidate in this direction; among those the same distance
        * away, the one most nearly in line.
        */
-      const pick = (pool: FocusableEntry[]): string | null => {
+      const nearest = (pool: FocusableEntry[]): string | null => {
         const measured: { id: string; at: Measure }[] = []
-        let nearest = Infinity
+        let closest = Infinity
 
         for (const candidate of pool) {
           if (candidate.id === current.id) continue
           const at = measure(from, rectOf(candidate.element), direction, line)
           if (!at) continue
           measured.push({ id: candidate.id, at })
-          nearest = Math.min(nearest, at.gap)
+          closest = Math.min(closest, at.gap)
         }
         if (measured.length === 0) return null
 
         // One step's worth of candidates — a single row, a single line — then
         // the column decides between them.
-        const step = measured.filter((entry) => entry.at.gap <= nearest + SAME_STEP_PX)
+        const step = measured.filter((entry) => entry.at.gap <= closest + SAME_STEP_PX)
         step.sort((a, b) => a.at.cross - b.at.cross || a.at.gap - b.at.gap)
         return step[0].id
       }
+
+      /**
+       * The same, over what is on the screen before anything else.
+       *
+       * A pool with nothing in it that way is then measured whole, so this can
+       * only save work: a press that had an answer still lands on it. What it
+       * also settles is the one case where the two could disagree — a card far
+       * out along a shelf that has been scrolled away is nearer in a straight
+       * line than the row in front of the player, and the row is what they
+       * meant. See `onScreen`.
+       */
+      const pick = (pool: FocusableEntry[]): string | null =>
+        nearest(pool.filter((entry) => onScreen.current.has(entry.element))) ?? nearest(pool)
 
       /**
        * Where a press that arrives in a group from outside every group lands.
@@ -433,7 +489,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       // aim the next press back at where the run started.
       if (!vertical || arrived !== target) anchor.current = null
     },
-    [applyFocus, setFocus, visibleEntries]
+    [applyFocus, setFocus, visibleEntries, onScreen]
   )
 
   const activate = useCallback((): void => {
