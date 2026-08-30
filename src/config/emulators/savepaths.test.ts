@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
+import { example } from './example/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
 import { shadps4 } from './shadps4/index.ts'
@@ -1041,4 +1042,67 @@ test('RetroDECK with no library yet answers nothing rather than guessing', () =>
   })
 
   assert.equal(paths.saves, null)
+})
+
+// ---------------------------------------------------------------------------
+// The example descriptor
+// ---------------------------------------------------------------------------
+
+/**
+ * The annotated template, asked the questions a real descriptor is asked.
+ *
+ * It is not in `EMULATORS`, so the sweep above never reaches it, and the
+ * compiler only checks that it has the right shape — not that what it does is
+ * right. It is also the file `CONTRIBUTING.md` tells a contributor to copy, so
+ * an example that answers wrongly is a wrong answer propagated into every
+ * emulator added after it.
+ */
+test('the example descriptor answers where saves and states live', () => {
+  const paths = resolve(example, {
+    romPath: '/roms/snes/game.sfc',
+    system: 'snes',
+    paths: { saves: '/config/example/saves', states: '/config/example/states' }
+  })
+
+  assert.equal(paths.saves?.dir, '/config/example/saves')
+  assert.equal(paths.states?.dir, '/config/example/states')
+  // Matched on the ROM's stem, which is what the helper it demonstrates does.
+  assert.equal(paths.saves?.match, 'rom-stem')
+})
+
+test('the example descriptor answers nothing where the folders are unknown', () => {
+  // An emulator that has never been run has no folders yet, and a descriptor
+  // that guessed one would sync into a directory nothing reads.
+  const paths = resolve(example, { romPath: '/roms/snes/game.sfc', system: 'snes' })
+
+  assert.equal(paths.saves, null)
+  assert.equal(paths.states, null)
+})
+
+test('the example descriptor builds an argv per system, and refuses the rest', () => {
+  const exec = ['/opt/example/Example.AppImage']
+  const launch = (system: string): string[] | null =>
+    example.launch({ exec, installRef: exec[0], system, romPath: '/roms/game.sfc' })
+
+  assert.deepEqual(launch('snes'), [...exec, '/roms/game.sfc'])
+  // The flag the example uses to show a system that needs one.
+  assert.deepEqual(launch('nes'), [...exec, '--nes', '/roms/game.sfc'])
+  // A system it does not claim: null rather than a command that cannot work.
+  assert.equal(launch('ps2'), null)
+})
+
+test('the example descriptor claims only systems it can launch', () => {
+  // The pair that has to agree: `systems` is what the registry offers it for,
+  // and `launch` is what happens when one is chosen.
+  for (const system of example.systems) {
+    assert.ok(
+      example.launch({
+        exec: ['/opt/example/Example.AppImage'],
+        installRef: '/opt/example/Example.AppImage',
+        system,
+        romPath: '/roms/game.sfc'
+      }),
+      `${system} is offered but cannot be launched`
+    )
+  }
 })
