@@ -426,20 +426,69 @@ describe('the ways a pull can go wrong without losing the launch', () => {
 })
 
 describe('a save the emulator keeps as a folder', () => {
-  /** A target whose saves are a directory, the way a Switch title's are. */
-  function folderSave(): ReturnType<typeof setUp> & { gameDir: string } {
+  /**
+   * A Switch game and the NAND its saves sit in.
+   *
+   * The one save layout where the unit is a directory rather than a file, so it
+   * is the only way to reach the archive path from here — RetroArch, which the
+   * rest of this file uses, never produces one. The id comes from the ROM's
+   * name, which is what `switchTitleId` falls back to when the file itself is
+   * not a container it can read a header out of.
+   */
+  const TITLE_ID = '0100000000010000'
+  const PROFILE = 'a'.repeat(32)
+
+  function switchGame(): ReturnType<typeof setUp> & { gameDir: string } {
     const made = setUp()
-    const gameDir = join(made.saveDir, 'game-folder')
+    const nand = join(made.saveDir, 'nand')
+    const gameDir = join(nand, '0000000000000000', PROFILE, TITLE_ID)
     mkdirSync(gameDir, { recursive: true })
+
+    made.target = {
+      ...made.target,
+      rom: {
+        ...made.target.rom,
+        fs_name: `Zelda [${TITLE_ID}].nsp`,
+        fs_name_no_ext: `Zelda [${TITLE_ID}]`
+      } as RommRom,
+      romPath: join(made.target.romPath, '..', `Zelda [${TITLE_ID}].nsp`),
+      system: 'switch',
+      emulator: {
+        ...made.target.emulator,
+        id: 'eden',
+        name: 'Eden',
+        paths: { ...made.target.emulator.paths, saves: nand }
+      } as EmulatorState
+    }
     return { ...made, gameDir }
   }
 
+  test('a folder with something in it is sent as one archive', async () => {
+    const { sync, target, gameDir, uploaded } = switchGame()
+    writeFileSync(join(gameDir, 'save.dat'), 'progress')
+
+    await sync.pushNow(target)
+
+    // One upload standing for the whole folder, under the archive name — the
+    // files inside it have no names the server could file them under.
+    assert.equal(uploaded.length, 1)
+    assert.match(uploaded[0].fileName, /\.rommix-save\.zip$/)
+  })
+
   test('an empty folder is not uploaded as if it were a save', async () => {
-    // Zipping it produces an archive of nothing, and the server would then hand
-    // that back as this game's save on another device.
-    const { sync, target, gameDir, uploaded } = folderSave()
-    const asset = { path: gameDir, isDirectory: true }
-    assert.ok(asset)
+    /**
+     * The folder is there — a Switch emulator creates it on first run — so
+     * "nothing to send" cannot be answered by looking for the directory. What
+     * answers is its age: a directory save is as new as the newest file
+     * anywhere under it, and under an empty one there is nothing to be newer
+     * than. Uploading it anyway would put an archive of nothing on the server
+     * and hand it back as this game's save on another device.
+     *
+     * `upload` has a second guard for the archive that comes out empty. That
+     * one is for a folder emptied between the listing and the zip, and is not
+     * what this reaches.
+     */
+    const { sync, target, uploaded } = switchGame()
 
     await sync.pushNow(target)
 
