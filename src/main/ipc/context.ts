@@ -72,12 +72,12 @@ export function launchOptions(
  * changed — has its own message.
  */
 export async function saveContext(rommix: RomMixApp, romId: number): Promise<SaveTarget> {
-  const { client, downloads } = rommix
+  const { client, library } = rommix
   // Before `installedNow`, not after: whether an entry belongs to the
   // emulator currently in charge is a question about the probe, and an
   // unprobed RomMix would answer "yes" to all of them.
   await rommix.ensureEmulators()
-  const installed = downloads.installedNow(romId)
+  const installed = library.installedNow(romId)
   if (!installed) {
     throw new RommError(t('error.notDownloadedForEmulator'))
   }
@@ -93,7 +93,7 @@ export async function saveContext(rommix: RomMixApp, romId: number): Promise<Sav
     // names its save folder after the directory the *ROM* sits in, so the
     // difference between the two is the difference between finding a save
     // and creating an empty folder beside it.
-    romPath: await downloads.launchTarget(installed),
+    romPath: await library.launchTarget(installed),
     // The same choice `game:launch` honours, resolved the same way, so the save
     // location and the emulator that wrote it can never disagree — including
     // when the recorded one has since been uninstalled.
@@ -106,10 +106,10 @@ export async function launchContext(
   rommix: RomMixApp,
   romId: number
 ): Promise<{ installed: InstalledRom; emulator: EmulatorState }> {
-  const { store, downloads } = rommix
+  const { store, library } = rommix
   await rommix.ensureEmulators()
 
-  const installed = downloads.installedNow(romId)
+  const installed = library.installedNow(romId)
   if (!installed) {
     throw new RommError(
       store.getInstalled(romId) ? t('error.downloadedForOther') : t('error.notDownloadedYet')

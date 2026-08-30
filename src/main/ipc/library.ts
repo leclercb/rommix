@@ -5,7 +5,7 @@ import type { Handle } from './handler.ts'
 
 /** The library as RomM has it, reconciled with what is on this disk. */
 export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
-  const { client, downloads } = rommix
+  const { client, library } = rommix
 
   handle('library:platforms', () => client.platforms())
   handle('library:collections', () => client.collections())
@@ -20,14 +20,14 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   handle('library:roms', async (query) => {
     await rommix.ensureEmulators()
     const page = await client.roms(query ?? {})
-    await downloads.adopt(page.items)
+    await library.adopt(page.items)
     return page
   })
 
   handle('library:rom', async (id: number) => {
     await rommix.ensureEmulators()
     const rom = await client.rom(id)
-    await downloads.adopt([rom])
+    await library.adopt([rom])
     return rom
   })
   handle('library:favourite', (romId: number) => client.isFavourite(romId))
@@ -45,7 +45,7 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
     // answering before it has run would report every stale copy as present —
     // which is exactly what this call is asked first, on startup.
     await rommix.ensureEmulators()
-    return downloads.installed
+    return library.installed
   })
 
   /**
@@ -55,7 +55,7 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
    * files screen lists them one by one, and the copy on this device is the
    * only side that can answer for a file the server has never had.
    */
-  handle('library:files', (romId: number) => downloads.localFiles(romId))
+  handle('library:files', (romId: number) => library.localFiles(romId))
 
   /**
    * Check the whole library against the disk, rather than only the ROMs a
@@ -65,10 +65,10 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   handle('library:sync', async (): Promise<LibrarySyncResult> => {
     await rommix.ensureEmulators()
     const took = log.since()
-    const result = await downloads.sync((checked, total) =>
+    const result = await library.sync((checked, total) =>
       rommix.send('library:syncProgress', { checked, total })
     )
-    rommix.send('library:installed', downloads.installed)
+    rommix.send('library:installed', library.installed)
     log.info('library', 'full sync finished', { ...result, ms: took() })
     return result
   })

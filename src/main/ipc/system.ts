@@ -11,7 +11,7 @@ import type { Handle } from './handler.ts'
 
 /** Settings, the pre-flight check, and the app itself. */
 export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
-  const { store, downloads } = rommix
+  const { store, library } = rommix
 
   handle('system:settings', () => store.settings)
 
@@ -44,10 +44,10 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     ) {
       // Reordering counts: the emulator now in charge of a platform keeps its
       // games in its own tree, so a copy downloaded for the previous one is in
-      // a folder the new one never reads. `downloads.installed` already hides
+      // a folder the new one never reads. `library.installed` already hides
       // those; without this the renderer goes on showing its last answer and
       // the games look downloaded when they are, for this emulator, not there.
-      rommix.send('library:installed', downloads.installed)
+      rommix.send('library:installed', library.installed)
     }
 
     // Two settings the main process itself has to act on. The zoom factor lives

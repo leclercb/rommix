@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { resolveEmulator } from '@config/emulators'
 import { BiosManager } from './bios.ts'
 import { DownloadManager } from './downloads.ts'
+import { Library } from './library.ts'
 import { detectEmulators } from './emulators.ts'
 import { setLanguage } from './i18n.ts'
 import { Launcher } from './launcher.ts'
@@ -44,6 +45,8 @@ export class RomMixApp {
   readonly client = new RommClient(this.store)
   readonly saveSync = new SaveSync(this.store, this.client)
   readonly launcher = new Launcher(this.store, this.client, this.saveSync)
+  /** What is on this disk, and whether the index still agrees with it. */
+  readonly library: Library
   readonly downloads: DownloadManager
   readonly bios: BiosManager
   /**
@@ -61,15 +64,14 @@ export class RomMixApp {
     // Before anything can have something to say: the store is the only place
     // that knows which language RomMix was left in.
     setLanguage(this.store.settings.language)
-    this.downloads = new DownloadManager(this.store, this.client, (system) =>
-      this.activeEmulator(system)
-    )
+    this.library = new Library(this.store, this.client, (system) => this.activeEmulator(system))
+    this.downloads = new DownloadManager(this.store, this.client, this.library)
     this.bios = new BiosManager(this.store, this.client, (system) => this.activeEmulator(system))
     this.downloads.on('update', (items) => this.send('downloads:update', items))
     // The renderer keeps its own copy of the installed list; without these it
     // would still believe a game is missing right after RomMix adopted it.
-    this.downloads.on('installed', () => this.send('library:installed', this.downloads.installed))
-    this.downloads.on('adopted', (entries) => this.send('library:adopted', entries))
+    this.library.on('installed', () => this.send('library:installed', this.library.installed))
+    this.library.on('adopted', (entries) => this.send('library:adopted', entries))
   }
 
   async refreshEmulators(): Promise<EmulatorState[]> {

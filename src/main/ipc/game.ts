@@ -9,7 +9,7 @@ import type { Handle } from './handler.ts'
 
 /** Starting a game, and stopping the emulator that is running one. */
 export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
-  const { store, client, downloads, launcher } = rommix
+  const { store, client, library, launcher } = rommix
 
   /**
    * What this game can be run with.
@@ -79,7 +79,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
         rom,
         // Never `installed.path`: for a multi-file game that is the directory,
         // and an emulator can only be given a file.
-        romPath: await downloads.launchTarget(installed),
+        romPath: await library.launchTarget(installed),
         system: installed.system,
         emulator,
         variant: chosen,

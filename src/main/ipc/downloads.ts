@@ -4,7 +4,7 @@ import type { Handle } from './handler.ts'
 
 /** The transfer queue, and the copies it has already put on disk. */
 export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
-  const { client, downloads } = rommix
+  const { client, downloads, library } = rommix
 
   /**
    * The queue, with whatever was interrupted put back into it first.
@@ -25,11 +25,11 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
 
     // Check the disk before queueing anything. Without this, a game RomMix has
     // simply not noticed yet gets downloaded again over the copy already there.
-    await downloads.adopt([rom])
+    await library.adopt([rom])
     // Deliberately the emulator-aware view: a copy downloaded for an emulator
     // this platform no longer uses is not one the user can play, so it must
     // not short-circuit the download that would put a copy where it now goes.
-    const existing = downloads.installedNow(romId)
+    const existing = library.installedNow(romId)
     if (existing) {
       return {
         romId,
@@ -52,5 +52,5 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
   handle('downloads:pause', (romId: number) => downloads.pause(romId))
   handle('downloads:cancel', (romId: number) => downloads.cancel(romId))
   handle('downloads:clearFinished', () => downloads.clearFinished())
-  handle('downloads:uninstall', (romId: number) => downloads.uninstall(romId))
+  handle('downloads:uninstall', (romId: number) => library.uninstall(romId))
 }
