@@ -6,7 +6,7 @@
   "author": "Benjamin Leclerc",
   "main": "./out/main/index.js",
   "engines": {
-    "node": ">=22.15"
+    "node": ">=24"
   },
   "desktopName": "be.bl_it.RomMix.desktop",
   "scripts": {

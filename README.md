@@ -116,7 +116,7 @@ chmod +x RomMix-x86_64.AppImage rommix-steam.sh
 
 ### Build it yourself
 
-Node 22.15 or newer.
+Node 24 or newer.
 
 ```bash
 git clone https://github.com/leclercb/rommix.git

@@ -46,8 +46,8 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          # 24, not the 20/22 the README asks of a user: `npm test` runs the
-          # TypeScript tests through node's own type stripping.
+          # The version package.json and the README ask for, so what CI proves
+          # is what a contributor is told to install.
           node-version: 24
           cache: npm
 

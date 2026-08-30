@@ -7,10 +7,12 @@ different folder layout behind each one.
 
 ## Getting set up
 
-Node 22.15 or newer. That is higher than the AppImage needs to build, and it is
-`npm test` that asks for it — the suite runs TypeScript through Node's own type
-stripping and a `module.registerHooks` loader, neither of which is available
-before then.
+Node 24 or newer — the version RomMix is built, tested and released on.
+
+Higher than either the AppImage or `npm test` strictly needs: the suite wants
+Node's own type stripping and a `module.registerHooks` loader, both of which
+arrived in 22.15. Nothing an end user installs depends on any of it — the
+AppImage carries Electron's own runtime — so this is a number for contributors.
 
 ```bash
 git clone https://github.com/leclercb/rommix.git
