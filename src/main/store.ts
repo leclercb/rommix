@@ -91,13 +91,44 @@ function writeJsonAtomic(path: string, value: unknown): void {
   renameSync(tmp, path)
 }
 
+/**
+ * One of RomMix's own JSON files, or the fallback where it is not.
+ *
+ * Anything that is not an object of the expected shape is the fallback,
+ * including a valid document of the wrong kind. These files are RomMix's, so
+ * the only ways they come back wrong are ways it did not write them — a
+ * truncated write, an edit by hand, a restore of the wrong file — and every one
+ * of those is "there is nothing here yet" rather than a reason to stop.
+ */
 function readJson<T>(path: string, fallback: T): T {
   try {
     if (!existsSync(path)) return fallback
-    return { ...fallback, ...(JSON.parse(readFileSync(path, 'utf8')) as object) } as T
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return fallback
+    return { ...fallback, ...parsed } as T
   } catch {
     return fallback
   }
+}
+
+/**
+ * The records under one key, skipping anything that is not one.
+ *
+ * The key can hold the wrong thing even in a file that parses as an object, and
+ * `{ "roms": null }` is not a shape a spread over a default protects against —
+ * it replaces the default with the null. Both files here are lists of things
+ * with a `romId`, which is the one field every reader needs and therefore the
+ * one worth insisting on.
+ */
+function readRecords<T extends { romId: number }>(path: string, key: string): T[] {
+  const value = readJson<Record<string, unknown>>(path, {})[key]
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (entry): entry is T =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as { romId?: unknown }).romId === 'number'
+  )
 }
 
 export class Store {
@@ -131,10 +162,7 @@ export class Store {
     this.settingsCache = { ...defaultSettings(), ...raw.settings }
     this.serverCache = raw.server ?? null
     this.installedCache = new Map(
-      readJson<{ roms: InstalledRom[] }>(this.installedPath, { roms: [] }).roms.map((r) => [
-        r.romId,
-        r
-      ])
+      readRecords<InstalledRom>(this.installedPath, 'roms').map((r) => [r.romId, r])
     )
 
     // What RomMix believes at the moment it starts. Which credential kind is
@@ -354,7 +382,7 @@ export class Store {
    * two to disagree.
    */
   get pending(): PendingDownload[] {
-    return readJson<{ downloads: PendingDownload[] }>(this.pendingPath, { downloads: [] }).downloads
+    return readRecords<PendingDownload>(this.pendingPath, 'downloads')
   }
 
   /** Record an interrupted transfer, replacing any earlier one for that ROM. */

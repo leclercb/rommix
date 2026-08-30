@@ -258,3 +258,64 @@ describe('pruning the index against the disk', () => {
     assert.equal(store.pruneInstalled(), 0)
   })
 })
+
+describe('a state file that is not what RomMix wrote', () => {
+  /**
+   * These are RomMix's own files, so every way they come back wrong is a way it
+   * did not write them: a truncated write, an edit by hand, a restore of the
+   * wrong file. None of those is a reason to refuse to start — the index is a
+   * record of what was downloaded, and the disk still has the games.
+   */
+  const shapes = {
+    'a null where the list should be': '{"roms": null}',
+    'the key holding an object': '{"roms": {"1": {"romId": 1}}}',
+    'the key holding a string': '{"roms": "none"}',
+    'a document of the wrong kind': '[]',
+    'a bare value': '4',
+    'nothing at all': '',
+    'a truncated write': '{"roms": [{"romId": 1,'
+  }
+
+  for (const [what, contents] of Object.entries(shapes)) {
+    test(`the index survives ${what}`, () => {
+      const dir = scratch({ 'downloaded_roms.json': contents })
+
+      const store = new Store(dir)
+
+      assert.deepEqual(store.installed, [])
+      // And still works: the file is replaced by the next thing written.
+      store.addInstalled(installed({ romId: 7 }))
+      assert.deepEqual(
+        new Store(dir).installed.map((entry) => entry.romId),
+        [7]
+      )
+    })
+
+    test(`the pending list survives ${what.replace('roms', 'downloads')}`, () => {
+      const dir = scratch({ 'pending_downloads.json': contents.replace('roms', 'downloads') })
+
+      assert.deepEqual(new Store(dir).pending, [])
+    })
+  }
+
+  test('entries that are not records are skipped, and the rest are kept', () => {
+    // A half-written list is still worth what is readable in it.
+    const dir = scratch({
+      'downloaded_roms.json': '{"roms": [null, {"romId": 1}, 5, {"nope": true}, {"romId": 2}]}'
+    })
+
+    assert.deepEqual(
+      new Store(dir).installed.map((entry) => entry.romId),
+      [1, 2]
+    )
+  })
+
+  test('settings fall back rather than taking the shape of whatever is there', () => {
+    const dir = scratch({ 'settings.json': '["not", "an", "object"]' })
+
+    const store = new Store(dir)
+
+    assert.equal(store.settings.romStorage, 'rommix')
+    assert.equal(store.server, null)
+  })
+})
