@@ -355,3 +355,189 @@ describe('deleting', () => {
     assert.equal(existsSync(path), true)
   })
 })
+
+describe('the ways a pull can go wrong without losing the launch', () => {
+  test('one asset that cannot be fetched does not stop the others', async () => {
+    // It is the user's save, so it is reported — but a failed download is not a
+    // reason to refuse to start the game.
+    const { sync, target, saveDir } = setUp({
+      saves: [
+        save({ id: 1, file_name: 'Sonic the Hedgehog (USA).srm' }),
+        save({ id: 2, file_name: 'Sonic the Hedgehog (USA).sav' })
+      ]
+    })
+    const client = sync as unknown as {
+      client: { downloadSave: (id: number, to: string) => Promise<void> }
+    }
+    const original = client.client.downloadSave
+    client.client.downloadSave = async (id, to) => {
+      if (id === 1) throw new Error('the connection went')
+      return original(id, to)
+    }
+
+    const written = await sync.pullNow(target)
+
+    assert.equal(written.saves, 1)
+    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA).sav')), true)
+    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA).srm')), false)
+  })
+
+  test('only the newest few states are pulled, however many the server holds', async () => {
+    // A shelf of states from months of play is not something to fetch in full
+    // before a game starts.
+    const states = Array.from({ length: 9 }, (_, index) =>
+      save({
+        id: index + 1,
+        file_name: `Sonic the Hedgehog (USA).state${index}`,
+        updated_at: `2026-08-0${index + 1}T12:00:00.000Z`
+      })
+    ) as unknown as RommState[]
+    const { sync, target, stateDir } = setUp({ states })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.states, 5)
+    // The newest, not the first five the server listed.
+    assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state8')), true)
+    assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state0')), false)
+  })
+
+  test('a server with nothing for this game is not an error', async () => {
+    const { sync, target } = setUp()
+
+    const result = await sync.pullNow(target)
+    assert.equal(result.saves, 0)
+    assert.equal(result.states, 0)
+  })
+
+  test('an emulator with nowhere to put saves pulls nothing rather than throwing', async () => {
+    const { sync, target } = setUp({ saves: [save()] })
+    // What an emulator that has never been run looks like: found, but with no
+    // folders yet. The game still starts, unsynced.
+    target.emulator = {
+      ...target.emulator,
+      paths: { home: null, roms: null, saves: null, states: null, bios: null }
+    } as typeof target.emulator
+
+    const result = await sync.pullNow(target)
+    assert.equal(result.saves, 0)
+    assert.equal(result.states, 0)
+  })
+})
+
+describe('a save the emulator keeps as a folder', () => {
+  /** A target whose saves are a directory, the way a Switch title's are. */
+  function folderSave(): ReturnType<typeof setUp> & { gameDir: string } {
+    const made = setUp()
+    const gameDir = join(made.saveDir, 'game-folder')
+    mkdirSync(gameDir, { recursive: true })
+    return { ...made, gameDir }
+  }
+
+  test('an empty folder is not uploaded as if it were a save', async () => {
+    // Zipping it produces an archive of nothing, and the server would then hand
+    // that back as this game's save on another device.
+    const { sync, target, gameDir, uploaded } = folderSave()
+    const asset = { path: gameDir, isDirectory: true }
+    assert.ok(asset)
+
+    await sync.pushNow(target)
+
+    assert.deepEqual(uploaded, [])
+  })
+})
+
+describe('deleting an asset that is only at one end', () => {
+  test('a local delete needs a local copy, and says so when there is none', async () => {
+    const { sync, target } = setUp({ saves: [save()] })
+
+    await assert.rejects(
+      () => sync.deleteAsset(7, 'save', 1, 'Sonic the Hedgehog (USA).srm', 'local', target),
+      // Names the file: the dialog that raised this is about one save.
+      /Sonic the Hedgehog \(USA\)\.srm is not on this device/
+    )
+  })
+
+  test('a server delete needs a server copy, and says so when there is none', async () => {
+    const { sync, target, saveDir } = setUp()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local only')
+
+    await assert.rejects(
+      () => sync.deleteAsset(7, 'save', null, 'Sonic the Hedgehog (USA).srm', 'remote', target),
+      /Sonic the Hedgehog \(USA\)\.srm is not on RomM/
+    )
+  })
+
+  test('an asset neither end has is refused rather than reported as deleted', async () => {
+    const { sync, target } = setUp()
+
+    await assert.rejects(() =>
+      sync.deleteAsset(7, 'save', null, 'nothing-here.srm', 'local', target)
+    )
+  })
+})
+
+describe('what a push preview says about what it would replace', () => {
+  test('a copy that came from this device is marked as such', async () => {
+    // The difference between "you are about to overwrite your own upload" and
+    // "you are about to overwrite something from the handheld".
+    // The device id is the store's own, so the fixture has to be built from a
+    // store before the one under test is set up around it.
+    const deviceId = new Store(join(scratch(), 'config')).settings.deviceId
+    const { sync, target, saveDir, store } = setUp({
+      saves: [save({ origin_device_id: deviceId })]
+    })
+    store.updateSettings({ deviceId })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    const preview = await sync.previewPush(target)
+    const file = preview.files.find((entry) => entry.fileName.endsWith('.srm'))
+
+    assert.ok(file?.replaces)
+    assert.equal(file.replaces.fromThisDevice, true)
+  })
+
+  test('a copy from somewhere else is marked as not from here', async () => {
+    const { sync, target, saveDir } = setUp({
+      saves: [save({ origin_device_id: 'the-handheld' })]
+    })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    const preview = await sync.previewPush(target)
+    const file = preview.files.find((entry) => entry.fileName.endsWith('.srm'))
+
+    assert.equal(file?.replaces?.fromThisDevice, false)
+  })
+
+  test('a server that does not record an origin gives no answer rather than a wrong one', async () => {
+    const { sync, target, saveDir } = setUp({ saves: [save({ origin_device_id: null })] })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    const preview = await sync.previewPush(target)
+    const file = preview.files.find((entry) => entry.fileName.endsWith('.srm'))
+
+    assert.equal(file?.replaces?.fromThisDevice, null)
+  })
+
+  test('a file the server has never seen replaces nothing', async () => {
+    const { sync, target, saveDir } = setUp()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    const preview = await sync.previewPush(target)
+
+    assert.equal(preview.files[0].replaces, null)
+  })
+
+  test('saves come before states, and the newest of each first', async () => {
+    // The file you are about to send on purpose is almost always the one
+    // written most recently.
+    const { sync, target, saveDir, stateDir } = setUp()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'a')
+    writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'b')
+
+    const preview = await sync.previewPush(target)
+
+    assert.equal(preview.files[0].kind, 'save')
+    assert.ok(preview.files.every((file, index) => index === 0 || file.kind === 'state'))
+  })
+})
