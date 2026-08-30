@@ -729,6 +729,18 @@ export class DownloadManager extends EventEmitter {
       this.emitUpdate()
     } finally {
       this.controllers.delete(rom.id)
+      /**
+       * The intents go whether or not the transfer noticed them.
+       *
+       * Both are read in the catch above, which only runs if the abort actually
+       * landed. A transfer that finished in the moment between the abort being
+       * asked for and the socket noticing takes the success path instead and
+       * leaves its id behind — and the next failure of that game, whatever the
+       * reason, is then read as a pause or an overtake: reported as neither,
+       * and quietly retried once.
+       */
+      this.pausing.delete(rom.id)
+      this.requeueing.delete(rom.id)
     }
   }
 
