@@ -45,7 +45,15 @@ function useShelf(query: RomQuery): Shelf {
   // observer firing again while a request is already out.
   const inFlight = useRef(false)
 
+  /**
+   * The same query, with an identity that only changes when the query does.
+   *
+   * Rebuilt from the serialised form rather than kept from the argument, so
+   * that this is what the fetch closes over and `key` is honestly the only
+   * thing it depends on. Once per change of query, rather than once per page.
+   */
   const key = JSON.stringify(query)
+  const asked = useMemo(() => JSON.parse(key) as RomQuery, [key])
 
   const fetchPage = useCallback(
     async (offset: number): Promise<void> => {
@@ -53,7 +61,7 @@ function useShelf(query: RomQuery): Shelf {
       inFlight.current = true
       try {
         const page = await window.rommix.library.roms({
-          ...(JSON.parse(key) as RomQuery),
+          ...asked,
           limit: SHELF_PAGE,
           offset
         })
@@ -66,7 +74,7 @@ function useShelf(query: RomQuery): Shelf {
         setLoaded(true)
       }
     },
-    [key]
+    [asked]
   )
 
   useEffect(() => {
