@@ -868,16 +868,6 @@ const bridge: RomMixBridge = {
   }
 }
 
-/** Put the stub in place. Called from `main.tsx` before anything renders. */
-/**
- * Name the page in whatever language it is about to be drawn in.
- *
- * `vite.web.config.ts` writes an English title and description into the
- * document, which is what a crawler unfurling the link reads — a single static
- * build can only carry one, and English is the one the rest of the world falls
- * back to. This is the copy for the person actually looking at it, which is a
- * different question and has a locale to answer it with.
- */
 /**
  * The stub's own words, in whatever language the demo is being read in.
  *
@@ -893,6 +883,15 @@ function say(key: MessageKey): string {
   return createI18n(localeFor(SETTINGS.language, navigator.language)).t(key)
 }
 
+/**
+ * Name the page in whatever language it is about to be drawn in.
+ *
+ * `vite.web.config.ts` writes an English title and description into the
+ * document, which is what a crawler unfurling the link reads — a single static
+ * build can only carry one, and English is the one the rest of the world falls
+ * back to. This is the copy for the person actually looking at it, which is a
+ * different question and has a locale to answer it with.
+ */
 function describePage(): void {
   const { t } = createI18n(localeFor(SETTINGS.language, navigator.language))
   document.title = t('demo.title')
@@ -900,6 +899,7 @@ function describePage(): void {
   if (description) description.setAttribute('content', t('demo.description'))
 }
 
+/** Put the stub in place. Called from `main.tsx` before anything renders. */
 export function installPreviewBridge(): void {
   window.rommix = bridge
   describePage()

@@ -390,11 +390,6 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
-   * Await the deletion rather than starting it: the same button that cancels a
-   * download is one press away from starting it again, and a partial file
-   * halfway through being removed is exactly what must not be resumed onto.
-   */
-  /**
    * Start a waiting transfer now, and let the one it overtook carry on after.
    *
    * The queue is drained one at a time and in order, so a small game asked for
@@ -459,6 +454,11 @@ export class DownloadManager extends EventEmitter {
     this.controllers.get(running.romId)?.abort()
   }
 
+  /**
+   * Await the deletion rather than starting it: the same button that cancels a
+   * download is one press away from starting it again, and a partial file
+   * halfway through being removed is exactly what must not be resumed onto.
+   */
   async cancel(romId: number): Promise<void> {
     this.controllers.get(romId)?.abort()
     const item = this.queue.find((i) => i.romId === romId)

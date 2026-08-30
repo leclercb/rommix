@@ -120,7 +120,6 @@ const RESUME_DELAY_MS = 500
  */
 const STALL_TIMEOUT_MS = 20_000
 
-/** What a caller can say about one transfer. */
 /**
  * A digest RomM holds for what is being fetched, and what produced it.
  *
@@ -174,6 +173,7 @@ export function checksumOf(rom: RommRom): Checksum | null {
   return rom.has_multiple_files || rom.files.length > 1 ? null : digest
 }
 
+/** What a caller can say about one transfer. */
 interface TransferOptions {
   /** Continue the `.part` already on disk rather than replacing it. */
   resume?: boolean
@@ -539,14 +539,6 @@ export class RommClient {
   }
 
   /**
-   * Put one game in a collection, or take it out.
-   *
-   * The same two calls favouriting makes, which is what favouriting *is* on
-   * RomM — one collection whose name the server reads as `is_favorite`. Named
-   * separately because the shelves a user makes for themselves are the general
-   * case and the star is the special one, not the other way round.
-   */
-  /**
    * PUT /api/roms/{id}/props — the per-user overlay, of which RomMix sets one
    * field.
    *
@@ -564,6 +556,14 @@ export class RommClient {
     log.info('romm', 'status set', { romId, status })
   }
 
+  /**
+   * Put one game in a collection, or take it out.
+   *
+   * The same two calls favouriting makes, which is what favouriting *is* on
+   * RomM — one collection whose name the server reads as `is_favorite`. Named
+   * separately because the shelves a user makes for themselves are the general
+   * case and the star is the special one, not the other way round.
+   */
   async setCollectionMembership(
     collectionId: number,
     romId: number,
@@ -628,22 +628,6 @@ export class RommClient {
 
   // -- ROM content ----------------------------------------------------------
 
-  /**
-   * GET /api/roms/{id}/content/{file_name}, streamed straight to disk.
-   *
-   * RomM serves a single-file ROM verbatim and zips anything with multiple
-   * files, so the caller decides whether the result needs extracting.
-   * Writes to `${destination}.part` and renames on success, so an interrupted
-   * download never looks like a complete ROM.
-   *
-   * A transfer that breaks part-way is picked up where it stopped rather than
-   * started again. A ROM is the largest thing RomMix moves and the one most
-   * likely to outlive the connection carrying it — a reverse proxy in front of
-   * RomM with a response cap or a time limit, a handheld that changed access
-   * point, a server restarted mid-copy. Losing a gigabyte to any of those and
-   * beginning again is, on a slow link, indistinguishable from RomMix simply
-   * being unable to download the game at all. See `RESUME_ATTEMPTS`.
-   */
   /**
    * Where one file of a multi-file game is served from.
    *
@@ -749,6 +733,22 @@ export class RommClient {
     }
   }
 
+  /**
+   * GET /api/roms/{id}/content/{file_name}, streamed straight to disk.
+   *
+   * RomM serves a single-file ROM verbatim and zips anything with multiple
+   * files, so the caller decides whether the result needs extracting.
+   * Writes to `${destination}.part` and renames on success, so an interrupted
+   * download never looks like a complete ROM.
+   *
+   * A transfer that breaks part-way is picked up where it stopped rather than
+   * started again. A ROM is the largest thing RomMix moves and the one most
+   * likely to outlive the connection carrying it — a reverse proxy in front of
+   * RomM with a response cap or a time limit, a handheld that changed access
+   * point, a server restarted mid-copy. Losing a gigabyte to any of those and
+   * beginning again is, on a slow link, indistinguishable from RomMix simply
+   * being unable to download the game at all. See `RESUME_ATTEMPTS`.
+   */
   async downloadRom(
     rom: RommRom,
     destination: string,
