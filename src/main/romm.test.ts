@@ -878,3 +878,285 @@ describe('reporting play time', () => {
     await new RommClient(store).reportPlaySession(5, new Date(), 600)
   })
 })
+
+describe('asking the server what it can do before a transfer', () => {
+  const multi = {
+    id: 5,
+    fs_name: 'Castlevania',
+    files: [
+      { id: 11, rom_id: 5, file_name: 'disc.cue' },
+      { id: 12, rom_id: 5, file_name: 'disc.bin' }
+    ]
+  } as unknown as RommRom
+
+  test('a 206 to a one-byte range means file-by-file, resumable', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => new Response('0', { status: 206 }))
+
+    const answer = await new RommClient(store).fileTransfers(multi)
+
+    assert.deepEqual(answer, { available: true, resumable: true })
+    // The *file's* id, not the game's: that endpoint serves an ordinary file on
+    // the server's disk, which is the whole reason these are fetched one by one.
+    assert.match(sent[0].url, /\/api\/roms\/11\/files\/content\//)
+    assert.equal(sent[0].headers.get('range'), 'bytes=0-0')
+  })
+
+  test('a 200 means the endpoint works but nothing can be resumed', async () => {
+    const { store } = fakeStore()
+    serve(() => new Response('0', { status: 200 }))
+
+    assert.deepEqual(await new RommClient(store).fileTransfers(multi), {
+      available: true,
+      resumable: false
+    })
+  })
+
+  test('a 404 is a server too old to serve a game a file at a time', async () => {
+    const { store } = fakeStore()
+    serve(() => new Response(null, { status: 404 }))
+
+    assert.deepEqual(await new RommClient(store).fileTransfers(multi), {
+      available: false,
+      resumable: false
+    })
+  })
+
+  test('a refusal is a reason to leave the strategy alone, not to push through it', async () => {
+    // A 403 or a 500 means the endpoint is there and has just refused one byte.
+    const { store } = fakeStore()
+    serve(() => new Response(null, { status: 403 }))
+
+    assert.deepEqual(await new RommClient(store).fileTransfers(multi), {
+      available: false,
+      resumable: false
+    })
+  })
+
+  test('a game of one file is never fetched a file at a time', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => new Response('0', { status: 206 }))
+
+    const single = { id: 5, files: [{ id: 11, file_name: 'x.md' }] } as unknown as RommRom
+    assert.deepEqual(await new RommClient(store).fileTransfers(single), {
+      available: false,
+      resumable: false
+    })
+    // Not even asked: there is nothing the answer could change.
+    assert.equal(sent.length, 0)
+  })
+
+  test('a probe that throws answers no, which is the safe way round', async () => {
+    // Believing a transfer resumable when it is not costs the whole download.
+    const { store } = fakeStore()
+    globalThis.fetch = (() => Promise.reject(new Error('ECONNRESET'))) as typeof globalThis.fetch
+
+    assert.deepEqual(await new RommClient(store).fileTransfers(multi), {
+      available: false,
+      resumable: false
+    })
+    assert.equal(await new RommClient(store).supportsRange(multi), false)
+  })
+
+  test('a whole ROM is resumable only on a 206', async () => {
+    const { store } = fakeStore()
+    const single = { id: 5, fs_name: 'Sonic.md' } as RommRom
+
+    serve(() => new Response('0', { status: 206 }))
+    assert.equal(await new RommClient(store).supportsRange(single), true)
+
+    serve(() => new Response('0', { status: 200 }))
+    assert.equal(await new RommClient(store).supportsRange(single), false)
+  })
+})
+
+describe('the queries a listing is built from', () => {
+  test('a ROM listing always asks for the files, whatever else it asks for', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json({ items: [], total: 0, limit: 60, offset: 0 }))
+
+    await new RommClient(store).roms({
+      search_term: 'sonic',
+      platform_ids: [1, 2],
+      collection_id: 7,
+      virtual_collection_id: 'recent',
+      favorite: true,
+      last_played: true,
+      order_by: 'name',
+      order_dir: 'desc',
+      limit: 25,
+      offset: 50
+    })
+
+    const url = new URL(sent[0].url)
+    // Without this a game the server holds as a folder can only be offered
+    // under the folder's name, which matches nothing on disk — so it looks
+    // un-downloaded however many times the library is reconciled.
+    assert.equal(url.searchParams.get('with_files'), 'true')
+    assert.equal(url.searchParams.get('search_term'), 'sonic')
+    assert.deepEqual(url.searchParams.getAll('platform_ids'), ['1', '2'])
+    assert.equal(url.searchParams.get('collection_id'), '7')
+    assert.equal(url.searchParams.get('virtual_collection_id'), 'recent')
+    assert.equal(url.searchParams.get('favorite'), 'true')
+    assert.equal(url.searchParams.get('last_played'), 'true')
+    assert.equal(url.searchParams.get('order_dir'), 'desc')
+    assert.equal(url.searchParams.get('limit'), '25')
+    assert.equal(url.searchParams.get('offset'), '50')
+  })
+
+  test('an empty query still asks for a page, in a defined order', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json({ items: [], total: 0, limit: 60, offset: 0 }))
+
+    await new RommClient(store).roms({})
+
+    const url = new URL(sent[0].url)
+    assert.equal(url.searchParams.get('order_by'), 'name')
+    assert.equal(url.searchParams.get('order_dir'), 'asc')
+    assert.equal(url.searchParams.get('with_files'), 'true')
+    assert.equal(url.searchParams.has('search_term'), false)
+  })
+
+  test('one game, and an asset path that is answered whether or not it is rooted', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json({ id: 5 }))
+
+    await new RommClient(store).rom(5)
+    await new RommClient(store).asset('assets/cover.png')
+    await new RommClient(store).asset('/assets/cover.png')
+
+    assert.equal(sent[0].url, 'https://romm.example/api/roms/5')
+    assert.equal(sent[1].url, 'https://romm.example/assets/cover.png')
+    assert.equal(sent[2].url, 'https://romm.example/assets/cover.png')
+  })
+})
+
+describe('firmware, saves and states', () => {
+  const firmware = {
+    id: 3,
+    file_name: 'scph5501.bin',
+    md5_hash: '781e5e245d69b566979b86e28d23f2c7'
+  } as RommFirmware
+
+  test('firmware is listed for one platform or for all of them', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json([]))
+
+    await new RommClient(store).firmware(4)
+    await new RommClient(store).firmware()
+
+    assert.equal(sent[0].url, 'https://romm.example/api/firmware?platform_id=4')
+    assert.equal(sent[1].url, 'https://romm.example/api/firmware')
+  })
+
+  test('a BIOS that matches the digest RomM holds is kept', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'scph5501.bin')
+    serve(() => new Response('0123456789'))
+
+    await new RommClient(store).downloadFirmware(firmware, destination)
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('a BIOS that is the wrong bytes is deleted rather than left to be loaded', async () => {
+    // A BIOS that is wrong is a console that hangs on a black screen, and
+    // nothing on the way to that names the file.
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'scph5501.bin')
+    serve(() => new Response('not the firmware'))
+
+    await assert.rejects(
+      () => new RommClient(store).downloadFirmware(firmware, destination),
+      RommError
+    )
+    assert.equal(existsSync(destination), false)
+  })
+
+  test('a BIOS the server never scanned is taken as it comes', async () => {
+    // A check that cannot be made is not a failure: refusing the file would
+    // leave the emulator with no BIOS at all.
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'scph5501.bin')
+    serve(() => new Response('whatever this is'))
+
+    await new RommClient(store).downloadFirmware(
+      { ...firmware, md5_hash: null } as RommFirmware,
+      destination
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), 'whatever this is')
+  })
+
+  test('an asset with no body at all is an error rather than an empty file', async () => {
+    const { store } = fakeStore()
+    serve(() => new Response(null, { status: 204 }))
+
+    await assert.rejects(
+      () => new RommClient(store).downloadSave(1, join(scratch(), 'save.srm')),
+      RommError
+    )
+  })
+
+  test('saves and states are listed and fetched per game', async () => {
+    const { store } = fakeStore()
+    const dir = scratch()
+    const sent = serve((request) =>
+      request.url.includes('/content') ? new Response('save bytes') : json([])
+    )
+    const client = new RommClient(store)
+
+    await client.saves(5)
+    await client.states(5)
+    await client.downloadSave(11, join(dir, 'a.srm'))
+    await client.downloadState(12, join(dir, 'b.state'))
+
+    assert.equal(sent[0].url, 'https://romm.example/api/saves?rom_id=5')
+    assert.equal(sent[1].url, 'https://romm.example/api/states?rom_id=5')
+    assert.equal(sent[2].url, 'https://romm.example/api/saves/11/content')
+    assert.equal(sent[3].url, 'https://romm.example/api/states/12/content')
+    assert.equal(readFileSync(join(dir, 'a.srm'), 'utf8'), 'save bytes')
+  })
+
+  test('a save is uploaded with the device and emulator that produced it', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const file = join(scratch(), 'sonic.srm')
+    writeFileSync(file, 'save bytes')
+    const sent = serve(() => json({ id: 21 }))
+
+    const saved = await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'retroarch')
+
+    assert.equal(saved.id, 21)
+    const url = new URL(sent[0].url)
+    assert.equal(sent[0].method, 'POST')
+    assert.equal(url.searchParams.get('rom_id'), '5')
+    assert.equal(url.searchParams.get('emulator'), 'retroarch')
+    assert.equal(url.searchParams.get('device_id'), 'romm-device-9')
+    // Overwriting is the point: the copy on the server is meant to be replaced
+    // by the one the emulator just wrote.
+    assert.equal(url.searchParams.get('overwrite'), 'true')
+  })
+
+  test('a save from no particular emulator says so by leaving it out', async () => {
+    const { store } = fakeStore()
+    const file = join(scratch(), 'sonic.srm')
+    writeFileSync(file, 'save bytes')
+    const sent = serve(() => json({ id: 21 }))
+
+    await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+
+    assert.equal(new URL(sent[0].url).searchParams.has('emulator'), false)
+  })
+
+  test('a refused upload is an error, not a save quietly not sent', async () => {
+    const { store } = fakeStore()
+    const file = join(scratch(), 'sonic.srm')
+    writeFileSync(file, 'save bytes')
+    serve(() => json({ detail: 'too large' }, 413))
+
+    await assert.rejects(
+      () => new RommClient(store).uploadSave(5, file, 'sonic.srm', null),
+      RommError
+    )
+  })
+})
