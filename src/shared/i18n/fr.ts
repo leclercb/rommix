@@ -880,6 +880,8 @@ export const fr: Catalog = {
   'error.sessionExpired': 'Session expirée — reconnectez-vous',
   'error.downloadInterrupted':
     'Le transfert depuis RomM n’a cessé d’être interrompu, après {received} sur {total}',
+  'error.downloadCorrupt':
+    'Ce qui est arrivé n’est pas le fichier que RomM détient ; il a été supprimé',
   'error.emptyResponseBody': 'RomM a renvoyé un corps de réponse vide',
   'error.emptyAssetBody': 'Corps de fichier vide',
   'error.credentialsRequired': 'L’identifiant et le mot de passe sont obligatoires',

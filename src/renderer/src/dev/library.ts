@@ -362,6 +362,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/atari2600',
         file_size_bytes: 4096,
         full_path: 'roms/atari2600/Halo2600.bin',
+        crc_hash: '3978a823',
+        md5_hash: '4afa7f377eae1cafb4265c68f73f2718',
+        sha1_hash: '2a9647e27ab27e6cf82b3bf122edf212fa34ae86',
         category: 'game'
       }
     ],
@@ -433,6 +436,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/atari2600',
         file_size_bytes: 32768,
         full_path: 'roms/atari2600/Space Rocks.bin',
+        crc_hash: 'dabfa820',
+        md5_hash: '03db2942cfbea51633726853c81a7b17',
+        sha1_hash: '62018681118aa67664243c10f864d19125c10e0d',
         category: 'game'
       }
     ],
@@ -504,6 +510,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/atari7800',
         file_size_bytes: 49280,
         full_path: 'roms/atari7800/FailSafe (NTSC) (20100227).a78',
+        crc_hash: 'ea916960',
+        md5_hash: '893e3b20d39e7e2dcb381120f7ee0660',
+        sha1_hash: 'b88879e0c6d5b30d2c16906c30e5245a061ca59f',
         category: 'game'
       }
     ],
@@ -575,6 +584,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/atari7800',
         file_size_bytes: 16512,
         full_path: 'roms/atari7800/Meteor Shower (NTSC) (20120218).a78',
+        crc_hash: '2e090e9e',
+        md5_hash: '48ebe5d935d5f165ce6a091227eee2ce',
+        sha1_hash: '9bcfbb1eaae8181818988627cc27e2b74123a89c',
         category: 'game'
       }
     ],
@@ -646,6 +658,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/c64',
         file_size_bytes: 65728,
         full_path: 'roms/c64/Bruce Lee 2.crt',
+        crc_hash: '90a80750',
+        md5_hash: '047ab9dab641453a4232843a989f22fb',
+        sha1_hash: 'f1adbb439c108623461a209d63815a679d968613',
         category: 'game'
       }
     ],
@@ -717,6 +732,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/c64',
         file_size_bytes: 174848,
         full_path: 'roms/c64/Time of Silence (v1.0.1).d64',
+        crc_hash: '0c0c61a8',
+        md5_hash: 'ca379436ee8ec59ae650bc3a48f26527',
+        sha1_hash: 'edb231d4bbe728a87859f760848df7f8e4b35175',
         category: 'game'
       }
     ],
@@ -787,6 +805,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/dos',
         file_size_bytes: 2082617,
         full_path: 'roms/dos/xyWords.zip',
+        crc_hash: '6cffcb72',
+        md5_hash: '4dca8a6f04b3268298f4900ea3cbc82d',
+        sha1_hash: 'b522e06458438b91693af40f85d7ea258f123ae5',
         category: 'game'
       }
     ],
@@ -855,6 +876,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gamegear',
         file_size_bytes: 131072,
         full_path: 'roms/gamegear/Swabby-GG-1.11.gg',
+        crc_hash: 'b814ad3d',
+        md5_hash: 'db672d52225564b6f520e8a0a4b1a4c7',
+        sha1_hash: '64f7350ca2c37c44b679e35f9bfd2766c7259cb9',
         category: 'game'
       }
     ],
@@ -926,6 +950,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gamegear',
         file_size_bytes: 65536,
         full_path: 'roms/gamegear/ftrack.gg',
+        crc_hash: 'd6d0a92b',
+        md5_hash: '17fa28fea6102a81aafe7961aff200da',
+        sha1_hash: 'da53138fa5dc4e253a1ebba50cf59de285c4719e',
         category: 'game'
       }
     ],
@@ -997,6 +1024,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gb',
         file_size_bytes: 262144,
         full_path: 'roms/gb/tobu.gb',
+        crc_hash: 'ed12be6c',
+        md5_hash: '48ea776eace6f2582b70dc965cf2df1f',
+        sha1_hash: '8a8f3c1f21f903ea5a7df8fc8b0a6aa5a602e150',
         category: 'game'
       }
     ],
@@ -1068,6 +1098,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gb',
         file_size_bytes: 262144,
         full_path: 'roms/gb/dangan.gb',
+        crc_hash: '5359d6db',
+        md5_hash: 'c85e5ba3dad5aa705b96da083cdd1a1c',
+        sha1_hash: '10029774046dabec2d8c0533caf94091f6e19071',
         category: 'game'
       }
     ],
@@ -1139,6 +1172,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gba',
         file_size_bytes: 1710888,
         full_path: 'roms/gba/anguna.gba',
+        crc_hash: '3346891f',
+        md5_hash: '9d3a663de5228414d7e6cda7244c5d91',
+        sha1_hash: '270c426705df767a4ad2dc69d039842442f779b2',
         category: 'game'
       }
     ],
@@ -1210,6 +1246,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gba',
         file_size_bytes: 4194304,
         full_path: 'roms/gba/Motocross Challenge (USA) (Proto).gba',
+        crc_hash: 'e5a7de43',
+        md5_hash: '8b898cdf54095d09d9be2cfcb43ea040',
+        sha1_hash: 'b778b784cca09b381f2948c260355bde0a84bc56',
         category: 'game'
       }
     ],
@@ -1281,6 +1320,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gbc',
         file_size_bytes: 2097152,
         full_path: 'roms/gbc/infinity.gb',
+        crc_hash: '4ade94aa',
+        md5_hash: '6d6507bd38c76a9baa90b8e305ebea13',
+        sha1_hash: 'fdfd6d4cbebbf64fc7d1264f0450be270be89823',
         category: 'game'
       }
     ],
@@ -1352,6 +1394,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/gbc',
         file_size_bytes: 65536,
         full_path: 'roms/gbc/GBCspelunky.gbc',
+        crc_hash: '2d60d327',
+        md5_hash: '920142e65e4b27c61848ed165c739777',
+        sha1_hash: '27aca0703c7dada169a019c113899c91ce7b225d',
         category: 'game'
       }
     ],
@@ -1423,6 +1468,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/genesis',
         file_size_bytes: 3407872,
         full_path: 'roms/genesis/Demons_of_Asteborg_DEMO_v21072020.bin',
+        crc_hash: '8163415e',
+        md5_hash: '94286ef831f89948c9c9219937a4b06d',
+        sha1_hash: 'be4b6e1e627fbfdf0c25df7496a053a0289691a9',
         category: 'game'
       }
     ],
@@ -1494,6 +1542,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/genesis',
         file_size_bytes: 3997696,
         full_path: 'roms/genesis/cavestory.bin',
+        crc_hash: '416f1c1b',
+        md5_hash: 'b5c0862dfdb923dfdb5e4789c76f531a',
+        sha1_hash: 'b46bf62243fbe776abc6000c08dc79c1c34b0f3a',
         category: 'game'
       }
     ],
@@ -1565,6 +1616,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/nes',
         file_size_bytes: 524304,
         full_path: 'roms/nes/owlia.nes',
+        crc_hash: '26858010',
+        md5_hash: '2c853160353de6f1272ac503c2661223',
+        sha1_hash: '406f293f6aa8ee93f42e12c4f991d7d593c78b44',
         category: 'game'
       }
     ],
@@ -1636,6 +1690,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/nes',
         file_size_bytes: 262160,
         full_path: 'roms/nes/Battle Kid 2.nes',
+        crc_hash: '70cc40a0',
+        md5_hash: '37d15ab83697dce281caee7c3ff2f6dd',
+        sha1_hash: '5e61c00266bce84018cb1712527129d8c8cbe755',
         category: 'game'
       }
     ],
@@ -1712,6 +1769,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/scummvm/Beneath a Steel Sky',
         file_size_bytes: 204,
         full_path: 'roms/scummvm/Beneath a Steel Sky/WRC-MANIFEST.JSON',
+        crc_hash: 'ce2b1ee6',
+        md5_hash: '4db4e51cffb24ae838b88eca0839471d',
+        sha1_hash: '1f3229a9663e2eef5fb0916070e32ac27371bbce',
         category: 'game'
       },
       {
@@ -1721,6 +1781,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/scummvm/Beneath a Steel Sky',
         file_size_bytes: 169028,
         full_path: 'roms/scummvm/Beneath a Steel Sky/pak1.zip',
+        crc_hash: '0cc70de8',
+        md5_hash: '4a23ff6ce72c68b6ecdad9d444d84527',
+        sha1_hash: '954672f9b920c6b8910ae46d892f171e35f4b3ee',
         category: 'game'
       },
       {
@@ -1730,6 +1793,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/scummvm/Beneath a Steel Sky',
         file_size_bytes: 72395713,
         full_path: 'roms/scummvm/Beneath a Steel Sky/sky.dsk',
+        crc_hash: '18c96045',
+        md5_hash: 'b175c5f9b4c26ce633b7cc538c19b9fd',
+        sha1_hash: 'af6926e94c3cabce0a0e86f52c10529d9b8dcec3',
         category: 'game'
       }
     ],
@@ -1806,6 +1872,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/scummvm/Lure of the Temptress',
         file_size_bytes: 3363387,
         full_path: 'roms/scummvm/Lure of the Temptress/lure.zip',
+        crc_hash: '9b2ed166',
+        md5_hash: '5e12d3bc0c0f96ec78a1db5f7da17eef',
+        sha1_hash: '1001af2e462c5105c2b0e37a8e37b64893e6fe0d',
         category: 'game'
       }
     ],
@@ -1877,6 +1946,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/sms',
         file_size_bytes: 786432,
         full_path: 'roms/sms/Cimmerian.sms',
+        crc_hash: '19923e38',
+        md5_hash: 'c1a479065bc31e8681a8530118bdf1f7',
+        sha1_hash: '654bdf3981d0ada7cbb20f74e72c79bad1089603',
         category: 'game'
       }
     ],
@@ -1948,6 +2020,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/sms',
         file_size_bytes: 131072,
         full_path: 'roms/sms/galacticrevenge-v3.sms',
+        crc_hash: '4d69cd2c',
+        md5_hash: '283812dcc11cc8b254d0a06ac6afd8fc',
+        sha1_hash: 'c9a33510cc843499816061f453219b9eb93c6526',
         category: 'game'
       }
     ],
@@ -2019,6 +2094,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/snes',
         file_size_bytes: 524288,
         full_path: 'roms/snes/Super Boss Gaiden (J) (V1.2).sfc',
+        crc_hash: 'c9a8412d',
+        md5_hash: '99a5ebfdf38faf4e194bfac535aa936b',
+        sha1_hash: '60c61db61ea02c5ff4c57e72ec5147107628fe22',
         category: 'game'
       }
     ],
@@ -2090,6 +2168,9 @@ export const ROMS: RommRom[] = [
         file_path: 'roms/snes',
         file_size_bytes: 524288,
         full_path: 'roms/snes/MazezaM.sfc',
+        crc_hash: '076ac3fe',
+        md5_hash: 'dddaf6b133ef16c19a253b5465517513',
+        sha1_hash: 'd263ffb10a1e4b8b177292fdb48973358a7c5aba',
         category: 'game'
       }
     ],

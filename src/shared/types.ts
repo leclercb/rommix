@@ -73,6 +73,16 @@ export interface RommRomFile {
   file_size_bytes: number
   full_path: string
   category: string | null
+  /**
+   * What RomM recorded this file hashing to, per file rather than per game.
+   *
+   * The hashes on the ROM itself answer for a game held as one file and for
+   * nothing else — a game of several is fetched a file at a time, and these are
+   * what say each one arrived intact. Null where RomM has not scanned the file.
+   */
+  crc_hash: string | null
+  md5_hash: string | null
+  sha1_hash: string | null
 }
 
 /** `RomUserSchema` — the per-user overlay on a ROM. */

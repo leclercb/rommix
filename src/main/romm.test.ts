@@ -3,7 +3,7 @@ import { afterEach, describe, test } from 'node:test'
 import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RommRom } from '@shared/types'
+import type { RommFirmware, RommRom, RommRomFile } from '@shared/types'
 import { RommClient, RommError } from './romm.ts'
 import type { Store } from './store.ts'
 
@@ -638,6 +638,174 @@ describe('downloading a ROM', () => {
         ),
       RommError
     )
+  })
+})
+
+describe('checking what arrived against what RomM holds', () => {
+  /** The same game, with the digest RomM recorded for it. */
+  const hashed = (fields: Partial<RommRom> = {}): RommRom =>
+    ({
+      id: 5,
+      fs_name: 'Sonic (USA).md',
+      fs_extension: 'md',
+      fs_size_bytes: 10,
+      md5_hash: '781e5e245d69b566979b86e28d23f2c7',
+      files: [{ file_name: 'Sonic (USA).md' }],
+      ...fields
+    }) as RommRom
+
+  test('a ROM that hashes to what RomM recorded is kept', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    serve(() => new Response('0123456789'))
+
+    await new RommClient(store).downloadRom(
+      hashed(),
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('a ROM that does not is thrown away rather than installed', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    // The right length and the wrong bytes, which is what a file replaced on
+    // the server between two halves of one transfer leaves behind.
+    serve(() => new Response('9876543210'))
+
+    await assert.rejects(
+      new RommClient(store).downloadRom(
+        hashed(),
+        destination,
+        () => undefined,
+        new AbortController().signal
+      ),
+      RommError
+    )
+
+    // Neither the game nor anything to resume it from: appending to bytes
+    // already known to be wrong could only ever produce the same file again.
+    assert.equal(existsSync(destination), false)
+    assert.equal(existsSync(`${destination}.part`), false)
+  })
+
+  test('the bytes are judged whole, however many transfers carried them', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    serve((_request, index) =>
+      index === 0 ? new Response(broken('01234')) : new Response('56789', { status: 206 })
+    )
+
+    await new RommClient(store).downloadRom(
+      hashed(),
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('each file of a game fetched one by one is judged on its own hash', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sky.dsk')
+    serve(() => new Response('0123456789'))
+
+    await new RommClient(store).downloadRomFile(
+      {
+        id: 841,
+        rom_id: 139,
+        file_name: 'sky.dsk',
+        file_size_bytes: 10,
+        md5_hash: '781e5e245d69b566979b86e28d23f2c7'
+      } as RommRomFile,
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('a file of a game that does not match is thrown away like any other', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sky.dsk')
+    serve(() => new Response('9876543210'))
+
+    await assert.rejects(
+      new RommClient(store).downloadRomFile(
+        {
+          id: 841,
+          rom_id: 139,
+          file_name: 'sky.dsk',
+          file_size_bytes: 10,
+          md5_hash: '781e5e245d69b566979b86e28d23f2c7'
+        } as RommRomFile,
+        destination,
+        () => undefined,
+        new AbortController().signal
+      ),
+      RommError
+    )
+
+    assert.equal(existsSync(destination), false)
+    assert.equal(existsSync(`${destination}.part`), false)
+  })
+
+  test('a ROM RomM holds zipped is judged on the zip, which is what arrives', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'keyboard-test.zip')
+    serve(() => new Response('0123456789'))
+
+    // RomM hashes the file as it sits on its own disk, so for a zipped ROM the
+    // hash is of the zip — and the zip is what the content endpoint serves.
+    await new RommClient(store).downloadRom(
+      hashed({ fs_name: 'Keyboard-Test.zip', fs_extension: 'zip' }),
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+  })
+
+  test('a game of several files is not judged against a hash of one of them', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'ff7.zip')
+    // The archive RomM builds for the request is not what any of these describe.
+    serve(() => new Response('not the same bytes at all'))
+
+    await new RommClient(store).downloadRom(
+      hashed({ has_multiple_files: true, fs_size_bytes: 25 }),
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(existsSync(destination), true)
+  })
+
+  test('a BIOS file that is not the one on the server is not left in place', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'scph5501.bin')
+    serve(() => new Response('9876543210'))
+
+    await assert.rejects(
+      new RommClient(store).downloadFirmware(
+        {
+          id: 3,
+          file_name: 'scph5501.bin',
+          md5_hash: '781e5e245d69b566979b86e28d23f2c7'
+        } as RommFirmware,
+        destination
+      ),
+      RommError
+    )
+
+    assert.equal(existsSync(destination), false)
   })
 })
 

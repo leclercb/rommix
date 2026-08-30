@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { Blob } from 'node:buffer'
-import { createWriteStream } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { createReadStream, createWriteStream } from 'node:fs'
 import { readFile, rename, rm, stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -104,9 +105,67 @@ const RESUME_DELAY_MS = 500
 const STALL_TIMEOUT_MS = 20_000
 
 /** What a caller can say about one transfer. */
+/**
+ * A digest RomM holds for what is being fetched, and what produced it.
+ *
+ * `crc` is absent on purpose: RomM records one, and it is not a digest node's
+ * crypto can compute. A game with nothing but a CRC goes unchecked rather than
+ * carrying a second implementation of a checksum into this file.
+ */
+export interface Checksum {
+  algorithm: 'md5' | 'sha1'
+  expected: string
+}
+
+/**
+ * What a file on disk hashes to.
+ *
+ * Read back rather than accumulated from the stream that wrote it. A transfer
+ * that broke and was picked up is several streams, and the bytes already on
+ * disk when RomMix was restarted belong to none of them — reading the finished
+ * file is the only thing that answers for all of it, however it arrived. It
+ * costs one sequential read after a transfer that has just crossed a network.
+ */
+async function hashOf(path: string, algorithm: Checksum['algorithm']): Promise<string> {
+  const digest = createHash(algorithm)
+  for await (const chunk of createReadStream(path)) digest.update(chunk as Buffer)
+  return digest.digest('hex')
+}
+
+/** md5 first, sha1 beside it, or nothing. See `Checksum`. */
+function digestOf(source: { md5_hash: string | null; sha1_hash: string | null }): Checksum | null {
+  if (source.md5_hash) return { algorithm: 'md5', expected: source.md5_hash }
+  if (source.sha1_hash) return { algorithm: 'sha1', expected: source.sha1_hash }
+  return null
+}
+
+/**
+ * The hash RomM holds for a whole ROM, when it answers for the bytes the
+ * content endpoint is about to serve.
+ *
+ * Only for a game held as a single file. What that endpoint serves for a game
+ * of several is an archive built for the request, and the hash on the ROM
+ * describes neither that archive nor any one file inside it — those are checked
+ * as they arrive instead. See `downloadRomFile`.
+ *
+ * A game held zipped is checked like any other: RomM hashes the file as it sits
+ * on its disk, so for a zipped ROM that is the hash of the zip, which is what
+ * arrives here. It is verified before it is unpacked.
+ */
+export function checksumOf(rom: RommRom): Checksum | null {
+  const digest = digestOf(rom)
+  if (!digest) return null
+  return rom.has_multiple_files || rom.files.length > 1 ? null : digest
+}
+
 interface TransferOptions {
   /** Continue the `.part` already on disk rather than replacing it. */
   resume?: boolean
+  /**
+   * What the finished file has to hash to before it is allowed to become the
+   * game. See `verify`.
+   */
+  verify?: Checksum
   /**
    * Whether what is being fetched can be resumed at all. See `supportsRange`.
    *
@@ -670,7 +729,7 @@ export class RommClient {
       { kind: 'ROM', romId: rom.id },
       onProgress,
       signal,
-      options
+      { verify: checksumOf(rom) ?? undefined, ...options }
     )
   }
 
@@ -698,7 +757,10 @@ export class RommClient {
       { kind: 'file', romId: file.rom_id, fileName: file.file_name },
       onProgress,
       signal,
-      options
+      // The file's own hash, which is the one worth having: a game fetched this
+      // way is fetched this way *because* it is large enough to be worth
+      // resuming, and every one of its files crosses the network on its own.
+      { verify: digestOf(file) ?? undefined, ...options }
     )
   }
 
@@ -854,9 +916,48 @@ export class RommClient {
       }
     }
 
+    if (options.verify) await this.verify(partial, options.verify, subject)
+
     await rename(partial, destination)
     log.info('romm', 'content downloaded', { ...subject, bytes: received, ms: took(), destination })
     return received
+  }
+
+  /**
+   * Refuse to let a file become the game unless it is the file RomM holds.
+   *
+   * Before the rename, so what fails is the download rather than the launch: a
+   * ROM whose bytes are wrong starts, runs and corrupts a save, or does not
+   * start and is blamed on the emulator. The one thing that cannot happen is
+   * for it to be noticed, which is what this is.
+   *
+   * A resumed transfer is what this exists for. Where the bytes came from is
+   * decided by a range header and a record of what was being fetched, and every
+   * part of that is true right up until the file on the server is replaced
+   * between two halves of one download.
+   *
+   * The part-file goes with the failure. It cannot be picked up — resuming
+   * would append to bytes already known to be wrong — and leaving it behind
+   * offers a Resume button that could only ever produce the same file again.
+   */
+  private async verify(
+    partial: string,
+    { algorithm, expected }: Checksum,
+    subject: { kind: string; romId: number; fileName?: string }
+  ): Promise<void> {
+    const actual = await hashOf(partial, algorithm)
+    if (actual === expected.toLowerCase()) {
+      log.debug('romm', 'the file matches what RomM holds', { ...subject, algorithm })
+      return
+    }
+    await rm(partial, { force: true }).catch(() => undefined)
+    log.error('romm', 'the file that arrived is not the one RomM holds', undefined, {
+      ...subject,
+      algorithm,
+      expected,
+      actual
+    })
+    throw new RommError(t('error.downloadCorrupt'))
   }
 
   // -- firmware (BIOS) ------------------------------------------------------
@@ -878,6 +979,19 @@ export class RommClient {
     await this.downloadAsset(
       `/api/firmware/${item.id}/content/${encodeURIComponent(item.file_name)}`,
       destination
+    )
+    // Checked here rather than left to the emulator, which has no way to say
+    // so: a BIOS that is the wrong bytes is a console that hangs on a black
+    // screen, and nothing on the way to that names the file. RomM records a
+    // digest for every firmware file it holds, so there is always one to ask.
+    await this.verify(
+      destination,
+      { algorithm: 'md5', expected: item.md5_hash },
+      {
+        kind: 'firmware',
+        romId: item.id,
+        fileName: item.file_name
+      }
     )
     log.info('romm', 'firmware downloaded', {
       firmwareId: item.id,
