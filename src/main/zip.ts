@@ -160,7 +160,7 @@ interface PendingEntry {
  * work at all under EmuDeck: every directory it gathers under `Emulation/saves`
  * is a symlink into the emulator's real tree.
  */
-async function filesUnder(dir: string, prefix = ''): Promise<string[]> {
+async function entryNamesUnder(dir: string, prefix = ''): Promise<string[]> {
   let entries
   try {
     entries = await readdir(dir, { withFileTypes: true })
@@ -178,7 +178,7 @@ async function filesUnder(dir: string, prefix = ''): Promise<string[]> {
         .then((info) => info.isDirectory())
         .catch(() => false)
     }
-    if (isDirectory) found.push(...(await filesUnder(child, relative)))
+    if (isDirectory) found.push(...(await entryNamesUnder(child, relative)))
     else found.push(relative)
   }
   return found
@@ -196,7 +196,7 @@ async function filesUnder(dir: string, prefix = ''): Promise<string[]> {
  * a missing one.
  */
 export async function zipDirectory(dir: string, zipPath: string): Promise<number> {
-  const names = await filesUnder(dir)
+  const names = await entryNamesUnder(dir)
   if (names.length === 0) return 0
 
   const entries: PendingEntry[] = []

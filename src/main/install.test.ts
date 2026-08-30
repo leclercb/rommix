@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { RommRom } from '@shared/types'
-import { directorySize, filesUnder, onlyFile, pickLaunchFile, unpack } from './install.ts'
+import { directorySize, filePathsUnder, onlyFile, pickLaunchFile, unpack } from './install.ts'
 import { zipDirectory } from './zip.ts'
 
 /**
@@ -57,7 +57,7 @@ describe('listing the files a game is made of', () => {
   test('every file below the directory comes back, as a full path', async () => {
     const root = tree({ 'disc.cue': 'x', 'tracks/track01.bin': 'x' })
 
-    const found = await filesUnder(root)
+    const found = await filePathsUnder(root)
 
     assert.deepEqual(
       found.sort(),
@@ -66,7 +66,7 @@ describe('listing the files a game is made of', () => {
   })
 
   test('a directory that is not there is an empty list, not a crash', async () => {
-    assert.deepEqual(await filesUnder(join(tree({}), 'nothing-here')), [])
+    assert.deepEqual(await filePathsUnder(join(tree({}), 'nothing-here')), [])
   })
 })
 
@@ -145,7 +145,7 @@ describe('unpacking what the server sent', () => {
     assert.equal(installed.launchPath, installed.path)
     assert.equal(installed.sizeBytes, 64)
     // The staging directory is not left behind beside the game.
-    assert.deepEqual(await filesUnder(dir), [join(dir, 'Sonic (USA).md')])
+    assert.deepEqual(await filePathsUnder(dir), [join(dir, 'Sonic (USA).md')])
   })
 
   test('a genuine multi-file game keeps a directory of its own', async () => {

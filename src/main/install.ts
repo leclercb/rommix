@@ -64,13 +64,23 @@ export interface InstallResult {
   files?: string[]
 }
 
-/** Every file below a directory, however deep, as absolute paths. */
-export async function filesUnder(dir: string): Promise<string[]> {
+/**
+ * Every file below a directory, however deep, as absolute paths.
+ *
+ * Real files only — a symlink is passed over. Everything this is asked about
+ * has just come out of an archive, so there are none, and following one would
+ * mean moving whatever it points at rather than the link.
+ *
+ * Not to be confused with `zip.ts`'s walk, which answers for the same tree with
+ * names relative to it and does follow a link to a directory. See the comment
+ * there for why.
+ */
+export async function filePathsUnder(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const found: string[] = []
   for (const entry of entries) {
     const child = join(dir, entry.name)
-    if (entry.isDirectory()) found.push(...(await filesUnder(child)))
+    if (entry.isDirectory()) found.push(...(await filePathsUnder(child)))
     else if (entry.isFile()) found.push(child)
   }
   return found
@@ -132,7 +142,7 @@ export async function unpack(
        * archive over itself has always done.
        */
       const moved: string[] = []
-      for (const file of await filesUnder(staging)) {
+      for (const file of await filePathsUnder(staging)) {
         const target = join(systemDir, basename(file))
         await rm(target, { force: true })
         await rename(file, target)
