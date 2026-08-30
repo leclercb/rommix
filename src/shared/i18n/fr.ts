@@ -83,7 +83,6 @@ export const fr: Catalog = {
   'app.gameRunning': 'Jeu en cours',
   'app.emulatorHasFocus': "L'émulateur a la main. Quittez-le pour revenir.",
   'app.emulatorRunning': '{name} est en cours',
-
   'app.holdToClose': 'Maintenez {key} pour le fermer d’ici.',
   'app.closeEmulator': "Fermer l'émulateur",
   'app.notClosing':

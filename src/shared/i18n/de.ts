@@ -86,7 +86,6 @@ export const de: Catalog = {
   'app.gameRunning': 'Spiel läuft',
   'app.emulatorHasFocus': 'Der Emulator hat den Fokus. Beenden Sie ihn, um zurückzukommen.',
   'app.emulatorRunning': '{name} läuft',
-
   'app.holdToClose': '{key} gedrückt halten, um ihn von hier aus zu schließen.',
   'app.closeEmulator': 'Emulator schließen',
   'app.notClosing':

@@ -85,7 +85,6 @@ export const es: Catalog = {
   'app.gameRunning': 'Juego en marcha',
   'app.emulatorHasFocus': 'El emulador tiene el control. Ciérralo para volver.',
   'app.emulatorRunning': '{name} está en marcha',
-
   'app.holdToClose': 'Mantén {key} para cerrarlo desde aquí.',
   'app.closeEmulator': 'Cerrar el emulador',
   'app.notClosing': 'No se ha cerrado. Forzarlo pierde todo lo que no haya guardado.',
