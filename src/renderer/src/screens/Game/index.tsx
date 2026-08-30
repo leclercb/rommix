@@ -315,7 +315,9 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
    * Shown as chosen before the server has agreed, for the same reason the heart
    * is: the round trip is not a thing worth watching, and a button that does
    * nothing for a moment reads as a button that did nothing. A refusal puts the
-   * previous answer back and says why.
+   * previous answer back, which is the whole of the report: the chip returning
+   * to what it said is the thing the player is looking at, and `app:error` has
+   * already raised the reason as a notification.
    */
   const chooseStatus = async (next: RomUserStatus | null): Promise<void> => {
     const previous = status
