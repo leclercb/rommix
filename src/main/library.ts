@@ -18,6 +18,7 @@ import {
 import { log } from './log.ts'
 import { RommClient, RommError } from './romm.ts'
 import { rootPaths } from './root.ts'
+import { safeJoin } from './safepath.ts'
 import type { Store } from './store.ts'
 import { t } from './i18n.ts'
 
@@ -181,7 +182,14 @@ export class Library extends EventEmitter {
     const flat = emulator ? emulatorById(emulator.id)?.flatLibrary === true : false
     const asDirectory = rom.has_multiple_files && !flat
     const dir = join(library.root, system)
-    const path = asDirectory ? join(dir, rom.fs_name_no_ext) : join(dir, installName(rom))
+
+    // The name is the server's, and it is what decides where this lands. One
+    // that climbs out of the system folder is refused: the whole point of the
+    // layout is that an emulator finds the game by the folder it is in.
+    const path = safeJoin(dir, asDirectory ? rom.fs_name_no_ext : installName(rom))
+    if (!path) {
+      throw new RommError(t('error.unsafeName', { name: rom.fs_name }))
+    }
     return { dir, path, system, emulatorId: library.emulatorId, asDirectory, flat }
   }
 
@@ -371,9 +379,14 @@ export class Library extends EventEmitter {
       // indexed from a `readdir` and so answers for the link rather than for
       // what it points at. A ROM library kept elsewhere and linked into the
       // emulator's folder is a game like any other, and `stat` is what says so.
-      const asFile = join(target.dir, installName(rom))
-      const asNamedOnServer = join(target.dir, rom.fs_name)
-      const asDirectory = join(target.dir, rom.fs_name_no_ext)
+      //
+      // Each is checked for staying inside the system folder, as `plan` checks
+      // the one it writes to: a name that climbs out would be adopted here and
+      // then deleted by `uninstall`, which removes what the index points at.
+      const asFile = safeJoin(target.dir, installName(rom))
+      const asNamedOnServer = safeJoin(target.dir, rom.fs_name)
+      const asDirectory = safeJoin(target.dir, rom.fs_name_no_ext)
+      if (!asFile || !asNamedOnServer || !asDirectory) continue
 
       const fileInfo = await stat(asFile).catch(() => null)
       if (fileInfo?.isFile()) {

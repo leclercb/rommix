@@ -562,3 +562,52 @@ describe('the file handed to an emulator', () => {
     assert.equal(await made.library.launchTarget(installed), join(dir, 'sonic.md'))
   })
 })
+
+describe('a name from the server that would leave the system folder', () => {
+  /**
+   * RomM decides what a ROM is called, and that name is what decides where the
+   * file lands. The server is the user's own, so this is not a stranger's
+   * input — but a zip's entry names get the same check, and these arrive by the
+   * same route and are used the same way.
+   */
+  const climbing = (fields: Partial<RommRom> = {}): RommRom =>
+    rom({
+      fs_name: '../../../.bashrc',
+      fs_name_no_ext: '../../../.bashrc',
+      // Carried, so `installName` answers with `fs_name` rather than falling
+      // through to the file list — which is the name that decides the path.
+      fs_extension: 'bashrc',
+      files: [{ file_name: '../../../.bashrc' }] as RommRom['files'],
+      ...fields
+    })
+
+  test('a download of it is refused rather than planned', () => {
+    const { library } = manager()
+
+    assert.throws(() => library.plan(climbing()), RommError)
+  })
+
+  test('a multi-file game with such a name is refused too', () => {
+    const { library } = manager()
+
+    assert.throws(() => library.plan(climbing({ has_multiple_files: true })), RommError)
+  })
+
+  test('adoption passes over it rather than recording something outside', async () => {
+    // Recorded, it would be a library entry pointing at a file RomMix does not
+    // own — and `uninstall` deletes what the index points at.
+    const { library, store } = manager()
+
+    assert.deepEqual(await library.adopt([climbing()]), [])
+    assert.equal(store.getInstalled(1), undefined)
+  })
+
+  test('an ordinary name is unaffected', () => {
+    const { library, root } = manager()
+
+    assert.equal(
+      library.plan(rom()).path,
+      join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md')
+    )
+  })
+})

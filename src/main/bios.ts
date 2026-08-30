@@ -7,6 +7,7 @@ import { resolveSystem, systemLabel } from '@config/systems'
 import { i18n, t } from './i18n.ts'
 import { realHome } from './xdg.ts'
 import { log } from './log.ts'
+import { safeJoin } from './safepath.ts'
 import { rootPaths } from './root.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import type {
@@ -458,8 +459,19 @@ export class BiosManager {
       throw new RommError(row?.blockedReason ?? t('error.biosNowhere'))
     }
 
+    // The name is the server's, and it decides where the file is written. One
+    // that climbs out of the BIOS folder is refused rather than followed.
+    const destination = safeJoin(dir, firmware.file_name)
+    if (!destination) {
+      log.error('bios', 'refused a firmware name that leaves its folder', undefined, {
+        firmwareId,
+        fileName: firmware.file_name,
+        dir
+      })
+      throw new RommError(t('error.unsafeName', { name: firmware.file_name }))
+    }
+
     await mkdir(dir, { recursive: true })
-    const destination = join(dir, firmware.file_name)
     log.info('bios', 'installing a BIOS file', {
       firmwareId,
       fileName: firmware.file_name,

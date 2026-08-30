@@ -1,9 +1,10 @@
 import { createWriteStream } from 'node:fs'
 import { mkdir, open, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { deflateRaw } from 'node:zlib'
-import { dirname, join, normalize, resolve, sep } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
+import { safeJoin } from './safepath.ts'
 import yauzl from 'yauzl'
 import { log } from './log.ts'
 import { t } from './i18n.ts'
@@ -42,11 +43,12 @@ const deflate = promisify(deflateRaw)
  * yauzl's defaults staying as they are, and because "the reader happens to
  * check" is not where a path traversal defence belongs.
  */
-function safeJoin(root: string, entryName: string): string | null {
+function entryTarget(root: string, entryName: string): string | null {
+  // Only an archive's names need this: a backslash is a separator inside a zip
+  // written on Windows and an ordinary character in a Linux filename, so the
+  // substitution belongs here rather than in the containment rule.
   const cleaned = entryName.replace(/\\/g, '/').replace(/^\/+/, '')
-  const target = resolve(root, normalize(cleaned))
-  if (target !== root && !target.startsWith(root + sep)) return null
-  return target
+  return safeJoin(root, cleaned)
 }
 
 /** Does this file start with the ZIP local-file-header magic? */
@@ -80,7 +82,7 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
 
       zipfile.readEntry()
       zipfile.on('entry', (entry) => {
-        const target = safeJoin(root, entry.fileName)
+        const target = entryTarget(root, entry.fileName)
         if (!target) {
           // Refuse the entry and carry on with the rest. Only reachable for a
           // name yauzl's own validation let through — it rejects the ordinary

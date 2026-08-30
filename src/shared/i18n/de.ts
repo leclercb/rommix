@@ -896,6 +896,7 @@ export const de: Catalog = {
   'error.sessionExpired': 'Sitzung abgelaufen — melden Sie sich erneut an',
   'error.downloadInterrupted':
     'Die Übertragung von RomM brach immer wieder ab, nach {received} von {total}',
+  'error.unsafeName': '{name} ist kein Name, den RomMix auf die Platte schreibt.',
   'error.downloadNotPublished':
     '{name} ist nicht die veröffentlichte Datei. Sie wurde gelöscht statt installiert.',
   'error.downloadCorrupt':

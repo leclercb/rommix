@@ -3,7 +3,9 @@ import type { Dirent } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
 import type { RommRom } from '@shared/types'
+import { safeJoin } from './safepath.ts'
 import { extractZip } from './zip.ts'
+import { t } from './i18n.ts'
 
 /**
  * What a downloaded game turns into on disk.
@@ -92,10 +94,15 @@ export async function unpack(
   asDirectory: boolean,
   flat = false
 ): Promise<InstallResult> {
-  const dirTarget = asDirectory ? targetPath : join(systemDir, rom.fs_name_no_ext)
+  // `targetPath` came through `Library.plan`, which has already refused a name
+  // that leaves the system folder; the staging name is derived here and gets
+  // the same check.
+  const staged = safeJoin(systemDir, rom.fs_name_no_ext)
+  if (!staged) throw new Error(t('error.unsafeName', { name: rom.fs_name }))
+  const dirTarget = asDirectory ? targetPath : staged
   // A lone ROM is staged aside first, because where it ends up depends on what
   // the archive turns out to contain.
-  const staging = asDirectory ? dirTarget : join(systemDir, `.${rom.fs_name_no_ext}.rommix-tmp`)
+  const staging = asDirectory ? dirTarget : `${staged}.rommix-tmp`
 
   await extractZip(archivePath, staging)
   await rm(archivePath, { force: true })
