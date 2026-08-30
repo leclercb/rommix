@@ -1,6 +1,6 @@
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, existsSync } from 'node:fs'
 import { chmod, mkdir, readdir, rename, rm } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { basename, join, relative } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
@@ -152,13 +152,24 @@ export async function installAsset(
   onProgress: (progress: EmulatorInstallProgress) => void
 ): Promise<string> {
   const dir = managedEmulatorDir(emulatorId)
-  // Worth a line of its own: anything previously installed for this emulator is
-  // deleted here, before a single byte of the replacement has arrived.
-  log.info('release', 'clearing the managed directory', { emulator: emulatorId, dir })
-  await rm(dir, { recursive: true, force: true })
-  await mkdir(dir, { recursive: true })
+  /**
+   * The new install is assembled beside the old one, never on top of it.
+   *
+   * Clearing the directory first made the download the only copy in existence
+   * for as long as it took: a refused request, a connection that broke, a
+   * digest that did not match, or the machine losing power left the user with
+   * no emulator at all — having pressed a button that offered to update one
+   * that worked.
+   *
+   * A sibling rather than a temporary directory, because the last step is a
+   * rename and a rename cannot cross filesystems. Anything a previous attempt
+   * left here goes first; it is a scratch directory and nothing reads it.
+   */
+  const staging = `${dir}.incoming`
+  await rm(staging, { recursive: true, force: true })
+  await mkdir(staging, { recursive: true })
 
-  const destination = join(dir, asset.name)
+  const destination = join(staging, asset.name)
   const partial = `${destination}.part`
 
   const response = await fetch(asset.url)
@@ -194,7 +205,7 @@ export async function installAsset(
       asset: asset.name,
       received
     })
-    await rm(partial, { force: true })
+    await rm(staging, { recursive: true, force: true })
     throw cause
   }
   log.info('release', 'asset downloaded', { emulator: emulatorId, asset: asset.name, received })
@@ -202,7 +213,14 @@ export async function installAsset(
   // Before it is made executable, and before it has the name the probe looks
   // for: an emulator is a program this machine is about to run, so the check
   // belongs ahead of anything that makes it runnable.
-  await verifyDownload(partial, asset.digest, { kind: 'emulator', name: asset.name })
+  try {
+    await verifyDownload(partial, asset.digest, { kind: 'emulator', name: asset.name })
+  } catch (cause) {
+    // The staging directory goes with it. The install that is already there is
+    // untouched, which is the whole point of building beside it.
+    await rm(staging, { recursive: true, force: true })
+    throw cause
+  }
 
   // Executable before the rename, so the finished name never exists in a state
   // where it looks installed but cannot be run.
@@ -211,7 +229,29 @@ export async function installAsset(
 
   // By its magic bytes rather than its name: what matters is whether the file
   // is an archive, not what the project chose to call it.
-  return (await isZip(destination)) ? unpackImage(destination, dir) : destination
+  const built = (await isZip(destination)) ? await unpackImage(destination, staging) : destination
+
+  /**
+   * The swap, and the only moment the old install is not there.
+   *
+   * Two renames rather than one: the previous directory is moved aside before
+   * the new one takes its place, so the window where neither is in position is
+   * as short as the kernel can make it, and a failure part-way leaves the old
+   * one recoverable under a name nothing else uses.
+   */
+  const previous = `${dir}.previous`
+  await rm(previous, { recursive: true, force: true })
+  if (existsSync(dir)) await rename(dir, previous)
+  await rename(staging, dir)
+  await rm(previous, { recursive: true, force: true })
+
+  log.info('release', 'the new install is in place', {
+    emulator: emulatorId,
+    asset: asset.name,
+    dir
+  })
+  // Named in the directory it now lives in rather than the one it was built in.
+  return join(dir, relative(staging, built))
 }
 
 /**

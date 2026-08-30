@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ReleaseSource } from '@config/emulators'
@@ -305,5 +314,102 @@ describe('checking an emulator against the digest its release states', () => {
     const dir = join(root, 'emulators', 'eden')
     assert.equal(existsSync(join(dir, mine)), false)
     assert.equal(existsSync(join(dir, `${mine}.part`)), false)
+  })
+})
+
+describe('an install that fails leaves the working one alone', () => {
+  /** An emulator already installed, the way a previous run left it. */
+  async function alreadyInstalled(): Promise<{ root: string; path: string }> {
+    const root = scratchRoot()
+    serve(() => new Response('the one that works'))
+    const path = await installAsset(
+      'eden',
+      { name: mine, url: 'https://git.example/old', sizeBytes: 3, digest: null },
+      () => undefined
+    )
+    return { root, path }
+  }
+
+  test('a refused download does not take the installed emulator with it', async () => {
+    // Pressing update on an emulator that works, and being left with none, is
+    // the outcome this exists to prevent.
+    const { path } = await alreadyInstalled()
+    serve(() => new Response('nope', { status: 500 }))
+
+    await assert.rejects(() =>
+      installAsset(
+        'eden',
+        { name: mine, url: 'https://git.example/new', sizeBytes: 3, digest: null },
+        () => undefined
+      )
+    )
+
+    assert.equal(existsSync(path), true)
+    assert.equal(readFileSync(path, 'utf8'), 'the one that works')
+  })
+
+  test('a download that is not what was published does not either', async () => {
+    const { path } = await alreadyInstalled()
+    serve(() => new Response('a different program entirely'))
+
+    await assert.rejects(() =>
+      installAsset(
+        'eden',
+        {
+          name: mine,
+          url: 'https://git.example/new',
+          sizeBytes: 3,
+          digest: { algorithm: 'sha256', expected: 'b'.repeat(64) }
+        },
+        () => undefined
+      )
+    )
+
+    assert.equal(readFileSync(path, 'utf8'), 'the one that works')
+  })
+
+  test('a successful install still replaces what was there', async () => {
+    // The other half of the same rule: building beside the old copy must not
+    // turn into leaving the old copy behind.
+    const { root } = await alreadyInstalled()
+    serve(() => new Response('the new one'))
+
+    const path = await installAsset(
+      'eden',
+      { name: 'Eden-newer.AppImage', url: 'https://git.example/new', sizeBytes: 3, digest: null },
+      () => undefined
+    )
+
+    const dir = join(root, 'emulators', 'eden')
+    assert.deepEqual(readdirSync(dir), ['Eden-newer.AppImage'])
+    assert.equal(readFileSync(path, 'utf8'), 'the new one')
+  })
+
+  test('nothing is left beside the install once it is done', async () => {
+    const { root } = await alreadyInstalled()
+    const parent = join(root, 'emulators')
+
+    // No `.incoming` or `.previous` scratch directories outlive the install.
+    assert.deepEqual(readdirSync(parent), ['eden'])
+  })
+
+  test('what a killed attempt left behind is cleared rather than adopted', async () => {
+    const { root, path } = await alreadyInstalled()
+    // What losing power part-way through an install leaves on disk.
+    const staging = join(root, 'emulators', 'eden.incoming')
+    mkdirSync(staging, { recursive: true })
+    writeFileSync(join(staging, 'half-written.AppImage'), 'junk')
+
+    serve(() => new Response('the new one'))
+    const installed = await installAsset(
+      'eden',
+      { name: mine, url: 'https://git.example/new', sizeBytes: 3, digest: null },
+      () => undefined
+    )
+
+    assert.equal(readFileSync(installed, 'utf8'), 'the new one')
+    assert.deepEqual(readdirSync(join(root, 'emulators', 'eden')), [mine])
+    assert.equal(existsSync(staging), false)
+    assert.equal(installed, path)
   })
 })
