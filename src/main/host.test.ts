@@ -16,10 +16,7 @@ import {
   installFlatpak,
   isWritable,
   killProcessTree,
-  realHome,
-  stopFlatpakApp,
-  xdgConfigHome,
-  xdgDataHome
+  stopFlatpakApp
 } from './host.ts'
 
 /**
@@ -163,21 +160,6 @@ after(() => {
     if (value === undefined) delete process.env[name]
     else process.env[name] = value
   }
-})
-
-test("the user's own directories follow the environment, and fall back to the home", () => {
-  process.env.HOME = '/home/player'
-  delete process.env.XDG_CONFIG_HOME
-  delete process.env.XDG_DATA_HOME
-
-  assert.equal(realHome(), '/home/player')
-  assert.equal(xdgConfigHome(), '/home/player/.config')
-  assert.equal(xdgDataHome(), '/home/player/.local/share')
-
-  process.env.XDG_CONFIG_HOME = '/elsewhere/config'
-  process.env.XDG_DATA_HOME = '/elsewhere/data'
-  assert.equal(xdgConfigHome(), '/elsewhere/config')
-  assert.equal(xdgDataHome(), '/elsewhere/data')
 })
 
 test('a flatpak is started through flatpak run, with any variables before the app id', () => {

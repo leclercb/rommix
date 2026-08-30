@@ -16,7 +16,7 @@ import type {
 import type { RommClient } from './romm.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
-import { realHome } from './host.ts'
+import { realHome } from './xdg.ts'
 import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import {

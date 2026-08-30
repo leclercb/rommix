@@ -15,15 +15,8 @@ import type { Settings } from '@shared/types'
 import { log } from './log.ts'
 import { managedEmulatorDir } from './releases.ts'
 import { rootPaths } from './root.ts'
-import {
-  binaryPath,
-  findAppImage,
-  findMatchingFile,
-  flatpakLocation,
-  realHome,
-  xdgConfigHome,
-  xdgDataHome
-} from './host.ts'
+import { binaryPath, findAppImage, findMatchingFile, flatpakLocation } from './host.ts'
+import { realHome, xdgConfigHome, xdgDataHome } from './xdg.ts'
 import { t } from './i18n.ts'
 
 /**

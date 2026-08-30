@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { realHome, xdgConfigHome } from './xdg.ts'
 
 /**
  * Where RomMix keeps everything it owns.
@@ -26,19 +26,13 @@ import { join } from 'node:path'
 // convention for an application's folder is lowercase.
 const DEFAULT_DIR_NAME = 'rommix'
 
-/** The user's home directory. */
-function realHome(): string {
-  return process.env.HOME ?? homedir()
-}
-
 /**
  * The pointer file's own location, which cannot itself be configurable.
  * Electron's userData is not used: this has to be readable before `app.ready`,
  * and before the userData path has been redirected at the root.
  */
 function pointerPath(): string {
-  const base = process.env.XDG_CONFIG_HOME ?? join(realHome(), '.config')
-  return join(base, 'rommix', 'root')
+  return join(xdgConfigHome(), 'rommix', 'root')
 }
 
 export function defaultRoot(): string {

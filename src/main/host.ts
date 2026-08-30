@@ -1,11 +1,11 @@
 import { execFile, spawn } from 'node:child_process'
 import { access, constants, readdir } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { APPIMAGE_SEARCH_DIRS } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
 import { log } from './log.ts'
+import { realHome } from './xdg.ts'
 import { t } from './i18n.ts'
 
 /**
@@ -26,23 +26,6 @@ import { t } from './i18n.ts'
  */
 
 const execFileAsync = promisify(execFile)
-
-/** The user's home directory. */
-export function realHome(): string {
-  return process.env.HOME ?? homedir()
-}
-
-/**
- * XDG config and data roots, for reading *other* applications' settings — where
- * RetroArch keeps `retroarch.cfg`, where EmuDeck records its layout.
- */
-export function xdgConfigHome(): string {
-  return process.env.XDG_CONFIG_HOME || join(realHome(), '.config')
-}
-
-export function xdgDataHome(): string {
-  return process.env.XDG_DATA_HOME || join(realHome(), '.local', 'share')
-}
 
 async function run(argv: string[], timeoutMs = 8000): Promise<string | null> {
   const [cmd, ...args] = argv
