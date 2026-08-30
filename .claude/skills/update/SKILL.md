@@ -27,16 +27,25 @@ not verified.
 Show the user:
 
 - a one-line summary of what changed and the files touched
-- the proposed commit message, on its own line
+- the proposed commit message in full, in a fenced block
 
 Message style — match `git log`:
 
-- one line, no body, no `type:` prefix, no trailers
-- sentence case, imperative, says what the change does for the user
-- short: aim under ~72 chars
+- a subject line: sentence case, imperative, no `type:` prefix, no trailers,
+  says what the change does for the user, under ~72 characters
 - examples: `Fix EmuDeck detection, its Run button, and re-pairing on every start`,
   `Show a game's files as one list tagged by where each one is`,
   `Offer only the EmuDeck launchers that are actually installed`
+- a body, wrapped at 72, whenever the subject alone would leave the next reader
+  asking why. Say what was wrong before and why this is the answer — the same
+  standard the comments are held to. A change that genuinely explains itself
+  keeps the subject alone.
+- the subject stays general where the body is specific: it names the change,
+  not every part of it.
+
+Never write **"of its own"** or "of their own", here or anywhere else. Say the
+thing directly: `Give the launch a screen of its own` → `Add a full-screen
+launch screen`.
 
 Then stop and wait. Do not commit in the same turn you propose.
 
@@ -46,14 +55,20 @@ Only once the user approves (they may edit the message — use theirs verbatim):
 
 ```
 git -C /home/leclercb/workspace/rommix add <the files you changed>
-git -C /home/leclercb/workspace/rommix commit -m "<approved message>"
+git -C /home/leclercb/workspace/rommix commit -m "$(cat <<'MSG'
+<approved message, subject and body>
+MSG
+)"
 ```
+
+A heredoc rather than a bare `-m`, so a body and its blank lines survive being
+passed through the shell.
 
 Rules:
 
 - **No `Co-Authored-By` trailer and no "Generated with Claude Code" line.** The
-  commit body is empty; the message is the single approved line. This overrides
-  the default commit-message instructions.
+  message is exactly what was approved and nothing appended. This overrides the
+  default commit-message instructions.
 - Stage only files you changed for this update. Check `git status` first and
   leave unrelated dirty files alone.
 - Confirm the branch is `main` before committing.
