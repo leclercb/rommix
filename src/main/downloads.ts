@@ -985,10 +985,24 @@ export class DownloadManager extends EventEmitter {
 
   /** What is in a system folder, read again only once the last reading is old. */
   private async listing(dir: string): Promise<DirListing> {
+    const now = Date.now()
     const held = this.listings.get(dir)
-    if (held && Date.now() - held.at < LISTING_LIFETIME_MS) return held.reading
+    if (held && now - held.at < LISTING_LIFETIME_MS) return held.reading
+
+    /**
+     * Everything else that has gone stale goes at the same time.
+     *
+     * A reading is otherwise only ever replaced by another look at the same
+     * folder, so a platform browsed once and left behind held its whole
+     * contents until something was downloaded — and a library of any size is
+     * that folder's worth of entries per platform visited, kept for nothing.
+     */
+    for (const [at, entry] of this.listings) {
+      if (now - entry.at >= LISTING_LIFETIME_MS) this.listings.delete(at)
+    }
+
     const reading = listDir(dir)
-    this.listings.set(dir, { at: Date.now(), reading })
+    this.listings.set(dir, { at: now, reading })
     return reading
   }
 
