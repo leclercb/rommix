@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { eden } from './eden/index.ts'
-import { emudeck } from './emudeck/index.ts'
+import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
 import { shadps4 } from './shadps4/index.ts'
@@ -812,4 +812,233 @@ test('the emulators that ship their own cores ask for none', () => {
     if (emulator.id === 'retroarch') continue
     assert.equal(emulator.core, undefined, `${emulator.id} declares a core to install`)
   }
+})
+
+// ---------------------------------------------------------------------------
+// Every launcher EmuDeck offers
+// ---------------------------------------------------------------------------
+
+/**
+ * EmuDeck arranges saves per emulator rather than per system, so its answer is
+ * a table with one entry per launcher it can run — and a table is exactly the
+ * thing that rots quietly. A launcher added without an entry falls through to
+ * the generic shape, which for a memory-card emulator means RomMix uploading
+ * one game's card as another game's save.
+ *
+ * So every launcher of every system is asked, rather than a chosen few.
+ */
+test('every EmuDeck launcher can say where its emulator keeps saves', () => {
+  const library = '/home/deck/Emulation'
+  let asked = 0
+
+  for (const system of Object.keys(EMUDECK_LAUNCHERS)) {
+    for (const launcher of EMUDECK_LAUNCHERS[system]) {
+      const paths = resolve(emudeck, {
+        romPath: `/home/deck/Emulation/roms/${system}/game.bin`,
+        system,
+        variant: launcher.id,
+        paths: { home: library, saves: `${library}/saves`, roms: `${library}/roms` }
+      })
+      asked += 1
+
+      assert.ok(paths, `${system}/${launcher.id} answered nothing`)
+      // A save location that is not under the library is a path built from the
+      // wrong root, which syncs a folder no emulator reads.
+      for (const location of [paths.saves, paths.states]) {
+        if (!location) continue
+        assert.ok(
+          location.dir.startsWith(library),
+          `${system}/${launcher.id}: ${location.dir} is outside the library`
+        )
+      }
+      // A location RomMix cannot sync per game has to say why, or the screen
+      // reports "nothing to sync" and the user is left guessing.
+      if (paths.unsyncableReason) {
+        assert.notEqual(
+          localize(paths.unsyncableReason, ENGLISH),
+          '',
+          `${system}/${launcher.id}: an unsyncable reason that reads as nothing`
+        )
+      }
+    }
+  }
+
+  assert.ok(asked > 40, `only ${asked} launchers asked — the table has shrunk unexpectedly`)
+})
+
+test('a launcher that no longer exists answers nothing, not another emulator’s folders', () => {
+  // `variant` is a recorded choice that outlives the launcher it names, and the
+  // same rule `launch` follows applies here: a choice that has gone is not
+  // quietly downgraded to the default, because answering with a different
+  // emulator's folders is how a save ends up in the wrong place.
+  const library = '/home/deck/Emulation'
+  const where = {
+    romPath: `${library}/roms/snes/game.sfc`,
+    system: 'snes',
+    paths: { home: library, saves: `${library}/saves`, roms: `${library}/roms` }
+  }
+
+  const gone = resolve(emudeck, { ...where, variant: 'no-such-launcher' })
+  assert.equal(gone.saves, null)
+  assert.equal(gone.states, null)
+
+  // Absent is a different thing from unrecognised: nothing was ever chosen, so
+  // EmuDeck's own default is the one that would run.
+  const unchosen = resolve(emudeck, where)
+  assert.deepEqual(unchosen, resolve(emudeck, { ...where, variant: EMUDECK_LAUNCHERS.snes[0].id }))
+})
+
+test('a system EmuDeck cannot run at all answers nothing rather than a wrong folder', () => {
+  const paths = resolve(emudeck, {
+    romPath: '/home/deck/Emulation/roms/nope/game.bin',
+    system: 'not-a-system',
+    paths: { home: '/home/deck/Emulation', saves: '/home/deck/Emulation/saves' }
+  })
+
+  assert.equal(paths.saves, null)
+  assert.equal(paths.states, null)
+})
+
+test('EmuDeck with no save folder yet answers nothing rather than guessing one', () => {
+  // Before its installer has run there is no Emulation folder, and a guessed
+  // path would be a save sync into a directory nothing reads.
+  const paths = resolve(emudeck, {
+    romPath: '/roms/snes/game.sfc',
+    system: 'snes',
+    variant: EMUDECK_LAUNCHERS.snes[0].id,
+    paths: { home: null, saves: null }
+  })
+
+  assert.equal(paths.saves, null)
+  assert.equal(paths.states, null)
+})
+
+// ---------------------------------------------------------------------------
+// Every component RetroDECK can hand a game to
+// ---------------------------------------------------------------------------
+
+/**
+ * RetroDECK's answer is "wherever the component I chose puts them", and which
+ * component that is comes out of the user's own ES-DE configuration. So the
+ * table is indexed by component rather than by system, and the same risk
+ * applies as for EmuDeck: a component with no entry falls through to the
+ * libretro shape, which for a per-game-id emulator like PPSSPP means syncing a
+ * folder that belongs to no game in particular.
+ *
+ * Each component is reached the way a real machine reaches it — through an
+ * `<alternativeEmulator>` in the system's gamelist, which is the file ES-DE
+ * writes and RetroDECK reads.
+ */
+const RETRODECK_COMPONENT_LABELS = [
+  'pcsx2',
+  'duckstation',
+  'dolphin',
+  'primehack',
+  'ppsspp',
+  'rpcs3',
+  'vita3k',
+  'azahar',
+  'cemu',
+  'xemu',
+  'ruffle',
+  'gzdoom',
+  'solarus',
+  'melonds',
+  'mame',
+  'xroar'
+] as const
+
+test('every RetroDECK component says where it keeps a game’s saves', () => {
+  const home = '/home/deck/retrodeck'
+
+  for (const label of RETRODECK_COMPONENT_LABELS) {
+    const paths = resolve(retrodeck, {
+      romPath: `${home}/roms/ps2/game.iso`,
+      system: 'ps2',
+      paths: {
+        home,
+        roms: `${home}/roms`,
+        saves: `${home}/saves`,
+        states: `${home}/states`
+      },
+      env: machine({
+        files: {
+          // ES-DE writes the system-wide override in a header before the
+          // entries; `(Standalone)` is the suffix that separates a program
+          // from a libretro core.
+          [`${home}/ES-DE/gamelists/ps2/gamelist.xml`]:
+            `<?xml version="1.0"?>\n<gameList>\n  <alternativeEmulator>` +
+            `<label>${label} (Standalone)</label></alternativeEmulator>\n</gameList>`
+        }
+      })
+    })
+
+    assert.ok(paths, `${label} answered nothing`)
+    // The component tags the save, not the frontend: a save written by
+    // RetroDECK's PCSX2 is a PCSX2 save, and tagging it "retrodeck" would make
+    // it unreadable to anyone running PCSX2 any other way.
+    assert.equal(paths.emulator, label, `${label}: tagged as ${paths.emulator}`)
+
+    for (const location of [paths.saves, paths.states]) {
+      if (!location) continue
+      assert.ok(
+        location.dir.startsWith(home),
+        `${label}: ${location.dir} is outside the RetroDECK tree`
+      )
+    }
+    if (paths.unsyncableReason) {
+      assert.notEqual(localize(paths.unsyncableReason, ENGLISH), '', `${label}: an empty reason`)
+    }
+  }
+})
+
+test('a component RetroDECK does not know is still a core, and tagged as one', () => {
+  // An unrecognised label still means "a core", which is what the RetroArch
+  // fallback already is — so the game stays syncable rather than going dark.
+  const home = '/home/deck/retrodeck'
+  const paths = resolve(retrodeck, {
+    romPath: `${home}/roms/snes/game.sfc`,
+    system: 'snes',
+    paths: { home, roms: `${home}/roms`, saves: `${home}/saves`, states: `${home}/states` },
+    env: machine({
+      files: {
+        [`${home}/ES-DE/gamelists/snes/gamelist.xml`]:
+          '<gameList><alternativeEmulator><label>Something New</label>' +
+          '</alternativeEmulator></gameList>'
+      }
+    })
+  })
+
+  assert.equal(paths.emulator, 'retroarch')
+  assert.ok(paths.saves)
+})
+
+test('a per-game override beats the system-wide one', () => {
+  // ES-DE writes the per-game choice inside the `<game>` block whose `<path>`
+  // is `./<file name>`, and that is the one that ran the game.
+  const home = '/home/deck/retrodeck'
+  const gamelist =
+    '<gameList>\n' +
+    '<alternativeEmulator><label>duckstation (Standalone)</label></alternativeEmulator>\n' +
+    '<game><path>./game.iso</path><altemulator>pcsx2 (Standalone)</altemulator></game>\n' +
+    '</gameList>'
+
+  const paths = resolve(retrodeck, {
+    romPath: `${home}/roms/ps2/game.iso`,
+    system: 'ps2',
+    paths: { home, roms: `${home}/roms`, saves: `${home}/saves`, states: `${home}/states` },
+    env: machine({ files: { [`${home}/ES-DE/gamelists/ps2/gamelist.xml`]: gamelist } })
+  })
+
+  assert.equal(paths.emulator, 'pcsx2')
+})
+
+test('RetroDECK with no library yet answers nothing rather than guessing', () => {
+  const paths = resolve(retrodeck, {
+    romPath: '/roms/ps2/game.iso',
+    system: 'ps2',
+    paths: { home: null, saves: null, states: null }
+  })
+
+  assert.equal(paths.saves, null)
 })
