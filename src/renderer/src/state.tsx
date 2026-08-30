@@ -124,7 +124,6 @@ interface AppState {
   settings: Settings | null
   saveSettings: (patch: Partial<Settings>) => Promise<void>
 
-  downloads: DownloadItem[]
   installed: InstalledRom[]
   installedIds: Set<number>
   refreshInstalled: () => Promise<void>
@@ -181,11 +180,27 @@ interface AppState {
   /** Whether this screen hangs off another. See `navigate`, and `App.back`. */
   canGoBack: boolean
 
-  toasts: Toast[]
   notify: (message: string, tone?: Toast['tone'], subject?: ToastSubject) => void
 }
 
 const AppContext = createContext<AppState | null>(null)
+
+/**
+ * The two things that change while nobody has touched anything, each on a
+ * context of its own.
+ *
+ * A transfer reports progress several times a second and a notification comes
+ * and goes on a timer, so both would invalidate an application state every
+ * screen reads — and a screen redrawn on a timer is a screen redrawn while the
+ * player is looking at it. Held apart, a tick reaches the progress bars and the
+ * one notification tray and nothing else.
+ *
+ * What is *done* to them stays on `AppState`: `notify` never changes, so a
+ * component that only raises notifications is not a component that redraws for
+ * them.
+ */
+const DownloadsContext = createContext<DownloadItem[] | null>(null)
+const ToastsContext = createContext<Toast[] | null>(null)
 
 let toastId = 0
 
@@ -457,7 +472,6 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       refreshStatus,
       settings,
       saveSettings,
-      downloads,
       installed,
       installedIds,
       refreshInstalled,
@@ -471,7 +485,6 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       replace,
       goBack,
       canGoBack,
-      toasts,
       notify
     }),
     [
@@ -480,7 +493,6 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       refreshStatus,
       settings,
       saveSettings,
-      downloads,
       installed,
       installedIds,
       refreshInstalled,
@@ -494,17 +506,36 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       replace,
       goBack,
       canGoBack,
-      toasts,
       notify
     ]
   )
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  return (
+    <AppContext.Provider value={value}>
+      <DownloadsContext.Provider value={downloads}>
+        <ToastsContext.Provider value={toasts}>{children}</ToastsContext.Provider>
+      </DownloadsContext.Provider>
+    </AppContext.Provider>
+  )
 }
 
 export function useApp(): AppState {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('useApp must be used inside an AppProvider')
+  return ctx
+}
+
+/** The download queue, for the screens that draw it. See `DownloadsContext`. */
+export function useDownloads(): DownloadItem[] {
+  const ctx = useContext(DownloadsContext)
+  if (!ctx) throw new Error('useDownloads must be used inside an AppProvider')
+  return ctx
+}
+
+/** The notifications on screen, for the tray that draws them. Same note. */
+export function useToasts(): Toast[] {
+  const ctx = useContext(ToastsContext)
+  if (!ctx) throw new Error('useToasts must be used inside an AppProvider')
   return ctx
 }
 

@@ -17,7 +17,7 @@ import {
   useSuspendGamepad
 } from './input/focus'
 import { Icon, type IconName } from './icons'
-import { useApp, useI18n, type Route, type Toast } from './state'
+import { useApp, useDownloads, useI18n, useToasts, type Route } from './state'
 import { BiosScreen } from './screens/Bios'
 import { ConnectScreen } from './screens/Connect'
 import { GameScreen } from './screens/Game'
@@ -32,18 +32,8 @@ import { SettingsScreen } from './screens/Settings'
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
   const { t } = useI18n()
-  const {
-    route,
-    goBack,
-    canGoBack,
-    navigate,
-    downloads,
-    runningRomId,
-    runningEmulator,
-    toasts,
-    status,
-    update
-  } = useApp()
+  const { route, goBack, canGoBack, navigate, runningRomId, runningEmulator, status, update } =
+    useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
 
@@ -87,14 +77,10 @@ export function App(): JSX.Element {
       <div className="app">
         <ConnectScreen />
         {covered ? <RunningOverlay /> : null}
-        <Toasts toasts={toasts} />
+        <Toasts />
       </div>
     )
   }
-
-  const activeDownloads = downloads.filter(
-    (item) => item.state === 'downloading' || item.state === 'queued' || item.state === 'extracting'
-  ).length
 
   /**
    * The new version, on the menu item that leads to it.
@@ -143,13 +129,7 @@ export function App(): JSX.Element {
               route={{ name: 'collections' }}
               active={route.name === 'collections' || route.name === 'collection'}
             />
-            <NavItem
-              icon="downloads"
-              label={t('nav.downloads')}
-              route={{ name: 'downloads' }}
-              active={route.name === 'downloads'}
-              badge={activeDownloads > 0 ? activeDownloads : undefined}
-            />
+            <DownloadsNavItem active={route.name === 'downloads'} />
             <NavItem
               icon="bios"
               label={t('nav.bios')}
@@ -204,8 +184,33 @@ export function App(): JSX.Element {
       {confirmingQuit ? <QuitOverlay onCancel={() => setConfirmingQuit(false)} /> : null}
 
       {covered ? <RunningOverlay /> : null}
-      <Toasts toasts={toasts} />
+      <Toasts />
     </div>
+  )
+}
+
+/**
+ * The menu item that counts what is being fetched.
+ *
+ * Its own component so that the queue is read here and nowhere above: a
+ * transfer reports progress several times a second, and the bar is drawn beside
+ * whatever screen the player is on. See `DownloadsContext`.
+ */
+function DownloadsNavItem({ active }: { active: boolean }): JSX.Element {
+  const { t } = useI18n()
+  const downloads = useDownloads()
+  const busy = downloads.filter(
+    (item) => item.state === 'downloading' || item.state === 'queued' || item.state === 'extracting'
+  ).length
+
+  return (
+    <NavItem
+      icon="downloads"
+      label={t('nav.downloads')}
+      route={{ name: 'downloads' }}
+      active={active}
+      badge={busy > 0 ? busy : undefined}
+    />
   )
 }
 
@@ -416,7 +421,9 @@ function RunningActions(): JSX.Element {
  * happened; one about the app is just the message. The uniformity is the point:
  * every notification concerning a game says which game, in the same place.
  */
-function Toasts({ toasts }: { toasts: Toast[] }): JSX.Element {
+function Toasts(): JSX.Element {
+  const toasts = useToasts()
+
   return (
     <div className="toasts">
       {toasts.map((toast) => (

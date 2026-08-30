@@ -13,7 +13,7 @@ import {
 } from '../../components'
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
-import { useApp, useI18n } from '../../state'
+import { useApp, useDownloads, useI18n } from '../../state'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
 /** The two jobs this screen does, split so neither buries the other. */
@@ -66,7 +66,8 @@ function isActive(item: DownloadItem): boolean {
 /** Transfer queue plus everything currently on local disk. */
 export function DownloadsScreen(): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { downloads, installed, navigate, notify, refreshInstalled, settings } = useApp()
+  const { installed, navigate, notify, refreshInstalled, settings } = useApp()
+  const downloads = useDownloads()
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState<{ checked: number; total: number } | null>(null)
   const [confirming, setConfirming] = useState<InstalledRom | null>(null)

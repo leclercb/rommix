@@ -4,7 +4,7 @@ import { resolveSystem } from '@config/systems'
 import type { BiosPlatform, InstalledRom, LaunchChoice, RommRom } from '@shared/types'
 import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
 import { Icon } from '../../icons'
-import { useApp, useI18n } from '../../state'
+import { useApp, useDownloads, useI18n } from '../../state'
 import { CollectionsDialog } from './CollectionsDialog'
 import { GameHero } from './GameHero'
 import {
@@ -26,7 +26,6 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
   const { t, formatBytes } = useI18n()
   const {
     installed,
-    downloads,
     runningRomId,
     goBack,
     navigate,
@@ -35,6 +34,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     saveSettings,
     settings
   } = useApp()
+  const downloads = useDownloads()
 
   const [rom, setRom] = useState<RommRom | null>(null)
   const [error, setError] = useState<string | null>(null)
