@@ -271,7 +271,8 @@ export interface RommFirmware {
   file_size_bytes: number
   /** True once RomM has matched the file against its known-good hashes. */
   is_verified: boolean
-  md5_hash: string
+  /** Null until RomM has scanned the file, the same as every other hash here. */
+  md5_hash: string | null
   missing_from_fs: boolean
   created_at: string
   updated_at: string

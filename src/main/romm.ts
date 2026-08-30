@@ -1016,15 +1016,20 @@ export class RommClient {
     )
     // Checked here rather than left to the emulator, which has no way to say
     // so: a BIOS that is the wrong bytes is a console that hangs on a black
-    // screen, and nothing on the way to that names the file. RomM records a
-    // digest for every firmware file it holds, so there is always one to ask.
-    await this.verify(
-      destination,
-      { algorithm: 'md5', expected: item.md5_hash },
-      // Under its own name: a firmware id logged as a ROM id sends whoever
-      // reads the line looking for a game that does not exist.
-      { kind: 'firmware', firmwareId: item.id, fileName: item.file_name }
-    )
+    // screen, and nothing on the way to that names the file.
+    //
+    // Only where RomM has a digest to compare against. It records one for the
+    // firmware it has scanned, and a check that cannot be made is not a
+    // failure — refusing the file would leave the emulator with no BIOS at all.
+    if (item.md5_hash) {
+      await this.verify(
+        destination,
+        { algorithm: 'md5', expected: item.md5_hash },
+        // Under its own name: a firmware id logged as a ROM id sends whoever
+        // reads the line looking for a game that does not exist.
+        { kind: 'firmware', firmwareId: item.id, fileName: item.file_name }
+      )
+    }
     log.info('romm', 'firmware downloaded', {
       firmwareId: item.id,
       fileName: item.file_name,
