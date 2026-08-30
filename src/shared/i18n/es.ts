@@ -284,6 +284,8 @@ export const es: Catalog = {
   'downloads.title': 'Descargas',
   'downloads.onDisk_one': '{count} juego en el disco · {size}',
   'downloads.onDisk_other': '{count} juegos en el disco · {size}',
+  'downloads.now': 'Descargar ahora',
+  'downloads.next': 'Descargar a continuación',
   'downloads.notResumable': 'no se puede reanudar',
   'downloads.state.paused': 'En pausa',
   'downloads.state.queued': 'En espera',

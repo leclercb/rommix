@@ -48,6 +48,7 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
     return downloads.enqueue(rom)
   })
 
+  handle('downloads:promote', (romId: number) => downloads.promote(romId))
   handle('downloads:pause', (romId: number) => downloads.pause(romId))
   handle('downloads:cancel', (romId: number) => downloads.cancel(romId))
   handle('downloads:clearFinished', () => downloads.clearFinished())

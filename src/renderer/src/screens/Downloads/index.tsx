@@ -113,6 +113,19 @@ export function DownloadsScreen(): JSX.Element {
   }
 
   const active = downloads.filter(isActive)
+  // The transfer that runs next, which is the one row where the button would
+  // change nothing.
+  const firstWaiting = downloads.find((item) => item.state === 'queued')?.romId
+  /**
+   * Whether pressing it starts the game straight away or only moves it up.
+   *
+   * What is on the wire is interrupted to let another past — unless it cannot
+   * be resumed, in which case interrupting it would throw away everything it
+   * has fetched, and the promoted game takes the turn after instead. Two
+   * outcomes, so two words: a button that said "now" and meant "next" would be
+   * the one thing worse than not having it.
+   */
+  const interrupts = downloads.find((item) => item.state === 'downloading')?.resumable !== false
   const finished = downloads.filter(
     (item) => item.state === 'done' || item.state === 'error' || item.state === 'cancelled'
   )
@@ -237,6 +250,15 @@ export function DownloadsScreen(): JSX.Element {
                   onCancel={() => void window.rommix.downloads.cancel(item.romId)}
                   onPause={() => void window.rommix.downloads.pause(item.romId)}
                   onResume={() => void window.rommix.downloads.start(item.romId)}
+                  // Only where it would do something: on a transfer that is
+                  // waiting, and not on the one already at the front of the
+                  // queue, whose button would move nothing.
+                  onNext={
+                    item.state === 'queued' && item.romId !== firstWaiting
+                      ? () => void window.rommix.downloads.promote(item.romId)
+                      : undefined
+                  }
+                  interrupts={interrupts}
                 />
               ))}
             </>
@@ -451,13 +473,19 @@ function ProgressRow({
   onSelect,
   onCancel,
   onPause,
-  onResume
+  onResume,
+  onNext,
+  interrupts = true
 }: {
   item: DownloadItem
   onSelect: () => void
   onCancel?: () => void
   onPause?: () => void
   onResume?: () => void
+  /** Offered only where it would change the order. See `DownloadManager.promote`. */
+  onNext?: () => void
+  /** Whether pressing that starts this game now or only moves it up the queue. */
+  interrupts?: boolean
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
@@ -478,7 +506,7 @@ function ProgressRow({
     (item.state === 'downloading' || item.state === 'queued')
   // The column the buttons need is added for the buttons there actually are,
   // not for one of them: a row that only offers Resume needs it just as much.
-  const acts = Boolean(onCancel) || resumable || stoppable
+  const acts = Boolean(onCancel) || resumable || stoppable || Boolean(onNext)
 
   return (
     <div
@@ -529,6 +557,14 @@ function ProgressRow({
       </div>
       {acts ? (
         <div className="download__actions">
+          {/* First, because it is the one that decides what the other two are
+              about: a small game moved past a large one is the difference
+              between playing it now and pausing something to get at it. */}
+          {onNext ? (
+            <FocusButton icon="next" onSelect={onNext}>
+              {interrupts ? t('downloads.now') : t('downloads.next')}
+            </FocusButton>
+          ) : null}
           {resumable ? (
             <FocusButton icon="download" onSelect={onResume}>
               {t('action.resume')}

@@ -203,6 +203,11 @@ export interface RomMixBridge {
      * Stop a transfer, keeping what has arrived so it can be finished later.
      * `start` is what resumes it. See `DownloadState`.
      */
+    /**
+     * Start a waiting transfer now, interrupting whatever is on the wire and
+     * letting it carry on afterwards. See `DownloadManager.promote`.
+     */
+    promote(romId: number): Promise<void>
     pause(romId: number): Promise<void>
     /** Stop it and throw away the part that arrived. */
     cancel(romId: number): Promise<void>

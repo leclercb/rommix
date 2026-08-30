@@ -297,6 +297,8 @@ export const de: Catalog = {
   'downloads.title': 'Downloads',
   'downloads.onDisk_one': '{count} Spiel auf der Platte · {size}',
   'downloads.onDisk_other': '{count} Spiele auf der Platte · {size}',
+  'downloads.now': 'Jetzt laden',
+  'downloads.next': 'Als Nächstes laden',
   'downloads.notResumable': 'nicht fortsetzbar',
   'downloads.state.paused': 'Pausiert',
   'downloads.state.queued': 'Wartet',

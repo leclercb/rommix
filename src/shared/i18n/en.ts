@@ -293,6 +293,8 @@ export const en = {
   'downloads.title': 'Downloads',
   'downloads.onDisk_one': '{count} game on disk · {size}',
   'downloads.onDisk_other': '{count} games on disk · {size}',
+  'downloads.now': 'Download now',
+  'downloads.next': 'Download next',
   'downloads.notResumable': 'cannot be resumed',
   'downloads.state.paused': 'Paused',
   'downloads.state.queued': 'Waiting',

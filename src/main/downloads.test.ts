@@ -370,6 +370,98 @@ describe('a download that runs to the end', () => {
   })
 })
 
+describe('changing the order of the queue', () => {
+  /** Three games queued behind one another, the last of them the small one. */
+  const three = (): RommRom[] => [
+    rom({ id: 1, fs_name: 'One.md', fs_name_no_ext: 'One' }),
+    rom({ id: 2, fs_name: 'Two.md', fs_name_no_ext: 'Two' }),
+    rom({ id: 3, fs_name: 'Three.md', fs_name_no_ext: 'Three' })
+  ]
+
+  /**
+   * The same three, as the library the queue fetches them from.
+   *
+   * Only the first is handed to `enqueue` by the pump — every other item is
+   * looked up again when its turn comes, so a queue that is meant to run to the
+   * end needs a client that can answer for all of them.
+   */
+  const library = (): Record<number, RommRom> =>
+    Object.fromEntries(three().map((game) => [game.id, game]))
+
+  test('a promoted transfer takes the place of the one on the wire', async () => {
+    const { downloads } = manager({ contents: '0123456789' })
+    for (const game of three()) downloads.enqueue(game)
+
+    downloads.promote(3)
+
+    // Ahead of the transfer it overtook, which is what makes it the next one
+    // the queue reaches.
+    assert.deepEqual(
+      downloads.items.map((item) => item.romId),
+      [3, 1, 2]
+    )
+  })
+
+  test('the transfer it overtook carries on by itself once the other is done', async () => {
+    /**
+     * `breakAfter` stands in for the interruption.
+     *
+     * The client here writes its bytes and returns without ever looking at the
+     * abort signal, so nothing in this file can stop a transfer mid-flight —
+     * that the real one honours the signal is `romm.test.ts`'s subject. What is
+     * under test is what the queue does with a transfer that stopped while it
+     * was marked as overtaken: where it goes, whether anything has to be
+     * pressed to bring it back, and whether it starts again from nothing.
+     */
+    const made = manager({ contents: '0123456789', breakAfter: 4, roms: library() })
+    for (const game of three()) made.downloads.enqueue(game)
+    const allDone = new Promise<void>((resolve) => {
+      made.downloads.on('update', (items: DownloadItem[]) => {
+        if (items.length === 3 && items.every((item) => item.state === 'done')) resolve()
+      })
+    })
+
+    made.downloads.promote(3)
+    await allDone
+
+    // Nobody pressed anything: the queue reached it again on its own.
+    assert.deepEqual(
+      made.downloads.items.map((item) => item.state),
+      ['done', 'done', 'done']
+    )
+    // And picked it up rather than fetching it a second time — exactly one of
+    // the four attempts was a resume, which is the one that was overtaken.
+    assert.equal(made.resumed.filter(Boolean).length, 1)
+  })
+
+  test('a transfer that cannot be resumed is not interrupted', async () => {
+    // Nothing to pick up afterwards, so overtaking it would cost everything it
+    // has fetched. The promoted game takes the turn after instead.
+    const { downloads } = manager({ contents: '0123456789', ranges: false })
+    for (const game of three()) downloads.enqueue(game)
+
+    downloads.promote(3)
+
+    assert.equal(downloads.items.find((item) => item.romId === 1)?.state, 'downloading')
+  })
+
+  test('the one already next is left alone, and so is anything not waiting', async () => {
+    const { downloads } = manager({ contents: '0123456789' })
+    for (const game of three()) downloads.enqueue(game)
+    const before = downloads.items.map((item) => item.romId)
+
+    // On the wire rather than waiting, so there is nothing to bring forward.
+    downloads.promote(1)
+    // Not in the queue at all.
+    downloads.promote(404)
+
+    assert.deepEqual(
+      downloads.items.map((item) => item.romId),
+      before
+    )
+  })
+})
+
 describe('adopting what is already on disk', () => {
   /** A ROM folder with these files in it, and a manager pointed at it. */
   function withFiles(files: string[], system = 'genesis'): ReturnType<typeof manager> {

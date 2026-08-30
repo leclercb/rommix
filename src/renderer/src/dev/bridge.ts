@@ -267,20 +267,34 @@ function queued(
  * import time.
  */
 const downloadQueue = (): DownloadItem[] => [
-  // Seven games none of which are in `INSTALLED`, the finished one excepted:
-  // that is what `done` means, and it is why Beneath a Steel Sky is on the
-  // shelf above. At 69 MB it is also the only game here big enough to have been
-  // worth watching arrive, so it is the one the queue remembers.
-  queued(83, 'downloading', 1_500_000),
-  // One from a server that cannot send a game in pieces, which is the row that
-  // offers Cancel and no Pause, and says why.
-  queued(163, 'downloading', part(163, 0.55), false),
-  // A disc set, fetched a track at a time: the row names the one arriving.
+  /**
+   * One transfer on the wire, because that is all RomMix ever has.
+   *
+   * The queue is drained one at a time — see `DownloadManager.pump` — so a
+   * screen showing three at once would teach a visitor something about the app
+   * that is not true. It costs a row: a game the server cannot send in pieces,
+   * which offers Cancel and no Pause and says why, cannot be shown beside this
+   * one. The two are mutually exclusive anyway — a game fetched a file at a
+   * time is resumable by definition — and a paused row cannot stand in for it,
+   * because a transfer that cannot be resumed is one the screen will not offer
+   * to pause.
+   *
+   * The one that stays is the disc set, which names the track arriving: it is
+   * the richer row, and multi-disc games are something RomMix does that most of
+   * what it replaces does not.
+   */
   { ...queued(154, 'downloading', part(154, 0.25)), currentFile: 'Track 02.bin' },
+  // Two waiting rather than one, because the order of what is waiting is
+  // something the screen lets you change: the second offers `Download next`
+  // and the first does not, that button being the one thing it cannot do.
   queued(144, 'queued', 0),
+  queued(162, 'queued', 0),
   // A transfer the network took away, kept so it can be finished — the one row
   // on this screen that offers something to press other than Cancel.
   queued(149, 'paused', part(149, 0.4)),
+  // Finished and failed, which are the section below rather than the queue.
+  // Neither is in `INSTALLED` bar the finished one: that is what `done` means,
+  // and it is why Beneath a Steel Sky is on the shelf above.
   queued(139, 'done', romById(139).fs_size_bytes),
   queued(95, 'error', 0)
 ]
@@ -744,6 +758,7 @@ const bridge: RomMixBridge = {
      */
     list: () => later(downloadQueue()),
     start: () => refuse(),
+    promote: () => refuse(),
     pause: () => refuse(),
     cancel: () => refuse(),
     clearFinished: () => refuse(),

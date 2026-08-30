@@ -288,6 +288,8 @@ export const fr: Catalog = {
   'downloads.title': 'Téléchargements',
   'downloads.onDisk_one': '{count} jeu sur le disque · {size}',
   'downloads.onDisk_other': '{count} jeux sur le disque · {size}',
+  'downloads.now': 'Télécharger maintenant',
+  'downloads.next': 'Télécharger ensuite',
   'downloads.notResumable': 'reprise impossible',
   'downloads.state.paused': 'En pause',
   'downloads.state.queued': 'En attente',

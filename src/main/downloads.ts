@@ -139,6 +139,16 @@ export class DownloadManager extends EventEmitter {
    */
   private readonly pausing = new Set<number>()
   /**
+   * ROMs whose transfer is being interrupted to let another one past.
+   *
+   * The same abort as a pause, and a different outcome: the transfer keeps its
+   * bytes and goes back into the queue rather than stopping, so it carries on
+   * by itself once the one that overtook it is done. Recorded here for the same
+   * reason `pausing` is — by the time `runOne` sees the exception, an abort is
+   * an abort.
+   */
+  private readonly requeueing = new Set<number>()
+  /**
    * System folders as they were last read, for a moment. See
    * `LISTING_LIFETIME_MS`.
    *
@@ -384,6 +394,54 @@ export class DownloadManager extends EventEmitter {
    * download is one press away from starting it again, and a partial file
    * halfway through being removed is exactly what must not be resumed onto.
    */
+  /**
+   * Start a waiting transfer now, and let the one it overtook carry on after.
+   *
+   * The queue is drained one at a time and in order, so a small game asked for
+   * behind a large one waits for all of it — which, on a slow link, is the
+   * difference between playing it this evening and not. The order is the
+   * user's to change.
+   *
+   * What is running is interrupted rather than stopped: it keeps every byte,
+   * goes back into the queue directly behind the one that overtook it, and
+   * resumes by itself when its turn comes round again. Nothing has to be
+   * pressed to bring it back. `resume` is read from the record on disk rather
+   * than from the row's state, which is what makes that free.
+   *
+   * A transfer that cannot be resumed is left alone: interrupting it would
+   * throw away everything it has fetched, so the promoted game takes the next
+   * turn instead of this one. See `DownloadItem.resumable`.
+   */
+  promote(romId: number): void {
+    const at = this.queue.findIndex((item) => item.romId === romId && item.state === 'queued')
+    if (at < 0) return
+
+    const running = this.queue.find((item) => item.state === 'downloading')
+    // Where it goes: into the running transfer's place, so that the one it
+    // displaces comes back directly behind it rather than in front of it.
+    const to = running
+      ? this.queue.indexOf(running)
+      : this.queue.findIndex((item) => item.state === 'queued')
+    if (to === at) return
+
+    const [item] = this.queue.splice(at, 1)
+    this.queue.splice(to, 0, item)
+
+    const interrupt = running !== undefined && running.resumable !== false
+    log.info('download', 'moved to the front of the queue', {
+      romId,
+      name: item.name,
+      interrupted: interrupt ? running.romId : null
+    })
+    this.emitUpdate()
+
+    if (!interrupt) return
+    // The abort lands in `runOne`, which reads the intent back out and puts the
+    // transfer into the queue rather than into a paused row.
+    this.requeueing.add(running.romId)
+    this.controllers.get(running.romId)?.abort()
+  }
+
   async cancel(romId: number): Promise<void> {
     this.controllers.get(romId)?.abort()
     const item = this.queue.find((i) => i.romId === romId)
@@ -625,7 +683,8 @@ export class DownloadManager extends EventEmitter {
       this.emitUpdate()
     } catch (cause) {
       const asked = this.pausing.delete(rom.id)
-      const cancelled = controller.signal.aborted && !asked
+      const overtaken = this.requeueing.delete(rom.id)
+      const cancelled = controller.signal.aborted && !asked && !overtaken
       const detail = {
         romId: rom.id,
         name: item.name,
@@ -639,7 +698,7 @@ export class DownloadManager extends EventEmitter {
       // resume and is simply an error. Nothing can be done with the bytes of a
       // transfer that cannot be resumed either, so those go with it rather than
       // sitting on the disk behind a button that would fetch it all again.
-      const disposable = cancelled || item.resumable === false
+      const disposable = cancelled || (item.resumable === false && !overtaken)
       const carried = holding ? await this.keepPartial(rom.id, holding, disposable) : 0
 
       // Nothing is arriving any more, so the row stops naming a file. Left set,
@@ -647,11 +706,21 @@ export class DownloadManager extends EventEmitter {
       // after a restart saying it too, since the row is rebuilt from a record
       // that never knew about it.
       item.currentFile = undefined
-      item.state = cancelled ? 'cancelled' : asked || carried > 0 ? 'paused' : 'error'
-      item.error = cancelled || asked || carried > 0 ? null : (cause as Error).message
+      item.state = cancelled
+        ? 'cancelled'
+        : // Back into the queue rather than into a paused row: it was not
+          // stopped, it was overtaken, and it goes on when its turn returns.
+          overtaken
+          ? 'queued'
+          : asked || carried > 0
+            ? 'paused'
+            : 'error'
+      item.error = cancelled || asked || overtaken || carried > 0 ? null : (cause as Error).message
       item.receivedBytes = carried > 0 ? carried : item.receivedBytes
 
-      if (cancelled) log.info('download', 'abandoned after cancellation', detail)
+      if (overtaken)
+        log.info('download', 'let another transfer past', { ...detail, received: carried })
+      else if (cancelled) log.info('download', 'abandoned after cancellation', detail)
       else if (asked) log.info('download', 'stopped on request', { ...detail, received: carried })
       else if (carried > 0)
         log.warn('download', 'paused part-way', { ...detail, received: carried })
