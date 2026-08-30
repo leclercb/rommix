@@ -354,7 +354,10 @@ function RunningOverlay(): JSX.Element {
   if (runningEmulator) {
     return (
       <Overlay title={t('app.emulatorRunning', { name: runningEmulator })}>
-        <p className="muted">{t('app.emulatorOpened', { name: runningEmulator })}</p>
+        {/* The name is already the title above; saying it twice in two lines
+            is one line too many. What is left is the same sentence a running
+            game gets, which is the only thing the two situations share. */}
+        <p className="muted">{t('app.emulatorHasFocus')}</p>
         <RunningActions />
       </Overlay>
     )

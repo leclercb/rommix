@@ -95,9 +95,7 @@ export const en = {
   'app.gameRunning': 'Game running',
   'app.emulatorHasFocus': 'The emulator has focus. Quit it to come back.',
   'app.emulatorRunning': '{name} is running',
-  'app.emulatorOpened':
-    '{name} has focus. Quit it to come back — nothing is being played, so there is nothing to ' +
-    'sync.',
+
   'app.holdToClose': 'Hold {key} to close it from here.',
   'app.closeEmulator': 'Close the emulator',
   'app.notClosing': 'It has not closed. Forcing it loses anything it has not saved.',
