@@ -867,6 +867,8 @@ export const en = {
   'error.sessionExpired': 'Session expired — sign in again',
   'error.downloadInterrupted':
     'The transfer from RomM kept breaking off, after {received} of {total}',
+  'error.downloadNotPublished':
+    '{name} is not the file that was published. It has been deleted rather than installed.',
   'error.downloadCorrupt': 'What arrived is not the file RomM holds, so it has been discarded',
   'error.emptyResponseBody': 'RomM returned an empty response body',
   'error.emptyAssetBody': 'Empty asset body',

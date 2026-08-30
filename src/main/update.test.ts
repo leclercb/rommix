@@ -61,7 +61,7 @@ const foreign = process.arch === 'arm64' ? 'x86_64' : 'arm64'
 const mine = process.arch === 'arm64' ? 'arm64' : 'x86_64'
 
 function asset(name: string): UpdateAsset {
-  return { name, url: `https://example.invalid/${name}`, sizeBytes: 1024 }
+  return { name, url: `https://example.invalid/${name}`, sizeBytes: 1024, digest: null }
 }
 
 test('the image built for this machine is the one chosen', () => {

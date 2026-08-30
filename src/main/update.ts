@@ -5,6 +5,7 @@ import { dirname } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { UpdatePolicy, UpdateStatus } from '@shared/types'
+import { parseDigest, verifyDownload, type Digest } from './integrity.ts'
 import { log } from './log.ts'
 // The architecture predicate, which is about this machine rather than about
 // emulators — RomMix publishes an x86_64 and an arm64 image per release, and
@@ -63,7 +64,7 @@ interface GithubRelease {
   tag_name?: string
   body?: string
   html_url?: string
-  assets?: { name?: string; browser_download_url?: string; size?: number }[]
+  assets?: { name?: string; browser_download_url?: string; size?: number; digest?: string }[]
 }
 
 /** One downloadable file from a release. */
@@ -71,6 +72,8 @@ export interface UpdateAsset {
   name: string
   url: string
   sizeBytes: number
+  /** What GitHub says it published, or null on a release predating the field. */
+  digest: Digest | null
 }
 
 /**
@@ -324,13 +327,20 @@ export class Updater {
 
       const assets: UpdateAsset[] = (release.assets ?? [])
         .filter(
-          (asset): asset is { name: string; browser_download_url: string; size?: number } =>
-            typeof asset.name === 'string' && typeof asset.browser_download_url === 'string'
+          (
+            asset
+          ): asset is {
+            name: string
+            browser_download_url: string
+            size?: number
+            digest?: string
+          } => typeof asset.name === 'string' && typeof asset.browser_download_url === 'string'
         )
         .map((asset) => ({
           name: asset.name,
           url: asset.browser_download_url,
-          sizeBytes: asset.size ?? 0
+          sizeBytes: asset.size ?? 0,
+          digest: parseDigest(asset.digest)
         }))
 
       this.pending = pickImage(assets)
@@ -446,6 +456,12 @@ export class Updater {
       })
 
       await pipeline(body, createWriteStream(partial))
+
+      // Before it is made executable, let alone before it is put in place: this
+      // is the one download that becomes the program doing the downloading, so
+      // it is the last thing that should be taken on trust. A mismatch deletes
+      // the part-file and fails the update, leaving the running version alone.
+      await verifyDownload(partial, asset.digest, { kind: 'update', name: asset.name })
 
       // Executable before the rename, so the path never exists in a state where
       // it looks like RomMix and cannot be run.

@@ -867,6 +867,8 @@ export const es: Catalog = {
   'error.sessionExpired': 'Sesión caducada — inicia sesión otra vez',
   'error.downloadInterrupted':
     'La transferencia desde RomM se interrumpió una y otra vez, tras {received} de {total}',
+  'error.downloadNotPublished':
+    '{name} no es el archivo que se publicó. Se ha eliminado en lugar de instalarlo.',
   'error.downloadCorrupt':
     'Lo que ha llegado no es el archivo que RomM tiene, así que se ha descartado',
   'error.emptyResponseBody': 'RomM ha devuelto un cuerpo de respuesta vacío',

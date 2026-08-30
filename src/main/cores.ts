@@ -178,6 +178,25 @@ export async function installCore(
 
   try {
     await pipeline(body, createWriteStream(archive))
+
+    /**
+     * Nothing to check this against, and the reason is worth stating.
+     *
+     * The libretro buildbot publishes no digest, manifest or signature beside
+     * its nightlies — there is no second source to compare with, so the only
+     * assurance a core carries is the TLS connection it arrived over, which is
+     * why `archiveUrl` refuses to fetch one over plain http however the
+     * emulator's own configuration is written.
+     *
+     * That is weaker than everything else RomMix installs: an update and an
+     * emulator are checked against the digest their release states. If the
+     * buildbot ever publishes one, `verifyDownload` is what to hand it to.
+     */
+    log.info('core', 'the buildbot publishes no digest to check this against', {
+      core: core.fileName,
+      url
+    })
+
     await extractZip(archive, staging)
 
     // The archive is expected to hold exactly the file the emulator will ask

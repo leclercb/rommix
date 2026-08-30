@@ -168,7 +168,7 @@ describe('installing an asset', () => {
 
     const path = await installAsset(
       'eden',
-      { name: mine, url: 'https://git.example/mine', sizeBytes: 10 },
+      { name: mine, url: 'https://git.example/mine', sizeBytes: 10, digest: null },
       (update) => progress.push(update.receivedBytes)
     )
 
@@ -185,14 +185,14 @@ describe('installing an asset', () => {
     serve(() => new Response('one'))
     const older = await installAsset(
       'eden',
-      { name: 'Eden-old.AppImage', url: 'https://git.example/old', sizeBytes: 3 },
+      { name: 'Eden-old.AppImage', url: 'https://git.example/old', sizeBytes: 3, digest: null },
       () => undefined
     )
 
     serve(() => new Response('two'))
     await installAsset(
       'eden',
-      { name: mine, url: 'https://git.example/mine', sizeBytes: 3 },
+      { name: mine, url: 'https://git.example/mine', sizeBytes: 3, digest: null },
       () => undefined
     )
 
@@ -207,11 +207,103 @@ describe('installing an asset', () => {
       () =>
         installAsset(
           'eden',
-          { name: mine, url: 'https://git.example/mine', sizeBytes: 10 },
+          { name: mine, url: 'https://git.example/mine', sizeBytes: 10, digest: null },
           () => undefined
         ),
       /404/
     )
     assert.equal(existsSync(join(managedEmulatorDir('eden'), mine)), false)
+  })
+})
+
+describe('checking an emulator against the digest its release states', () => {
+  /** sha256 of the body every `serve` below returns. */
+  const BODY = '#!/bin/sh\n'
+  const digestOf = async (): Promise<string> => {
+    const { createHash } = await import('node:crypto')
+    return createHash('sha256').update(BODY).digest('hex')
+  }
+
+  test('a stated digest survives the listing into the asset', async () => {
+    // If it were dropped here every install would go unchecked, and nothing
+    // about the result would look any different.
+    serve(() =>
+      Response.json([
+        {
+          tag_name: 'v1',
+          assets: [
+            {
+              name: mine,
+              browser_download_url: 'https://git.example/mine',
+              size: 10,
+              digest: 'sha256:abc123'
+            }
+          ]
+        }
+      ])
+    )
+
+    const [release] = await fetchReleases(source)
+
+    assert.deepEqual(release.assets[0].digest, { algorithm: 'sha256', expected: 'abc123' })
+  })
+
+  test('a release that states none says so rather than inventing one', async () => {
+    serve(() =>
+      Response.json([
+        {
+          tag_name: 'v1',
+          assets: [{ name: mine, browser_download_url: 'https://git.example/mine', size: 10 }]
+        }
+      ])
+    )
+
+    const [release] = await fetchReleases(source)
+
+    assert.equal(release.assets[0].digest, null)
+  })
+
+  test('an emulator matching its digest is installed', async () => {
+    const root = scratchRoot()
+    serve(() => new Response(BODY))
+
+    const path = await installAsset(
+      'eden',
+      {
+        name: mine,
+        url: 'https://git.example/mine',
+        sizeBytes: 10,
+        digest: { algorithm: 'sha256', expected: await digestOf() }
+      },
+      () => undefined
+    )
+
+    assert.equal(path, join(root, 'emulators', 'eden', mine))
+  })
+
+  test('an emulator that is not what was published is never made runnable', async () => {
+    const root = scratchRoot()
+    serve(() => new Response('a different program entirely'))
+    const published = await digestOf()
+
+    await assert.rejects(
+      () =>
+        installAsset(
+          'eden',
+          {
+            name: mine,
+            url: 'https://git.example/mine',
+            sizeBytes: 10,
+            digest: { algorithm: 'sha256', expected: published }
+          },
+          () => undefined
+        ),
+      new RegExp(mine.replace(/\./g, '\\.'))
+    )
+
+    // Neither under its own name nor as the part-file it arrived as.
+    const dir = join(root, 'emulators', 'eden')
+    assert.equal(existsSync(join(dir, mine)), false)
+    assert.equal(existsSync(join(dir, `${mine}.part`)), false)
   })
 })

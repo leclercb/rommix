@@ -879,6 +879,14 @@ export interface EmulatorAsset {
   url: string
   /** 0 when the release API does not report it, which Eden's does not. */
   sizeBytes: number
+  /**
+   * What the release states it published, or null where it states nothing.
+   *
+   * Carried rather than re-read at install time: the download is a separate
+   * call from the listing, and the digest has to describe the same asset the
+   * user chose. See `verifyDownload`.
+   */
+  digest: { algorithm: 'sha256' | 'sha512'; expected: string } | null
 }
 
 /** One release of an emulator RomMix can install itself. */

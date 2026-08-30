@@ -5,6 +5,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@shared/types'
+import { parseDigest, verifyDownload } from './integrity.ts'
 import { log } from './log.ts'
 import { rootPaths } from './root.ts'
 import { extractZip, isZip } from './zip.ts'
@@ -68,7 +69,7 @@ interface ForgejoRelease {
   draft?: boolean
   prerelease?: boolean
   published_at?: string
-  assets?: { name?: string; browser_download_url?: string; size?: number }[]
+  assets?: { name?: string; browser_download_url?: string; size?: number; digest?: string }[]
 }
 
 /**
@@ -103,7 +104,14 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
     .map((release) => {
       const assets: EmulatorAsset[] = (release.assets ?? [])
         .filter(
-          (asset): asset is { name: string; browser_download_url: string; size?: number } =>
+          (
+            asset
+          ): asset is {
+            name: string
+            browser_download_url: string
+            size?: number
+            digest?: string
+          } =>
             typeof asset.name === 'string' &&
             typeof asset.browser_download_url === 'string' &&
             isInstallableAsset(asset.name, source) &&
@@ -113,7 +121,8 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
         .map((asset) => ({
           name: asset.name,
           url: asset.browser_download_url,
-          sizeBytes: asset.size ?? 0
+          sizeBytes: asset.size ?? 0,
+          digest: parseDigest(asset.digest)
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
 
@@ -189,6 +198,11 @@ export async function installAsset(
     throw cause
   }
   log.info('release', 'asset downloaded', { emulator: emulatorId, asset: asset.name, received })
+
+  // Before it is made executable, and before it has the name the probe looks
+  // for: an emulator is a program this machine is about to run, so the check
+  // belongs ahead of anything that makes it runnable.
+  await verifyDownload(partial, asset.digest, { kind: 'emulator', name: asset.name })
 
   // Executable before the rename, so the finished name never exists in a state
   // where it looks installed but cannot be run.

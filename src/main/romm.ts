@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import { Blob } from 'node:buffer'
-import { createHash } from 'node:crypto'
-import { createReadStream, createWriteStream } from 'node:fs'
+import { createWriteStream } from 'node:fs'
 import { readFile, rename, rm, stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -22,6 +21,7 @@ import type {
   RommUser,
   RomQuery
 } from '@shared/types'
+import { hashOf } from './integrity.ts'
 import { i18n, t } from './i18n.ts'
 import { log } from './log.ts'
 import type { Store } from './store.ts'
@@ -130,21 +130,6 @@ const STALL_TIMEOUT_MS = 20_000
 export interface Checksum {
   algorithm: 'md5' | 'sha1'
   expected: string
-}
-
-/**
- * What a file on disk hashes to.
- *
- * Read back rather than accumulated from the stream that wrote it. A transfer
- * that broke and was picked up is several streams, and the bytes already on
- * disk when RomMix was restarted belong to none of them — reading the finished
- * file is the only thing that answers for all of it, however it arrived. It
- * costs one sequential read after a transfer that has just crossed a network.
- */
-async function hashOf(path: string, algorithm: Checksum['algorithm']): Promise<string> {
-  const digest = createHash(algorithm)
-  for await (const chunk of createReadStream(path)) digest.update(chunk as Buffer)
-  return digest.digest('hex')
 }
 
 /** md5 first, sha1 beside it, or nothing. See `Checksum`. */

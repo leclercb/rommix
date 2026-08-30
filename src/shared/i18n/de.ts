@@ -896,6 +896,8 @@ export const de: Catalog = {
   'error.sessionExpired': 'Sitzung abgelaufen — melden Sie sich erneut an',
   'error.downloadInterrupted':
     'Die Übertragung von RomM brach immer wieder ab, nach {received} von {total}',
+  'error.downloadNotPublished':
+    '{name} ist nicht die veröffentlichte Datei. Sie wurde gelöscht statt installiert.',
   'error.downloadCorrupt':
     'Was angekommen ist, ist nicht die Datei, die RomM hält, und wurde verworfen',
   'error.emptyResponseBody': 'RomM hat einen leeren Antwortkörper geliefert',
