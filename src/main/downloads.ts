@@ -417,17 +417,34 @@ export class DownloadManager extends EventEmitter {
     if (at < 0) return
 
     const running = this.queue.find((item) => item.state === 'downloading')
-    // Where it goes: into the running transfer's place, so that the one it
-    // displaces comes back directly behind it rather than in front of it.
-    const to = running
-      ? this.queue.indexOf(running)
-      : this.queue.findIndex((item) => item.state === 'queued')
-    if (to === at) return
+
+    /**
+     * The front of the run order, which is not always the front of the list.
+     *
+     * `pump` takes the first row still queued, so that is the position being
+     * competed for — and it is not necessarily the running transfer's. A
+     * transfer restored as paused sits wherever `restorePending` put it, and
+     * resuming it marks it queued where it already is, which can be ahead of
+     * whatever is on the wire. Moving into the running transfer's place then
+     * moved the promoted game *behind* that row, which is the opposite of what
+     * was asked for.
+     */
+    const front = this.queue.findIndex(
+      (item) => item.state === 'queued' || item.state === 'downloading'
+    )
+    if (front === at) return
 
     const [item] = this.queue.splice(at, 1)
-    this.queue.splice(to, 0, item)
+    this.queue.splice(front, 0, item)
 
     const interrupt = running !== undefined && running.resumable !== false
+    if (interrupt) {
+      // Directly behind the one that overtook it, rather than behind everything
+      // else waiting as well: it was on the wire, so its turn is the next one.
+      this.queue.splice(this.queue.indexOf(running), 1)
+      this.queue.splice(front + 1, 0, running)
+    }
+
     log.info('download', 'moved to the front of the queue', {
       romId,
       name: item.name,

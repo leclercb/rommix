@@ -445,6 +445,56 @@ describe('changing the order of the queue', () => {
     assert.equal(downloads.items.find((item) => item.romId === 1)?.state, 'downloading')
   })
 
+  test('it goes ahead of a resumed transfer that was already waiting in front', async () => {
+    /**
+     * The running transfer is not always the first row.
+     *
+     * A transfer restored as paused sits wherever `restorePending` put it, and
+     * resuming it marks it queued where it already is — which can be ahead of
+     * whatever started in the meantime. Moving into the running transfer's
+     * place then put the promoted game *behind* that row, so the queue reached
+     * the other one first and what was on the wire had been interrupted for
+     * nothing.
+     */
+    const made = manager({ contents: '0123456789', roms: library() })
+    const dir = join(made.root, 'roms', 'genesis')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'Nine.md'), '0'.repeat(8))
+    made.store.setPending({
+      romId: 9,
+      name: 'Nine',
+      coverPath: null,
+      system: 'genesis',
+      platformName: 'Sega Mega Drive',
+      targetPath: join(dir, 'Nine.md'),
+      files: [],
+      ownsFolder: false,
+      fileName: 'Nine.md',
+      totalBytes: 100,
+      pausedAt: '2026-08-28T00:00:00.000Z'
+    })
+    await made.downloads.restorePending()
+
+    const [one, two] = three()
+    made.downloads.enqueue(one)
+    made.downloads.enqueue(two)
+    // Back to 'queued' in the place it already held, ahead of what is running.
+    made.downloads.enqueue(rom({ id: 9, fs_name: 'Nine.md', fs_name_no_ext: 'Nine' }))
+    assert.deepEqual(
+      made.downloads.items.map((item) => `${item.romId}:${item.state}`),
+      ['9:queued', '1:downloading', '2:queued']
+    )
+
+    made.downloads.promote(2)
+
+    // The promoted game first, then the transfer it interrupted — which was on
+    // the wire, so its turn comes before anything that is only waiting.
+    assert.deepEqual(
+      made.downloads.items.map((item) => item.romId),
+      [2, 1, 9]
+    )
+  })
+
   test('the one already next is left alone, and so is anything not waiting', async () => {
     const { downloads } = manager({ contents: '0123456789' })
     for (const game of three()) downloads.enqueue(game)
