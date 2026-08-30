@@ -1,13 +1,6 @@
 import { type JSX, useEffect, useState } from 'react'
-import { emulatorById } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
-import type {
-  BiosPlatform,
-  InstalledRom,
-  LaunchChoice,
-  RommRom,
-  RomUserStatus
-} from '@shared/types'
+import type { BiosPlatform, InstalledRom, RommRom } from '@shared/types'
 import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
 import { Icon } from '../../icons'
 import { useApp, useDownloads, useI18n } from '../../state'
@@ -21,6 +14,9 @@ import {
   UninstallDialog
 } from './dialogs'
 import { DetailsTab, FilesTab, SavesTab, ScreenshotsTab } from './tabs'
+import { useGameCopy } from './useGameCopy'
+import { useGameLaunch } from './useGameLaunch'
+import { useGameMarks } from './useGameMarks'
 import { useGameSaves } from './useGameSaves'
 
 type GameTab = 'details' | 'saves' | 'files' | 'screenshots'
@@ -31,60 +27,16 @@ type GameTab = 'details' | 'saves' | 'files' | 'screenshots'
  */
 export function GameScreen({ romId }: { romId: number }): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const {
-    installed,
-    runningRomId,
-    goBack,
-    navigate,
-    notify,
-    refreshInstalled,
-    saveSettings,
-    settings
-  } = useApp()
+  const { installed, runningRomId, goBack, navigate, notify, settings } = useApp()
   const downloads = useDownloads()
 
   const [rom, setRom] = useState<RommRom | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [confirmingRemoval, setConfirmingRemoval] = useState(false)
-  const [choosing, setChoosing] = useState<LaunchChoice | null>(null)
   const [tab, setTab] = useState<GameTab>('details')
-  /** Null until RomM has been asked, which is what the button waits on. */
-  const [favourite, setFavourite] = useState<boolean | null>(null)
   const [choosingStatus, setChoosingStatus] = useState(false)
-  /**
-   * The progress the server holds, kept beside the ROM rather than read from it.
-   *
-   * Set here as soon as it is chosen, so the button says the new answer without
-   * waiting for the game to be fetched again — and put back if the server
-   * refuses it.
-   */
-  const [status, setStatus] = useState<RomUserStatus | null>(null)
   const [bios, setBios] = useState<BiosPlatform | null>(null)
   /** True while the shelves this game is on are being looked at or changed. */
   const [choosingCollections, setChoosingCollections] = useState(false)
-
-  useEffect(() => {
-    setRom(null)
-    setTab('details')
-    void window.rommix.library
-      .rom(romId)
-      .then((fetched) => {
-        setRom(fetched)
-        setStatus(fetched.rom_user.status)
-      })
-      .catch((cause: Error) => setError(cause.message))
-  }, [romId])
-
-  useEffect(() => {
-    setFavourite(null)
-    void window.rommix.library
-      .favourite(romId)
-      .then(setFavourite)
-      // Asked for a button, not for the screen: a server that will not answer
-      // leaves the button waiting rather than putting an error over the game.
-      .catch(() => setFavourite(null))
-  }, [romId])
 
   /**
    * The BIOS situation for this game's platform.
@@ -113,57 +65,6 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     download?.state === 'extracting'
   const running = runningRomId === romId
 
-  // Only to decide whether "Run with" is worth showing, and what this
-  // emulator still needs done by hand. The launch path asks again rather than
-  // trusting either, since the emulator for a platform can be changed from
-  // Settings while this screen is open.
-  const [variants, setVariants] = useState<LaunchChoice['options']>([])
-  const [setup, setSetup] = useState<{ emulatorId: string; notes: string[] } | null>(null)
-  // Read out before the effect, so what it depends on and what it closes over
-  // are the same three values. Depending on `entry?.emulatorId` while using
-  // `entry` is the shape that goes wrong quietly: the entry can be replaced by
-  // one the effect never re-runs for.
-  const installedFor = entry ? `${entry.emulatorId}:${entry.system}` : null
-  useEffect(() => {
-    if (installedFor === null) {
-      setVariants([])
-      setSetup(null)
-      return
-    }
-    void window.rommix.game
-      .variants(romId)
-      .then((choice) => {
-        setVariants(choice.options)
-        setSetup({ emulatorId: choice.emulatorId, notes: choice.setupNotes })
-      })
-      .catch(() => {
-        setVariants([])
-        setSetup(null)
-      })
-  }, [romId, installedFor])
-
-  /**
-   * Dismissed per emulator, not per game: the steps are about setting the
-   * emulator up once, so being told again on the next Switch game would be the
-   * same nagging the button exists to stop.
-   */
-  const noticeKey = setup ? `setup:${setup.emulatorId}` : null
-  const dismissed = !noticeKey || (settings?.dismissedNotices ?? []).includes(noticeKey)
-  const dismissSetup = async (): Promise<void> => {
-    if (!setup || !noticeKey || dismissed) return
-    await saveSettings({
-      dismissedNotices: [...(settings?.dismissedNotices ?? []), noticeKey]
-    })
-    // The notice vanishing is ambiguous on its own — dismissed, or scrolled
-    // past? — and it is dismissed for the *emulator*, which is wider than the
-    // game it was dismissed from and worth saying out loud.
-    notify(
-      t('setup.hidden', {
-        emulator: emulatorById(setup.emulatorId)?.name ?? setup.emulatorId
-      })
-    )
-  }
-
   /** How this game is named and pictured in a toast. */
   const subjectOf = (): { title: string; coverPath: string | null } => ({
     title: rom?.name ?? rom?.fs_name ?? t('game.fallbackTitle'),
@@ -188,180 +89,63 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     deleting,
     setDeleting
   } = useGameSaves(romId, subjectOf)
-  const working = busy || syncing
 
-  const startDownload = async (): Promise<void> => {
-    setBusy(true)
-    // Read before the call, because the answer changes it: the same button
-    // finishes a transfer that was stopped, and that is announced centrally as
-    // a resume — see the queue watcher in `state`. Saying "download started"
-    // here as well would report one press twice.
-    const resuming = download?.state === 'paused'
-    try {
-      const item = await window.rommix.downloads.start(romId)
-      // Already on disk: the main process adopts it instead of queueing, so
-      // saying "download started" would be a plain lie.
-      if (!resuming) {
-        notify(
-          item.state === 'done' ? t('game.alreadyDownloaded') : t('game.downloadStarted'),
-          'ok',
-          {
-            title: item.name,
-            coverPath: item.coverPath
-          }
-        )
-      }
-    } catch {
-      // Reported centrally on `app:error`; this only keeps the screen from
-      // claiming a download that never started.
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  /**
-   * Play, asking first when the emulator offers more than one way to run this
-   * system and the user has not already said which.
-   *
-   * EmuDeck ships three Saturn cores and four Switch emulators; picking one
-   * silently would be a guess, and the wrong guess is a game that will not
-   * start or a save written where the other emulator will not find it. The
-   * answer is remembered per platform, so this is asked once.
-   */
-  const startPlay = async (): Promise<void> => {
-    setBusy(true)
-    try {
-      const choice = await window.rommix.game.variants(romId)
-      if (choice.options.length > 1 && !choice.chosen) {
-        setChoosing(choice)
-        return
-      }
-      await play(choice.chosen ?? undefined)
-    } catch {
-      // Reported centrally.
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const play = async (variant?: string): Promise<void> => {
-    setChoosing(null)
-    setBusy(true)
-    try {
-      const result = await window.rommix.game.launch(romId, variant)
-      const subject = subjectOf()
-      if (!result.ok) {
-        notify(result.error ?? t('game.couldNotStart'), 'error', subject)
-      } else {
-        const synced = result.uploadedSaves + result.uploadedStates
-        const waiting = result.pendingPush?.files.length ?? 0
-        notify(
-          waiting > 0
-            ? t('game.sessionPending', { count: waiting })
-            : synced > 0
-              ? t('game.sessionSent', { count: synced })
-              : t('game.sessionEnded'),
-          result.error ? 'warn' : 'ok',
-          subject
-        )
-        if (result.error) notify(result.error, 'warn')
-
-        // The session's saves, held back for the same question the button
-        // asks. Raised here rather than by the main process because this is
-        // the side that has a screen, and the emulator has just closed over
-        // it — there is no better moment to ask. The toast above says the same
-        // thing, which is what the user sees if they left this screen while
-        // the game was running and the dialog goes up behind them.
-        if (result.pendingPush) setConfirmingPush(result.pendingPush)
-      }
-    } catch {
-      // Reported centrally.
-    } finally {
-      // The session is exactly what makes this list wrong: it writes save files
-      // and syncs them, so every row's state and the scope its Delete button
-      // names were decided before any of that happened.
-      await reload()
-      setBusy(false)
-    }
-  }
+  const { favourite, toggleFavourite, status, setStatus, chooseStatus } = useGameMarks(
+    romId,
+    subjectOf
+  )
+  const {
+    busy: launching,
+    variants,
+    choosing,
+    setChoosing,
+    startPlay,
+    play,
+    openChooser,
+    setupNotes,
+    dismissSetup
+  } = useGameLaunch({
+    romId,
+    entry,
+    subjectOf,
+    afterSession: reload,
+    onPendingPush: setConfirmingPush
+  })
+  const {
+    busy: copying,
+    startDownload,
+    uninstall,
+    confirmingRemoval,
+    setConfirmingRemoval
+  } = useGameCopy({ romId, rom, entry, download })
 
   /**
-   * Mark or unmark the game on RomM.
+   * The game itself, and the status it arrives carrying.
    *
-   * The state is shown before the server has confirmed it: the call is a
-   * collection edit that takes a moment, and a heart that fills in only after a
-   * round trip reads as a button that missed the press. It is put back if the
-   * call fails.
+   * Below the hooks because one of them owns the status: the overlay comes back
+   * on this same response, and asking for it separately would be a second round
+   * trip for something already in hand. See `useGameMarks`.
    */
-  const toggleFavourite = async (): Promise<void> => {
-    if (favourite === null) return
-    const next = !favourite
-    setFavourite(next)
-    try {
-      const settled = await window.rommix.library.setFavourite(romId, next)
-      setFavourite(settled)
-      // Said because the change is on the *server*: the filled heart only
-      // proves the button was pressed, and this is the confirmation that RomM
-      // and the Favourites shelf now agree with it.
-      notify(settled ? t('game.favouriteAdded') : t('game.favouriteRemoved'), 'ok', subjectOf())
-    } catch {
-      setFavourite(!next)
-    }
-  }
-
-  /**
-   * Record how far through the game the player says they are.
-   *
-   * Shown as chosen before the server has agreed, for the same reason the heart
-   * is: the round trip is not a thing worth watching, and a button that does
-   * nothing for a moment reads as a button that did nothing. A refusal puts the
-   * previous answer back, which is the whole of the report: the chip returning
-   * to what it said is the thing the player is looking at, and `app:error` has
-   * already raised the reason as a notification.
-   */
-  const chooseStatus = async (next: RomUserStatus | null): Promise<void> => {
-    const previous = status
-    if (next === previous) return
-    setStatus(next)
-    try {
-      await window.rommix.library.setStatus(romId, next)
-      // Said because the change is on the server, not here: this is what
-      // confirms a browser and another device now agree.
-      notify(
-        next ? t('status.set', { status: t(`status.${next}`) }) : t('status.cleared'),
-        'ok',
-        subjectOf()
-      )
-    } catch {
-      setStatus(previous)
-    }
-  }
-
-  /** Re-open the picker for a platform that has already been answered. */
-  const openChooser = async (): Promise<void> => {
-    try {
-      setChoosing(await window.rommix.game.variants(romId))
-    } catch {
-      // Reported centrally.
-    }
-  }
-
-  const uninstall = async (): Promise<void> => {
-    setConfirmingRemoval(false)
-    setBusy(true)
-    try {
-      await window.rommix.downloads.uninstall(romId)
-      await refreshInstalled()
-      notify(t('downloads.uninstalled'), 'ok', {
-        title: rom?.name ?? entry?.fileName ?? t('game.fallbackTitle'),
-        coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
+  useEffect(() => {
+    setRom(null)
+    setTab('details')
+    void window.rommix.library
+      .rom(romId)
+      .then((fetched) => {
+        setRom(fetched)
+        setStatus(fetched.rom_user.status)
       })
-    } catch {
-      // Reported centrally; this only keeps "Uninstalled" from being claimed.
-    } finally {
-      setBusy(false)
-    }
-  }
+      .catch((cause: Error) => setError(cause.message))
+  }, [romId, setStatus])
+
+  /**
+   * Anything in flight greys out everything else.
+   *
+   * Four hooks with a busy flag each, folded into one: a save transfer, a
+   * session, a download and an uninstall all touch the same game, and pressing
+   * a second while the first is running is never what was meant.
+   */
+  const working = syncing || launching || copying
 
   if (error) {
     return (
@@ -632,10 +416,10 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           played, and every one of these steps looks like RomMix failing when it
           has not been done — the download is there and named, but the
           emulator's own list is empty, or the game starts unpatched. */}
-      {setup && setup.notes.length > 0 && !dismissed ? (
+      {setupNotes ? (
         <div className="notice notice--warn">
           <ul className="notice__list">
-            {setup.notes.map((note) => (
+            {setupNotes.map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>
