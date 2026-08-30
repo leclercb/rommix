@@ -432,6 +432,34 @@ describe('adopting what is already on disk', () => {
     )
   })
 
+  test('a page of games is written and announced once, not once per game', async () => {
+    const { downloads, store } = withFiles([
+      'Sonic the Hedgehog (USA).md',
+      'Streets of Rage (USA).md'
+    ])
+    // Every listener on `installed` is handed the whole index, and the index is
+    // rewritten whole on every save. One of each for a page is the difference
+    // between reconciling a restored library and rewriting it a thousand times.
+    let announcements = 0
+    downloads.on('installed', () => (announcements += 1))
+
+    const adopted = await downloads.adopt([
+      rom(),
+      rom({
+        id: 2,
+        name: 'Streets of Rage',
+        fs_name: 'Streets of Rage (USA).md',
+        fs_name_no_ext: 'Streets of Rage (USA)',
+        files: [{ file_name: 'Streets of Rage (USA).md' }] as RommRom['files']
+      })
+    ])
+
+    assert.equal(adopted.length, 2)
+    assert.equal(announcements, 1)
+    assert.ok(store.getInstalled(1))
+    assert.ok(store.getInstalled(2))
+  })
+
   test('a game already known is not looked for again', async () => {
     const { downloads, store } = withFiles(['Sonic the Hedgehog (USA).md'])
     store.addInstalled(entry({ romId: 1 }))

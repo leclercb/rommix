@@ -273,7 +273,22 @@ export class Store {
   }
 
   addInstalled(entry: InstalledRom): void {
-    this.installedCache.set(entry.romId, entry)
+    this.addInstalledMany([entry])
+  }
+
+  /**
+   * Several at once, written to disk once.
+   *
+   * The index is rewritten whole on every save, and `DownloadManager.adopt`
+   * recognises a library page at a time — so recording them one by one rewrites
+   * a growing file once per entry. Reconciling a restored library that way is
+   * the difference between one write and thousands, each larger than the last,
+   * every one of them synchronous and in front of whatever the interface was
+   * waiting for.
+   */
+  addInstalledMany(entries: readonly InstalledRom[]): void {
+    if (entries.length === 0) return
+    for (const entry of entries) this.installedCache.set(entry.romId, entry)
     this.persistInstalled()
   }
 

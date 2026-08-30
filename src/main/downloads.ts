@@ -586,7 +586,9 @@ export class DownloadManager extends EventEmitter {
       // The bytes are in the game now, and nothing is left to pick up.
       this.store.removePending(rom.id)
 
-      await this.recordInstalled(rom, system, emulatorId, installed)
+      const entry = await this.installedEntry(rom, system, emulatorId, installed)
+      this.store.addInstalled(entry)
+      this.emit('installed', entry)
       item.targetPath = installed.path
 
       item.state = 'done'
@@ -845,7 +847,15 @@ export class DownloadManager extends EventEmitter {
     if (found) this.emitUpdate()
   }
 
-  private async recordInstalled(
+  /**
+   * The index entry for a game that is now on disk, built but not recorded.
+   *
+   * Recording is the caller's, because the two callers record differently: a
+   * finished download is one game and is written and announced as it lands,
+   * while adoption recognises a whole library page and writes the lot once.
+   * See `Store.addInstalledMany`.
+   */
+  private async installedEntry(
     rom: RommRom,
     system: string,
     emulatorId: string,
@@ -868,8 +878,6 @@ export class DownloadManager extends EventEmitter {
       installedAt: new Date().toISOString(),
       isDirectory: installed.isDirectory
     }
-    this.store.addInstalled(entry)
-    this.emit('installed', entry)
     return entry
   }
 
@@ -933,7 +941,7 @@ export class DownloadManager extends EventEmitter {
         if (isDirectory && (await readdir(path).catch(() => [])).length === 0) return
 
         adopted.push(
-          await this.recordInstalled(rom, target.system, target.emulatorId, {
+          await this.installedEntry(rom, target.system, target.emulatorId, {
             path,
             launchPath: isDirectory ? ((await pickLaunchFile(path, target.system)) ?? path) : path,
             sizeBytes: isDirectory
@@ -967,7 +975,7 @@ export class DownloadManager extends EventEmitter {
           )
           const launch = join(target.dir, chooseLaunchFile(sized, target.system) ?? found[0])
           adopted.push(
-            await this.recordInstalled(rom, target.system, target.emulatorId, {
+            await this.installedEntry(rom, target.system, target.emulatorId, {
               path: launch,
               launchPath: launch,
               sizeBytes: sized.reduce((sum, file) => sum + file.sizeBytes, 0),
@@ -1025,13 +1033,19 @@ export class DownloadManager extends EventEmitter {
       if (sibling) await record(join(target.dir, sibling.name), sibling.isDirectory())
     }
 
-    // Announced as a group: a library page can adopt dozens at once, and one
-    // notification per game would bury the screen.
+    // Recorded and announced as a group: a library page can adopt dozens at
+    // once, one notification per game would bury the screen, and every listener
+    // on `installed` is handed the whole index — so an entry at a time is a
+    // rewrite of the index and a redraw of every screen, per game.
     if (adopted.length > 0) {
+      this.store.addInstalledMany(adopted)
       log.info('library', 'adopted ROMs already on disk', {
         count: adopted.length,
         romIds: adopted.map((entry) => entry.romId)
       })
+      // Before the news of what was adopted, so the screen that shows it is
+      // reading a library the new games are already in.
+      this.emit('installed', null)
       this.emit('adopted', adopted)
     }
     return adopted
