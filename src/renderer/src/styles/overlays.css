@@ -207,3 +207,94 @@
   gap: 20px;
   align-items: baseline;
 }
+
+/* ---------------------------------------------------------------------------
+ * The launch curtain
+ * ------------------------------------------------------------------------- */
+
+/*
+ * What is on the screen between pressing Play and the emulator drawing
+ * anything.
+ *
+ * A whole screen rather than a panel, because that is what it is competing
+ * with: the next thing to appear is a game, full-bleed, and a dialog box in
+ * front of the interface is a poor handover. It is also the one moment RomMix
+ * is looked at from across a room without anything to read, so what it shows is
+ * the cover of the game that was just chosen.
+ */
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--safe-y) var(--safe-x);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* The banner's wash is raked from the left, where its cover sits beside the
+   text. Here there is nothing beside anything, so the dark gathers at the edges
+   instead and leaves the middle to the artwork — and lighter than the banner's,
+   because this is the whole screen and the picture is the point of it. */
+.curtain .backdrop::after {
+  background: radial-gradient(ellipse at center, rgba(11, 13, 19, 0.1), rgba(11, 13, 19, 0.82) 80%);
+}
+
+/* Blurred well past recognition: it is a wash of the game's own colour rather
+   than a second copy of the cover, which is already the thing in the middle. */
+.curtain .backdrop img {
+  opacity: 0.55;
+  filter: blur(60px) saturate(1.4);
+  transform: scale(1.3);
+}
+
+.curtain__stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
+  max-width: 720px;
+  animation: curtain-rise 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Sized against the height rather than given a length, so it is the same share
+   of a handheld's screen as of a television's. */
+.curtain__cover {
+  width: min(34vh, 280px);
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.curtain__title {
+  font-size: 38px;
+  font-weight: 780;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin: 0 0 8px;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+}
+
+.curtain__line {
+  margin: 0;
+  font-size: 17px;
+  color: var(--text-dim);
+}
+
+/* Up and in, once: the game is arriving, and the cover arriving with it is the
+   whole of the gesture. */
+@keyframes curtain-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

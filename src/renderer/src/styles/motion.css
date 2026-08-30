@@ -30,4 +30,10 @@
   .download__fill {
     transition: none;
   }
+
+  /* The curtain arrives rather than travelling: what it is there to show is the
+     cover, and the rise was only ever the manner of its arrival. */
+  .curtain__stage {
+    animation: none;
+  }
 }

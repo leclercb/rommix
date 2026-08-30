@@ -93,10 +93,7 @@ export const en = {
   'app.quitRomMix': 'Quit RomMix',
   'app.gettingReady': 'Getting ready',
   'app.gameRunning': 'Game running',
-  'app.emulatorHasFocusAsk':
-    'The emulator has focus. Quit it to come back — RomMix will ask what to send to RomM.',
-  'app.emulatorHasFocusAuto':
-    'The emulator has focus. Quit it to come back — saves sync to RomM automatically.',
+  'app.emulatorHasFocus': 'The emulator has focus. Quit it to come back.',
   'app.emulatorRunning': '{name} is running',
   'app.emulatorOpened':
     '{name} has focus. Quit it to come back — nothing is being played, so there is nothing to ' +

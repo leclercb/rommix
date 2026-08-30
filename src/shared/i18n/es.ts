@@ -83,11 +83,7 @@ export const es: Catalog = {
   'app.quitRomMix': 'Salir de RomMix',
   'app.gettingReady': 'Preparando',
   'app.gameRunning': 'Juego en marcha',
-  'app.emulatorHasFocusAsk':
-    'El emulador tiene el control. Ciérralo para volver — RomMix preguntará qué enviar a RomM.',
-  'app.emulatorHasFocusAuto':
-    'El emulador tiene el control. Ciérralo para volver — las partidas se sincronizan solas con ' +
-    'RomM.',
+  'app.emulatorHasFocus': 'El emulador tiene el control. Ciérralo para volver.',
   'app.emulatorRunning': '{name} está en marcha',
   'app.emulatorOpened':
     '{name} tiene el control. Ciérralo para volver — no se está jugando a nada, así que no hay ' +

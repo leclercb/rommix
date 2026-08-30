@@ -81,11 +81,7 @@ export const fr: Catalog = {
   'app.quitRomMix': 'Quitter RomMix',
   'app.gettingReady': 'Préparation',
   'app.gameRunning': 'Jeu en cours',
-  'app.emulatorHasFocusAsk':
-    "L'émulateur a la main. Quittez-le pour revenir — RomMix demandera quoi envoyer à RomM.",
-  'app.emulatorHasFocusAuto':
-    "L'émulateur a la main. Quittez-le pour revenir — les sauvegardes se synchronisent " +
-    'automatiquement avec RomM.',
+  'app.emulatorHasFocus': "L'émulateur a la main. Quittez-le pour revenir.",
   'app.emulatorRunning': '{name} est en cours',
   'app.emulatorOpened':
     '{name} a la main. Quittez-le pour revenir — aucune partie n’est en cours, il n’y a donc rien ' +

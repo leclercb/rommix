@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type JSX, type Ref } from 'react'
 import {
+  ArtBackdrop,
   CoverArt,
   FocusButton,
   Logo,
@@ -9,6 +10,7 @@ import {
   Spinner
 } from './components'
 import {
+  FocusLayer,
   FocusZone,
   useAction,
   useFocusable,
@@ -292,7 +294,48 @@ function NavItem({
  */
 function RunningOverlay(): JSX.Element {
   const { t } = useI18n()
-  const { settings, runningStage, runningEmulator } = useApp()
+  const { runningStage, runningEmulator, runningRomId, installed } = useApp()
+
+  // What is known about the game without asking anything: the index carries its
+  // name and its cover so that the Downloads screen can draw a row without the
+  // library, and that is exactly what is wanted here.
+  const game = installed.find((entry) => entry.romId === runningRomId)
+
+  /**
+   * The screen between pressing Play and the emulator having drawn anything.
+   *
+   * It is dead time — a few seconds of nothing while a process starts, longer
+   * if a core has to be fetched first — and it is also the moment RomMix is
+   * most looked at, because it is the one the player is waiting through from
+   * across the room. A panel of text is a poor answer to that. The game's own
+   * cover is the thing they just chose, so it is what they get, at the size the
+   * screen allows.
+   *
+   * Only where there is a cover to show. A game with no artwork falls back to
+   * the panel below rather than to a large empty rectangle.
+   */
+  if (game?.coverPath) {
+    return (
+      <div className="curtain">
+        <ArtBackdrop paths={[game.coverPath]} />
+        <div className="curtain__stage">
+          <CoverArt path={game.coverPath} name={game.name} className="curtain__cover" />
+          <div className="curtain__words">
+            <h2 className="curtain__title">{game.name}</h2>
+            <p className="curtain__line">
+              {/* What is happening, when something is: fetching a core is the
+                  one part of a launch that takes long enough to need saying.
+                  Otherwise the line says where the screen has gone. */}
+              {runningStage ?? t('app.emulatorHasFocus')}
+            </p>
+          </div>
+          <FocusLayer>
+            <RunningActions />
+          </FocusLayer>
+        </div>
+      </div>
+    )
+  }
 
   if (runningStage) {
     return (
@@ -319,9 +362,7 @@ function RunningOverlay(): JSX.Element {
 
   return (
     <Overlay title={t('app.gameRunning')}>
-      <p className="muted">
-        {settings?.confirmSavePush ? t('app.emulatorHasFocusAsk') : t('app.emulatorHasFocusAuto')}
-      </p>
+      <p className="muted">{t('app.emulatorHasFocus')}</p>
       <RunningActions />
     </Overlay>
   )

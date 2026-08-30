@@ -84,12 +84,7 @@ export const de: Catalog = {
   'app.quitRomMix': 'RomMix beenden',
   'app.gettingReady': 'Wird vorbereitet',
   'app.gameRunning': 'Spiel läuft',
-  'app.emulatorHasFocusAsk':
-    'Der Emulator hat den Fokus. Beenden Sie ihn, um zurückzukommen — RomMix fragt dann, was an ' +
-    'RomM geschickt werden soll.',
-  'app.emulatorHasFocusAuto':
-    'Der Emulator hat den Fokus. Beenden Sie ihn, um zurückzukommen — Spielstände werden ' +
-    'automatisch mit RomM abgeglichen.',
+  'app.emulatorHasFocus': 'Der Emulator hat den Fokus. Beenden Sie ihn, um zurückzukommen.',
   'app.emulatorRunning': '{name} läuft',
   'app.emulatorOpened':
     '{name} hat den Fokus. Beenden Sie ihn, um zurückzukommen — es wird nichts gespielt, also gibt ' +
