@@ -15,6 +15,7 @@ import {
   flathubConfigured,
   installFlatpak,
   isWritable,
+  killFlatpakApp,
   killProcessTree,
   stopFlatpakApp
 } from './host.ts'
@@ -231,6 +232,15 @@ function fakeFlatpak(answers: {
   ps?: string
   installExit?: number
   installOutput?: string
+  /**
+   * A pid `flatpak ps` reports for as long as it is actually alive.
+   *
+   * What makes the kill path testable: `flatpak kill` here does nothing, the
+   * same as the real one does for an instance flatpak has lost track of, so
+   * whether the app goes depends entirely on RomMix signalling it — and this
+   * answers honestly about whether it did.
+   */
+  livePid?: number
 }): void {
   const dir = scratch([])
   const script = join(dir, 'flatpak')
@@ -252,7 +262,11 @@ function fakeFlatpak(answers: {
       `  --version) ${say(answers.version)} ;;`,
       `  info) ${say(answers.location)} ;;`,
       `  remotes) ${say(answers.remotes)} ;;`,
-      `  ps) ${say(answers.ps)} ;;`,
+      `  ps) ${
+        answers.livePid === undefined
+          ? say(answers.ps)
+          : `if kill -0 ${answers.livePid} 2>/dev/null; then printf '%s %s\n' 'net.retrodeck.retrodeck' '${answers.livePid}'; fi`
+      } ;;`,
       `  kill) exit 0 ;;`,
       '  install)',
       `    ${answers.installOutput ? `printf '%s\\n' '${answers.installOutput}'` : ':'}`,
@@ -344,6 +358,45 @@ test('flathub is added when it is missing, and the caller is told', async () => 
   await installFlatpak('net.example.App', (line) => lines.push(line))
 
   assert.ok(lines.length > 1, 'adding the remote has to be said, not done silently')
+})
+
+test('an app flatpak will not kill is signalled directly', async () => {
+  /**
+   * The press that is meant to be the last resort.
+   *
+   * `flatpak kill` fails silently for an instance flatpak is not tracking, and
+   * says nothing either way — so a force close that trusted it did nothing at
+   * all, on the emulators most likely to need it. What is still listed
+   * afterwards is what decides, and what is still there is signalled.
+   */
+  const running = spawn('sh', ['-c', 'sleep 30'], { stdio: 'ignore' })
+  const pid = running.pid
+  assert.ok(pid)
+  const exited = new Promise<void>((resolve) => running.on('exit', () => resolve()))
+  fakeFlatpak({ livePid: pid })
+
+  assert.equal(await killFlatpakApp('net.retrodeck.retrodeck'), true)
+
+  await exited
+})
+
+test('an app that survives being killed is reported, not assumed gone', async () => {
+  // Nothing RomMix can do about it, which is exactly why it must not be
+  // answered with a silence the screen reads as success.
+  const dead = spawn('sh', ['-c', 'exit 0'], { stdio: 'ignore' })
+  await new Promise((resolve) => dead.on('exit', resolve))
+  // A pid that is listed for ever and cannot be signalled: the shape of an app
+  // that ignores everything it is sent.
+  fakeFlatpak({ ps: `net.retrodeck.retrodeck ${dead.pid}` })
+
+  assert.equal(await killFlatpakApp('net.retrodeck.retrodeck'), false)
+})
+
+test('an app that flatpak does close is not signalled a second time', async () => {
+  // Nothing listed once the kill has been sent, which is the ordinary case.
+  fakeFlatpak({ ps: '' })
+
+  assert.equal(await killFlatpakApp('net.retrodeck.retrodeck'), true)
 })
 
 test('a process tree is killed from the root down', async () => {

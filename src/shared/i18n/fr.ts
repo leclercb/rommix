@@ -90,6 +90,8 @@ export const fr: Catalog = {
   'app.holdToForce': 'Maintenez de nouveau {key} pour le forcer.',
   'app.forceClose': 'Forcer la fermeture',
   'app.askingEmulatorToQuit': "Demande à l'émulateur de quitter…",
+  'app.closingEmulatorNow': 'Fermeture en cours…',
+  'app.couldNotClose': "Il tourne toujours. RomMix n'a aucun autre moyen de le fermer.",
 
   // -- notifications de l'ossature ------------------------------------------
 

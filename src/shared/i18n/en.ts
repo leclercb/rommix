@@ -101,6 +101,8 @@ export const en = {
   'app.holdToForce': 'Hold {key} again to force it.',
   'app.forceClose': 'Force it to close',
   'app.askingEmulatorToQuit': 'Asking the emulator to quit…',
+  'app.closingEmulatorNow': 'Closing it now…',
+  'app.couldNotClose': 'It is still running. RomMix has no other way to close it.',
 
   // -- notifications raised by the shell ------------------------------------
 

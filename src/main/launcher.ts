@@ -149,17 +149,24 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
  *
  * Anything the emulator had not written is lost, which is why nothing calls
  * this until the user has been told so and pressed again.
+ *
+ * Every way in is tried, rather than the first one that applies. Asking a
+ * flatpak to quit already falls back to signalling what RomMix spawned when
+ * flatpak lists no instance, and forcing one did not — so the press that was
+ * meant to be the last resort had fewer ways to reach the emulator than the
+ * polite one before it, and on a flatpak that flatpak had lost track of it did
+ * nothing whatsoever.
  */
-function forceQuit(child: ChildProcess, install: ResolvedInstall | null): void {
+async function forceQuit(child: ChildProcess, install: ResolvedInstall | null): Promise<void> {
   log.warn('emulator', 'forcing the emulator to close', {
     pid: child.pid ?? null,
     install: install?.kind ?? null,
     ref: install?.ref ?? null
   })
-  if (install?.kind === 'flatpak') void killFlatpakApp(install.ref)
+  if (install?.kind === 'flatpak' && (await killFlatpakApp(install.ref))) return
   // No pid means the spawn itself never got off the ground, and there is
   // nothing running to signal.
-  else if (child.pid) void killProcessTree(child.pid)
+  if (child.pid) await killProcessTree(child.pid)
 }
 
 /**
@@ -473,7 +480,7 @@ export class Launcher {
         signalled = true
         askToQuit(child, install)
       }
-      session.forceKill = () => forceQuit(child, install)
+      session.forceKill = () => void forceQuit(child, install)
 
       child.on('error', (err) => {
         log.error('emulator', 'the process could not be started', err, { command: argv.join(' ') })
@@ -651,7 +658,7 @@ export class Launcher {
             const opened = {
               name: emulator.name,
               kill: () => askToQuit(child, emulator.install),
-              forceKill: () => forceQuit(child, emulator.install)
+              forceKill: () => void forceQuit(child, emulator.install)
             }
             this.opened = opened
             child.on('close', () => {

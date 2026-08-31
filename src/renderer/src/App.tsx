@@ -402,6 +402,9 @@ function RunningActions(): JSX.Element {
   const keyLabel = useKeyLabel()
   const [asked, setAsked] = useState(false)
   const [stuck, setStuck] = useState(false)
+  const [forcing, setForcing] = useState(false)
+  /** Whether it has been killed once already, which changes what is true. */
+  const [forced, setForced] = useState(false)
 
   // Only while it is still up: the overlay unmounts when the emulator exits,
   // and the timer goes with it.
@@ -411,24 +414,50 @@ function RunningActions(): JSX.Element {
     return () => window.clearTimeout(timer)
   }, [asked])
 
+  /**
+   * A force that is still not enough, said rather than left to be guessed.
+   *
+   * This overlay unmounts the moment the emulator goes, so anything still on
+   * screen after the wait is an emulator that survived being killed. Saying so
+   * is the whole of what RomMix can do at that point — but it is a great deal
+   * better than a button that answers a press with nothing, which is what the
+   * user reads as "it did not register" and presses again.
+   */
+  useEffect(() => {
+    if (!forcing) return
+    const timer = window.setTimeout(() => setForcing(false), FORCE_AFTER_MS)
+    return () => window.clearTimeout(timer)
+  }, [forcing])
+
   const stop = (): void => {
     setAsked(true)
     void window.rommix.running.stop()
   }
-  const force = (): void => void window.rommix.running.forceStop()
+  const force = (): void => {
+    setForcing(true)
+    setForced(true)
+    void window.rommix.running.forceStop()
+  }
 
   // The one press that reaches RomMix while a game has the pad. Asking twice
   // does nothing — the request is already out — so it does nothing until there
   // is something else to offer.
   useAction('menu', () => {
     if (!asked) stop()
-    else if (stuck) force()
+    else if (stuck && !forcing) force()
   })
+
+  // Killing it is not instant, and it is the press most likely to be repeated:
+  // there is nothing else left to try, so a second one has to be absorbed
+  // rather than land on a button that is still offered.
+  if (forcing) return <p className="muted">{t('app.closingEmulatorNow')}</p>
 
   if (asked && stuck) {
     return (
       <>
-        <p className="muted">{t('app.notClosing')}</p>
+        {/* Once it has been forced and is still here, the first line is no
+            longer true — it was not the asking that failed. */}
+        <p className="muted">{t(forced ? 'app.couldNotClose' : 'app.notClosing')}</p>
         <p className="muted">{t('app.holdToForce', { key: keyLabel('START') })}</p>
         <div className="btn-row">
           <FocusButton icon="quit" variant="danger" onSelect={force}>

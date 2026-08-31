@@ -91,6 +91,8 @@ export const es: Catalog = {
   'app.holdToForce': 'Mantén {key} otra vez para forzarlo.',
   'app.forceClose': 'Forzar el cierre',
   'app.askingEmulatorToQuit': 'Pidiendo al emulador que se cierre…',
+  'app.closingEmulatorNow': 'Cerrándolo ahora…',
+  'app.couldNotClose': 'Sigue en ejecución. RomMix no tiene otra forma de cerrarlo.',
 
   // -- avisos del armazón ---------------------------------------------------
 

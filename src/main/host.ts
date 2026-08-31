@@ -73,6 +73,15 @@ async function sandboxPids(appId: string): Promise<number[]> {
     .filter((pid) => Number.isInteger(pid) && pid > 0)
 }
 
+/**
+ * How long a killed sandbox is given to disappear before it is read back.
+ *
+ * SIGKILL is not synchronous — the process is gone when the kernel has reaped
+ * it — so asking flatpak straight away lists processes that are already dead
+ * and turns a successful kill into a reported failure.
+ */
+const KILL_SETTLE_MS = 400
+
 /** Every process descended from `roots`, from one snapshot of the process table. */
 export function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
   const children = new Map<number, number[]>()
@@ -205,10 +214,40 @@ export async function killProcessTree(pid: number): Promise<void> {
  * `stopFlatpakApp` asks first and waits; this is what is left when the user has
  * been told the app is not responding and has chosen to lose whatever it had
  * not written.
+ *
+ * `flatpak kill` alone was not enough, and answered as though it were. It fails
+ * silently for an instance flatpak is not tracking and returns without waiting
+ * for the app to actually go, so the one press that was supposed to be the way
+ * out of a hung emulator sometimes did nothing at all — with nothing in the
+ * result to say so. What is still listed afterwards is the only honest answer,
+ * and what is still there is signalled the way `stopFlatpakApp` signals.
+ *
+ * Reports whether the app is gone, so a caller with another way to reach it can
+ * use it. See `forceQuit`.
  */
-export async function killFlatpakApp(appId: string): Promise<void> {
+export async function killFlatpakApp(appId: string): Promise<boolean> {
   log.warn('host', 'killing a flatpak app on request — unsaved data is lost', { appId })
   await run(['flatpak', 'kill', appId])
+
+  const left = await sandboxPids(appId)
+  if (left.length === 0) return true
+
+  const ps = await run(['ps', '-eo', 'pid=,ppid='])
+  const targets = [...descendantsOf(ps ?? '', left), ...left]
+  log.warn('host', 'it outlived flatpak kill, signalling the sandbox directly', { appId, targets })
+  signal(targets, 'SIGKILL')
+
+  // A moment for the kernel to reap them, so the answer is about what happened
+  // rather than about how fast this was asked.
+  await new Promise((resolve) => setTimeout(resolve, KILL_SETTLE_MS))
+  const survivors = await sandboxPids(appId)
+  if (survivors.length > 0) {
+    log.error('host', 'the app is still running after being killed', undefined, {
+      appId,
+      survivors
+    })
+  }
+  return survivors.length === 0
 }
 
 /**

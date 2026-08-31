@@ -93,6 +93,8 @@ export const de: Catalog = {
   'app.holdToForce': '{key} erneut gedrückt halten, um ihn zu erzwingen.',
   'app.forceClose': 'Schließen erzwingen',
   'app.askingEmulatorToQuit': 'Der Emulator wird zum Beenden aufgefordert…',
+  'app.closingEmulatorNow': 'Wird jetzt geschlossen…',
+  'app.couldNotClose': 'Es läuft noch. RomMix hat keine andere Möglichkeit, es zu schließen.',
 
   // -- Benachrichtigungen des Gerüsts ---------------------------------------
 
