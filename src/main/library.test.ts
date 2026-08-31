@@ -611,3 +611,130 @@ describe('a name from the server that would leave the system folder', () => {
     )
   })
 })
+
+describe('the shapes an install can take that a plain name does not describe', () => {
+  /**
+   * Eden, the one emulator that reads its library flat.
+   *
+   * Built after the manager, because its ROM folder has to be the one the
+   * manager made — `plan` resolves against the emulator's own paths under
+   * per-emulator storage.
+   */
+  function flatManager(): ReturnType<typeof manager> {
+    const made = manager({ shared: false })
+    const roms = join(made.root, 'roms')
+    return {
+      ...made,
+      library: new Library(made.store, made.client, () =>
+        emulator({ id: 'eden', name: 'Eden', roms })
+      )
+    }
+  }
+
+  /** A Switch game of several files, which a flat library keeps loose. */
+  function multi(fields: Partial<RommRom> = {}): RommRom {
+    return rom({
+      id: 2,
+      name: 'A Switch game',
+      fs_name: 'game.nsp',
+      fs_name_no_ext: 'game',
+      fs_extension: 'nsp',
+      platform_slug: 'switch',
+      platform_fs_slug: 'switch',
+      has_multiple_files: true,
+      files: [{ file_name: 'game.nsp' }, { file_name: 'update.nsp' }] as RommRom['files'],
+      ...fields
+    })
+  }
+
+  test('a game loose in the system folder is adopted as one game, not passed over', async () => {
+    // A flat emulator gets the files side by side with every other game's,
+    // under the names the server has for them — so there is no one path to
+    // stat, and missing this is a game the user is asked to download again.
+    const made = flatManager()
+    const dir = join(made.root, 'roms', 'switch')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'game.nsp'), '0'.repeat(64))
+    writeFileSync(join(dir, 'update.nsp'), '0'.repeat(32))
+
+    const adopted = await made.library.adopt([multi()])
+
+    assert.equal(adopted.length, 1)
+    assert.equal(adopted[0].isDirectory, false)
+    assert.deepEqual(adopted[0].files.sort(), ['game.nsp', 'update.nsp'])
+    assert.equal(adopted[0].sizeBytes, 96)
+  })
+
+  test('half of a loose game is adopted as the file that is there', async () => {
+    /**
+     * Not as the whole game: the loose-set branch refuses an incomplete set,
+     * and what adopts this is the ordinary single-file check below it, which
+     * finds `game.nsp` under the name a download would give it.
+     *
+     * So the entry names one file rather than two — which is what `uninstall`
+     * removes and what Play is handed. Worth pinning because the two branches
+     * pull against each other: the first says a partial set is not the game,
+     * and the second says this file is.
+     */
+    const made = flatManager()
+    const dir = join(made.root, 'roms', 'switch')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'game.nsp'), '0'.repeat(64))
+
+    const adopted = await made.library.adopt([multi()])
+
+    assert.equal(adopted.length, 1)
+    assert.deepEqual(adopted[0].files, ['game.nsp'])
+  })
+
+  test('a game installed under the name the server gave it is still found', async () => {
+    // What a download from before `installName` existed is called on disk. The
+    // two names differ only for a ROM whose extension RomM does not carry.
+    const { library, store, root } = manager()
+    const dir = join(root, 'roms', 'genesis')
+    mkdirSync(dir, { recursive: true })
+    const legacy = rom({
+      fs_name: 'Sonic the Hedgehog (USA)',
+      fs_name_no_ext: 'Sonic the Hedgehog (USA)',
+      fs_extension: '',
+      files: [{ file_name: 'Sonic the Hedgehog (USA).md' }] as RommRom['files']
+    })
+    // `installName` answers with the file's own name; the older install used
+    // `fs_name`, and that is the one on disk.
+    writeFileSync(join(dir, 'Sonic the Hedgehog (USA)'), '0'.repeat(16))
+
+    const adopted = await library.adopt([legacy])
+
+    assert.equal(adopted.length, 1)
+    assert.equal(store.getInstalled(1)?.fileName, 'Sonic the Hedgehog (USA)')
+  })
+})
+
+describe('the file handed to an emulator for a loose install', () => {
+  test('it is chosen from the files the entry lists, not the folder it shares', async () => {
+    // Loose in the system folder, the entry's siblings are every other game on
+    // the platform. Picking from the directory would hand over one of those.
+    const { library, root } = manager()
+    const dir = join(root, 'roms', 'psx')
+    mkdirSync(dir, { recursive: true })
+    for (const name of ['disc.cue', 'disc.bin', 'someone-elses.cue']) {
+      writeFileSync(join(dir, name), '0'.repeat(8))
+    }
+
+    const target = await library.launchTarget(
+      entry({
+        romId: 3,
+        system: 'psx',
+        isDirectory: false,
+        // The recorded launch file has gone — an emulator converted it, or it
+        // was never the right one.
+        path: join(dir, 'disc.bin'),
+        launchPath: join(dir, 'gone.cue'),
+        files: ['disc.cue', 'disc.bin']
+      })
+    )
+
+    // The descriptor, and one of this game's own files.
+    assert.equal(target, join(dir, 'disc.cue'))
+  })
+})
