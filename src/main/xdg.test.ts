@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
 import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { realHome, xdgConfigHome, xdgDataHome } from './xdg.ts'
 
 /**
@@ -51,8 +52,13 @@ test('a variable set to nothing falls back too, rather than yielding a relative 
 })
 
 test('an empty HOME falls back to the account the process is running as', () => {
+  // The XDG variables are cleared along with HOME, because a machine that
+  // exports one of them is answered from it and the home is never consulted.
+  // Continuous integration is such a machine.
   process.env.HOME = ''
+  delete process.env.XDG_CONFIG_HOME
+  delete process.env.XDG_DATA_HOME
 
   assert.equal(realHome(), homedir())
-  assert.ok(xdgConfigHome().startsWith(homedir()))
+  assert.equal(xdgConfigHome(), join(homedir(), '.config'))
 })
