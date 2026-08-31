@@ -360,6 +360,44 @@ test('flathub is added when it is missing, and the caller is told', async () => 
   assert.ok(lines.length > 1, 'adding the remote has to be said, not done silently')
 })
 
+test('asking a flatpak to quit signals it, and waits for it to go', async () => {
+  /**
+   * The ordinary way an emulator is closed, which nothing covered.
+   *
+   * `flatpak ps` names the sandbox, and the application is normally a child of
+   * it — so what has to be signalled is the descendants. A test that only
+   * checked the sandbox would pass while the emulator kept the screen, which is
+   * the bug this function was written for.
+   */
+  const sandbox = spawn('sh', ['-c', 'sleep 30'], { stdio: 'ignore' })
+  const pid = sandbox.pid
+  assert.ok(pid)
+  const exited = new Promise<void>((resolve) => sandbox.on('exit', () => resolve()))
+  fakeFlatpak({ livePid: pid })
+
+  assert.equal(await stopFlatpakApp('net.retrodeck.retrodeck'), true)
+
+  // It went because it was signalled, not because the grace period ran out:
+  // the fake's `flatpak kill` does nothing at all.
+  await exited
+})
+
+test('an app that ignores the request is killed rather than waited on for ever', async () => {
+  /**
+   * A SIGTERM an emulator opens a dialog over and never answers.
+   *
+   * The pid here cannot be signalled and never stops being listed, so the grace
+   * period expires — and being stuck in an emulator with no way back is worse
+   * than the save that is lost. It answers true either way: what the caller
+   * needs to know is whether anything was found to act on.
+   */
+  const dead = spawn('sh', ['-c', 'exit 0'], { stdio: 'ignore' })
+  await new Promise((resolve) => dead.on('exit', resolve))
+  fakeFlatpak({ ps: `net.retrodeck.retrodeck ${dead.pid}` })
+
+  assert.equal(await stopFlatpakApp('net.retrodeck.retrodeck'), true)
+})
+
 test('an app flatpak will not kill is signalled directly', async () => {
   /**
    * The press that is meant to be the last resort.

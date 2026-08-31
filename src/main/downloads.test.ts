@@ -1012,6 +1012,44 @@ describe('a game fetched one file at a time', () => {
     assert.equal(item.currentFile, undefined)
   })
 
+  test('a game for an emulator that reads flat lands loose, and says which files', async () => {
+    /**
+     * Eden and anything else with `flatLibrary`.
+     *
+     * A folder is a place these emulators' game lists never look, so the files
+     * go beside every other game on the platform — and then the only record of
+     * which of them are this game is the one written here. Uninstalling reads
+     * it: get it wrong and either the game half goes or a neighbour does.
+     */
+    const roms = scratch()
+    const made = manager({
+      perFile: true,
+      shared: false,
+      emulator: {
+        id: 'eden',
+        name: 'Eden',
+        available: true,
+        install: null,
+        configDir: null,
+        dataDir: null,
+        unavailableReason: null,
+        paths: { home: roms, roms, saves: roms, states: roms, bios: roms }
+      } as unknown as EmulatorState
+    })
+
+    made.downloads.enqueue(multi())
+    const item = await settled(made.downloads, 2)
+
+    assert.equal(item.state, 'done')
+    const installed = made.store.getInstalled(2)
+    assert.equal(installed?.isDirectory, false)
+    assert.deepEqual(installed?.files.sort(), [
+      'disc (Track 1).bin',
+      'disc (Track 2).bin',
+      'disc.cue'
+    ])
+  })
+
   test('a file already there in full is not fetched twice', async () => {
     const { downloads, store, root, resumed } = manager({ perFile: true })
     const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')

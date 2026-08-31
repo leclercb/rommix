@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chooseLaunchFile, isLaunchable } from './gamefiles.ts'
+import { chooseLaunchFile, fileNameOf, isLaunchable } from './gamefiles.ts'
 
 const file = (name: string, sizeBytes = 1024): { name: string; sizeBytes: number } => ({
   name,
@@ -163,4 +163,27 @@ test('a playlist is not launchable on a container system', () => {
   assert.equal(isLaunchable('Metroid Dread.nsp', 'switch'), true)
   assert.equal(isLaunchable('Final Fantasy VII.m3u', 'psx'), true)
   assert.equal(isLaunchable('Sonic.md'), true)
+})
+
+test('a path is reduced to the file at the end of it', () => {
+  // What the renderer falls back to when RomM has no name for a game, where
+  // `node:path` is not available to do it.
+  assert.equal(
+    fileNameOf('/home/deck/rommix/roms/gba/Advance Wars (Europe).gba'),
+    'Advance Wars (Europe).gba'
+  )
+})
+
+test('a name with no directory in front of it is already the answer', () => {
+  assert.equal(fileNameOf('Sonic the Hedgehog (USA).md'), 'Sonic the Hedgehog (USA).md')
+})
+
+test('a game directory is named by its own last segment, not by what is in it', () => {
+  // Multi-file games are recorded by the folder holding them, and that folder
+  // is what the game is called.
+  assert.equal(fileNameOf('/home/deck/rommix/roms/psx/Final Fantasy VII'), 'Final Fantasy VII')
+})
+
+test('a trailing slash leaves nothing to fall back to, rather than throwing', () => {
+  assert.equal(fileNameOf('/home/deck/rommix/roms/psx/'), '')
 })

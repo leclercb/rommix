@@ -4,7 +4,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { RommRom } from '@shared/types'
-import { directorySize, filePathsUnder, onlyFile, pickLaunchFile, unpack } from './install.ts'
+import {
+  directorySize,
+  filePathsUnder,
+  installedFiles,
+  onlyFile,
+  pickLaunchFile,
+  unpack
+} from './install.ts'
 import { zipDirectory } from './zip.ts'
 
 /**
@@ -210,5 +217,52 @@ describe('unpacking what the server sent', () => {
 
     assert.equal(installed.isDirectory, true)
     assert.equal(installed.path, join(dir, 'Some game'))
+  })
+})
+
+describe('what a game is recorded as consisting of', () => {
+  test('a game in folders is its files, not the folders holding them', async () => {
+    // The record the index keeps and the Files tab draws. A listing that
+    // stopped at the top of the tree recorded two folder names and showed each
+    // of them as though it were a file.
+    const root = tree({
+      'Disc 1/track01.bin': '0'.repeat(8),
+      'Disc 1/disc.cue': 'FILE "track01.bin" BINARY',
+      'Disc 2/track01.bin': '0'.repeat(8)
+    })
+
+    assert.deepEqual(await installedFiles(root), [
+      'Disc 1/disc.cue',
+      'Disc 1/track01.bin',
+      'Disc 2/track01.bin'
+    ])
+  })
+
+  test('a folder with nothing in it is nothing, which is how a game is told from one', async () => {
+    // What a cancelled transfer leaves behind. Adoption reads this to decide
+    // whether there is a game there at all.
+    const root = tree({})
+
+    assert.deepEqual(await installedFiles(root), [])
+  })
+
+  test('an unpacked game reports its own contents rather than being read back', async () => {
+    const { zip, dir } = await archiveOf({
+      'disc.cue': 'FILE "disc.bin" BINARY',
+      'disc.bin': '0'.repeat(128)
+    })
+    scratches.push(dir)
+    const target = join(dir, 'Final Fantasy VII')
+
+    const installed = await unpack(
+      rom({ fs_name: 'Final Fantasy VII', fs_name_no_ext: 'Final Fantasy VII', fs_extension: '' }),
+      zip,
+      dir,
+      'psx',
+      target,
+      true
+    )
+
+    assert.deepEqual(installed.files?.sort(), ['disc.bin', 'disc.cue'])
   })
 })

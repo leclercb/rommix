@@ -491,6 +491,20 @@ describe('what an installed game is made of', () => {
   })
 })
 
+describe('where a game would go', () => {
+  test('an emulator whose ROM folder is not known refuses the download', async () => {
+    /**
+     * Found but never probed, which is a real state: an emulator can be
+     * installed and still have nothing RomMix can read a library path out of.
+     * Planning a download into nowhere writes the game to a path built from an
+     * empty string, so this has to be the error the screen reports.
+     */
+    const made = manager({ emulator: emulator({ roms: '' }), shared: false })
+
+    assert.throws(() => made.library.plan(rom()), /does not know where/i)
+  })
+})
+
 describe('uninstalling', () => {
   test('a game loose in the system folder takes every one of its files with it', async () => {
     const made = manager()
@@ -515,6 +529,32 @@ describe('uninstalling', () => {
     // Another game's file shares the folder and is none of this game's business.
     assert.equal(existsSync(join(dir, 'other-game.nsp')), true)
     assert.equal(made.store.getInstalled(4), undefined)
+  })
+
+  test('a game with a directory takes the whole of it, and nothing beside it', async () => {
+    // The other half of the pair: a disc set keeps a folder, and uninstalling
+    // it is the folder rather than a list of names inside it.
+    const made = manager()
+    const dir = join(made.root, 'roms', 'psx')
+    const game = join(dir, 'Final Fantasy VII')
+    mkdirSync(join(game, 'Disc 1'), { recursive: true })
+    writeFileSync(join(game, 'Disc 1', 'track01.bin'), 'x')
+    writeFileSync(join(game, 'disc.cue'), 'x')
+    writeFileSync(join(dir, 'Another Game.iso'), 'x')
+    made.store.addInstalled(
+      entry({
+        romId: 5,
+        path: game,
+        files: ['Disc 1/track01.bin', 'disc.cue'],
+        system: 'psx',
+        isDirectory: true
+      })
+    )
+
+    await made.library.uninstall(5)
+
+    assert.equal(existsSync(game), false)
+    assert.equal(existsSync(join(dir, 'Another Game.iso')), true)
   })
 
   test('uninstalling something that is not in the index is not an error', async () => {
