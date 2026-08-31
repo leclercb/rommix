@@ -4,6 +4,11 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects since the previous tag — so write the section by hand before
 releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.9.0-rc.1 — 2026-08-31
+
+- Report play time in a shape RomM will accept
+- Mark a running game as now playing on RomM
+
 ## 0.9.0-rc.0 — 2026-08-31
 
 - Offer release candidates to whoever asks for them
