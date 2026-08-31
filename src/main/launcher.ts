@@ -308,6 +308,9 @@ export class Launcher {
     }
     this.current = session
 
+    /** Whether RomM has been told this game is up, and so has to be untold. */
+    let markedPlaying = false
+
     try {
       /**
        * Install the core the emulator is about to be told to load.
@@ -352,6 +355,13 @@ export class Launcher {
       // session. One second of slack absorbs clock/filesystem timestamp
       // granularity.
       const since = startedAt.getTime() - 1000
+
+      // What RomM answers with when asked what is being played, for as long as
+      // it is. Raised here rather than when the launch was asked for, so that a
+      // session nobody got to start — a core that would not install, a stop
+      // pressed while the saves came down — never shows up there at all.
+      await this.client.setNowPlaying(rom.id, true)
+      markedPlaying = true
 
       const exit = await this.run(argv, session, emulator.install, emulatorById(emulator.id)?.env)
       const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
@@ -452,6 +462,10 @@ export class Launcher {
         playSeconds
       }
     } finally {
+      // Lowered after the session was reported and never before: RomM raises
+      // this flag itself when it takes a play session, so an earlier clear
+      // would be undone by the very call that says the session is over.
+      if (markedPlaying) await this.client.setNowPlaying(rom.id, false)
       // Released only once the saves are back on the server, not when the
       // emulator exits: until then the session still owns the save files.
       this.current = null

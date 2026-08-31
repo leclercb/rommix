@@ -958,6 +958,35 @@ describe('checking what arrived against what RomM holds', () => {
   })
 })
 
+describe('what is being played', () => {
+  test('starting a session says so, and only that', async () => {
+    const { store } = fakeStore({ clientToken: 'rmm_token' })
+    const sent = serve(() => new Response(null, { status: 200 }))
+
+    await new RommClient(store).setNowPlaying(7, true)
+
+    assert.equal(sent[0].method, 'PUT')
+    assert.match(sent[0].url, /\/api\/roms\/7\/props$/)
+    assert.deepEqual(JSON.parse(sent[0].body ?? '{}'), { now_playing: true })
+  })
+
+  test('ending one lowers the flag, which nothing on the server does', async () => {
+    const { store } = fakeStore({ clientToken: 'rmm_token' })
+    const sent = serve(() => new Response(null, { status: 200 }))
+
+    await new RommClient(store).setNowPlaying(7, false)
+
+    assert.deepEqual(JSON.parse(sent[0].body ?? '{}'), { now_playing: false })
+  })
+
+  test('a server that will not take it never fails the launch it belongs to', async () => {
+    const { store } = fakeStore({ clientToken: 'rmm_token' })
+    serve(() => json({ detail: 'no' }, 403))
+
+    await new RommClient(store).setNowPlaying(7, true)
+  })
+})
+
 describe('reporting play time', () => {
   test('a session too short to mean anything is not reported', async () => {
     const { store } = fakeStore()

@@ -557,8 +557,7 @@ export class RommClient {
   }
 
   /**
-   * PUT /api/roms/{id}/props — the per-user overlay, of which RomMix sets one
-   * field.
+   * PUT /api/roms/{id}/props — the per-user overlay.
    *
    * The endpoint takes the whole overlay and treats an absent key as "leave it
    * alone", so sending only the status cannot disturb a rating or a backlog
@@ -572,6 +571,36 @@ export class RommClient {
     })
     if (!res.ok) throw await this.toError(res)
     log.info('romm', 'status set', { romId, status })
+  }
+
+  /**
+   * PUT /api/roms/{id}/props — whether this game is up right now.
+   *
+   * RomM raises the flag from its own player, and raises it again every time it
+   * takes a play session, but nothing on the server ever lowers it. A game
+   * played from here would therefore sit in "now playing" for good, on every
+   * device the user opens RomM on, unless RomMix lowers it as well as raising
+   * it — see `Launcher.launch`, which does both around the run.
+   *
+   * Best effort, like the session report: the flag is worth keeping honest and
+   * not worth failing a launch over.
+   */
+  async setNowPlaying(romId: number, playing: boolean): Promise<void> {
+    log.info('romm', playing ? 'marking a game as playing' : 'clearing what is playing', { romId })
+    try {
+      const res = await this.request(`/api/roms/${romId}/props`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ now_playing: playing })
+      })
+      if (!res.ok) throw await this.toError(res)
+    } catch (cause) {
+      log.warn('romm', 'could not say what is being played', {
+        romId,
+        playing,
+        reason: (cause as Error).message
+      })
+    }
   }
 
   /**
