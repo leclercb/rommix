@@ -88,11 +88,31 @@
      so they wrap onto a second line on a narrow window rather than colliding. */
   flex-wrap: wrap;
   padding: 10px var(--safe-x);
-  background: linear-gradient(transparent, rgba(6, 8, 12, 0.92) 45%);
+  background: rgb(6 8 12 / 92%);
   font-size: 14px;
   color: var(--text-dim);
   pointer-events: none;
   z-index: 40;
+}
+
+/*
+ * The fade, above the bar rather than across it.
+ *
+ * It used to be the bar's own background, which put the hints themselves in the
+ * transparent half of it: the labels were read against whatever the page had
+ * scrolled underneath them, and a window narrow enough to wrap them onto a
+ * second line pushed even more of the text up into the clear. Sat above, the
+ * bar is opaque wherever there is something to read and the gradient only ever
+ * covers page content.
+ */
+.hints::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 56px;
+  background: linear-gradient(transparent, rgb(6 8 12 / 92%));
 }
 
 /* Each hint keeps its chip and its label on one line, whatever they say. */
