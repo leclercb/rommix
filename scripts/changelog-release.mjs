@@ -44,13 +44,16 @@ if (written) {
 // Before the first release there is no tag to start from, and release-it
 // interpolates that absence into the literal string "null".
 const range = latestTag && latestTag !== 'null' ? `${latestTag}..HEAD` : 'HEAD'
-const subjects = execFileSync('git', ['log', range, '--no-merges', '--pretty=%s'], {
+
+// Subject and abbreviated hash: the bullet names the change, and the hash sends
+// a reader who wants more than the subject straight to the commit it came from.
+const commits = execFileSync('git', ['log', range, '--no-merges', '--pretty=%s (%h)'], {
   encoding: 'utf8'
 })
   .split('\n')
   .filter(Boolean)
 
-const entry = `## ${version} — ${today}\n\n${subjects.map((s) => `- ${s}`).join('\n')}\n\n`
+const entry = `## ${version} — ${today}\n\n${commits.map((c) => `- ${c}`).join('\n')}\n\n`
 
 /**
  * Newest first, above whatever section currently leads.
@@ -63,4 +66,4 @@ const first = markdown.search(/^## /m)
 if (first === -1) throw new Error(`${path} has no version sections to insert above`)
 
 writeFileSync(path, markdown.slice(0, first) + entry + markdown.slice(first))
-console.log(`${path}: added ${version} with ${subjects.length} bullet(s)`)
+console.log(`${path}: added ${version} with ${commits.length} bullet(s)`)

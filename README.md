@@ -438,8 +438,9 @@ npm run release -- --dry-run   # npm eats flags that come without the --
 [release-it](https://github.com/release-it/release-it) runs the checks, bumps the
 version, writes the [CHANGELOG.md](CHANGELOG.md) entry, commits, tags and pushes;
 a `v*` tag publishes a release with the AppImage attached. The entry falls back to
-commit subjects, so write the `## <version>` section by hand first if you want
-prose — it is what the release page says under **What's new**.
+commit subjects, each followed by its commit id, so write the `## <version>`
+section by hand first if you want prose — it is what the release page says under
+**What's new**.
 
 A version with a suffix publishes as a pre-release, which is what keeps it out of
 the release GitHub calls latest: only installations that turned **Release
