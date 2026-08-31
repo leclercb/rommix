@@ -177,8 +177,7 @@ export class DownloadManager extends EventEmitter {
       state: 'queued',
       receivedBytes: 0,
       totalBytes: rom.fs_size_bytes,
-      error: null,
-      targetPath: path
+      error: null
     }
 
     // Replace any finished entry for the same ROM so the list stays readable.
@@ -548,8 +547,7 @@ export class DownloadManager extends EventEmitter {
         files: holding.files,
         ownsFolder: holding.ownsFolder,
         fileName: rom.fs_name,
-        totalBytes: rom.fs_size_bytes,
-        pausedAt: new Date().toISOString()
+        totalBytes: rom.fs_size_bytes
       })
       this.emitUpdate()
 
@@ -569,7 +567,6 @@ export class DownloadManager extends EventEmitter {
       // The library records it and announces it: the index and the folder
       // readings are its, and so is the event every screen listens on.
       this.library.record(await this.library.entryFor(rom, system, emulatorId, installed))
-      item.targetPath = installed.path
 
       item.state = 'done'
       item.receivedBytes = item.totalBytes
@@ -864,8 +861,7 @@ export class DownloadManager extends EventEmitter {
         state: 'paused',
         receivedBytes: onDisk,
         totalBytes: entry.totalBytes,
-        error: null,
-        targetPath: entry.targetPath
+        error: null
       })
       log.info('download', 'an interrupted download is waiting to be resumed', {
         romId: entry.romId,

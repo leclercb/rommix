@@ -19,6 +19,7 @@ import type {
   UpdateStatus
 } from '@shared/types'
 import { setSoundEnabled } from './input/sound'
+import { fileNameOf } from '@shared/gamefiles'
 
 /** Application-wide state: connection, settings, downloads and navigation. */
 
@@ -462,7 +463,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       if (count === 1) {
         const entry = entries[0]
         notify(i18n.t('toast.adoptedOne'), 'ok', {
-          title: entry.name || entry.fileName,
+          title: entry.name || fileNameOf(entry.path),
           coverPath: entry.coverPath
         })
       } else {

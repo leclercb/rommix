@@ -403,8 +403,7 @@ describe('changing the order of the queue', () => {
       files: [],
       ownsFolder: false,
       fileName: 'Nine.md',
-      totalBytes: 100,
-      pausedAt: '2026-08-28T00:00:00.000Z'
+      totalBytes: 100
     })
     await made.downloads.restorePending()
 
@@ -641,7 +640,10 @@ describe('after a restart', () => {
     const [item] = next.items
     assert.equal(item.state, 'paused')
     assert.equal(item.receivedBytes, 4)
-    assert.equal(item.targetPath, join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md'))
+    assert.equal(
+      store.pending[0].targetPath,
+      join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md')
+    )
   })
 
   test('a partial the user deleted by hand is forgotten rather than offered', async () => {
@@ -730,8 +732,7 @@ describe('after a restart', () => {
       files: [],
       ownsFolder: false,
       fileName: 'Sonic the Hedgehog (USA).md',
-      totalBytes: 10,
-      pausedAt: '2026-08-28T00:00:00.000Z'
+      totalBytes: 10
     })
 
     const { client } = fakeClient()
@@ -1023,12 +1024,11 @@ describe('a game fetched one file at a time', () => {
       coverPath: null,
       system: 'psx',
       platformName: 'Sony PlayStation',
+      fileName: 'Castlevania - Symphony of the Night (Europe)',
       targetPath: dir,
       files: ['disc (Track 1).bin', 'disc (Track 2).bin', 'disc.cue'],
       ownsFolder: true,
-      fileName: 'Castlevania - Symphony of the Night (Europe)',
-      totalBytes: 104,
-      pausedAt: '2026-08-28T00:00:00.000Z'
+      totalBytes: 104
     })
 
     downloads.enqueue(multi())
@@ -1053,8 +1053,7 @@ describe('a game fetched one file at a time', () => {
       files: ['disc (Track 1).bin'],
       ownsFolder: true,
       fileName: 'Castlevania - Symphony of the Night (Europe)',
-      totalBytes: 104,
-      pausedAt: '2026-08-28T00:00:00.000Z'
+      totalBytes: 104
     })
 
     assert.deepEqual(await library.adopt([multi()]), [])
@@ -1093,7 +1092,6 @@ describe('a game fetched one file at a time', () => {
       files: [],
       system: 'psx',
       platformName: 'Sony PlayStation',
-      fileName: 'Castlevania - Symphony of the Night (Europe)',
       sizeBytes: 0,
       installedAt: '2026-08-28T00:00:00.000Z',
       isDirectory: true,
@@ -1137,8 +1135,7 @@ describe('a game fetched one file at a time', () => {
       files: ['game.nsp', 'update.nsp'],
       ownsFolder: false,
       fileName: 'A Switch game',
-      totalBytes: 104,
-      pausedAt: '2026-08-28T00:00:00.000Z'
+      totalBytes: 104
     })
     await downloads.restorePending()
 
@@ -1167,8 +1164,7 @@ describe('a game fetched one file at a time', () => {
       files: ['game.nsp'],
       ownsFolder: false,
       fileName: 'A Switch game',
-      totalBytes: 104,
-      pausedAt: '2026-08-28T00:00:00.000Z'
+      totalBytes: 104
     })
     await downloads.restorePending()
 

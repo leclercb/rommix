@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
-import { readdir, rm, stat } from 'node:fs/promises'
+import { rm, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { chooseLaunchFile, isLaunchable, type GameFile } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
@@ -9,6 +9,7 @@ import { SHARED_LIBRARY } from '@shared/types'
 import type { EmulatorState, InstalledRom, LibrarySyncResult, RommRom } from '@shared/types'
 import {
   directorySize,
+  installedFiles,
   installName,
   listDir,
   pickLaunchFile,
@@ -214,12 +215,9 @@ export class Library extends EventEmitter {
       launchPath: installed.launchPath,
       name: rom.name ?? rom.fs_name,
       coverPath: rom.path_cover_small ?? rom.path_cover_large,
-      files: installed.isDirectory
-        ? (await readdir(installed.path).catch(() => [])).sort()
-        : (installed.files ?? [basename(installed.path)]),
+      files: installed.files ?? [basename(installed.path)],
       system,
       platformName: rom.platform_display_name,
-      fileName: basename(installed.path),
       sizeBytes: installed.sizeBytes,
       installedAt: new Date().toISOString(),
       isDirectory: installed.isDirectory
@@ -314,7 +312,8 @@ export class Library extends EventEmitter {
         // transfer or a copy that never finished leaves behind, and recording
         // it puts a download of nothing in the index — which then reads as
         // installed everywhere and refuses to be downloaded.
-        if (isDirectory && (await readdir(path).catch(() => [])).length === 0) return
+        const inside = isDirectory ? await installedFiles(path) : undefined
+        if (inside?.length === 0) return
 
         adopted.push(
           await this.entryFor(rom, target.system, target.emulatorId, {
@@ -323,7 +322,8 @@ export class Library extends EventEmitter {
             sizeBytes: isDirectory
               ? await directorySize(path).catch(() => 0)
               : ((await stat(path).catch(() => null))?.size ?? 0),
-            isDirectory
+            isDirectory,
+            files: inside
           })
         )
       }

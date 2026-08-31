@@ -40,8 +40,7 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
         state: 'done',
         receivedBytes: existing.sizeBytes,
         totalBytes: existing.sizeBytes,
-        error: null,
-        targetPath: existing.path
+        error: null
       }
     }
 

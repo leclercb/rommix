@@ -1,5 +1,5 @@
 import { type JSX, useEffect, useState } from 'react'
-import type { GameFile } from '@shared/gamefiles'
+import { fileNameOf, type GameFile } from '@shared/gamefiles'
 import type { MessageKey } from '@shared/i18n'
 import type { InstalledRom, RommRom } from '@shared/types'
 import { Icon, type IconName } from '../../../icons'
@@ -44,7 +44,7 @@ interface FileRow {
  * file, and listing it twice would invent a discrepancy.
  */
 function merge(rom: RommRom, entry: InstalledRom | undefined): FileRow[] {
-  const local = entry?.files?.length ? entry.files : entry ? [entry.fileName] : []
+  const local = entry?.files?.length ? entry.files : entry ? [fileNameOf(entry.path)] : []
   const here = new Map(local.map((name) => [name.toLowerCase(), name]))
   const rows: FileRow[] = []
 

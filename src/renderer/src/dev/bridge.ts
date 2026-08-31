@@ -1,5 +1,6 @@
 import { artFor, PLATFORMS, ROMS as LIBRARY } from './library'
 import { createI18n, localeFor, type MessageKey } from '@shared/i18n'
+import { fileNameOf } from '@shared/gamefiles'
 import type { RomMixBridge } from '@shared/api'
 import type {
   BiosPlatform,
@@ -213,7 +214,6 @@ const INSTALLED: InstalledRom[] = (
     files: [rom.fs_name],
     system,
     platformName: rom.platform_display_name,
-    fileName: rom.fs_name,
     sizeBytes: rom.fs_size_bytes,
     installedAt,
     isDirectory: false,
@@ -251,7 +251,6 @@ function queued(
     receivedBytes: received,
     totalBytes: rom.fs_size_bytes,
     error: state === 'error' ? say('demo.connectionClosed') : null,
-    targetPath: `/home/deck/retrodeck/roms/${system}/${rom.fs_name}`,
     resumable
   }
 }
@@ -677,7 +676,7 @@ const bridge: RomMixBridge = {
     installed: () => later(INSTALLED),
     files: (romId: number) => {
       const entry = INSTALLED.find((item) => item.romId === romId)
-      return later(entry ? [{ name: entry.fileName, sizeBytes: entry.sizeBytes }] : [])
+      return later(entry ? [{ name: fileNameOf(entry.path), sizeBytes: entry.sizeBytes }] : [])
     },
     sync: () => later({ checked: ROMS.length, removed: 0, adopted: 0 }, 900),
     onSyncProgress: noSubscription,

@@ -5,6 +5,17 @@ import { CONTAINER_SYSTEMS, DESCRIPTOR_EXTENSIONS, SIDECAR_EXTENSIONS } from '..
 import type { ContainerFormat } from '../config/romfiles.ts'
 
 /**
+ * The file at the end of a path.
+ *
+ * `basename` without `node:path`, which the renderer has no access to — and the
+ * renderer is where every caller is, falling back to the file when RomM has no
+ * name for a game. RomMix only ever runs on Linux, so a separator is a slash.
+ */
+export function fileNameOf(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1)
+}
+
+/**
  * Deciding which file inside a multi-file game is the one to launch.
  *
  * Emulators take a file, never the directory holding it, so an extracted game

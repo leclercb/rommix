@@ -16,6 +16,7 @@ import { useFocusable } from '../../input/focus'
 import { useApp, useDownloads, useI18n } from '../../state'
 import { startedMessage } from '../Game/useGameCopy'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
+import { fileNameOf } from '@shared/gamefiles'
 
 /** The two jobs this screen does, split so neither buries the other. */
 type Tab = 'activity' | 'device'
@@ -36,7 +37,8 @@ const SORTS = [
 /** Order two games by the chosen rule. Used flat and inside each group. */
 function compare(a: InstalledRom, b: InstalledRom, sort: SortMode): number {
   if (sort === 'largest') return b.sizeBytes - a.sizeBytes
-  if (sort === 'name') return (a.name || a.fileName).localeCompare(b.name || b.fileName)
+  if (sort === 'name')
+    return (a.name || fileNameOf(a.path)).localeCompare(b.name || fileNameOf(b.path))
   return b.installedAt.localeCompare(a.installedAt)
 }
 

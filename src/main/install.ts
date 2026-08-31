@@ -1,6 +1,6 @@
 import { readdir, rename, rm, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
-import { basename, dirname, extname, join } from 'node:path'
+import { basename, dirname, extname, join, relative } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
 import type { RommRom } from '@shared/types'
 import { safeJoin } from './safepath.ts'
@@ -57,9 +57,12 @@ export interface InstallResult {
   sizeBytes: number
   isDirectory: boolean
   /**
-   * Every file the install consists of, when it is loose files in the system
-   * folder rather than one file or one directory. Recorded so uninstalling
-   * removes the whole game and not only the file that happens to launch it.
+   * Every file the install consists of, beyond the one `path` names.
+   *
+   * Loose files in the system folder, where uninstalling has to remove the
+   * whole game rather than only the file that happens to launch it — and the
+   * contents of a game given a directory, relative to it. Absent for a game
+   * that is the single file `path` names.
    */
   files?: string[]
 }
@@ -84,6 +87,19 @@ export async function filePathsUnder(dir: string): Promise<string[]> {
     else if (entry.isFile()) found.push(child)
   }
   return found
+}
+
+/**
+ * What a game consists of, relative to the directory holding it.
+ *
+ * The whole tree rather than the top of it: a disc set unpacked into folders
+ * is its tracks, and a listing that stopped at the first level recorded the
+ * folder names and showed them as if each were a file. Sorted, so the record
+ * does not depend on the order the filesystem hands entries back.
+ */
+export async function installedFiles(dir: string): Promise<string[]> {
+  const found = await filePathsUnder(dir)
+  return found.map((path) => relative(dir, path)).sort()
 }
 
 /**
@@ -181,7 +197,8 @@ export async function unpack(
     path: dirTarget,
     launchPath: (await pickLaunchFile(dirTarget, system)) ?? dirTarget,
     sizeBytes: await directorySize(dirTarget),
-    isDirectory: true
+    isDirectory: true,
+    files: await installedFiles(dirTarget)
   }
 }
 

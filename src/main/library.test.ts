@@ -16,7 +16,7 @@ import { afterEach, describe, test } from 'node:test'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type InstalledRom, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
@@ -343,7 +343,7 @@ describe('adopting what is already on disk', () => {
 
     await library.adopt([rom()])
 
-    assert.equal(store.getInstalled(1)?.fileName, 'Sonic the Hedgehog (USA).bin')
+    assert.equal(basename(store.getInstalled(1)?.path ?? ''), 'Sonic the Hedgehog (USA).bin')
   })
 
   test('a directory named after the game is adopted as a multi-file game', async () => {
@@ -706,7 +706,7 @@ describe('the shapes an install can take that a plain name does not describe', (
     const adopted = await library.adopt([legacy])
 
     assert.equal(adopted.length, 1)
-    assert.equal(store.getInstalled(1)?.fileName, 'Sonic the Hedgehog (USA)')
+    assert.equal(basename(store.getInstalled(1)?.path ?? ''), 'Sonic the Hedgehog (USA)')
   })
 })
 

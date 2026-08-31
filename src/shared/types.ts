@@ -522,13 +522,20 @@ export interface InstalledRom {
   name: string
   /** RomM cover path, for the same reason. Null when the game has no artwork. */
   coverPath: string | null
-  /** Every file that makes up the game; one entry for an ordinary single ROM. */
+  /**
+   * Every file the game is made of, relative to `path` where that is a
+   * directory, and one entry for an ordinary single ROM.
+   *
+   * Recorded by whatever put the game there — see `unpack` and `adopt` — rather
+   * than read back off the folder afterwards. A listing taken later is a
+   * listing of whatever is in there now, which for a game RomMix installed is
+   * the same thing only for as long as nothing else writes beside it.
+   */
   files: string[]
   /** ES-DE system id — the folder name, and RomMix's internal platform key. */
   system: string
   /** RomM's display name for the platform, e.g. "Sega Mega Drive". */
   platformName: string
-  fileName: string
   sizeBytes: number
   installedAt: string
   /** Set when the ROM was installed as an extracted directory. */
@@ -575,7 +582,6 @@ export interface DownloadItem {
   receivedBytes: number
   totalBytes: number
   error: string | null
-  targetPath: string
   /**
    * The file arriving right now, for a game fetched one file at a time.
    *
@@ -636,7 +642,6 @@ export interface PendingDownload {
   ownsFolder: boolean
   fileName: string
   totalBytes: number
-  pausedAt: string
 }
 
 /**

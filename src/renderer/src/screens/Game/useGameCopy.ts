@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import type { DownloadItem, InstalledRom, RommRom } from '@shared/types'
 import { useApp, useI18n } from '../../state'
+import { fileNameOf } from '@shared/gamefiles'
 
 /**
  * What to say about a press of the download button.
@@ -72,7 +73,7 @@ export function useGameCopy(options: {
       await window.rommix.downloads.uninstall(romId)
       await refreshInstalled()
       notify(t('downloads.uninstalled'), 'ok', {
-        title: rom?.name ?? entry?.fileName ?? t('game.fallbackTitle'),
+        title: rom?.name ?? (entry && fileNameOf(entry.path)) ?? t('game.fallbackTitle'),
         coverPath: rom?.path_cover_small ?? rom?.path_cover_large ?? null
       })
     } catch {

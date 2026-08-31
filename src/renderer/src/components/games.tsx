@@ -3,6 +3,7 @@ import type { InstalledRom, RommRom } from '@shared/types'
 import { FocusGroup, useFocusable } from '../input/focus'
 import { useI18n } from '../state'
 import { CoverArt, PlatformIcon } from './art'
+import { fileNameOf } from '@shared/gamefiles'
 
 /** A game as the library draws it: a cover, a title, a shelf of them. */
 
@@ -38,7 +39,7 @@ export function tileFromRom(rom: RommRom): GameTile {
 export function tileFromInstalled(entry: InstalledRom): GameTile {
   return {
     romId: entry.romId,
-    title: entry.name || entry.fileName,
+    title: entry.name || fileNameOf(entry.path),
     coverPath: entry.coverPath,
     platformName: entry.platformName,
     // The index records the ES-DE system rather than RomM's slug, which the

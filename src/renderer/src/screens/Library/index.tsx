@@ -13,6 +13,7 @@ import {
 } from '../../components'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
 import { useApp, useI18n } from '../../state'
+import { fileNameOf } from '@shared/gamefiles'
 
 const PAGE_SIZE = 60
 
@@ -153,7 +154,7 @@ export function LibraryScreen(): JSX.Element {
     // the honest answer for it is none rather than every game on the device.
     if (chosen && !system) return []
     const term = search.trim().toLowerCase()
-    const titleOf = (entry: InstalledRom): string => entry.name || entry.fileName
+    const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.path)
     return installed
       .filter((entry) => (system ? entry.system === system : true))
       .filter((entry) => (term ? titleOf(entry).toLowerCase().includes(term) : true))
