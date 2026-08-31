@@ -235,7 +235,7 @@ function Hero({
   const keyLabel = useKeyLabel()
   const title = rom.name ?? rom.fs_name
   const year = rom.metadatum.first_release_date
-    ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
+    ? new Date(rom.metadatum.first_release_date).getFullYear()
     : null
 
   return (

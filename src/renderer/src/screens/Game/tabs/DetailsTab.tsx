@@ -34,7 +34,7 @@ export function DetailsTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom 
     {
       icon: 'time',
       label: t('details.released'),
-      value: meta.first_release_date ? formatDate(meta.first_release_date * 1000) : null
+      value: meta.first_release_date ? formatDate(meta.first_release_date) : null
     },
     // Worth knowing before starting something with a second person in the room,
     // and the one pair of facts RomM holds that nothing else on this page shows.

@@ -37,7 +37,7 @@ export function GameHero({
   const title = rom.name ?? rom.fs_name
   const rating = rom.metadatum.average_rating ? Math.round(rom.metadatum.average_rating) : null
   const year = rom.metadatum.first_release_date
-    ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
+    ? new Date(rom.metadatum.first_release_date).getFullYear()
     : null
 
   return (

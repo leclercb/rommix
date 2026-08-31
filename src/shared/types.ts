@@ -118,6 +118,11 @@ export interface RommRomMetadata {
   game_modes: string[]
   age_ratings: string[]
   player_count: string
+  /**
+   * When the game came out, in epoch milliseconds — not the seconds IGDB
+   * returns, which RomM multiplies on the way into this merged view. See its
+   * `0045_roms_metadata_update` migration, which does it for every provider.
+   */
   first_release_date: number | null
   average_rating: number | null
 }

@@ -373,7 +373,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['GA'],
       player_count: '1',
-      first_release_date: 1278547200,
+      first_release_date: 1278547200000,
       average_rating: 70.01
     },
     rom_user: {
@@ -447,7 +447,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['Not Rated'],
       player_count: '1-2',
-      first_release_date: 1388448000,
+      first_release_date: 1388448000000,
       average_rating: 70.0
     },
     rom_user: {
@@ -521,7 +521,7 @@ export const ROMS: RommRom[] = [
       game_modes: [],
       age_ratings: ['Not Rated'],
       player_count: '1',
-      first_release_date: 1267228800,
+      first_release_date: 1267228800000,
       average_rating: 63.4
     },
     rom_user: {
@@ -595,7 +595,7 @@ export const ROMS: RommRom[] = [
       game_modes: [],
       age_ratings: ['Not Rated'],
       player_count: '1-2',
-      first_release_date: 1293840000,
+      first_release_date: 1293840000000,
       average_rating: 63.0
     },
     rom_user: {
@@ -669,7 +669,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1400025600,
+      first_release_date: 1400025600000,
       average_rating: 80.0
     },
     rom_user: {
@@ -743,7 +743,7 @@ export const ROMS: RommRom[] = [
       game_modes: [],
       age_ratings: ['Not Rated'],
       player_count: '1',
-      first_release_date: 1420070400,
+      first_release_date: 1420070400000,
       average_rating: null
     },
     rom_user: {
@@ -887,7 +887,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1459036800,
+      first_release_date: 1459036800000,
       average_rating: null
     },
     rom_user: {
@@ -961,7 +961,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1639094400,
+      first_release_date: 1639094400000,
       average_rating: null
     },
     rom_user: {
@@ -1035,7 +1035,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1512259200,
+      first_release_date: 1512259200000,
       average_rating: null
     },
     rom_user: {
@@ -1109,7 +1109,7 @@ export const ROMS: RommRom[] = [
       game_modes: [],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1546300800,
+      first_release_date: 1546300800000,
       average_rating: null
     },
     rom_user: {
@@ -1183,7 +1183,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['E'],
       player_count: '1',
-      first_release_date: 1218240000,
+      first_release_date: 1218240000000,
       average_rating: 40.0
     },
     rom_user: {
@@ -1257,7 +1257,7 @@ export const ROMS: RommRom[] = [
       game_modes: [],
       age_ratings: ['E'],
       player_count: '1',
-      first_release_date: 1179446400,
+      first_release_date: 1179446400000,
       average_rating: 85.7
     },
     rom_user: {
@@ -1331,7 +1331,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['RP'],
       player_count: '1',
-      first_release_date: 1769904000,
+      first_release_date: 1769904000000,
       average_rating: null
     },
     rom_user: {
@@ -1479,7 +1479,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['12', '12', '12', '12+', 'M', 'T'],
       player_count: '1',
-      first_release_date: 1627776000,
+      first_release_date: 1627776000000,
       average_rating: 85.0
     },
     rom_user: {
@@ -1553,7 +1553,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1552435200,
+      first_release_date: 1552435200000,
       average_rating: null
     },
     rom_user: {
@@ -1627,7 +1627,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1359590400,
+      first_release_date: 1359590400000,
       average_rating: null
     },
     rom_user: {
@@ -1701,7 +1701,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 1355529600,
+      first_release_date: 1355529600000,
       average_rating: null
     },
     rom_user: {
@@ -1780,7 +1780,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['12', 'T'],
       player_count: '1',
-      first_release_date: 762480000,
+      first_release_date: 762480000000,
       average_rating: 81.796666666
     },
     rom_user: {
@@ -1883,7 +1883,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['6'],
       player_count: '1',
-      first_release_date: 725760000,
+      first_release_date: 725760000000,
       average_rating: 69.35
     },
     rom_user: {
@@ -1957,7 +1957,7 @@ export const ROMS: RommRom[] = [
       game_modes: [],
       age_ratings: [],
       player_count: '1-2',
-      first_release_date: 1459036800,
+      first_release_date: 1459036800000,
       average_rating: null
     },
     rom_user: {
@@ -2031,7 +2031,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: [],
       player_count: '1',
-      first_release_date: 574905600,
+      first_release_date: 574905600000,
       average_rating: 85.0
     },
     rom_user: {
@@ -2105,7 +2105,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['Not Rated'],
       player_count: '1',
-      first_release_date: 1468108800,
+      first_release_date: 1468108800000,
       average_rating: 91.5
     },
     rom_user: {
@@ -2179,7 +2179,7 @@ export const ROMS: RommRom[] = [
       game_modes: ['Single player'],
       age_ratings: ['Not Rated'],
       player_count: '1',
-      first_release_date: 1388448000,
+      first_release_date: 1388448000000,
       average_rating: 66.0
     },
     rom_user: {
