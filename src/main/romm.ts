@@ -84,7 +84,7 @@ export class CorruptDownloadError extends RommError {
   }
 }
 
-export interface DownloadProgress {
+interface DownloadProgress {
   received: number
   total: number
 }
@@ -127,7 +127,7 @@ const STALL_TIMEOUT_MS = 20_000
  * crypto can compute. A game with nothing but a CRC goes unchecked rather than
  * carrying a second implementation of a checksum into this file.
  */
-export interface Checksum {
+interface Checksum {
   algorithm: 'md5' | 'sha1'
   expected: string
 }
@@ -152,7 +152,7 @@ function digestOf(source: { md5_hash: string | null; sha1_hash: string | null })
  * on its disk, so for a zipped ROM that is the hash of the zip, which is what
  * arrives here. It is verified before it is unpacked.
  */
-export function checksumOf(rom: RommRom): Checksum | null {
+function checksumOf(rom: RommRom): Checksum | null {
   const digest = digestOf(rom)
   if (!digest) return null
   return rom.has_multiple_files || rom.files.length > 1 ? null : digest
