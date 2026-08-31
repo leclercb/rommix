@@ -331,7 +331,7 @@ export const en = {
   'downloads.uninstalled': 'Uninstalled',
 
   'uninstall.title': 'Uninstall this game?',
-  'uninstall.body': '{file} will be deleted from {folder}. Your saves on RomM are kept.',
+  'uninstall.body': 'The game will be deleted from {folder}. Your saves on RomM are kept.',
   'uninstall.freeing': 'Uninstall, freeing {size}',
 
   // -- BIOS -----------------------------------------------------------------

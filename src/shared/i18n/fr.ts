@@ -326,7 +326,7 @@ export const fr: Catalog = {
   'downloads.uninstalled': 'Désinstallé',
 
   'uninstall.title': 'Désinstaller ce jeu ?',
-  'uninstall.body': '{file} sera supprimé de {folder}. Vos sauvegardes sur RomM sont conservées.',
+  'uninstall.body': 'Le jeu sera supprimé de {folder}. Vos sauvegardes sur RomM sont conservées.',
   'uninstall.freeing': 'Désinstaller et libérer {size}',
 
   // -- BIOS -----------------------------------------------------------------

@@ -115,12 +115,7 @@ export function UninstallDialog({
   const { t, formatBytes } = useI18n()
   return (
     <Overlay title={t('uninstall.title')}>
-      <p className="muted">
-        {t('uninstall.body', {
-          file: entry.fileName,
-          folder: entry.path.replace(/\/[^/]*$/, '')
-        })}
-      </p>
+      <p className="muted">{t('uninstall.body', { folder: entry.path.replace(/\/[^/]*$/, '') })}</p>
       <div className="btn-row">
         <FocusButton icon="keep" onSelect={onKeep} autoFocus>
           {t('action.keep')}

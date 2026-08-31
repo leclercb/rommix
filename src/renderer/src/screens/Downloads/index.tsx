@@ -420,10 +420,7 @@ export function DownloadsScreen(): JSX.Element {
       {confirming ? (
         <Overlay title={t('uninstall.title')}>
           <p className="muted">
-            {t('uninstall.body', {
-              file: confirming.fileName,
-              folder: confirming.path.replace(/\/[^/]*$/, '')
-            })}
+            {t('uninstall.body', { folder: confirming.path.replace(/\/[^/]*$/, '') })}
           </p>
           <div className="btn-row">
             <FocusButton icon="keep" onSelect={() => setConfirming(null)} autoFocus>
