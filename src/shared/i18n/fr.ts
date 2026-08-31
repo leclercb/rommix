@@ -278,7 +278,6 @@ export const fr: Catalog = {
 
   // -- téléchargements ------------------------------------------------------
 
-  'downloads.title': 'Téléchargements',
   'downloads.onDisk_one': '{count} jeu sur le disque · {size}',
   'downloads.onDisk_other': '{count} jeux sur le disque · {size}',
   'downloads.now': 'Télécharger maintenant',
@@ -332,7 +331,6 @@ export const fr: Catalog = {
 
   // -- BIOS -----------------------------------------------------------------
 
-  'bios.title': 'BIOS',
   'bios.allInPlace': 'Tous les fichiers BIOS connus de RomMix sont en place.',
   'bios.missingSummary_one': '{count} fichier manquant, {fetchable} sur votre serveur RomM',
   'bios.missingSummary_other': '{count} fichiers manquants, {fetchable} sur votre serveur RomM',
@@ -611,7 +609,6 @@ export const fr: Catalog = {
 
   // -- réglages -------------------------------------------------------------
 
-  'settings.title': 'Réglages',
   'settings.tabGeneral': 'Général',
   'settings.tabGames': 'Jeux',
   'settings.tabSystem': 'Système',
@@ -657,7 +654,6 @@ export const fr: Catalog = {
   'settings.syncUpHint': 'Seul ce que la session a écrit est envoyé.',
   'settings.confirmPush': 'Demander avant d’envoyer des sauvegardes à RomM',
   'settings.confirmPushHint': 'Montre ce qui sera envoyé avant de l’envoyer.',
-  'settings.downloads': 'Téléchargements',
   'settings.confirmUninstall': 'Demander avant de supprimer un jeu téléchargé',
   'settings.confirmUninstallHint':
     'Désinstaller n’est qu’à une pression de A de la suppression d’un fichier de plusieurs ' +

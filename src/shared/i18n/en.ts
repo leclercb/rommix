@@ -284,7 +284,6 @@ export const en = {
 
   // -- downloads ------------------------------------------------------------
 
-  'downloads.title': 'Downloads',
   'downloads.onDisk_one': '{count} game on disk · {size}',
   'downloads.onDisk_other': '{count} games on disk · {size}',
   'downloads.now': 'Download now',
@@ -337,7 +336,6 @@ export const en = {
 
   // -- BIOS -----------------------------------------------------------------
 
-  'bios.title': 'BIOS',
   'bios.allInPlace': 'Every BIOS file RomMix knows about is in place.',
   'bios.missingSummary_one': '{count} file missing, {fetchable} of them on your RomM server',
   'bios.missingSummary_other': '{count} files missing, {fetchable} of them on your RomM server',
@@ -617,7 +615,6 @@ export const en = {
 
   // -- settings -------------------------------------------------------------
 
-  'settings.title': 'Settings',
   'settings.tabGeneral': 'General',
   'settings.tabGames': 'Games',
   'settings.tabSystem': 'System',
@@ -656,7 +653,6 @@ export const en = {
   'settings.syncUpHint': 'Only what the session wrote is sent.',
   'settings.confirmPush': 'Ask before sending saves to RomM',
   'settings.confirmPushHint': 'Shows what will be sent before sending it.',
-  'settings.downloads': 'Downloads',
   'settings.confirmUninstall': 'Ask before deleting a downloaded game',
   'settings.confirmUninstallHint': 'Uninstall is one A press from deleting a multi-gigabyte file.',
 
