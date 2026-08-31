@@ -103,6 +103,7 @@ export const de: Catalog = {
   'toast.downloadComplete': 'Download abgeschlossen',
   'toast.downloadPaused': 'Download pausiert',
   'toast.downloadResumed': 'Download fortgesetzt',
+  'toast.downloadRequeued': 'Zurück in der Warteschlange',
   'toast.downloadCancelled': 'Download abgebrochen',
   'toast.adoptedOne': 'War schon auf der Platte — zu Ihrer Bibliothek hinzugefügt',
   'toast.adoptedMany_one':
@@ -465,6 +466,7 @@ export const de: Catalog = {
   'setup.hidden': 'Einrichtungsschritte für {emulator} ausgeblendet',
   'game.alreadyDownloaded': 'Bereits heruntergeladen',
   'game.downloadStarted': 'Download gestartet',
+  'game.downloadQueued': 'Zur Warteschlange hinzugefügt',
   'game.couldNotStart': 'Das Spiel konnte nicht gestartet werden',
   'game.sessionEnded': 'Sitzung beendet',
   'game.sessionPending_one': 'Sitzung beendet — {count} Datei zu senden',

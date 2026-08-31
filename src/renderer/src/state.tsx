@@ -363,6 +363,12 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   // Announcing completion needs the *previous* states, not the current ones: an
   // item stays 'done' in the queue until it is cleared, so notifying on the
   // value alone would repeat on every subsequent progress event.
+  //
+  // Only what happens unbidden is announced from here. Starting a transfer and
+  // picking one up again are presses that come back with an answer, and the
+  // button that made them is the only thing that knows what was asked for —
+  // read off a state instead, a game promoted to the front of the queue passes
+  // through 'queued' on its way to the wire and gets announced as waiting.
   const seenStates = useRef(new Map<number, DownloadState>())
   useEffect(() => {
     return window.rommix.downloads.onUpdate((items) => {
@@ -403,11 +409,6 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
            */
           if (item.error) notify(item.error, 'error', subject)
           else notify(i18n.t('toast.downloadPaused'), 'warn', subject)
-        } else if (previous === 'paused') {
-          // The one transition that can only be a resume, which is why it is
-          // read from where it came rather than from where it is going: a
-          // download becomes queued when it starts, too.
-          notify(i18n.t('toast.downloadResumed'), 'ok', subject)
         }
       }
 

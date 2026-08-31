@@ -14,6 +14,7 @@ import {
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
 import { useApp, useDownloads, useI18n } from '../../state'
+import { startedMessage } from '../Game/useGameCopy'
 import { useEffect, useMemo, useState, type JSX, type Ref } from 'react'
 
 /** The two jobs this screen does, split so neither buries the other. */
@@ -215,6 +216,26 @@ export function DownloadsScreen(): JSX.Element {
     })
   }
 
+  /**
+   * Pick a stopped transfer up again, and say where it landed.
+   *
+   * Said from here rather than from the queue watcher: what the press did is
+   * in the answer it came back with, and a game promoted to the front passes
+   * through 'queued' on its way to the wire — announced off that state, it was
+   * reported as waiting while it downloaded. See `startedMessage`.
+   */
+  const resume = async (item: DownloadItem): Promise<void> => {
+    try {
+      const started = await window.rommix.downloads.start(item.romId)
+      notify(t(startedMessage(started, true)), 'ok', {
+        title: started.name,
+        coverPath: started.coverPath
+      })
+    } catch {
+      // Reported centrally on `app:error`.
+    }
+  }
+
   const remove = async (entry: InstalledRom): Promise<void> => {
     setConfirming(null)
     try {
@@ -287,7 +308,7 @@ export function DownloadsScreen(): JSX.Element {
                     onSelect={() => navigate({ name: 'game', romId: item.romId })}
                     onCancel={() => void window.rommix.downloads.cancel(item.romId)}
                     onPause={() => void window.rommix.downloads.pause(item.romId)}
-                    onResume={() => void window.rommix.downloads.start(item.romId)}
+                    onResume={() => void resume(item)}
                     onNext={
                       promotable(item)
                         ? () => void window.rommix.downloads.promote(item.romId)

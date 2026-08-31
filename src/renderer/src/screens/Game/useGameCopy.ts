@@ -1,6 +1,23 @@
 import { useState } from 'react'
+import type { MessageKey } from '@shared/i18n'
 import type { DownloadItem, InstalledRom, RommRom } from '@shared/types'
 import { useApp, useI18n } from '../../state'
+
+/**
+ * What to say about a press of the download button.
+ *
+ * The button is one thing and what it does is four: the game was already on
+ * disk and has been adopted, it is on the wire, it is behind something else and
+ * will be for as long as that takes, or it is one of those two having been
+ * picked up rather than started. The row comes back in the state it settled
+ * into, which is the only thing that knows which — "Download started" over a
+ * game that is fifth in a queue is the reason this is not one phrase.
+ */
+export function startedMessage(item: DownloadItem, resuming: boolean): MessageKey {
+  if (item.state === 'done') return 'game.alreadyDownloaded'
+  if (item.state === 'queued') return resuming ? 'toast.downloadRequeued' : 'game.downloadQueued'
+  return resuming ? 'toast.downloadResumed' : 'game.downloadStarted'
+}
 
 /**
  * Getting the game onto this disk, and taking it off again.
@@ -31,21 +48,15 @@ export function useGameCopy(options: {
   const startDownload = async (): Promise<void> => {
     setBusy(true)
     // Read before the call, because the answer changes it: the same button
-    // finishes a transfer that was stopped, and that is announced centrally as
-    // a resume — see the queue watcher in `state`. Saying "download started"
-    // here as well would report one press twice.
+    // finishes a transfer that was stopped, and picking one up again is not
+    // the same news as starting one.
     const resuming = download?.state === 'paused'
     try {
       const item = await window.rommix.downloads.start(romId)
-      // Already on disk: the main process adopts it instead of queueing, so
-      // saying "download started" would be a plain lie.
-      if (!resuming) {
-        notify(
-          item.state === 'done' ? t('game.alreadyDownloaded') : t('game.downloadStarted'),
-          'ok',
-          { title: item.name, coverPath: item.coverPath }
-        )
-      }
+      notify(t(startedMessage(item, resuming)), 'ok', {
+        title: item.name,
+        coverPath: item.coverPath
+      })
     } catch {
       // Reported centrally on `app:error`; this only keeps the screen from
       // claiming a download that never started.
