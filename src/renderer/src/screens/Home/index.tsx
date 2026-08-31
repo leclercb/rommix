@@ -10,6 +10,7 @@ import {
   tileFromInstalled,
   tileFromRom
 } from '../../components'
+import { Icon } from '../../icons'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
 import { useApp, useI18n } from '../../state'
 
@@ -254,7 +255,14 @@ function Hero({
             <PlatformIcon slug={rom.platform_slug} size={20} label={rom.platform_display_name} />
             {rom.platform_display_name}
           </span>
-          {year ? <span className="chip">{year}</span> : null}
+          {/* Marked like the same chip on the game's own banner, genres
+              included in staying unmarked. See `GameHero`. */}
+          {year ? (
+            <span className="chip chip--icon">
+              <Icon name="time" size={14} />
+              {year}
+            </span>
+          ) : null}
           {rom.metadatum.genres.slice(0, 3).map((genre) => (
             <span className="chip" key={genre}>
               {genre}
