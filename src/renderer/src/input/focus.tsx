@@ -381,12 +381,16 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       /**
        * The same, over what is on the screen before anything else.
        *
-       * A pool with nothing in it that way is then measured whole, so this can
-       * only save work: a press that had an answer still lands on it. What it
-       * also settles is the one case where the two could disagree — a card far
-       * out along a shelf that has been scrolled away is nearer in a straight
-       * line than the row in front of the player, and the row is what they
-       * meant. See `onScreen`.
+       * Cheaper and usually righter, which are two separate claims. Cheaper
+       * because a library grid that has paged a few times holds hundreds of
+       * cards no press could land on. Righter because a card far out along a
+       * shelf that has been scrolled away is nearer in a straight line than the
+       * row in front of the player, and the row is what they meant — so where
+       * the two disagree, this is the answer wanted.
+       *
+       * A pool that yields nothing on screen is measured whole, so a press that
+       * had an answer still lands on one — which is also how an element the
+       * observer has not reported on yet is reached. See `onScreen`.
        */
       const pick = (pool: FocusableEntry[]): string | null =>
         nearest(pool.filter((entry) => onScreen.current.has(entry.element))) ?? nearest(pool)

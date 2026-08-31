@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { InstalledRom } from '@shared/types'
@@ -317,5 +317,33 @@ describe('a state file that is not what RomMix wrote', () => {
 
     assert.equal(store.settings.romStorage, 'rommix')
     assert.equal(store.server, null)
+  })
+})
+
+describe('writing a state file', () => {
+  test('the name never points at a partial document', () => {
+    // Written beside and renamed over, so a reader sees the previous version
+    // or the new one. The scratch file is not left behind either way.
+    const dir = scratch()
+    const store = new Store(dir)
+
+    store.addInstalled(installed({ romId: 1 }))
+    store.addInstalled(installed({ romId: 2 }))
+
+    assert.equal(existsSync(join(dir, 'downloaded_roms.json.tmp')), false)
+    assert.deepEqual(
+      new Store(dir).installed.map((entry) => entry.romId),
+      [1, 2]
+    )
+  })
+
+  test('a write into a directory that has gone is reported, not swallowed', () => {
+    // The record of an unfinished transfer is what a restart reads; a write
+    // that quietly did nothing would lose it with nothing said.
+    const dir = scratch()
+    const store = new Store(dir)
+    rmSync(dir, { recursive: true, force: true })
+
+    assert.throws(() => store.addInstalled(installed({ romId: 1 })))
   })
 })
