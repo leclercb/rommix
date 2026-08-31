@@ -1242,7 +1242,14 @@ export class RommClient {
     return saved
   }
 
-  /** POST /api/play-sessions — report time played so RomM's stats stay honest. */
+  /**
+   * POST /api/play-sessions — report time played so RomM's stats stay honest.
+   *
+   * The window and the time played are both sent because RomM requires both and
+   * derives neither from the other: the span is what the history is ordered by,
+   * the duration is what the totals are added up from. An entry missing either
+   * is refused whole.
+   */
   async reportPlaySession(romId: number, startedAt: Date, seconds: number): Promise<void> {
     if (seconds < 5) {
       log.debug('romm', 'play session too short to report', { romId, seconds })
@@ -1256,7 +1263,7 @@ export class RommClient {
       seconds
     })
     try {
-      await this.request('/api/play-sessions', {
+      const res = await this.request('/api/play-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1265,11 +1272,15 @@ export class RommClient {
             {
               rom_id: romId,
               start_time: startedAt.toISOString(),
-              end_time: new Date(startedAt.getTime() + seconds * 1000).toISOString()
+              end_time: new Date(startedAt.getTime() + seconds * 1000).toISOString(),
+              duration_ms: seconds * 1000
             }
           ]
         })
       })
+      // Checked, unlike the reply to a fire-and-forget: a refused report is the
+      // one thing that can go wrong here, and unread it goes wrong in silence.
+      if (!res.ok) throw await this.toError(res)
     } catch (cause) {
       // Play-time reporting is best-effort; never fail a launch over it.
       log.warn('romm', 'could not report the play session', {

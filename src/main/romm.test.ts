@@ -1006,14 +1006,17 @@ describe('reporting play time', () => {
 
     const body = JSON.parse(sent[0].body ?? '{}') as {
       device_id: string
-      sessions: { rom_id: number; start_time: string; end_time: string }[]
+      sessions: { rom_id: number; start_time: string; end_time: string; duration_ms: number }[]
     }
     assert.equal(body.device_id, 'romm-device-9')
+    // The duration as well as the window: RomM refuses an entry without it, and
+    // refuses it with a 422 nobody sees.
     assert.deepEqual(body.sessions, [
       {
         rom_id: 5,
         start_time: '2026-08-01T20:00:00.000Z',
-        end_time: '2026-08-01T20:10:00.000Z'
+        end_time: '2026-08-01T20:10:00.000Z',
+        duration_ms: 600000
       }
     ])
   })
