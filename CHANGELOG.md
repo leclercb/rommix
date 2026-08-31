@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.9.0-rc.2 — 2026-08-31
+
+- Add the commit id to the changelog subjects (8550a3d)
+
 ## 0.9.0-rc.1 — 2026-08-31
 
 - Report play time in a shape RomM will accept (baa1f70)
