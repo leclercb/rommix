@@ -4,7 +4,13 @@ import type { ResolvedInstall } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { installCore, missingCore } from './cores.ts'
-import { execPrefix, killFlatpakApp, killProcessTree, stopFlatpakApp } from './host.ts'
+import {
+  execPrefix,
+  killFlatpakApp,
+  killProcessTree,
+  signalProcessGroup,
+  stopFlatpakApp
+} from './host.ts'
 import { realHome } from './xdg.ts'
 import { log } from './log.ts'
 import type { RommClient } from './romm.ts'
@@ -112,7 +118,11 @@ function stageFor(progress: CoreProgress): string {
  *
  * A flatpak has to be stopped through flatpak: the process spawned here is only
  * a client of it, and signalling that one is what the close button used to do —
- * nothing. Anything else was spawned directly and a signal reaches it.
+ * nothing.
+ *
+ * Anything else is asked through its process group, because the process spawned
+ * here is usually not the emulator either — and signalling that one alone was
+ * the same do-nothing button by a different route. See `signalProcessGroup`.
  *
  * Shared by the two things that can have the screen: a game's session, and an
  * emulator started on its own from the Emulators page.
@@ -123,14 +133,16 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
     install: install?.kind ?? null,
     ref: install?.ref ?? null
   })
-  if (install?.kind !== 'flatpak') return void child.kill('SIGTERM')
+  // No pid means the spawn never got off the ground, and there is no group.
+  const ask = (): void => void (child.pid && signalProcessGroup(child.pid, 'SIGTERM'))
+  if (install?.kind !== 'flatpak') return ask()
 
   void stopFlatpakApp(install.ref).then((stopped) => {
     // No instance was listed — the app is still starting, or it is not running
-    // under flatpak's own bookkeeping. Signalling what we spawned is unlikely
-    // to reach it, but a close button with one more thing to try beats one that
-    // has quietly given up.
-    if (!stopped) child.kill('SIGTERM')
+    // under flatpak's own bookkeeping. Its processes are in the group RomMix
+    // spawned all the same, and a close button with one more thing to try beats
+    // one that has quietly given up.
+    if (!stopped) ask()
   })
 }
 
@@ -142,10 +154,10 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
  * off-screen or hung never answers it. A direct emulator then had nothing left
  * to try, so RomMix waited on it for as long as it stayed up.
  *
- * The whole tree, not the process that was spawned: an AppImage's runtime and a
+ * The group, not the process that was spawned: an AppImage's runtime and a
  * launcher script both stand between RomMix and the emulator, and killing one
  * of those leaves the emulator exactly where it was — which is what a force
- * close that appeared to do nothing was. See `killProcessTree`.
+ * close that appeared to do nothing was. See `signalProcessGroup`.
  *
  * Anything the emulator had not written is lost, which is why nothing calls
  * this until the user has been told so and pressed again.
@@ -156,6 +168,11 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
  * meant to be the last resort had fewer ways to reach the emulator than the
  * polite one before it, and on a flatpak that flatpak had lost track of it did
  * nothing whatsoever.
+ *
+ * The tree after the group for the same reason: the one thing a group does not
+ * hold is a process that has called `setsid`, and a walk down from what was
+ * spawned still finds that one as long as it is a descendant. The two miss
+ * opposite things, and this is the press that cannot afford either.
  */
 async function forceQuit(child: ChildProcess, install: ResolvedInstall | null): Promise<void> {
   log.warn('emulator', 'forcing the emulator to close', {
@@ -166,7 +183,9 @@ async function forceQuit(child: ChildProcess, install: ResolvedInstall | null): 
   if (install?.kind === 'flatpak' && (await killFlatpakApp(install.ref))) return
   // No pid means the spawn itself never got off the ground, and there is
   // nothing running to signal.
-  if (child.pid) await killProcessTree(child.pid)
+  if (!child.pid) return
+  signalProcessGroup(child.pid, 'SIGKILL')
+  await killProcessTree(child.pid)
 }
 
 /**
@@ -454,7 +473,16 @@ export class Launcher {
       const [cmd, ...args] = argv
       const child = spawn(cmd, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: false,
+        // The session the emulator is closed through: `detached` is `setsid`,
+        // which makes the spawned process lead a new group, and everything it
+        // goes on to start joins that group. Without it the emulator sits in
+        // RomMix's group, where the only thing that could be signalled without
+        // signalling RomMix too is the one process that turns out not to be the
+        // emulator. See `askToQuit`.
+        //
+        // Not `unref`ed, unlike the one in `runEmulator`: this is a session, and
+        // RomMix waits on it.
+        detached: true,
         env: { ...process.env, ...env }
       })
 

@@ -131,6 +131,46 @@ function signal(pids: readonly number[], sig: NodeJS.Signals = 'SIGTERM'): void 
 }
 
 /**
+ * Signal a process and everything it started, through its process group.
+ *
+ * What RomMix spawns is usually not the emulator. An AppImage runs its payload
+ * as a child of the runtime that carries it, an EmuDeck launcher is a shell
+ * script that starts one and waits, and neither forwards a signal — bash does
+ * not forward SIGTERM, it dies on it, which left the emulator holding the
+ * screen and its parent gone from under it.
+ *
+ * A group rather than a walk down the process table, because the two ways a
+ * program leaves a tree are the two ways the walk misses it. A process that
+ * outlives its parent is reparented onto init and no longer appears under
+ * anything RomMix spawned; a snapshot read a moment before the signal describes
+ * a tree that has since changed. Neither moves a process out of its group: the
+ * kernel delivers to every member at once, and membership is inherited by
+ * everything a member starts.
+ *
+ * The group is addressed by the leader's pid, which is what `detached` makes
+ * the spawned process — and it stays addressable while any member is alive, so
+ * a wrapper dying does not take the way in with it.
+ *
+ * Reports whether anything was there to signal, so a caller with another way to
+ * reach the emulator can use it. See `killProcessTree`.
+ */
+export function signalProcessGroup(pid: number, sig: NodeJS.Signals): boolean {
+  try {
+    // Negative: POSIX for "the group with this id", which for a session leader
+    // is its own pid.
+    process.kill(-pid, sig)
+    log.info('host', 'signalled a process group', { pid, signal: sig })
+    return true
+  } catch (cause) {
+    const code = (cause as NodeJS.ErrnoException).code
+    // An empty group is the ordinary answer — the emulator has already quit —
+    // and not worth more than a line saying nothing happened.
+    if (code !== 'ESRCH') log.warn('host', 'could not signal a process group', { pid, code })
+    return false
+  }
+}
+
+/**
  * Stop a running flatpak application, letting it save first.
  *
  * `flatpak kill` is the documented way and the fallback here, but it SIGKILLs:
@@ -187,11 +227,11 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
 /**
  * Kill a process and everything underneath it.
  *
- * What RomMix spawns is usually not the emulator. An AppImage runs its payload
- * as a child of its own runtime, a launcher script under `scripts` starts one
- * and waits, and either way a signal to the process that was spawned kills the
- * wrapper and leaves the emulator holding the screen — a force-close button
- * that closes nothing.
+ * The second way in, after `signalProcessGroup`, and it exists for what a group
+ * cannot hold: a process that calls `setsid` leaves the group, and a walk down
+ * the process table still finds it as long as it is a descendant.
+ * Each misses what the other catches, which is why the press that has to work
+ * sends both. See `forceQuit`.
  *
  * The root goes first so that a wrapper watching its child cannot start another
  * one, and the descendants come from a snapshot taken before that, since a

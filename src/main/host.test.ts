@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ResolvedInstall } from '@config/emulators'
@@ -17,6 +17,7 @@ import {
   isWritable,
   killFlatpakApp,
   killProcessTree,
+  signalProcessGroup,
   stopFlatpakApp
 } from './host.ts'
 
@@ -466,4 +467,58 @@ test('signalling a process that has already gone is not an error', async () => {
 
   // ESRCH is the ordinary case here, not a failure worth reporting.
   await killProcessTree(pid)
+})
+
+/** Poll until `path` appears, which is how a signalled process reports in. */
+async function appears(path: string): Promise<void> {
+  for (let waited = 0; waited < 5000; waited += 50) {
+    if (existsSync(path)) return
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  assert.fail(`nothing wrote ${path}, so the signal never arrived`)
+}
+
+test('a process the launcher left behind is still signalled', async () => {
+  /**
+   * The shape that made the close button do nothing.
+   *
+   * An EmuDeck launcher is a shell script that starts the emulator, and bash
+   * does not forward SIGTERM — it dies on it. What it started outlives it,
+   * reparented onto init, where nothing descending from what RomMix spawned
+   * finds it again. The group is what still does: the script here exits at
+   * once, so the process that answers is by construction not the one signalled.
+   */
+  const dir = scratch([])
+  const ready = join(dir, 'ready')
+  const answered = join(dir, 'signalled')
+  // The marker is written once the trap is installed, so the signal is not sent
+  // into the gap before there is anything to handle it. `wait` rather than a
+  // plain sleep in front of it, because a shell defers a trap until the command
+  // it is running returns — this would otherwise be waiting on the sleep rather
+  // than on the signal.
+  const child = `trap 'echo yes > ${answered}; exit 0' TERM; echo yes > ${ready}; sleep 30 & wait`
+  const script = spawn('sh', ['-c', `sh -c "${child}" & exit 0`], {
+    // What makes the group addressable at all: the spawned process leads one.
+    detached: true,
+    stdio: 'ignore'
+  })
+  const pid = script.pid
+  assert.ok(pid)
+  await new Promise((resolve) => script.on('exit', resolve))
+  await appears(ready)
+
+  assert.equal(signalProcessGroup(pid, 'SIGTERM'), true)
+
+  await appears(answered)
+})
+
+test('signalling a group nothing is left in is not an error', async () => {
+  // The ordinary case for a second press: the emulator quit while the first
+  // request was in flight.
+  const gone = spawn('sh', ['-c', 'exit 0'], { detached: true, stdio: 'ignore' })
+  const pid = gone.pid
+  assert.ok(pid)
+  await new Promise((resolve) => gone.on('exit', resolve))
+
+  assert.equal(signalProcessGroup(pid, 'SIGTERM'), false)
 })
