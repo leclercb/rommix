@@ -7,6 +7,7 @@ import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
 import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from '../root.ts'
 import { RommError } from '../romm.ts'
+import { isWebAddress } from '../weblink.ts'
 import type { Handle } from './handler.ts'
 
 /** Settings, the pre-flight check, and the app itself. */
@@ -198,18 +199,15 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
   /**
    * Hand a web address to whatever the desktop opens links with.
    *
-   * Restricted to http and https: this is a hole from the renderer straight out
-   * to the desktop's URL handlers, and those cover a great deal more than the
-   * web — `file:`, `.desktop` actions, anything a scheme has been registered
-   * for. The renderer only ever passes RomMix's own constants, so a scheme
-   * check costs nothing and stops the call being useful to anything else.
+   * Restricted to http and https by `isWebAddress`, which says why and is the
+   * same rule the window's own link handler applies.
    *
    * A companion to the QR code rather than a replacement for it: on the couch
    * there is often no browser to open, and on gamescope there is nowhere for
    * one to appear.
    */
   handle('system:openExternal', async (url: string): Promise<void> => {
-    if (!/^https?:\/\//i.test(url)) {
+    if (!isWebAddress(url)) {
       throw new RommError(t('error.onlyWebAddresses'))
     }
     log.info('app', 'opening a link in the desktop browser', { url })

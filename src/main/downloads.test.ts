@@ -926,6 +926,31 @@ describe('a game fetched one file at a time', () => {
     assert.equal(installed?.sizeBytes, 104)
   })
 
+  test('a file name that climbs out of the game folder is refused, not followed', async () => {
+    /**
+     * A multi-file game is the one download that writes under names RomM chose
+     * one at a time, joined onto the folder the game was planned into. The
+     * server is the user's own, so this is not a stranger's input — but where a
+     * file lands is RomMix's to decide, and a name that decides it instead is
+     * refused rather than trimmed to something writable.
+     */
+    const { downloads, root } = manager({ perFile: true })
+    const escaping = multi()
+    escaping.files = [
+      { id: 1, rom_id: 2, file_name: '../../escaped.desktop', file_size_bytes: 64 },
+      { id: 2, rom_id: 2, file_name: 'disc.cue', file_size_bytes: 8 }
+    ] as RommRom['files']
+
+    downloads.enqueue(escaping)
+    const item = await settled(downloads, 2)
+
+    // Nothing arrived, so there is nothing to resume and this is an error
+    // rather than a pause — and the row names the file it refused.
+    assert.equal(item.state, 'error')
+    assert.match(item.error ?? '', /escaped\.desktop/)
+    assert.equal(existsSync(join(root, 'roms', 'escaped.desktop')), false)
+  })
+
   test('a file refused for its hash pauses the game, and the row says so', async () => {
     /**
      * The rest of the game is real and worth keeping, so this pauses rather

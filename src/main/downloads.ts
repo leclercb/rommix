@@ -4,9 +4,11 @@ import { dirname, join } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
 import type { DownloadItem, RommRom } from '@shared/types'
 import { unpack, type InstallResult } from './install.ts'
+import { t } from './i18n.ts'
 import { log } from './log.ts'
 import { Library } from './library.ts'
-import { CorruptDownloadError, partialPathOf, RommClient } from './romm.ts'
+import { CorruptDownloadError, partialPathOf, RommClient, RommError } from './romm.ts'
+import { safeJoin } from './safepath.ts'
 import { isZip } from './zip.ts'
 import type { Store } from './store.ts'
 
@@ -674,7 +676,20 @@ export class DownloadManager extends EventEmitter {
     const sized: { name: string; sizeBytes: number }[] = []
 
     for (const file of rom.files) {
-      const destination = join(where.dir, file.file_name)
+      // The name is the server's, and it is what decides where this file is
+      // written — a multi-file game is the one download that writes under names
+      // RomM chose one by one. A name that climbs out of the game's folder is
+      // refused here rather than followed, which is also what keeps the list
+      // recorded against the game safe to walk when it is deleted again.
+      const destination = safeJoin(where.dir, file.file_name)
+      if (!destination) {
+        log.error('download', 'refused a file name that leaves the game folder', undefined, {
+          romId: rom.id,
+          fileName: file.file_name,
+          dir: where.dir
+        })
+        throw new RommError(t('error.unsafeName', { name: file.file_name }))
+      }
       await mkdir(dirname(destination), { recursive: true })
       item.currentFile = file.file_name
       this.emitUpdate()

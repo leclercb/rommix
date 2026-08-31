@@ -1,6 +1,7 @@
 import { safeStorage } from 'electron'
 import { randomUUID } from 'node:crypto'
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -249,7 +250,7 @@ export class Store {
     try {
       if (safeStorage.isEncryptionAvailable()) {
         const blob = safeStorage.encryptString(json)
-        writeFileSync(this.credentialsPath, Buffer.concat([Buffer.from('ENC1'), blob]))
+        this.writeCredentials(Buffer.concat([Buffer.from('ENC1'), blob]))
         return
       }
       log.warn('store', 'no OS keyring available, credentials are stored in plain text')
@@ -259,9 +260,26 @@ export class Store {
         reason: (cause as Error).message
       })
     }
-    writeFileSync(this.credentialsPath, Buffer.concat([Buffer.from('RAW1'), Buffer.from(json)]), {
-      mode: 0o600
-    })
+    this.writeCredentials(Buffer.concat([Buffer.from('RAW1'), Buffer.from(json)]))
+  }
+
+  /**
+   * Write the credential file, owner-only however it got there.
+   *
+   * `chmodSync` rather than `writeFileSync`'s `mode`, which is consulted only
+   * when the call creates the file. The file that matters here is the one
+   * already on disk: written encrypted on an earlier run, and rewritten in
+   * plain text now that the keyring has gone missing — a flatpak whose portal
+   * is unreachable this boot is exactly that sequence. The mode argument is
+   * ignored on that write, so on its own it would leave the tokens in whatever
+   * the encrypted file was created as.
+   *
+   * The encrypted file is held to the same mode. Ciphertext nobody else can
+   * read is still nobody else's to read.
+   */
+  private writeCredentials(payload: Buffer): void {
+    writeFileSync(this.credentialsPath, payload, { mode: 0o600 })
+    chmodSync(this.credentialsPath, 0o600)
   }
 
   /** The stored tokens, or null when the file is there and could not be read. */

@@ -13,6 +13,7 @@ import { SaveSync } from './saves.ts'
 import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 import { Updater } from './update.ts'
+import { isWebAddress } from './weblink.ts'
 import type { EmulatorState } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
@@ -158,10 +159,37 @@ export class RomMixApp {
     window.on('closed', () => screen.removeListener('display-metrics-changed', rescale))
 
     // Keep navigation inside the app; open real links in the user's browser.
+    // Which links those may be is `isWebAddress`, the same rule the
+    // `system:openExternal` channel is held to — both reach the desktop's URL
+    // handlers, and there is no version of this where one of them may not.
     window.webContents.setWindowOpenHandler(({ url }) => {
+      if (!isWebAddress(url)) {
+        log.warn('window', 'refused to open a link that is not a web address', { url })
+        return { action: 'deny' }
+      }
       log.info('window', 'opening a link in the browser', { url })
       void shell.openExternal(url)
       return { action: 'deny' }
+    })
+
+    /**
+     * The other half of the same rule.
+     *
+     * `setWindowOpenHandler` is only asked about a *new* window. A page that
+     * assigns `location` navigates the one already here, which would replace
+     * the interface with a document carrying none of its `<meta>` CSP while
+     * still having the preload — and so `window.rommix` — attached to it.
+     *
+     * Every route in RomMix is state rather than a URL, so the renderer
+     * navigates exactly once and to the document it started at. Anything else,
+     * in either build, is something nothing here asked for. The one exception
+     * is a target equal to the document already loaded, which is that same
+     * document again rather than a move away from it.
+     */
+    window.webContents.on('will-navigate', (event, url) => {
+      if (url === window.webContents.getURL()) return
+      log.warn('window', 'refused to navigate away from the interface', { url })
+      event.preventDefault()
     })
 
     if (process.env.ELECTRON_RENDERER_URL) {

@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { InstalledRom } from '@shared/types'
@@ -126,6 +135,24 @@ describe('credentials', () => {
     // The marker says which decoder read it, and is what lets a machine that
     // gains a keyring later still open what it wrote without one.
     assert.equal(readFileSync(join(dir, 'credentials.bin')).subarray(0, 4).toString(), 'RAW1')
+  })
+
+  test('the file is owner-only, including when one written encrypted is rewritten', () => {
+    /**
+     * The sequence worth a test, because it is the one where the mode is not
+     * applied at all: a machine with a keyring writes `ENC1`, the keyring is
+     * unreachable on a later boot — a flatpak whose portal did not come up —
+     * and the fallback rewrites that same file in plain text. `writeFileSync`
+     * consults its `mode` only when it creates the file, so on the second write
+     * it does nothing, and the tokens would be left in whatever the first write
+     * created.
+     */
+    const dir = scratch({ 'credentials.bin': 'ENC1 written when there was a keyring' })
+    chmodSync(join(dir, 'credentials.bin'), 0o644)
+
+    new Store(dir).setCredentials({ clientToken: 'rmm_token' })
+
+    assert.equal(statSync(join(dir, 'credentials.bin')).mode & 0o777, 0o600)
   })
 
   test('nothing stored is empty credentials rather than a failure', () => {
