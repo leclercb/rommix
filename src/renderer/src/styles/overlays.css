@@ -26,8 +26,11 @@
  * is not a fixed thing: `applyUiScale` renders at 2× on a 4K panel, so the page
  * is 1920 CSS pixels wide there and 1280 on a laptop. `vw` is measured after
  * that zoom, so 75% stays three quarters of what the user can see either way.
- * The cap keeps a very wide monitor from producing a line of text nobody can
- * track back to its start.
+ *
+ * The cap keeps a desktop window wider than the interface is drawn for from
+ * producing a line of text nobody can track back to its start, and sits at the
+ * share taken at that drawn-for width — below it, every television was getting
+ * the cap instead of the share, which is the one screen the share was for.
  */
 .overlay__panel {
   background: var(--bg-raised);
@@ -35,7 +38,7 @@
   border-radius: var(--radius-lg);
   padding: 34px 38px;
   width: 75vw;
-  max-width: 1100px;
+  max-width: 1440px;
   /* Never so tall that the buttons leave the screen: the panel scrolls inside
      itself, and the safe-area padding on `.overlay` is what it stops short of. */
   max-height: calc(100vh - var(--safe-y) * 2);
