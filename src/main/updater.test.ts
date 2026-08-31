@@ -69,6 +69,20 @@ function release(tag: string, assets: string[] = []): Response {
   )
 }
 
+/** The list endpoint's answer: the releases, newest publication first. */
+function releaseList(entries: { tag: string; draft?: boolean }[]): Response {
+  return new Response(
+    JSON.stringify(
+      entries.map(({ tag, draft }) => ({
+        tag_name: tag,
+        draft: draft ?? false,
+        html_url: `https://github.com/leclercb/rommix/releases/tag/${tag}`,
+        assets: []
+      }))
+    )
+  )
+}
+
 /**
  * An updater on `notify`, so a check reports and stops there.
  *
@@ -76,10 +90,13 @@ function release(tag: string, assets: string[] = []): Response {
  * the right behaviour and the wrong thing to have running underneath a test
  * about what a *check* answers. The auto path has a test of its own below.
  */
-function updater(policy: UpdatePolicy = 'notify'): { updater: Updater; seen: UpdateStatus[] } {
+function updater(
+  policy: UpdatePolicy = 'notify',
+  prereleases = false
+): { updater: Updater; seen: UpdateStatus[] } {
   const seen: UpdateStatus[] = []
   const store = new Store(join(scratch(), 'config'))
-  store.updateSettings({ updates: policy })
+  store.updateSettings({ updates: policy, updatePrereleases: prereleases })
   return { updater: new Updater(store, (status) => seen.push(status)), seen }
 }
 
@@ -172,6 +189,52 @@ describe('checking for a new version', () => {
     await subject.check()
 
     assert.equal(agent, 'RomMix/1.0.0')
+  })
+})
+
+describe('release candidates', () => {
+  test('the release GitHub calls latest is the only one asked for by default', async () => {
+    const { updater: subject } = updater()
+    const asked = serve(() => release('v0.9.0', [image]))
+
+    await subject.check()
+
+    // The endpoint that never answers with a pre-release, so nothing else has
+    // to decide whether a candidate counts.
+    assert.deepEqual(asked, ['https://api.github.com/repos/leclercb/rommix/releases/latest'])
+  })
+
+  test('volunteering for them reads the list and takes the newest version', async () => {
+    const { updater: subject } = updater('notify', true)
+    // As GitHub sorts it — by publication — which is not version order once a
+    // fix for the old line is published after a candidate for the new one.
+    const asked = serve(() => releaseList([{ tag: 'v1.0.1' }, { tag: 'v1.1.0-rc.2' }]))
+
+    const status = await subject.check()
+
+    assert.match(asked[0] ?? '', /\/releases\?/)
+    assert.equal(status.latest, '1.1.0-rc.2')
+  })
+
+  test('a draft is not a release anybody but its author can download', async () => {
+    const { updater: subject } = updater('notify', true)
+    serve(() => releaseList([{ tag: 'v2.0.0', draft: true }, { tag: 'v1.1.0-rc.2' }]))
+
+    assert.equal((await subject.check()).latest, '1.1.0-rc.2')
+  })
+
+  test('the finished release beats the candidate it was a candidate for', async () => {
+    const { updater: subject } = updater('notify', true)
+    serve(() => releaseList([{ tag: 'v1.1.0-rc.2' }, { tag: 'v1.1.0' }]))
+
+    assert.equal((await subject.check()).latest, '1.1.0')
+  })
+
+  test('a repository with no releases yet is not a version', async () => {
+    const { updater: subject } = updater('notify', true)
+    serve(() => releaseList([]))
+
+    assert.equal((await subject.check()).state, 'error')
   })
 })
 

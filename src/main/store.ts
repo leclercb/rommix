@@ -79,6 +79,9 @@ function defaultSettings(): Settings {
     // Nothing on a Linux desktop updates an AppImage on RomMix's behalf, so the
     // default is the one that keeps an installation current on its own.
     updates: 'auto',
+    // A release candidate is published to be tried, not to be rolled out, so it
+    // is offered only to installations that asked for one.
+    updatePrereleases: false,
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`
   }

@@ -40,6 +40,15 @@ import { t } from './i18n.ts'
 /** RomMix's own releases. `/latest` is the newest non-draft, non-prerelease. */
 const RELEASE_API = 'https://api.github.com/repos/leclercb/rommix/releases/latest'
 
+/**
+ * The same releases as a list, for an installation that takes candidates.
+ *
+ * `/latest` is the only endpoint that picks a release for us, and the one thing
+ * it will not pick is a pre-release — so taking those means reading the list and
+ * choosing here. A page is far more releases than any copy of RomMix is behind.
+ */
+const RELEASE_LIST_API = 'https://api.github.com/repos/leclercb/rommix/releases?per_page=30'
+
 /** Where to send someone whose copy cannot replace itself. */
 export const RELEASES_PAGE = 'https://github.com/leclercb/rommix/releases'
 
@@ -64,6 +73,8 @@ interface GithubRelease {
   tag_name?: string
   body?: string
   html_url?: string
+  /** Only ever true on the list endpoint: `/latest` never answers with one. */
+  draft?: boolean
   assets?: { name?: string; browser_download_url?: string; size?: number; digest?: string }[]
 }
 
@@ -130,6 +141,29 @@ export function compareVersions(a: string, b: string): number {
   }
 
   return 0
+}
+
+/**
+ * The newest release in a list, by version rather than by publication date.
+ *
+ * The two stop agreeing the moment candidates are in the list: a 0.9.1 fix is
+ * published after 1.0.0-rc.1 and is the older version, and GitHub sorts by when.
+ * Drafts are dropped — a draft is visible to the account that can edit it and to
+ * nobody else, so offering one is offering a download that answers 404.
+ *
+ * An empty list comes back as a release with no tag, which is the same answer as
+ * a repository with no releases and is already refused by name.
+ */
+function newestOf(releases: readonly GithubRelease[]): GithubRelease {
+  let newest: GithubRelease = {}
+  let tag = ''
+  for (const release of releases) {
+    if (release.draft || !release.tag_name) continue
+    if (tag && compareVersions(release.tag_name, tag) <= 0) continue
+    newest = release
+    tag = release.tag_name
+  }
+  return newest
 }
 
 /**
@@ -232,6 +266,7 @@ export class Updater {
 
     log.info('update', 'checking for new versions', {
       policy: this.policy(),
+      prereleases: this.store.settings.updatePrereleases,
       current: this.current.current,
       everyHours: CHECK_EVERY_MS / 3_600_000
     })
@@ -266,6 +301,12 @@ export class Updater {
   /**
    * Ask GitHub what the newest release is.
    *
+   * Which releases count is `Settings.updatePrereleases`: off, GitHub answers
+   * with the one it calls latest, and a candidate is never it; on, RomMix reads
+   * the list and picks for itself. Everything after that is the same question —
+   * is this newer than what is running — because `compareVersions` already knows
+   * a candidate is older than the release it is a candidate for.
+   *
    * Under `auto` the download follows, started once this has finished rather
    * than awaited: the question here is "is there something new", which is
    * settled the moment the release is read, and a caller that waited would sit
@@ -284,8 +325,11 @@ export class Updater {
     /** Set inside, acted on outside — `download` refuses while `busy` holds. */
     let fetchIt = false
 
+    // Named here rather than inside, so a failure can say what was asked.
+    const api = this.store.settings.updatePrereleases ? RELEASE_LIST_API : RELEASE_API
+
     try {
-      const response = await fetch(RELEASE_API, {
+      const response = await fetch(api, {
         headers: {
           Accept: 'application/vnd.github+json',
           // GitHub refuses an anonymous request with no agent, and an honest one
@@ -297,7 +341,10 @@ export class Updater {
         throw new Error(t('update.githubResponded', { status: response.status }))
       }
 
-      const release = (await response.json()) as GithubRelease
+      // The shape says which endpoint answered: the list one is an array, and
+      // it is the only one that leaves the choosing to us.
+      const payload = (await response.json()) as GithubRelease | GithubRelease[]
+      const release = Array.isArray(payload) ? newestOf(payload) : payload
       const latest = (release.tag_name ?? '').replace(/^v/i, '')
       if (!latest) throw new Error(t('update.noVersionTag'))
 
@@ -374,7 +421,7 @@ export class Updater {
       fetchIt = this.policy() === 'auto' && !blockedReason
       return this.current
     } catch (cause) {
-      log.error('update', 'could not check for a new version', cause, { api: RELEASE_API })
+      log.error('update', 'could not check for a new version', cause, { api })
       this.update({ state: 'error', error: (cause as Error).message })
       return this.current
     } finally {

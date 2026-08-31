@@ -1,7 +1,7 @@
 import { type JSX, useState } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import type { UpdatePolicy } from '@shared/types'
-import { Choice, FocusButton, Spinner } from '../../components'
+import { Choice, FocusButton, Spinner, Toggle } from '../../components'
 import { useApp, useI18n } from '../../state'
 
 /**
@@ -33,6 +33,7 @@ export function UpdatePanel(): JSX.Element {
   const [busy, setBusy] = useState(false)
 
   const policy = settings?.updates ?? 'auto'
+  const prereleases = settings?.updatePrereleases ?? false
   const state = update?.state ?? 'idle'
   const checking = state === 'checking'
   const downloading = state === 'downloading'
@@ -81,6 +82,16 @@ export function UpdatePanel(): JSX.Element {
         value={policy}
         options={POLICIES.map((option) => ({ value: option.value, label: t(option.label) }))}
         onChange={(next) => void saveSettings({ updates: next })}
+      />
+
+      {/* A separate question from the one above, and not a fourth answer to it:
+          this is which releases count as new versions, and it applies to Check
+          now exactly as it applies to the timer. */}
+      <Toggle
+        label={t('update.prereleases')}
+        hint={t('update.prereleasesHint')}
+        on={prereleases}
+        onToggle={() => void saveSettings({ updatePrereleases: !prereleases })}
       />
 
       <dl className="kv">

@@ -755,6 +755,10 @@ export const en = {
     'New versions are downloaded in the background and used the next time RomMix starts.',
   'update.hintNotify': 'RomMix says when a new version is published and waits for you to fetch it.',
   'update.hintOff': 'RomMix never looks on its own. The button below still does.',
+  'update.prereleases': 'Release candidates',
+  'update.prereleasesHint':
+    'Also offer versions published for testing, tagged like 1.0.0-rc.1. They arrive ' +
+    'before a finished release and have had less use.',
   'update.installed': 'Installed',
   'update.newestPublished': 'Newest published',
   'update.checking': 'checking…',

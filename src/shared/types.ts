@@ -498,6 +498,15 @@ export interface Settings {
    * version until its owner happens to look at the releases page again.
    */
   updates: UpdatePolicy
+  /**
+   * Whether a release published for testing counts as a new version.
+   *
+   * Off. A candidate is tagged with a suffix — `0.9.0-rc.1` — and marked as a
+   * pre-release on GitHub, which is what keeps it out of the release the
+   * updater asks for by default; turning this on is how somebody volunteers to
+   * run one. See `Updater.check`.
+   */
+  updatePrereleases: boolean
   /** Stable identifier reported to RomM as this device. */
   deviceId: string
   deviceName: string

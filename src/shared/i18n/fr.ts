@@ -763,6 +763,10 @@ export const fr: Catalog = {
   'update.hintNotify':
     'RomMix signale la publication d’une nouvelle version et attend que vous la récupériez.',
   'update.hintOff': 'RomMix ne regarde jamais de lui-même. Le bouton ci-dessous, si.',
+  'update.prereleases': 'Versions candidates',
+  'update.prereleasesHint':
+    'Proposer aussi les versions publiées pour être testées, étiquetées 1.0.0-rc.1. Elles ' +
+    'arrivent avant une version finie et ont moins servi.',
   'update.installed': 'Installée',
   'update.newestPublished': 'Dernière publiée',
   'update.checking': 'vérification…',

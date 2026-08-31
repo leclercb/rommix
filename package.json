@@ -29,6 +29,7 @@
     "package": "electron-builder --linux AppImage --publish never",
     "appimage": "npm run build && npm run package",
     "release": "release-it",
+    "release:rc": "release-it --preRelease=rc",
     "prepare": "husky"
   },
   "dependencies": {

@@ -5,6 +5,13 @@
 // three disagree. release-it writes the first and the third; the after:bump hook
 // writes the second. Pushing the tag is what makes CI build the AppImage and
 // publish the release, so nothing here creates one.
+//
+// `npm run release:rc` is the same run with a suffixed version — `0.9.0-rc.0`,
+// and again for `rc.1`. Nothing here treats it differently; the suffix is what
+// does. The workflow reads it and publishes the release as a pre-release, GitHub
+// then keeps it out of the release it calls latest, and that is what the updater
+// asks for unless somebody has turned release candidates on — see
+// `Settings.updatePrereleases`.
 export default {
   hooks: {
     // The tag is public the moment it is pushed, and a red release build is not

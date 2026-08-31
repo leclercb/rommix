@@ -751,6 +751,10 @@ export const es: Catalog = {
   'update.hintNotify':
     'RomMix avisa cuando se publica una versión nueva y espera a que tú la descargues.',
   'update.hintOff': 'RomMix nunca mira por su cuenta. El botón de abajo sí.',
+  'update.prereleases': 'Versiones candidatas',
+  'update.prereleasesHint':
+    'Ofrecer también las versiones publicadas para probar, etiquetadas como 1.0.0-rc.1. ' +
+    'Llegan antes que una versión terminada y se han usado menos.',
   'update.installed': 'Instalada',
   'update.newestPublished': 'Última publicada',
   'update.checking': 'comprobando…',

@@ -440,6 +440,7 @@ const SETTINGS: Settings = {
   // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,
   updates: 'auto',
+  updatePrereleases: false,
   deviceId: 'web-preview',
   deviceName: 'RomMix @ web preview'
 }

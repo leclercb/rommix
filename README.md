@@ -249,6 +249,10 @@ starting, then every few hours.
   downloaded until you press **Download**.
 - **Off** — never checks by itself. **Check now** still does.
 
+**Release candidates**, off by default, is a separate switch: on, RomMix also
+offers versions published for testing — tagged `0.9.0-rc.1` and marked as
+pre-releases — which arrive before a finished release and have had less use.
+
 Two cases RomMix cannot finish on its own, both of which it says on screen:
 **started from Steam**, where Steam forbids a program restarting itself — quit
 and press Play again; and an image it **cannot write to**, where the releases
@@ -427,15 +431,20 @@ after a change to a screen.
 
 ```bash
 npm run release minor          # or major, patch, or an exact version
+npm run release:rc -- minor    # 0.9.0-rc.0, and again for rc.1
 npm run release -- --dry-run   # npm eats flags that come without the --
 ```
 
 [release-it](https://github.com/release-it/release-it) runs the checks, bumps the
 version, writes the [CHANGELOG.md](CHANGELOG.md) entry, commits, tags and pushes;
-a `v*` tag publishes a release with the AppImage attached, and a version with a
-suffix — `0.2.0-rc1` — publishes as a pre-release. The entry falls back to commit
-subjects, so write the `## <version>` section by hand first if you want prose —
-it is what the release page says under **What's new**.
+a `v*` tag publishes a release with the AppImage attached. The entry falls back to
+commit subjects, so write the `## <version>` section by hand first if you want
+prose — it is what the release page says under **What's new**.
+
+A version with a suffix publishes as a pre-release, which is what keeps it out of
+the release GitHub calls latest: only installations that turned **Release
+candidates** on are offered it, and `npm run release minor` afterwards is the
+finished version everyone else gets.
 
 ---
 

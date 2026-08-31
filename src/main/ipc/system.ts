@@ -53,9 +53,10 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     // Two settings the main process itself has to act on. The zoom factor lives
     // on the window rather than in the stylesheet; the update policy owns a
     // timer, and turning checks on would otherwise wait for a restart to start
-    // checking.
+    // checking. Volunteering for release candidates restarts the same timer, so
+    // the question is asked again with the new answer rather than in six hours.
     if ('uiScale' in patch) rommix.applyUiScale()
-    if ('updates' in patch) rommix.updates.schedule()
+    if ('updates' in patch || 'updatePrereleases' in patch) rommix.updates.schedule()
 
     // The language, and the one answer the main process has already written in
     // the old one: `EmulatorState.unavailableReason` is a sentence produced by
