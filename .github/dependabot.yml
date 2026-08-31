@@ -11,6 +11,17 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Two majors that are not RomMix's to take: Vite's is bounded by the range
+    # electron-vite peers with, and the React plugin follows Vite, while
+    # @types/node describes the Node the project is built and tested on. Left
+    # alone, each is a pull request reopened every week and refused every week.
+    ignore:
+      - dependency-name: vite
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitejs/plugin-react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       # Electron and its packager move together and are the pair most likely to
       # need a look rather than a merge — a major Electron is a new Chromium.

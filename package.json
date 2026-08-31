@@ -32,24 +32,24 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "lucide-react": "^1.33.0",
+    "lucide-react": "^1.38.0",
     "qrcode-generator": "^2.0.4",
-    "yauzl": "^3.2.0"
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "@types/yauzl": "^3.4.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^43.4.1",
+    "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "husky": "^9.1.7",
-    "oxlint": "^1.79.0",
+    "oxlint": "^1.80.0",
     "prettier": "^3.9.6",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "release-it": "^21.0.2",
     "typescript": "^7.0.2",
     "vite": "^7.3.6"

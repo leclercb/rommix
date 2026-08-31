@@ -18,7 +18,7 @@ AppImage carries Electron's own runtime — so this is a number for contributors
 git clone https://github.com/leclercb/rommix.git
 cd rommix
 npm install
-npx install-electron   # Electron 43 no longer fetches its binary on install
+npx install-electron   # Electron no longer fetches its binary on install
 npm run dev
 ```
 

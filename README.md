@@ -392,7 +392,7 @@ adds every request and probe; `ROMMIX_LOG=off` writes nothing.
 
 ```bash
 npm install
-npx install-electron   # Electron 43 no longer fetches its binary on install
+npx install-electron   # Electron no longer fetches its binary on install
 npm run dev            # against a live RomM server
 npm run preview:app    # the front end alone, in a browser, on :5273
 npm run preview:web    # the whole public site, built and served, on :5274
