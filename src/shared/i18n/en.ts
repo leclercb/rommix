@@ -307,7 +307,6 @@ export const en = {
   'downloads.checkExplainer':
     'Every game on the server is compared against the folder it would be installed in.',
   'downloads.nothingTransferring': 'Nothing transferring. Pick a game and press Download.',
-  'downloads.inProgress': 'In progress',
   'downloads.recent': 'Recent',
   'downloads.clearFinished': 'Clear finished',
   'downloads.cleared_one': '{count} finished transfer cleared',

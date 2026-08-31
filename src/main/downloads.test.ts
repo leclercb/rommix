@@ -343,16 +343,16 @@ describe('changing the order of the queue', () => {
     assert.equal(downloads.items.find((item) => item.romId === 1)?.state, 'downloading')
   })
 
-  test('it goes ahead of a resumed transfer that was already waiting in front', async () => {
+  test('a resumed transfer waits behind what is already on the wire', async () => {
     /**
-     * The running transfer is not always the first row.
+     * Resuming is joining the queue, not jumping it.
      *
-     * A transfer restored as paused sits wherever `restorePending` put it, and
-     * resuming it marks it queued where it already is — which can be ahead of
-     * whatever started in the meantime. Moving into the running transfer's
-     * place then put the promoted game *behind* that row, so the queue reached
-     * the other one first and what was on the wire had been interrupted for
-     * nothing.
+     * A transfer restored as paused sits wherever `restorePending` put it,
+     * which can be ahead of whatever started in the meantime — and marking it
+     * queued in that place made the order of the list disagree with the order
+     * it would run in. Every question asked of the queue after that had two
+     * answers, and `promote` gave the wrong one: the row said next, the wire
+     * said otherwise, and the button that was meant to settle it did nothing.
      */
     const made = manager({ contents: '0123456789', roms: library() })
     const dir = join(made.root, 'roms', 'genesis')
@@ -376,21 +376,56 @@ describe('changing the order of the queue', () => {
     const [one, two] = three()
     made.downloads.enqueue(one)
     made.downloads.enqueue(two)
-    // Back to 'queued' in the place it already held, ahead of what is running.
+    // Behind everything else waiting, rather than back into the place it held.
     made.downloads.enqueue(rom({ id: 9, fs_name: 'Nine.md', fs_name_no_ext: 'Nine' }))
     assert.deepEqual(
       made.downloads.items.map((item) => `${item.romId}:${item.state}`),
-      ['9:queued', '1:downloading', '2:queued']
+      ['1:downloading', '2:queued', '9:queued']
     )
 
-    made.downloads.promote(2)
+    made.downloads.promote(9)
 
     // The promoted game first, then the transfer it interrupted — which was on
     // the wire, so its turn comes before anything that is only waiting.
     assert.deepEqual(
       made.downloads.items.map((item) => item.romId),
-      [2, 1, 9]
+      [9, 1, 2]
     )
+  })
+
+  test('a paused game can be told to download now, without being resumed first', async () => {
+    /**
+     * The button means one thing: this game, now.
+     *
+     * It used to be offered to queued rows alone, which left a list of paused
+     * games with no way to say which of them mattered — resuming one put it at
+     * the back of the queue, and there was nothing to press afterwards to bring
+     * it forward.
+     */
+    const made = manager({ contents: '0123456789', roms: library() })
+    for (const game of three()) made.downloads.enqueue(game)
+    made.downloads.pause(3)
+
+    made.downloads.promote(3)
+
+    assert.deepEqual(
+      made.downloads.items.map((item) => `${item.romId}:${item.state}`),
+      // Interrupted so the promoted game can start, and put directly behind it.
+      ['3:queued', '1:downloading', '2:queued']
+    )
+  })
+
+  test('a paused game promoted with nothing running starts on its own', async () => {
+    // Nothing gave way, so nothing would have reached it: `promote` is the only
+    // thing that starts the queue here.
+    const made = manager({ contents: '0123456789', roms: library() })
+    made.downloads.enqueue(three()[0])
+    made.downloads.pause(1)
+    await settled(made.downloads, 1)
+
+    made.downloads.promote(1)
+
+    assert.equal((await settled(made.downloads, 1)).state, 'done')
   })
 
   test('the one already next is left alone, and so is anything not waiting', async () => {

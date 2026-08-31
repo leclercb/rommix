@@ -310,7 +310,6 @@ export const de: Catalog = {
     'Jedes Spiel auf dem Server wird mit dem Ordner verglichen, in den es installiert würde.',
   'downloads.nothingTransferring':
     'Nichts wird übertragen. Wählen Sie ein Spiel und drücken Sie Herunterladen.',
-  'downloads.inProgress': 'Laufend',
   'downloads.recent': 'Zuletzt',
   'downloads.clearFinished': 'Abgeschlossene entfernen',
   'downloads.cleared_one': '{count} abgeschlossene Übertragung entfernt',

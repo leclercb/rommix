@@ -153,6 +153,9 @@ export class DownloadManager extends EventEmitter {
     if (paused) {
       paused.state = 'queued'
       paused.error = null
+      // Behind everything else still waiting, rather than back into the place
+      // it held before it stopped. See `moveToBack`.
+      this.moveToBack(paused)
       log.info('download', 'resuming', {
         romId: rom.id,
         name: paused.name,
@@ -233,6 +236,40 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * Where a row sits in the array is the order it will be run in.
+   *
+   * `pump` takes the first row still queued, so the two are the same list and
+   * a row that changes state has to be moved as well as marked. They drifted
+   * apart once — a resumed transfer was marked queued in the place it had been
+   * paused in, which could be ahead of whatever was on the wire — and every
+   * question asked of the queue after that had two answers: what runs next, and
+   * what a promoted transfer has to be put in front of.
+   */
+  private moveToFront(item: DownloadItem): void {
+    this.queue.splice(this.queue.indexOf(item), 1)
+    const front = this.queue.findIndex(
+      (entry) => entry.state === 'queued' || entry.state === 'downloading'
+    )
+    this.queue.splice(front < 0 ? 0 : front, 0, item)
+  }
+
+  /**
+   * The other end of the same list: behind everything still waiting.
+   *
+   * Where a resumed transfer goes. It gave up its turn when it was paused, and
+   * taking it back at the expense of games queued since would be the one thing
+   * the user did not ask for — `promote` is the button that says otherwise.
+   */
+  private moveToBack(item: DownloadItem): void {
+    this.queue.splice(this.queue.indexOf(item), 1)
+    let last = -1
+    for (const [at, entry] of this.queue.entries()) {
+      if (entry.state === 'queued' || entry.state === 'downloading') last = at
+    }
+    this.queue.splice(last + 1, 0, item)
+  }
+
+  /**
    * Start a waiting transfer now, and let the one it overtook carry on after.
    *
    * The queue is drained one at a time and in order, so a small game asked for
@@ -246,55 +283,60 @@ export class DownloadManager extends EventEmitter {
    * pressed to bring it back. `resume` is read from the record on disk rather
    * than from the row's state, which is what makes that free.
    *
+   * A paused transfer can be promoted too, and that is the whole of what the
+   * button means: this game, now. Resuming it puts it at the back of the queue,
+   * which is the right default and the wrong one for the game the user is
+   * waiting on — offering it only to rows that happen to be queued left a list
+   * of paused games with no way to say which of them mattered.
+   *
    * A transfer that cannot be resumed is left alone: interrupting it would
    * throw away everything it has fetched, so the promoted game takes the next
    * turn instead of this one. See `DownloadItem.resumable`.
    */
   promote(romId: number): void {
-    const at = this.queue.findIndex((item) => item.romId === romId && item.state === 'queued')
-    if (at < 0) return
-
-    const running = this.queue.find((item) => item.state === 'downloading')
-
-    /**
-     * The front of the run order, which is not always the front of the list.
-     *
-     * `pump` takes the first row still queued, so that is the position being
-     * competed for — and it is not necessarily the running transfer's. A
-     * transfer restored as paused sits wherever `restorePending` put it, and
-     * resuming it marks it queued where it already is, which can be ahead of
-     * whatever is on the wire. Moving into the running transfer's place then
-     * moved the promoted game *behind* that row, which is the opposite of what
-     * was asked for.
-     */
-    const front = this.queue.findIndex(
-      (item) => item.state === 'queued' || item.state === 'downloading'
+    const item = this.queue.find(
+      (entry) => entry.romId === romId && (entry.state === 'queued' || entry.state === 'paused')
     )
-    if (front === at) return
+    if (!item) return
 
-    const [item] = this.queue.splice(at, 1)
-    this.queue.splice(front, 0, item)
+    const running = this.queue.find((entry) => entry.state === 'downloading')
+    const next = this.queue.find((entry) => entry.state === 'queued')
+    // Nothing to get past: it is already the transfer the queue reaches next,
+    // and the wire is free.
+    if (running === undefined && next === item) return
+
+    const resumed = item.state === 'paused'
+    item.state = 'queued'
+    item.error = null
+    this.moveToFront(item)
 
     const interrupt = running !== undefined && running.resumable !== false
     if (interrupt) {
       // Directly behind the one that overtook it, rather than behind everything
       // else waiting as well: it was on the wire, so its turn is the next one.
       this.queue.splice(this.queue.indexOf(running), 1)
-      this.queue.splice(front + 1, 0, running)
+      this.queue.splice(this.queue.indexOf(item) + 1, 0, running)
     }
 
     log.info('download', 'moved to the front of the queue', {
       romId,
       name: item.name,
+      resumed,
       interrupted: interrupt ? running.romId : null
     })
     this.emitUpdate()
 
-    if (!interrupt) return
-    // The abort lands in `runOne`, which reads the intent back out and puts the
-    // transfer into the queue rather than into a paused row.
-    this.requeueing.add(running.romId)
-    this.controllers.get(running.romId)?.abort()
+    if (interrupt) {
+      // The abort lands in `runOne`, which reads the intent back out and puts
+      // the transfer into the queue rather than into a paused row.
+      this.requeueing.add(running.romId)
+      this.controllers.get(running.romId)?.abort()
+      return
+    }
+    // Nothing gave way, so nothing is going to reach this row on its own: a
+    // promoted transfer that was paused has no `enqueue` behind it, and the
+    // pump stops as soon as the queue empties. Harmless while one is running.
+    void this.pump()
   }
 
   /**
@@ -363,7 +405,7 @@ export class DownloadManager extends EventEmitter {
    * would strand not just the failed download but every one behind it, still
    * showing "Waiting" with nothing left to move them.
    */
-  private async pump(seed: RommRom): Promise<void> {
+  private async pump(seed?: RommRom): Promise<void> {
     if (this.running) return
     this.running = true
     try {
@@ -372,8 +414,9 @@ export class DownloadManager extends EventEmitter {
         if (!item) break
         try {
           // The seeded ROM is already loaded; anything else needs a fresh fetch
-          // so we have the current file list.
-          const rom = item.romId === seed.id ? seed : await this.client.rom(item.romId)
+          // so we have the current file list. There is no seed at all when the
+          // queue was started by `promote`, which has only an id to hand.
+          const rom = seed && item.romId === seed.id ? seed : await this.client.rom(item.romId)
           await this.runOne(item, rom)
         } catch (cause) {
           // Reached when the ROM could not even be fetched from the server, so

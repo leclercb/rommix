@@ -301,7 +301,6 @@ export const fr: Catalog = {
   'downloads.checkExplainer':
     'Chaque jeu du serveur est comparé au dossier dans lequel il serait installé.',
   'downloads.nothingTransferring': 'Aucun transfert. Choisissez un jeu et appuyez sur Télécharger.',
-  'downloads.inProgress': 'En cours',
   'downloads.recent': 'Récents',
   'downloads.clearFinished': 'Effacer les terminés',
   'downloads.cleared_one': '{count} transfert terminé effacé',

@@ -297,7 +297,6 @@ export const es: Catalog = {
   'downloads.checkExplainer':
     'Cada juego del servidor se compara con la carpeta en la que se instalaría.',
   'downloads.nothingTransferring': 'No hay transferencias. Elige un juego y pulsa Descargar.',
-  'downloads.inProgress': 'En curso',
   'downloads.recent': 'Recientes',
   'downloads.clearFinished': 'Limpiar las terminadas',
   'downloads.cleared_one': '{count} transferencia terminada eliminada',

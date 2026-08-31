@@ -114,35 +114,52 @@ export function DownloadsScreen(): JSX.Element {
 
   const active = downloads.filter(isActive)
   /**
-   * The row at the front of the run order, which is what a promoted transfer
-   * moves in front of — and which is not always the one on the wire, since a
-   * resumed transfer is queued where it already sits. See
-   * `DownloadManager.promote`.
+   * The three things a transfer can be doing, each under its own heading.
+   *
+   * One list held all of them, in the order the queue happened to be in, and it
+   * read as a jumble: the game actually arriving could be the last row on the
+   * screen, below two that had been stopped hours ago. What is on the wire is
+   * what the screen is opened for, so it goes first and by itself; what is
+   * waiting is a line, and its order is the order it will run in; what is
+   * paused is a pile, and its order means nothing.
    */
-  const front = downloads.find((item) => item.state === 'queued' || item.state === 'downloading')
-  /** The transfer that runs next, which has only the wire left to overtake. */
-  const firstWaiting = downloads.find((item) => item.state === 'queued')?.romId
+  const running = active.filter(
+    (item) => item.state === 'downloading' || item.state === 'extracting'
+  )
+  const waiting = active.filter((item) => item.state === 'queued')
+  const paused = active.filter((item) => item.state === 'paused')
+  /** The three, in the order they are drawn, each labelled with its own badge. */
+  const sections: { key: MessageKey; items: DownloadItem[] }[] = [
+    { key: 'downloads.state.downloading', items: running },
+    { key: 'downloads.state.queued', items: waiting },
+    { key: 'downloads.state.paused', items: paused }
+  ]
+  /**
+   * Whether what has the wire would give it up.
+   *
+   * A transfer that cannot be resumed would lose everything it has fetched, and
+   * an archive being unpacked is nobody's to interrupt half-way; both are left
+   * alone, and the promoted game takes the turn after instead.
+   */
+  const gives = running[0]?.state === 'downloading' && running[0].resumable !== false
   /**
    * Whether pressing it starts the game straight away or only moves it up.
    *
-   * What is on the wire is interrupted to let another past — unless it cannot
-   * be resumed, in which case interrupting it would throw away everything it
-   * has fetched, and the promoted game takes the turn after instead. Two
-   * outcomes, so two words: a button that said "now" and meant "next" would be
-   * the one thing worse than not having it.
+   * Two outcomes, so two words: a button that said "now" and meant "next" would
+   * be the one thing worse than not having it.
    */
-  const interrupts = downloads.find((item) => item.state === 'downloading')?.resumable !== false
+  const interrupts = running.length === 0 || gives
   /**
    * Would moving this transfer up do anything?
    *
-   * Anything waiting can overtake what waits ahead of it. The transfer that
-   * runs next has nothing waiting ahead of it, only what is on the wire — so
-   * its button is worth offering exactly when that gives way, which a transfer
-   * that cannot be resumed does not.
+   * It has to have something to get past: a game waiting ahead of it, or a
+   * transfer on the wire that gives way. A paused game counts as much as a
+   * queued one — resuming it puts it at the back of the queue, which is the
+   * right default and the wrong one for the game being waited on.
    */
   const promotable = (item: DownloadItem): boolean =>
-    item.state === 'queued' &&
-    (item.romId !== firstWaiting || (front?.state === 'downloading' && front.resumable !== false))
+    (item.state === 'queued' || item.state === 'paused') &&
+    (gives || (waiting.length > 0 && waiting[0].romId !== item.romId))
   const finished = downloads.filter(
     (item) => item.state === 'done' || item.state === 'error' || item.state === 'cancelled'
   )
@@ -256,27 +273,32 @@ export function DownloadsScreen(): JSX.Element {
             <div className="empty">{t('downloads.nothingTransferring')}</div>
           ) : null}
 
-          {active.length > 0 ? (
-            <>
-              <h2 className="section-title">{t('downloads.inProgress')}</h2>
-              {active.map((item) => (
-                <ProgressRow
-                  key={item.romId}
-                  item={item}
-                  onSelect={() => navigate({ name: 'game', romId: item.romId })}
-                  onCancel={() => void window.rommix.downloads.cancel(item.romId)}
-                  onPause={() => void window.rommix.downloads.pause(item.romId)}
-                  onResume={() => void window.rommix.downloads.start(item.romId)}
-                  onNext={
-                    promotable(item)
-                      ? () => void window.rommix.downloads.promote(item.romId)
-                      : undefined
-                  }
-                  interrupts={interrupts}
-                />
-              ))}
-            </>
-          ) : null}
+          {/* Each heading is the badge its rows carry, which is the point: the
+              section says what is happening to everything under it, and the
+              row is still readable on its own if it is read on its own. */}
+          {sections.map(({ key, items }) =>
+            items.length > 0 ? (
+              <section key={key}>
+                <h2 className="section-title">{t(key)}</h2>
+                {items.map((item) => (
+                  <ProgressRow
+                    key={item.romId}
+                    item={item}
+                    onSelect={() => navigate({ name: 'game', romId: item.romId })}
+                    onCancel={() => void window.rommix.downloads.cancel(item.romId)}
+                    onPause={() => void window.rommix.downloads.pause(item.romId)}
+                    onResume={() => void window.rommix.downloads.start(item.romId)}
+                    onNext={
+                      promotable(item)
+                        ? () => void window.rommix.downloads.promote(item.romId)
+                        : undefined
+                    }
+                    interrupts={interrupts}
+                  />
+                ))}
+              </section>
+            ) : null
+          )}
 
           {finished.length > 0 ? (
             <>
@@ -563,7 +585,11 @@ function ProgressRow({
           words beside them moving anything sideways. */}
       <div className="download__figures">
         <DownloadBadge state={item.state} />
-        {item.state === 'downloading' || paused ? (
+        {/* Whenever there is something to say, which is not the same as being
+            on the wire: a transfer that was paused and then resumed waits its
+            turn with a gigabyte already on disk, and a row that said nothing
+            about it read as a download about to start from nothing. */}
+        {item.receivedBytes > 0 && item.state !== 'done' ? (
           <span className="download__size">
             {formatBytes(item.receivedBytes)} / {formatBytes(item.totalBytes)}
           </span>
