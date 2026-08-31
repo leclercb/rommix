@@ -519,6 +519,7 @@ export const fr: Catalog = {
   'saves.emptyPlayIt': 'Jouez-y une fois et sa sauvegarde apparaîtra ici.',
   'saves.nothingNewer': 'Rien de plus récent sur RomM',
   'saves.noLocalSaves': 'Aucune sauvegarde locale à envoyer',
+  'saves.allInSync': 'RomM a déjà toutes les sauvegardes de cet appareil',
   'saves.pulled_one': '{count} fichier téléchargé',
   'saves.pulled_other': '{count} fichiers téléchargés',
   'saves.pushed_one': '{count} fichier envoyé à RomM',

@@ -110,8 +110,8 @@ export function useGameSaves(
    *
    * The preview is fetched only when the setting is on, so the default path is
    * the single call it has always been. A preview with nothing in it never
-   * becomes a dialog: there is no decision to take, and the same message the
-   * push itself would have produced is more use than an empty list.
+   * becomes a dialog: there is no decision to take, and a message saying why
+   * is more use than an empty list.
    */
   const beginPush = async (): Promise<void> => {
     if (settings?.confirmSavePush !== true) {
@@ -122,6 +122,13 @@ export function useGameSaves(
     setBusy(true)
     try {
       const preview = await window.rommix.saves.pushPreview(romId)
+      // Everything on disk is already on RomM — the push equivalent of a pull
+      // that finds nothing newer, and not a warning: the saves exist, they have
+      // simply all been sent.
+      if (preview.files.length === 0 && preview.inSync > 0) {
+        notify(t('saves.allInSync'), 'ok', subject())
+        return
+      }
       if (preview.files.length === 0) {
         notify(preview.skippedReason ?? t('saves.noLocalSaves'), 'warn', subject())
         return

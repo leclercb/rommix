@@ -414,6 +414,12 @@ export class SaveSync {
    * means everything on disk, and the launch time for the automatic push, which
    * means only what the session wrote.
    *
+   * A file RomM already holds the same copy of is left out and counted in
+   * `inSync` instead: sending it would upload it over itself, so it is not a
+   * decision worth putting in front of anyone, and the count is what lets
+   * "everything here is already up there" be told apart from "there is nothing
+   * here".
+   *
    * One case can still differ: a save folder that turns out to hold no files is
    * listed here and skipped by the upload, because knowing that means zipping
    * it. It costs an over-count of one on a folder the emulator created and
@@ -423,6 +429,7 @@ export class SaveSync {
     const paths = this.locate(target)
     const tag = this.tagFor(paths, target)
     const files: PendingSave[] = []
+    let inSync = 0
 
     for (const kind of ['save', 'state'] as const) {
       const location = this.locationFor(paths, kind)
@@ -449,6 +456,15 @@ export class SaveSync {
           existing && 'origin_device_id' in existing && existing.origin_device_id
             ? existing.origin_device_id === thisDevice
             : null
+        const state = existing
+          ? syncStateOf(asset.mtimeMs, existing.updated_at, fromThisDevice)
+          : null
+
+        if (state === 'synced') {
+          inSync += 1
+          continue
+        }
+
         files.push({
           kind,
           fileName: asset.fileName,
@@ -463,8 +479,7 @@ export class SaveSync {
                 updatedAt: existing.updated_at,
                 emulator: existing.emulator,
                 fromThisDevice,
-                isNewer:
-                  syncStateOf(asset.mtimeMs, existing.updated_at, fromThisDevice) === 'remote-newer'
+                isNewer: state === 'remote-newer'
               }
             : null
         })
@@ -479,7 +494,11 @@ export class SaveSync {
 
     return {
       files,
-      skippedReason: this.reasonFor(paths, files.length),
+      inSync,
+      // Counted with the files: an emulator whose saves cannot be synced per
+      // game has none of either, so a game whose copies are all up there is not
+      // one to report a sync layout problem against.
+      skippedReason: this.reasonFor(paths, files.length + inSync),
       deviceName: this.store.settings.deviceName
     }
   }

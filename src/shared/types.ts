@@ -826,6 +826,14 @@ export interface PendingSave {
 /** What `saves.push` would send, asked before it is sent. */
 export interface SavePushPreview {
   files: PendingSave[]
+  /**
+   * Local files left out of `files` because RomM already holds the same copy.
+   *
+   * What tells an empty list apart from an empty save folder: nothing to send
+   * because everything has been sent is not the same answer as nothing to send
+   * because there is nothing here.
+   */
+  inSync: number
   /** Set when this emulator's save layout is not one RomMix can sync per game. */
   skippedReason: string | null
   /** The device name RomM will record against the upload. */

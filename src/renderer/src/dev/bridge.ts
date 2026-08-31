@@ -708,6 +708,7 @@ const bridge: RomMixBridge = {
             }
           }
         ],
+        inSync: 0,
         skippedReason: null,
         deviceName: SETTINGS.deviceName
       }),

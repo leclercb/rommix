@@ -310,6 +310,23 @@ describe('pushing', () => {
     assert.deepEqual(uploaded, [])
   })
 
+  test('a copy RomM already has is left out of the preview and counted instead', async () => {
+    // Sending it would upload the file over itself, which is not a decision to
+    // put in a dialog — and the count is what lets the button say that
+    // everything here is already up there rather than that there is nothing.
+    const { sync, target, saveDir } = setUp({ saves: [save()] })
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'local')
+    const { utimesSync } = await import('node:fs')
+    const uploadedAt = new Date('2026-08-01T12:00:00.000Z')
+    utimesSync(path, uploadedAt, uploadedAt)
+
+    const preview = await sync.previewPush(target)
+
+    assert.deepEqual(preview.files, [])
+    assert.equal(preview.inSync, 1)
+  })
+
   test('only the files the dialog approved are sent', async () => {
     const { sync, target, saveDir, uploaded } = setUp()
     writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')

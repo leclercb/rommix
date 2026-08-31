@@ -512,6 +512,7 @@ export const es: Catalog = {
   'saves.emptyPlayIt': 'Juega una vez y su partida aparecerá aquí.',
   'saves.nothingNewer': 'No hay nada más reciente en RomM',
   'saves.noLocalSaves': 'No hay partidas locales que enviar',
+  'saves.allInSync': 'RomM ya tiene todas las partidas de este dispositivo',
   'saves.pulled_one': '{count} archivo descargado',
   'saves.pulled_other': '{count} archivos descargados',
   'saves.pushed_one': '{count} archivo enviado a RomM',

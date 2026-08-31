@@ -528,6 +528,7 @@ export const de: Catalog = {
   'saves.emptyPlayIt': 'Spielen Sie es einmal, dann erscheint sein Spielstand hier.',
   'saves.nothingNewer': 'Nichts Neueres auf RomM',
   'saves.noLocalSaves': 'Keine lokalen Spielstände zum Senden',
+  'saves.allInSync': 'RomM hat bereits alle Spielstände von hier',
   'saves.pulled_one': '{count} Datei heruntergeladen',
   'saves.pulled_other': '{count} Dateien heruntergeladen',
   'saves.pushed_one': '{count} Datei an RomM gesendet',

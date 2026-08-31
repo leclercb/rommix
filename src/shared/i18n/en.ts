@@ -519,6 +519,7 @@ export const en = {
   'saves.emptyPlayIt': 'Play it once and its save will appear here.',
   'saves.nothingNewer': 'Nothing newer on RomM',
   'saves.noLocalSaves': 'No local saves to send',
+  'saves.allInSync': 'RomM already has every save here',
   'saves.pulled_one': '{count} file downloaded',
   'saves.pulled_other': '{count} files downloaded',
   'saves.pushed_one': '{count} file sent to RomM',
