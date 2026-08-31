@@ -837,6 +837,48 @@ describe('checking what arrived against what RomM holds', () => {
     )
 
     assert.equal(existsSync(destination), false)
+    assert.equal(existsSync(`${destination}.part`), false)
+  })
+
+  test('the BIOS already installed survives a replacement that is refused', async () => {
+    // Checking in place would mean the refused copy had overwritten a working
+    // BIOS on its way to being thrown away, leaving the emulator with none —
+    // off a button that offered to install one.
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'scph5501.bin')
+    writeFileSync(destination, 'the one that works')
+    serve(() => new Response('9876543210'))
+
+    await assert.rejects(
+      new RommClient(store).downloadFirmware(
+        {
+          id: 3,
+          file_name: 'scph5501.bin',
+          md5_hash: '781e5e245d69b566979b86e28d23f2c7'
+        } as RommFirmware,
+        destination
+      ),
+      RommError
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), 'the one that works')
+  })
+
+  test('a BIOS RomM has not scanned is installed rather than refused', async () => {
+    // A check that cannot be made is not a failure: RomM records no digest for
+    // firmware it has not scanned, and refusing would leave the emulator with
+    // no BIOS at all.
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'scph5501.bin')
+    serve(() => new Response('0123456789'))
+
+    await new RommClient(store).downloadFirmware(
+      { id: 3, file_name: 'scph5501.bin', md5_hash: null } as RommFirmware,
+      destination
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+    assert.equal(existsSync(`${destination}.part`), false)
   })
 })
 

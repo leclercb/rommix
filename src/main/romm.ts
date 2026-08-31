@@ -954,12 +954,10 @@ export class RommClient {
    * part of that is true right up until the file on the server is replaced
    * between two halves of one download.
    *
-   * The file goes with the failure, whichever it is. `fetchToFile` checks the
-   * `.part` before the rename, so what fails there is the download rather than
-   * a launch, and nothing is left to resume onto — bytes already known to be
-   * wrong could only ever produce the same file again. `downloadFirmware`
-   * writes no part-file and so is checked in place, where the same deletion
-   * takes the BIOS that would otherwise sit in the emulator looking installed.
+   * The file goes with the failure, and both callers hand it a `.part` rather
+   * than the installed name: what fails is the download rather than a launch,
+   * and nothing is left to resume onto — bytes already known to be wrong could
+   * only ever produce the same file again.
    */
   private async verify(
     file: string,
@@ -997,26 +995,47 @@ export class RommClient {
   }
 
   async downloadFirmware(item: RommFirmware, destination: string): Promise<void> {
-    await this.downloadAsset(
-      `/api/firmware/${item.id}/content/${encodeURIComponent(item.file_name)}`,
-      destination
-    )
-    // Checked here rather than left to the emulator, which has no way to say
-    // so: a BIOS that is the wrong bytes is a console that hangs on a black
-    // screen, and nothing on the way to that names the file.
-    //
-    // Only where RomM has a digest to compare against. It records one for the
-    // firmware it has scanned, and a check that cannot be made is not a
-    // failure — refusing the file would leave the emulator with no BIOS at all.
-    if (item.md5_hash) {
-      await this.verify(
-        destination,
-        { algorithm: 'md5', expected: item.md5_hash },
-        // Under its own name: a firmware id logged as a ROM id sends whoever
-        // reads the line looking for a game that does not exist.
-        { kind: 'firmware', firmwareId: item.id, fileName: item.file_name }
+    /**
+     * Written beside whatever BIOS is already there, never on top of it.
+     *
+     * The check below deletes what it refuses, so downloading into the
+     * installed name would mean a refused copy had overwritten a working BIOS
+     * on its way to being thrown away — the emulator left with nothing, off a
+     * button that offered to install something. The same reason
+     * `installAsset` builds an emulator beside the old one.
+     */
+    const partial = partialPathOf(destination)
+    try {
+      await this.downloadAsset(
+        `/api/firmware/${item.id}/content/${encodeURIComponent(item.file_name)}`,
+        partial
       )
+      // Checked here rather than left to the emulator, which has no way to say
+      // so: a BIOS that is the wrong bytes is a console that hangs on a black
+      // screen, and nothing on the way to that names the file.
+      //
+      // Only where RomM has a digest to compare against. It records one for the
+      // firmware it has scanned, and a check that cannot be made is not a
+      // failure — refusing the file would leave the emulator with no BIOS at
+      // all.
+      if (item.md5_hash) {
+        await this.verify(
+          partial,
+          { algorithm: 'md5', expected: item.md5_hash },
+          // Under its own name: a firmware id logged as a ROM id sends whoever
+          // reads the line looking for a game that does not exist.
+          { kind: 'firmware', firmwareId: item.id, fileName: item.file_name }
+        )
+      }
+    } catch (cause) {
+      // Nothing to resume from — there is no range request behind a BIOS — so
+      // a part-file left here is scratch that the next attempt would have to
+      // step over.
+      await rm(partial, { force: true }).catch(() => undefined)
+      throw cause
     }
+
+    await rename(partial, destination)
     log.info('romm', 'firmware downloaded', {
       firmwareId: item.id,
       fileName: item.file_name,

@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ReleaseSource } from '@config/emulators'
 import { fetchReleases, installAsset, managedEmulatorDir } from './releases.ts'
+import { zipDirectory } from './zip.ts'
 
 /**
  * Choosing a build of an emulator, and putting it where RomMix can run it.
@@ -391,6 +392,32 @@ describe('an install that fails leaves the working one alone', () => {
 
     // No `.incoming` or `.previous` scratch directories outlive the install.
     assert.deepEqual(readdirSync(parent), ['eden'])
+  })
+
+  test('an archive holding no program leaves the working install and no scratch', async () => {
+    // shadPS4 publishes its image inside a zip, so an archive is an ordinary
+    // release here. One that turns out to hold no image fails after the
+    // download has finished, which is the last point a staging directory could
+    // be left standing.
+    const { root, path } = await alreadyInstalled()
+    const contents = join(root, 'contents')
+    mkdirSync(contents, { recursive: true })
+    writeFileSync(join(contents, 'README.txt'), 'no program in here')
+    const archive = join(root, 'release.zip')
+    await zipDirectory(contents, archive)
+    const bytes = readFileSync(archive)
+    serve(() => new Response(bytes))
+
+    await assert.rejects(() =>
+      installAsset(
+        'eden',
+        { name: 'Eden-Linux.zip', url: 'https://git.example/new', sizeBytes: 3, digest: null },
+        () => undefined
+      )
+    )
+
+    assert.equal(readFileSync(path, 'utf8'), 'the one that works')
+    assert.deepEqual(readdirSync(join(root, 'emulators')), ['eden'])
   })
 
   test('what a killed attempt left behind is cleared rather than adopted', async () => {

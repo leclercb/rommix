@@ -229,7 +229,17 @@ export async function installAsset(
 
   // By its magic bytes rather than its name: what matters is whether the file
   // is an archive, not what the project chose to call it.
-  const built = (await isZip(destination)) ? await unpackImage(destination, staging) : destination
+  let built: string
+  try {
+    built = (await isZip(destination)) ? await unpackImage(destination, staging) : destination
+  } catch (cause) {
+    // An archive with no image in it fails here, and the staging directory goes
+    // with it for the same reason it does on a refused digest: the install that
+    // is already there is untouched, and nothing is left for the next attempt
+    // to step over.
+    await rm(staging, { recursive: true, force: true })
+    throw cause
+  }
 
   /**
    * The swap, and the only moment the old install is not there.

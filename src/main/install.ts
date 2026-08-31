@@ -1,6 +1,6 @@
 import { readdir, rename, rm, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
 import type { RommRom } from '@shared/types'
 import { safeJoin } from './safepath.ts'
@@ -110,9 +110,16 @@ export async function unpack(
   const staged = safeJoin(systemDir, rom.fs_name_no_ext)
   if (!staged) throw new Error(t('error.unsafeName', { name: rom.fs_name }))
   const dirTarget = asDirectory ? targetPath : staged
-  // A lone ROM is staged aside first, because where it ends up depends on what
-  // the archive turns out to contain.
-  const staging = asDirectory ? dirTarget : `${staged}.rommix-tmp`
+  /**
+   * A lone ROM is staged aside first, because where it ends up depends on what
+   * the archive turns out to contain.
+   *
+   * Hidden, because for as long as it exists it is a directory sitting in a
+   * folder an emulator browses: ES-DE reading the tree mid-unpack would show it
+   * as a game. The dot goes on the leaf rather than the whole name, so a name
+   * carrying a directory hides what RomMix made and not the folder above it.
+   */
+  const staging = asDirectory ? dirTarget : join(dirname(staged), `.${basename(staged)}.rommix-tmp`)
 
   await extractZip(archivePath, staging)
   await rm(archivePath, { force: true })

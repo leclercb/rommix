@@ -176,7 +176,14 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
    * that finds nothing among these measures everything instead.
    */
   const onScreen = useRef(new WeakSet<Element>())
-  const nearby = useMemo(
+  /**
+   * Built through `useState` rather than `useMemo`, which React is free to
+   * throw away and recompute. A second observer would start with nothing
+   * observed while the first went on reporting into the same set, leaving
+   * `onScreen` naming elements by an answer nothing is keeping current — and
+   * this is read to decide where a press lands.
+   */
+  const [nearby] = useState(
     () =>
       new IntersectionObserver(
         (records) => {
@@ -186,8 +193,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
           }
         },
         { rootMargin: NEARBY_MARGIN }
-      ),
-    [onScreen]
+      )
   )
   useEffect(() => () => nearby.disconnect(), [nearby])
 
