@@ -26,6 +26,31 @@ export const SIDECAR_EXTENSIONS: readonly string[] = [
 ]
 
 /**
+ * The archives RomM opens rather than treats as the game.
+ *
+ * RomM reads inside every one of these to work out what it is holding, and the
+ * checksums it records for such a ROM describe the files it found in there —
+ * not the archive around them. What it serves for that ROM is the archive, so
+ * the two never agree. See `checksumOf`.
+ *
+ * `.tar.gz` and the rest of the double extensions are here in full: a name is
+ * matched against the whole ending rather than the last dot, so `.gz` alone
+ * would be a different, and wrong, answer.
+ */
+export const ARCHIVE_EXTENSIONS: readonly string[] = [
+  '.zip',
+  '.7z',
+  '.rar',
+  '.tar',
+  '.tar.gz',
+  '.tgz',
+  '.tar.bz2',
+  '.tbz2',
+  '.tar.xz',
+  '.txz'
+]
+
+/**
  * Disc descriptors, in the order they should be preferred.
  *
  * These must win over the tracks they reference. Handing an emulator the `.bin`

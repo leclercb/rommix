@@ -17,8 +17,9 @@ import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
-import { CorruptDownloadError, RommError, type RommClient } from './romm.ts'
+import { CorruptDownloadError, RommClient, RommError } from './romm.ts'
 import { Store } from './store.ts'
+import { zipDirectory } from './zip.ts'
 
 /**
  * Where a downloaded game goes, and what RomMix believes about the ones already
@@ -94,6 +95,13 @@ function fakeClient(
      * throws, leaving whatever landed before it in place.
      */
     corruptFile?: number
+    /**
+     * Answer with a real archive holding these files, rather than loose bytes.
+     *
+     * The only way to reach the unpacking half of a download, which is where an
+     * archived game is held to the hash RomM recorded for what is inside it.
+     */
+    zip?: Record<string, string>
   } = {}
 ): {
   client: RommClient
@@ -158,6 +166,15 @@ function fakeClient(
       // The real client renames the partial onto the ROM, so it is gone either
       // way once the transfer finishes.
       await rm(`${destination}.part`, { force: true })
+      if (options.zip) {
+        const inside = scratch()
+        for (const [name, body] of Object.entries(options.zip)) {
+          writeFileSync(join(inside, name), body)
+        }
+        const bytes = await zipDirectory(inside, destination)
+        onProgress({ received: bytes, total: bytes })
+        return
+      }
       await writeFile(destination, contents)
       onProgress({ received: contents.length, total: contents.length })
     }
@@ -175,6 +192,7 @@ function manager(
     ranges?: boolean
     perFile?: boolean
     corruptFile?: number
+    zip?: Record<string, string>
     roms?: Record<number, RommRom>
   } = {}
 ): {
@@ -190,6 +208,15 @@ function manager(
   const store = new Store(join(root, 'config'))
   store.updateSettings({ romStorage: options.shared === false ? 'emulator' : 'rommix' })
   const { client, resumed } = fakeClient(options)
+  /**
+   * The real check, which is the one worth running: it is a hash of a local
+   * file and a rule about what RomM's digest describes, and it needs no server
+   * at all. A fake standing in for it would only ever agree with itself.
+   */
+  Object.assign(client, {
+    verifyUnpacked: (game: RommRom, path: string) =>
+      new RommClient(store).verifyUnpacked(game, path)
+  })
   const library = new Library(store, client, () => options.emulator ?? null)
   const downloads = new DownloadManager(store, client, library)
   return { downloads, library, store, root, client, resumed }
@@ -199,7 +226,15 @@ function manager(
 async function settled(downloads: DownloadManager, romId: number): Promise<DownloadItem> {
   for (let tick = 0; tick < 200; tick += 1) {
     const item = downloads.items.find((row) => row.romId === romId)
-    if (item && item.state !== 'queued' && item.state !== 'downloading') return item
+    // Extracting is still moving: an archived game is not settled until what
+    // came out of it has been unpacked and checked.
+    if (
+      item &&
+      item.state !== 'queued' &&
+      item.state !== 'downloading' &&
+      item.state !== 'extracting'
+    )
+      return item
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
   throw new Error(`the download of ${romId} never settled`)
@@ -442,6 +477,51 @@ describe('changing the order of the queue', () => {
       downloads.items.map((item) => item.romId),
       before
     )
+  })
+})
+
+describe('a game RomM holds zipped', () => {
+  /**
+   * The archive, and the digest of the game inside it.
+   *
+   * RomM opens an archive it recognises and records the hashes of what it found
+   * in there, so this is what the ROM carries — and the zip served for it can
+   * never hash to it. Every archived game in a library was fetched whole,
+   * refused, and deleted as corrupt.
+   */
+  const zipped = (): RommRom =>
+    rom({
+      fs_name: 'Advance Wars (Europe).zip',
+      fs_name_no_ext: 'Advance Wars (Europe)',
+      fs_extension: 'zip',
+      md5_hash: '781e5e245d69b566979b86e28d23f2c7',
+      files: [{ file_name: 'Advance Wars (Europe).gba' }]
+    } as Partial<RommRom>)
+
+  test('the game that comes out of it is what the hash is checked against', async () => {
+    const { downloads, store } = manager({
+      zip: { 'Advance Wars (Europe).gba': '0123456789' }
+    })
+
+    downloads.enqueue(zipped())
+    const item = await settled(downloads, 1)
+
+    assert.equal(item.state, 'done')
+    assert.equal(existsSync(store.getInstalled(1)?.path ?? ''), true)
+  })
+
+  test('one that unpacks to bytes RomM does not hold is refused, and goes', async () => {
+    const made = manager({ zip: { 'Advance Wars (Europe).gba': 'not that game at all' } })
+
+    made.downloads.enqueue(zipped())
+    const item = await settled(made.downloads, 1)
+
+    assert.equal(item.state, 'error')
+    assert.ok(item.error, 'the row has to say why it was thrown away')
+    // Nothing is left under the name an emulator would load it by, and nothing
+    // is recorded as installed.
+    assert.equal(existsSync(join(made.root, 'roms', 'genesis', 'Advance Wars (Europe).gba')), false)
+    assert.equal(made.store.getInstalled(1), undefined)
   })
 })
 

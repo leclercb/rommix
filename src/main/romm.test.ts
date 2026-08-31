@@ -786,21 +786,97 @@ describe('checking what arrived against what RomM holds', () => {
     assert.equal(existsSync(`${destination}.part`), false)
   })
 
-  test('a ROM RomM holds zipped is judged on the zip, which is what arrives', async () => {
+  test('a ROM RomM holds archived is not judged against the hash of its contents', async () => {
     const { store } = fakeStore()
-    const destination = join(scratch(), 'keyboard-test.zip')
-    serve(() => new Response('0123456789'))
+    const destination = join(scratch(), 'advance-wars.zip')
+    // The zip, which is what the content endpoint serves — and never what the
+    // hash on the ROM describes: RomM opens the archive and records what it
+    // found inside. Checked, every archived game in the library was refused.
+    serve(() => new Response('the zip around it'))
 
-    // RomM hashes the file as it sits on its own disk, so for a zipped ROM the
-    // hash is of the zip — and the zip is what the content endpoint serves.
     await new RommClient(store).downloadRom(
-      hashed({ fs_name: 'Keyboard-Test.zip', fs_extension: 'zip' }),
+      hashed({ fs_name: 'Advance Wars (Europe).zip', fs_extension: 'zip' }),
       destination,
       () => undefined,
       new AbortController().signal
     )
 
-    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+    assert.equal(readFileSync(destination, 'utf8'), 'the zip around it')
+  })
+
+  test('an archive is recognised by its whole ending, not by its last dot', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'game.tar.gz')
+    serve(() => new Response('the tarball around it'))
+
+    await new RommClient(store).downloadRom(
+      hashed({ fs_name: 'Game (Europe).tar.gz', fs_extension: 'gz' }),
+      destination,
+      () => undefined,
+      new AbortController().signal
+    )
+
+    assert.equal(readFileSync(destination, 'utf8'), 'the tarball around it')
+  })
+
+  test('the game unpacked out of an archive is held to the hash instead', async () => {
+    const { store } = fakeStore()
+    const unpacked = join(scratch(), 'Advance Wars (Europe).gba')
+    writeFileSync(unpacked, '0123456789')
+
+    await new RommClient(store).verifyUnpacked(
+      hashed({ fs_name: 'Advance Wars (Europe).zip', fs_extension: 'zip' }),
+      unpacked
+    )
+
+    assert.equal(existsSync(unpacked), true)
+  })
+
+  test('a game unpacked out of an archive that is not the one RomM holds goes', async () => {
+    const { store } = fakeStore()
+    const unpacked = join(scratch(), 'Advance Wars (Europe).gba')
+    writeFileSync(unpacked, '9876543210')
+
+    await assert.rejects(
+      new RommClient(store).verifyUnpacked(
+        hashed({ fs_name: 'Advance Wars (Europe).zip', fs_extension: 'zip' }),
+        unpacked
+      ),
+      RommError
+    )
+
+    // Under the name an emulator would load it by, so it cannot be left there.
+    assert.equal(existsSync(unpacked), false)
+  })
+
+  test('a game that arrived as a plain file is not hashed a second time', async () => {
+    const { store } = fakeStore()
+    const installed = join(scratch(), 'Sonic (USA).md')
+    // Checked on the way in, against the bytes RomM served. Nothing here.
+    writeFileSync(installed, 'whatever ended up here')
+
+    await new RommClient(store).verifyUnpacked(hashed(), installed)
+
+    assert.equal(existsSync(installed), true)
+  })
+
+  test('an archive that held more than the game is left to its files', async () => {
+    const { store } = fakeStore()
+    const unpacked = join(scratch(), 'disc1.bin')
+    writeFileSync(unpacked, '9876543210')
+
+    // RomM hashes such an archive by running every member through one digest in
+    // path order, which is not a figure RomMix can arrive at.
+    await new RommClient(store).verifyUnpacked(
+      hashed({
+        fs_name: 'Final Fantasy VII (Europe).zip',
+        fs_extension: 'zip',
+        has_multiple_files: true
+      }),
+      unpacked
+    )
+
+    assert.equal(existsSync(unpacked), true)
   })
 
   test('a game of several files is not judged against a hash of one of them', async () => {

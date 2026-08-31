@@ -772,7 +772,7 @@ export class DownloadManager extends EventEmitter {
       item.state = 'extracting'
       this.emitUpdate()
       log.info('download', 'extracting the archive', { romId: rom.id, from: downloadTo })
-      return unpack(
+      const unpacked = await unpack(
         rom,
         downloadTo,
         where.dir,
@@ -781,6 +781,20 @@ export class DownloadManager extends EventEmitter {
         where.asDirectory,
         where.flat
       )
+
+      /**
+       * The check the archive itself could not be held to.
+       *
+       * RomM hashes what is inside an archive rather than the archive, so this
+       * is where the digest it holds finally has the file it describes in front
+       * of it — and it is the file that will be launched, which the bytes on
+       * the wire never were. Only for an archive that held one game: `files` is
+       * set where several came out, and those have no digest to be held to.
+       */
+      if (!unpacked.isDirectory && unpacked.files === undefined) {
+        await this.client.verifyUnpacked(rom, unpacked.path)
+      }
+      return unpacked
     }
     return {
       path: where.path,

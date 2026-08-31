@@ -21,6 +21,7 @@ import type {
   RommUser,
   RomQuery
 } from '@shared/types'
+import { ARCHIVE_EXTENSIONS } from '@config/romfiles'
 import { hashOf } from './integrity.ts'
 import { i18n, t } from './i18n.ts'
 import { log } from './log.ts'
@@ -140,22 +141,54 @@ function digestOf(source: { md5_hash: string | null; sha1_hash: string | null })
 }
 
 /**
- * The hash RomM holds for a whole ROM, when it answers for the bytes the
- * content endpoint is about to serve.
+ * The hash RomM holds for a game it keeps as one file.
  *
- * Only for a game held as a single file. What that endpoint serves for a game
- * of several is an archive built for the request, and the hash on the ROM
- * describes neither that archive nor any one file inside it — those are checked
- * as they arrive instead. See `downloadRomFile`.
- *
- * A game held zipped is checked like any other: RomM hashes the file as it sits
- * on its disk, so for a zipped ROM that is the hash of the zip, which is what
- * arrives here. It is verified before it is unpacked.
+ * Nothing for a game of several. What the content endpoint serves for one of
+ * those is an archive built for the request, and the hash on the ROM describes
+ * neither that archive nor any one file inside it — those are checked as they
+ * arrive instead. See `downloadRomFile`.
  */
-function checksumOf(rom: RommRom): Checksum | null {
+function fileDigestOf(rom: RommRom): Checksum | null {
   const digest = digestOf(rom)
   if (!digest) return null
   return rom.has_multiple_files || rom.files.length > 1 ? null : digest
+}
+
+/** Is this a name RomM would have opened rather than hashed? */
+function isArchive(fsName: string): boolean {
+  const name = fsName.toLowerCase()
+  return ARCHIVE_EXTENSIONS.some((extension) => name.endsWith(extension))
+}
+
+/**
+ * The hash to hold the bytes on the wire to, if any.
+ *
+ * Not an archive's. RomM opens the ones it recognises and hashes what it finds
+ * inside, so the digest on a zipped game describes the ROM in the zip while the
+ * endpoint serves the zip: every such game arrived whole, failed a check it
+ * could never pass, and was thrown away as corrupt. What comes out of the
+ * archive is what that digest is for. See `unpackedChecksumOf`.
+ */
+function checksumOf(rom: RommRom): Checksum | null {
+  return isArchive(rom.fs_name) ? null : fileDigestOf(rom)
+}
+
+/**
+ * The hash to hold the game that came out of an archive to.
+ *
+ * The same digest, against the file it actually describes — so an archived game
+ * is checked after it is unpacked rather than not at all. It is the file RomMix
+ * keeps and launches, which makes this the better of the two checks: the one
+ * before only ever spoke for bytes that were about to be thrown away.
+ *
+ * Only where the archive held one game. RomM hashes a multi-entry archive by
+ * running its members through one digest in path order, minus the files it
+ * excludes — reproducing that means carrying a copy of RomM's exclusion rules
+ * here and re-deriving an ordering from a tree RomMix has already rearranged,
+ * and being wrong about either is a good game refused.
+ */
+function unpackedChecksumOf(rom: RommRom): Checksum | null {
+  return isArchive(rom.fs_name) ? fileDigestOf(rom) : null
 }
 
 /** What a caller can say about one transfer. */
@@ -753,6 +786,23 @@ export class RommClient {
   }
 
   /**
+   * Hold the game that came out of an archive to what RomM holds.
+   *
+   * Does nothing where there is no digest that describes it — a game RomM has
+   * no hash for, one served as a plain file and already checked on the way in,
+   * or an archive that held more than the game. See `unpackedChecksumOf`.
+   *
+   * The file goes with the failure, the same as on the way in: what is left
+   * behind is a ROM already known to be wrong, sitting under the name an
+   * emulator would load it by.
+   */
+  async verifyUnpacked(rom: RommRom, path: string): Promise<void> {
+    const digest = unpackedChecksumOf(rom)
+    if (!digest) return
+    await this.verify(path, digest, { kind: 'ROM', romId: rom.id })
+  }
+
+  /**
    * One file of a game made of several, straight to disk.
    *
    * The reason RomMix asks for these one at a time rather than for the archive
@@ -954,10 +1004,10 @@ export class RommClient {
    * part of that is true right up until the file on the server is replaced
    * between two halves of one download.
    *
-   * The file goes with the failure, and both callers hand it a `.part` rather
-   * than the installed name: what fails is the download rather than a launch,
-   * and nothing is left to resume onto — bytes already known to be wrong could
-   * only ever produce the same file again.
+   * The file goes with the failure, whether it is the `.part` still arriving or
+   * the game an archive was just unpacked into: what fails is the download
+   * rather than a launch, and nothing is left to resume onto — bytes already
+   * known to be wrong could only ever produce the same file again.
    */
   private async verify(
     file: string,
