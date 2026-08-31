@@ -113,8 +113,14 @@ export function DownloadsScreen(): JSX.Element {
   }
 
   const active = downloads.filter(isActive)
-  // The transfer that runs next, which is the one row where the button would
-  // change nothing.
+  /**
+   * The row at the front of the run order, which is what a promoted transfer
+   * moves in front of — and which is not always the one on the wire, since a
+   * resumed transfer is queued where it already sits. See
+   * `DownloadManager.promote`.
+   */
+  const front = downloads.find((item) => item.state === 'queued' || item.state === 'downloading')
+  /** The transfer that runs next, which has only the wire left to overtake. */
   const firstWaiting = downloads.find((item) => item.state === 'queued')?.romId
   /**
    * Whether pressing it starts the game straight away or only moves it up.
@@ -126,6 +132,17 @@ export function DownloadsScreen(): JSX.Element {
    * the one thing worse than not having it.
    */
   const interrupts = downloads.find((item) => item.state === 'downloading')?.resumable !== false
+  /**
+   * Would moving this transfer up do anything?
+   *
+   * Anything waiting can overtake what waits ahead of it. The transfer that
+   * runs next has nothing waiting ahead of it, only what is on the wire — so
+   * its button is worth offering exactly when that gives way, which a transfer
+   * that cannot be resumed does not.
+   */
+  const promotable = (item: DownloadItem): boolean =>
+    item.state === 'queued' &&
+    (item.romId !== firstWaiting || (front?.state === 'downloading' && front.resumable !== false))
   const finished = downloads.filter(
     (item) => item.state === 'done' || item.state === 'error' || item.state === 'cancelled'
   )
@@ -250,11 +267,8 @@ export function DownloadsScreen(): JSX.Element {
                   onCancel={() => void window.rommix.downloads.cancel(item.romId)}
                   onPause={() => void window.rommix.downloads.pause(item.romId)}
                   onResume={() => void window.rommix.downloads.start(item.romId)}
-                  // Only where it would do something: on a transfer that is
-                  // waiting, and not on the one already at the front of the
-                  // queue, whose button would move nothing.
                   onNext={
-                    item.state === 'queued' && item.romId !== firstWaiting
+                    promotable(item)
                       ? () => void window.rommix.downloads.promote(item.romId)
                       : undefined
                   }
