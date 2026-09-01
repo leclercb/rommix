@@ -520,6 +520,7 @@ export const de: Catalog = {
   'saves.remoteNewerHint': 'RomM hat eine neuere Kopie. Spielstände holen lädt sie herunter.',
   'saves.remoteOnly': 'Nicht auf diesem Gerät',
   'saves.remoteOnlyHint': 'Nur auf RomM. Spielstände holen lädt sie herunter.',
+  'saves.fromDevice': 'von {device}',
   'saves.scopeLocal': 'von diesem Gerät',
   'saves.scopeRemote': 'von RomM',
   'saves.consequenceLocal': 'Spielstände holen bringt die Kopie von RomM wieder herunter.',

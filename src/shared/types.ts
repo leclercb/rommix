@@ -39,6 +39,22 @@ export interface RommDeviceAuthToken {
   expires_at: string | null
 }
 
+/**
+ * GET /api/devices (`DeviceSchema`), pared to the fields RomMix reads.
+ *
+ * Two identifiers, and a save's `origin_device_id` can be either: `id` is what
+ * RomM issues at pairing and hands back with the token, while
+ * `client_device_identifier` is the one the client chose for itself and sent
+ * *to* pairing — which is what an unpaired RomMix uploads under. Matching both
+ * is what lets a save name the machine it came from in either case.
+ */
+export interface RommDevice {
+  id: string
+  name: string | null
+  hostname: string | null
+  client_device_identifier: string | null
+}
+
 /** GET /api/users/me (`UserSchema`). */
 export interface RommUser {
   id: number
@@ -763,6 +779,15 @@ export interface SaveAsset {
    * after its upload, not a change from somewhere else.
    */
   fromThisDevice: boolean | null
+  /**
+   * What that device is called, when the server still lists it.
+   *
+   * Null wherever `fromThisDevice` is, and null again for an origin RomM no
+   * longer knows — a device since removed, or one that uploaded under an
+   * identifier no row carries. "Another device" is what a row falls back to,
+   * so the name is an improvement on the answer, never the whole of it.
+   */
+  originName: string | null
   /** When RomM last saw it change, ISO. Null when only this device has it. */
   updatedAt: string | null
   sync: SaveSyncState
@@ -810,6 +835,8 @@ export interface PendingSave {
     emulator: string | null
     /** Whether this device uploaded it; null when RomM recorded no origin. */
     fromThisDevice: boolean | null
+    /** What that device is called — see `SaveAsset.originName`. */
+    originName: string | null
     /**
      * Whether RomM's copy is a change this file does not have.
      *

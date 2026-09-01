@@ -511,6 +511,7 @@ export const en = {
   'saves.remoteNewerHint': 'RomM has a more recent copy. Pull saves fetches it.',
   'saves.remoteOnly': 'Not on this device',
   'saves.remoteOnlyHint': 'Only on RomM. Pull saves fetches it.',
+  'saves.fromDevice': 'from {device}',
   'saves.scopeLocal': 'from this device',
   'saves.scopeRemote': 'from RomM',
   'saves.consequenceLocal': 'Pull saves brings the copy on RomM back down.',

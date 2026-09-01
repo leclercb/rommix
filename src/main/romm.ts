@@ -8,6 +8,7 @@ import type {
   RommCollection,
   RommVirtualCollection,
   RommDeviceAuthInit,
+  RommDevice,
   RommDeviceAuthToken,
   RommFirmware,
   RommPlatform,
@@ -236,6 +237,9 @@ export function normaliseBaseUrl(input: string): string {
 export class RommClient {
   /** Guards against several 401s triggering parallel refreshes. */
   private refreshInFlight: Promise<void> | null = null
+
+  /** See `devices`. Carries its server, so switching servers cannot reuse it. */
+  private cachedDevices: { baseUrl: string; devices: RommDevice[] } | null = null
 
   constructor(private readonly store: Store) {}
 
@@ -1123,6 +1127,45 @@ export class RommClient {
   }
 
   // -- saves and states -----------------------------------------------------
+
+  /**
+   * GET /api/devices — the devices paired with this account, so a save can say
+   * where it came from by name instead of by identifier.
+   *
+   * Never throws. An empty list costs a name and nothing else — the rows fall
+   * back to "another device" — while a throw would take down the Saves tab and
+   * the push dialog over a label. That matters for real servers, not just in
+   * theory: the endpoint post-dates the save sync it describes, so a RomM old
+   * enough to record `origin_device_id` may still 404 here, and a token issued
+   * before `devices.read` joined `REQUIRED_SCOPES` gets a 403.
+   *
+   * Held for as long as RomMix runs. Pairing a device, renaming one or
+   * removing it are all rare enough that a restart is a fair way to see it,
+   * and a name a few hours stale is a smaller cost than fetching the list
+   * again behind every game screen.
+   */
+  async devices(): Promise<RommDevice[]> {
+    // Read off the store rather than through `baseUrl`, which throws: there is
+    // no server to ask before one is configured, and that is not a failure.
+    const baseUrl = this.store.server?.baseUrl
+    if (!baseUrl) return []
+
+    const cached = this.cachedDevices
+    if (cached && cached.baseUrl === baseUrl) return cached.devices
+
+    try {
+      const devices = await this.json<RommDevice[]>('/api/devices')
+      this.cachedDevices = { baseUrl, devices }
+      return devices
+    } catch (cause) {
+      log.warn('romm', 'the device list could not be read; saves will not be named', {
+        reason: (cause as Error).message
+      })
+      // Cached as empty, so one unsupported server is not asked on every row.
+      this.cachedDevices = { baseUrl, devices: [] }
+      return []
+    }
+  }
 
   saves(romId: number): Promise<RommSave[]> {
     return this.json<RommSave[]>(`/api/saves?rom_id=${romId}`)

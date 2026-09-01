@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
-import type { RommRom, RommSave, RommState } from '@shared/types'
+import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
 import type { RommClient } from './romm.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
 import { Store } from './store.ts'
@@ -58,8 +58,20 @@ function save(fields: Partial<RommSave> = {}): RommSave {
   } as RommSave
 }
 
+function device(fields: Partial<RommDevice> = {}): RommDevice {
+  return {
+    id: 'device-1',
+    name: 'RomMix @ test',
+    hostname: null,
+    client_device_identifier: null,
+    ...fields
+  }
+}
+
 /** A device with a save folder, a state folder, and a game installed. */
-function setUp(options: { saves?: RommSave[]; states?: RommState[] } = {}): {
+function setUp(
+  options: { saves?: RommSave[]; states?: RommState[]; devices?: RommDevice[] } = {}
+): {
   sync: SaveSync
   target: SaveTarget
   saveDir: string
@@ -79,6 +91,7 @@ function setUp(options: { saves?: RommSave[]; states?: RommState[] } = {}): {
   const client = {
     saves: async () => options.saves ?? [],
     states: async () => options.states ?? [],
+    devices: async () => options.devices ?? [],
     downloadSave: async (_id: number, to: string) => writeFile(to, 'from the server'),
     downloadState: async (_id: number, to: string) => writeFile(to, 'from the server'),
     uploadSave: async (_romId: number, filePath: string, fileName: string) => {
@@ -188,6 +201,70 @@ describe('listing both ends', () => {
       assets.map((asset) => asset.fileName),
       ['new.srm', 'old.srm']
     )
+  })
+
+  test('a save from another device is named by it', async () => {
+    const { sync, target } = setUp({
+      saves: [save({ origin_device_id: 'device-2' })],
+      devices: [device({ id: 'device-2', name: 'RomMix @ handheld' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.fromThisDevice, false)
+    assert.equal(asset.originName, 'RomMix @ handheld')
+  })
+
+  test('a save uploaded before pairing is named by the identifier it chose', async () => {
+    // An unpaired RomMix uploads under the id it made for itself, which RomM
+    // files as `client_device_identifier` rather than as the device's own id.
+    const { sync, target } = setUp({
+      saves: [save({ origin_device_id: 'local-id' })],
+      devices: [
+        device({ id: 'device-2', name: 'RomMix @ handheld', client_device_identifier: 'local-id' })
+      ]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.originName, 'RomMix @ handheld')
+  })
+
+  test('a device with no name of its own is named by its hostname', async () => {
+    const { sync, target } = setUp({
+      saves: [save({ origin_device_id: 'device-2' })],
+      devices: [device({ id: 'device-2', name: null, hostname: 'handheld.local' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.originName, 'handheld.local')
+  })
+
+  test('an origin the server no longer lists is left unnamed', async () => {
+    // The row falls back to "another device", which is still true.
+    const { sync, target } = setUp({
+      saves: [save({ origin_device_id: 'device-gone' })],
+      devices: [device({ id: 'device-2', name: 'RomMix @ handheld' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.fromThisDevice, false)
+    assert.equal(asset.originName, null)
+  })
+
+  test('a state is never named, the server recording no origin for one', async () => {
+    const { sync, target } = setUp({
+      states: [save({ file_name: 'Sonic the Hedgehog (USA).state1' }) as unknown as RommState],
+      devices: [device({ id: 'device-2', name: 'RomMix @ handheld' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.kind, 'state')
+    assert.equal(asset.fromThisDevice, null)
+    assert.equal(asset.originName, null)
   })
 
   test('a server stamp in another offset is ordered by the instant it means', async () => {
@@ -594,6 +671,21 @@ describe('what a push preview says about what it would replace', () => {
     const file = preview.files.find((entry) => entry.fileName.endsWith('.srm'))
 
     assert.equal(file?.replaces?.fromThisDevice, false)
+  })
+
+  test('the copy a push would replace names the device it came from', async () => {
+    // The dialog is where overwriting is agreed to, so whose copy is at stake
+    // is worth more than "another device" there of all places.
+    const { sync, target, saveDir } = setUp({
+      saves: [save({ origin_device_id: 'the-handheld' })],
+      devices: [device({ id: 'the-handheld', name: 'RomMix @ handheld' })]
+    })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    const preview = await sync.previewPush(target)
+    const file = preview.files.find((entry) => entry.fileName.endsWith('.srm'))
+
+    assert.equal(file?.replaces?.originName, 'RomMix @ handheld')
   })
 
   test('a server that does not record an origin gives no answer rather than a wrong one', async () => {

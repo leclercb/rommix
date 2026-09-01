@@ -8,7 +8,10 @@ import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
   EmulatorState,
   PendingSave,
+  RommDevice,
   RommRom,
+  RommSave,
+  RommState,
   SaveAsset,
   SaveDeleteScope,
   SavePushPreview,
@@ -106,6 +109,36 @@ interface LocalAsset {
   mtimeMs: number
   /** True when `path` is a directory to be archived rather than a file. */
   isDirectory?: boolean
+}
+
+/**
+ * The device a copy on the server came from, where it records one.
+ *
+ * Saves alone: RomM's `StateSchema` has no origin field, so a state's answer is
+ * that there is nothing to answer with.
+ */
+function originIdOf(item: RommSave | RommState): string | null {
+  return 'origin_device_id' in item && typeof item.origin_device_id === 'string'
+    ? item.origin_device_id
+    : null
+}
+
+/**
+ * A save's `origin_device_id` turned into the name of the machine it came from.
+ *
+ * Matched against both identifiers a device carries, because either can be the
+ * one a save was uploaded under — see `RommDevice`. Falls back to `hostname`
+ * where the device was never named: RomM leaves `name` null for a client that
+ * sent none, and the machine's own name still beats "another device".
+ */
+function deviceNamer(devices: readonly RommDevice[]): (id: string | null) => string | null {
+  return (id) => {
+    if (!id) return null
+    const device = devices.find(
+      (candidate) => candidate.id === id || candidate.client_device_identifier === id
+    )
+    return device?.name ?? device?.hostname ?? null
+  }
 }
 
 export class SaveSync {
@@ -274,7 +307,14 @@ export class SaveSync {
    * to look in — and every asset is then simply not on this device.
    */
   async listAssets(romId: number, local?: SaveTarget): Promise<SaveAsset[]> {
-    const [saves, states] = await Promise.all([this.client.saves(romId), this.client.states(romId)])
+    const [saves, states, devices] = await Promise.all([
+      this.client.saves(romId),
+      this.client.states(romId),
+      // Alongside, not before: it is cached and usually free, and a row would
+      // rather be a moment late than named nothing at all.
+      this.client.devices()
+    ])
+    const nameOf = deviceNamer(devices)
 
     /**
      * What this device has, by kind and name.
@@ -312,11 +352,8 @@ export class SaveSync {
         const localFile = localAssets.get(key)
         if (localFile) matched.add(key)
 
-        // States carry no origin on the server, so there is nothing to claim.
-        const fromThisDevice =
-          kind === 'save' && 'origin_device_id' in item && item.origin_device_id
-            ? item.origin_device_id === thisDevice
-            : null
+        const originId = originIdOf(item)
+        const fromThisDevice = originId ? originId === thisDevice : null
 
         assets.push({
           id: item.id,
@@ -327,6 +364,7 @@ export class SaveSync {
           localPath: localFile?.path ?? null,
           localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
           fromThisDevice,
+          originName: nameOf(originId),
           updatedAt: item.updated_at,
           sync: syncStateOf(localFile?.mtimeMs ?? null, item.updated_at, fromThisDevice)
         })
@@ -349,6 +387,7 @@ export class SaveSync {
         localPath: file.path,
         localModifiedAt: new Date(file.mtimeMs).toISOString(),
         fromThisDevice: null,
+        originName: null,
         updatedAt: null,
         sync: 'local-only'
       })
@@ -451,13 +490,12 @@ export class SaveSync {
           ? await this.client.saves(target.rom.id)
           : await this.client.states(target.rom.id)
       const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
+      const nameOf = deviceNamer(await this.client.devices())
 
       for (const asset of local) {
         const existing = remote.find((item) => item.file_name === asset.fileName)
-        const fromThisDevice =
-          existing && 'origin_device_id' in existing && existing.origin_device_id
-            ? existing.origin_device_id === thisDevice
-            : null
+        const originId = existing ? originIdOf(existing) : null
+        const fromThisDevice = originId ? originId === thisDevice : null
         const state = existing
           ? syncStateOf(asset.mtimeMs, existing.updated_at, fromThisDevice)
           : null
@@ -481,6 +519,7 @@ export class SaveSync {
                 updatedAt: existing.updated_at,
                 emulator: existing.emulator,
                 fromThisDevice,
+                originName: nameOf(originId),
                 isNewer: state === 'remote-newer'
               }
             : null

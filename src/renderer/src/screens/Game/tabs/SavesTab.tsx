@@ -120,6 +120,14 @@ export function SavesTab({
           asset.sync === 'remote-only' || asset.sync === 'remote-newer'
             ? asset.fromThisDevice
             : null
+        // Named where RomM still lists the device it came from, since "another
+        // device" answers the question with the part you already knew.
+        const from =
+          origin === true
+            ? t('push.thisDevice')
+            : origin === false
+              ? (asset.originName ?? t('push.anotherDevice'))
+              : null
 
         return (
           <li key={`${asset.kind}-${asset.id ?? asset.localPath}`}>
@@ -136,8 +144,7 @@ export function SavesTab({
             <span className="asset__meta">
               {formatBytes(asset.sizeBytes)}
               {asset.emulator ? ` · ${asset.emulator}` : ''}
-              {origin === true ? ` · ${t('push.thisDevice')}` : ''}
-              {origin === false ? ` · ${t('push.anotherDevice')}` : ''}
+              {from ? ` · ${t('saves.fromDevice', { device: from })}` : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
             {/* One button per end that actually holds the file, each naming its

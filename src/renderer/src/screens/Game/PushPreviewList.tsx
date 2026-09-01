@@ -60,7 +60,7 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
                         file.replaces.fromThisDevice === true
                           ? t('push.thisDevice')
                           : file.replaces.fromThisDevice === false
-                            ? t('push.anotherDevice')
+                            ? (file.replaces.originName ?? t('push.anotherDevice'))
                             : (file.replaces.emulator ?? t('value.unknown')),
                       when: formatDateTime(file.replaces.updatedAt) ?? ''
                     }) + (stale ? ` · ${t('push.newerThanThis')}` : '')

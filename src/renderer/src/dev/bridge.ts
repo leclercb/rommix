@@ -309,6 +309,7 @@ const SAVES: SaveAsset[] = [
     localPath: '/home/deck/retrodeck/saves/genesis/cavestory.srm',
     localModifiedAt: '2026-08-19T21:58:00Z',
     fromThisDevice: true,
+    originName: 'RomMix @ steamdeck',
     updatedAt: '2026-08-19T21:59:00Z',
     sync: 'synced'
   },
@@ -321,6 +322,7 @@ const SAVES: SaveAsset[] = [
     localPath: '/home/deck/retrodeck/states/genesis/cavestory.state1',
     localModifiedAt: '2026-08-20T22:04:00Z',
     fromThisDevice: null,
+    originName: null,
     updatedAt: null,
     sync: 'local-only'
   },
@@ -333,6 +335,7 @@ const SAVES: SaveAsset[] = [
     localPath: null,
     localModifiedAt: null,
     fromThisDevice: false,
+    originName: 'RomMix @ rg35xx',
     updatedAt: '2026-08-21T08:30:00Z',
     sync: 'remote-only'
   }
@@ -704,6 +707,7 @@ const bridge: RomMixBridge = {
               updatedAt: '2026-08-19T21:59:00Z',
               emulator: 'genesis_plus_gx',
               fromThisDevice: true,
+              originName: 'RomMix @ steamdeck',
               isNewer: false
             }
           }
