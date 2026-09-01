@@ -29,10 +29,14 @@ const markdown = readFileSync(path, 'utf8')
  *
  * Anchored to the start of a line so a version named inside a bullet is not
  * mistaken for its section, and tolerant of what follows: a hand-written
- * section may carry a date already, or nothing at all.
+ * section may carry a date already, or nothing at all. What it will not
+ * tolerate is more version: the heading ends where the version does, so a
+ * longer number is a different section, and so is a release candidate's — a
+ * finished version is spelled by the very characters its candidates start
+ * with, and every one of them ends up in this file above it.
  */
 const quoted = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-const heading = new RegExp(`^## ${quoted}(?![\\d.]).*$`, 'm')
+const heading = new RegExp(`^## ${quoted}(?=\\s|$).*$`, 'm')
 const written = markdown.match(heading)
 
 if (written) {
