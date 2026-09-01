@@ -189,6 +189,27 @@ describe('listing both ends', () => {
       ['new.srm', 'old.srm']
     )
   })
+
+  test('a server stamp in another offset is ordered by the instant it means', async () => {
+    // RomM writes `updated_at` in whatever offset its clock keeps and this
+    // device writes `Z`, so the two are only comparable once parsed: as text
+    // `14:00+02:00` reads as later than the `13:00Z` that actually followed it.
+    const { sync, target, saveDir } = setUp({
+      saves: [save({ file_name: 'earlier.srm', updated_at: '2026-08-01T14:00:00+02:00' })]
+    })
+    const later = new Date('2026-08-01T13:00:00.000Z')
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).sav')
+    writeFileSync(path, 'local')
+    const { utimesSync } = await import('node:fs')
+    utimesSync(path, later, later)
+
+    const assets = await sync.listAssets(7, target)
+
+    assert.deepEqual(
+      assets.map((asset) => asset.fileName),
+      ['Sonic the Hedgehog (USA).sav', 'earlier.srm']
+    )
+  })
 })
 
 describe('pulling', () => {

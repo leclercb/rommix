@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import type { I18n, MessageKey } from '@shared/i18n'
 import type { InstalledRom, SaveAsset, SaveDeleteScope, SaveSyncState } from '@shared/types'
+import { changedAt } from '@shared/saveassets'
 import { FocusButton, Spinner } from '../../../components'
 import { Icon, type IconName } from '../../../icons'
 import { useI18n } from '../../../state'
@@ -106,11 +107,9 @@ export function SavesTab({
     <ul className="asset-list">
       {assets.map((asset) => {
         const badge = SYNC_BADGES[asset.sync]
-        // The time the badge is talking about: the end that is ahead.
-        const at =
-          asset.sync === 'local-only' || asset.sync === 'local-newer'
-            ? asset.localModifiedAt
-            : (asset.updatedAt ?? asset.localModifiedAt)
+        // The time the badge is talking about: the end that is ahead. Shared
+        // with the sort that put this row where it is.
+        const at = changedAt(asset)
 
         return (
           <li key={`${asset.kind}-${asset.id ?? asset.localPath}`}>

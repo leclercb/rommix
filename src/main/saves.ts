@@ -2,6 +2,7 @@ import { copyFile, mkdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { localize } from '@shared/i18n'
+import { changedAt } from '@shared/saveassets'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
@@ -353,15 +354,16 @@ export class SaveSync {
       })
     }
 
-    // Newest first, by whichever end last saw it change: the reason to look at
-    // this list is almost always "did my last session get uploaded".
-    const changedAt = (asset: SaveAsset): string =>
-      asset.updatedAt && asset.localModifiedAt
-        ? asset.updatedAt > asset.localModifiedAt
-          ? asset.updatedAt
-          : asset.localModifiedAt
-        : (asset.updatedAt ?? asset.localModifiedAt ?? '')
-    return assets.sort((a, b) => changedAt(b).localeCompare(changedAt(a)))
+    // Newest first, by the end that is ahead: the reason to look at this list
+    // is almost always "did my last session get uploaded".
+    //
+    // Parsed rather than compared as text, because the two ends are stamped by
+    // different clocks and need not write an instant the same way: RomM sends
+    // `updated_at` in whatever offset it keeps, and this device writes `Z`, so
+    // as text `14:00+02:00` sorts after the `13:00Z` that came after it. A
+    // stamp that will not parse sorts last rather than anywhere.
+    const at = (asset: SaveAsset): number => Date.parse(changedAt(asset) ?? '') || 0
+    return assets.sort((a, b) => at(b) - at(a))
   }
 
   /**
