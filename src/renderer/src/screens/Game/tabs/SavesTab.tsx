@@ -1,48 +1,10 @@
 import type { JSX } from 'react'
-import type { I18n, MessageKey } from '@shared/i18n'
-import type { InstalledRom, SaveAsset, SaveDeleteScope, SaveSyncState } from '@shared/types'
+import type { I18n } from '@shared/i18n'
+import type { InstalledRom, SaveAsset, SaveDeleteScope } from '@shared/types'
 import { changedAt } from '@shared/saveassets'
 import { FocusButton, Spinner } from '../../../components'
-import { Icon, type IconName } from '../../../icons'
 import { useI18n } from '../../../state'
-
-/**
- * How each sync state reads on a row.
- *
- * The label says which side is ahead, not what to press: the two buttons move
- * everything at once, so a per-row instruction would be promising an action
- * that does not exist. `hint` is the same thing at length, on hover.
- */
-const SYNC_BADGES: Record<
-  SaveSyncState,
-  { label: MessageKey; tone: 'ok' | 'warn' | 'off'; icon: IconName; hint: MessageKey }
-> = {
-  synced: { label: 'saves.synced', tone: 'ok', icon: 'confirm', hint: 'saves.syncedHint' },
-  'local-newer': {
-    label: 'saves.localNewer',
-    tone: 'warn',
-    icon: 'push',
-    hint: 'saves.localNewerHint'
-  },
-  'local-only': {
-    label: 'saves.localOnly',
-    tone: 'warn',
-    icon: 'push',
-    hint: 'saves.localOnlyHint'
-  },
-  'remote-newer': {
-    label: 'saves.remoteNewer',
-    tone: 'warn',
-    icon: 'pull',
-    hint: 'saves.remoteNewerHint'
-  },
-  'remote-only': {
-    label: 'saves.remoteOnly',
-    tone: 'off',
-    icon: 'pull',
-    hint: 'saves.remoteOnlyHint'
-  }
-}
+import { SyncBadge } from '../SyncBadge'
 
 /**
  * The end a delete names, as it completes a sentence.
@@ -93,7 +55,6 @@ export function SavesTab({
   return (
     <ul className="asset-list">
       {assets.map((asset) => {
-        const badge = SYNC_BADGES[asset.sync]
         // The time the badge is talking about: the end that is ahead. Shared
         // with the sort that put this row where it is.
         const at = changedAt(asset)
@@ -123,14 +84,16 @@ export function SavesTab({
             </span>
             {/* Which side has it and whether they agree — and so which button,
                 if any, would do something about this row. */}
-            <span className="status status--badge" data-state={badge.tone} title={t(badge.hint)}>
-              <Icon name={badge.icon} size={13} />
-              {t(badge.label)}
-            </span>
+            <SyncBadge sync={asset.sync} />
+            {/* The emulator as a chip rather than a word in the line below: a
+                save is only loadable by the emulator that wrote it, which makes
+                the tag a property of the file rather than another of its
+                measurements — and the push confirmation has always drawn it
+                this way. */}
+            {asset.emulator ? <span className="status">{asset.emulator}</span> : null}
             <span className="asset__name">{asset.fileName}</span>
             <span className="asset__meta">
               {formatBytes(asset.sizeBytes)}
-              {asset.emulator ? ` · ${asset.emulator}` : ''}
               {from ? ` · ${t('saves.fromDevice', { device: from })}` : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>

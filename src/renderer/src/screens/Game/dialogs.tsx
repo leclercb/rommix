@@ -151,17 +151,21 @@ export function PushConfirmDialog({
     <Overlay title={t('game.pushTitle', { count: preview.files.length })}>
       <p className="muted">{t('game.pushUploadedAs', { device: preview.deviceName })}</p>
       <PushPreviewList files={preview.files} />
+      {/* Sending first and focused, because it is what the dialog is for: a
+          push is asked about, not warned about, and the row that would be
+          overwritten says so on its own badge. Cancel sits last, where the
+          answer that abandons the thing you asked for belongs. */}
       <div className="btn-row">
-        <FocusButton icon="cancel" onSelect={onCancel} autoFocus>
-          {t('action.cancel')}
-        </FocusButton>
-        <FocusButton icon="push" variant="primary" onSelect={() => onSend(false)}>
+        <FocusButton icon="push" variant="primary" onSelect={() => onSend(false)} autoFocus>
           {t('game.pushSend')}
         </FocusButton>
         {/* Sends as well as stops asking: turning the setting off and leaving
             these files unsent is not what "don't ask me" means. */}
         <FocusButton icon="hide" variant="ghost" onSelect={() => onSend(true)}>
           {t('game.pushSendNoAsk')}
+        </FocusButton>
+        <FocusButton icon="cancel" onSelect={onCancel}>
+          {t('action.cancel')}
         </FocusButton>
       </div>
     </Overlay>

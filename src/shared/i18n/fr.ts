@@ -489,9 +489,9 @@ export const fr: Catalog = {
   // -- ce qu'un envoi s'apprête à transmettre -------------------------------
 
   'push.folderAsZip': 'dossier, envoyé en un seul zip',
-  'push.onRomM': 'Sur RomM : {source}, {when}',
-  'push.newerThanThis': 'plus récent que celui-ci',
-  'push.newOnRomM': 'Nouveau sur RomM',
+  'push.replaces': '{local} → RomM {remote}',
+  'push.replacesFrom': '{local} → RomM {remote} · depuis {device}',
+  'push.sendsNew': '{local} → nouveau sur RomM',
   'push.thisDevice': 'cet appareil',
   'push.anotherDevice': 'un autre appareil',
   'push.andMore_one': 'et {count} fichier de plus.',

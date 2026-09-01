@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import type { PendingSave } from '@shared/types'
 import { useI18n } from '../../state'
+import { SyncBadge, pushSyncState } from './SyncBadge'
 
 /**
  * How many files the push confirmation lists before summarising the rest.
@@ -34,37 +35,39 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
     <>
       <ul className="asset-list">
         {shown.map((file) => {
-          const stale = file.replaces?.isNewer === true
+          const local = formatDateTime(file.modifiedAt) ?? ''
+          const remote = file.replaces ? (formatDateTime(file.replaces.updatedAt) ?? '') : ''
+          const device = file.replaces?.originName ?? null
 
           return (
             <li key={`${file.kind}-${file.path}`}>
               <span className="asset__kind" data-kind={file.kind}>
                 {file.kind === 'save' ? t('asset.save') : t('asset.state')}
               </span>
-              <span className="status" data-state={stale ? 'warn' : 'ok'}>
-                {file.emulator}
-              </span>
+              {/* The same badge the Saves tab puts on the same file. It carries
+                  the one thing that decides the answer — whether RomM already
+                  holds something newer — which used to be a phrase at the end
+                  of the row, after everything that did not decide anything. */}
+              <SyncBadge sync={pushSyncState(file)} />
+              <span className="status">{file.emulator}</span>
               <span className="asset__name">{file.fileName}</span>
               <span className="asset__meta">
                 {formatBytes(file.sizeBytes)}
                 {/* A Switch save is a folder of files named after nothing, so it
                   travels as one archive — worth saying, since the name above is
                   not a name anything on disk has. */}
-                {file.isDirectory ? ` · ${t('push.folderAsZip')}` : ''} ·{' '}
-                {formatDateTime(file.modifiedAt)}
+                {file.isDirectory ? ` · ${t('push.folderAsZip')}` : ''}
               </span>
-              <span className="asset__meta">
-                {file.replaces
-                  ? t('push.onRomM', {
-                      source:
-                        file.replaces.fromThisDevice === true
-                          ? t('push.thisDevice')
-                          : file.replaces.fromThisDevice === false
-                            ? (file.replaces.originName ?? t('push.anotherDevice'))
-                            : (file.replaces.emulator ?? t('value.unknown')),
-                      when: formatDateTime(file.replaces.updatedAt) ?? ''
-                    }) + (stale ? ` · ${t('push.newerThanThis')}` : '')
-                  : t('push.newOnRomM')}
+              {/* Both dates on one line with what happens between them, because
+                  the question is which of the two is later and that is not a
+                  thing to work out across two sentences. The arrow points the
+                  way the file is about to move, whichever end is ahead. */}
+              <span className="asset__meta asset__meta--line">
+                {!file.replaces
+                  ? t('push.sendsNew', { local })
+                  : device
+                    ? t('push.replacesFrom', { local, remote, device })
+                    : t('push.replaces', { local, remote })}
               </span>
             </li>
           )

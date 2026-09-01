@@ -490,9 +490,9 @@ export const en = {
   // -- what a push is about to send -----------------------------------------
 
   'push.folderAsZip': 'folder, sent as one zip',
-  'push.onRomM': 'On RomM: {source}, {when}',
-  'push.newerThanThis': 'newer than this',
-  'push.newOnRomM': 'New on RomM',
+  'push.replaces': '{local} → RomM {remote}',
+  'push.replacesFrom': '{local} → RomM {remote} · from {device}',
+  'push.sendsNew': '{local} → new on RomM',
   'push.thisDevice': 'this device',
   'push.anotherDevice': 'another device',
   'push.andMore_one': 'and {count} more file.',

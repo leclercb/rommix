@@ -483,9 +483,9 @@ export const es: Catalog = {
   // -- lo que un envío está a punto de mandar -------------------------------
 
   'push.folderAsZip': 'carpeta, enviada como un único zip',
-  'push.onRomM': 'En RomM: {source}, {when}',
-  'push.newerThanThis': 'más reciente que esta',
-  'push.newOnRomM': 'Nuevo en RomM',
+  'push.replaces': '{local} → RomM {remote}',
+  'push.replacesFrom': '{local} → RomM {remote} · desde {device}',
+  'push.sendsNew': '{local} → nuevo en RomM',
   'push.thisDevice': 'este dispositivo',
   'push.anotherDevice': 'otro dispositivo',
   'push.andMore_one': 'y {count} archivo más.',

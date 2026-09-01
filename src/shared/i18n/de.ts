@@ -499,9 +499,9 @@ export const de: Catalog = {
   // -- was ein Senden gleich übertragen wird --------------------------------
 
   'push.folderAsZip': 'Ordner, als ein Zip gesendet',
-  'push.onRomM': 'Auf RomM: {source}, {when}',
-  'push.newerThanThis': 'neuer als dieser',
-  'push.newOnRomM': 'Neu auf RomM',
+  'push.replaces': '{local} → RomM {remote}',
+  'push.replacesFrom': '{local} → RomM {remote} · von {device}',
+  'push.sendsNew': '{local} → neu auf RomM',
   'push.thisDevice': 'dieses Gerät',
   'push.anotherDevice': 'ein anderes Gerät',
   'push.andMore_one': 'und {count} weitere Datei.',
