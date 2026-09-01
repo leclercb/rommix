@@ -4,6 +4,11 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.9.0-rc.4 — 2026-09-01
+
+- Give every dialog the width the rule already promised (fcd24aa)
+- Leave saves RomM already has out of the push confirmation (21e3738)
+
 ## 0.9.0-rc.3 — 2026-08-31
 
 - Tighten what RomMix will write, open and navigate to (4605e0f)
