@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.9.0-rc.6 — 2026-09-01
+
+- Warn on a delete only when there is no other copy to come back from (26413f7)
+
 ## 0.9.0-rc.5 — 2026-09-01
 
 - Show a push and the Saves tab the same way (4f23f59)
