@@ -4,43 +4,23 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
-## 0.9.0-rc.7 — 2026-09-01
+## 0.9.0 — 2026-09-01
 
+- Fold a version's release candidates into its finished section (6189dd7)
 - Insert a finished version above its candidates, not over them (9e19fe4)
-
-## 0.9.0-rc.6 — 2026-09-01
-
 - Warn on a delete only when there is no other copy to come back from (26413f7)
-
-## 0.9.0-rc.5 — 2026-09-01
-
 - Show a push and the Saves tab the same way (4f23f59)
 - Ask which end to delete a save from in the dialog, not the row (38df6d4)
 - Let the date format be chosen, and default to day first (0a8f6c8)
 - Name the device a save came from (5b5980c)
 - Say where a save came from only where it changes what to do (937dbd8)
 - Order the Saves tab by the instant each save changed (0555fb6)
-
-## 0.9.0-rc.4 — 2026-09-01
-
 - Give every dialog the width the rule already promised (fcd24aa)
 - Leave saves RomM already has out of the push confirmation (21e3738)
-
-## 0.9.0-rc.3 — 2026-08-31
-
 - Tighten what RomMix will write, open and navigate to (4605e0f)
-
-## 0.9.0-rc.2 — 2026-08-31
-
 - Add the commit id to the changelog subjects (8550a3d)
-
-## 0.9.0-rc.1 — 2026-08-31
-
 - Report play time in a shape RomM will accept (baa1f70)
 - Mark a running game as now playing on RomM (f83959a)
-
-## 0.9.0-rc.0 — 2026-08-31
-
 - Offer release candidates to whoever asks for them (3e1e57e)
 - Close the emulator through its process group, not its pid (61ddfca)
 - Cover the ways an emulator is closed and a game is removed (2968961)
