@@ -445,7 +445,10 @@ section by hand first if you want prose — it is what the release page says und
 A version with a suffix publishes as a pre-release, which is what keeps it out of
 the release GitHub calls latest: only installations that turned **Release
 candidates** on are offered it, and `npm run release minor` afterwards is the
-finished version everyone else gets.
+finished version everyone else gets. That one takes its candidates over: their
+sections are folded into its own and removed, so the changelog lists each change
+once and the release page tells somebody upgrading from the last finished
+version everything that has happened since.
 
 ---
 
