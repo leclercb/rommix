@@ -1,5 +1,14 @@
 import { type JSX, useState } from 'react'
-import { LANGUAGE_FLAGS, LANGUAGE_NAMES, LOCALES, type LanguageChoice } from '@shared/i18n'
+import {
+  DATE_FORMATS,
+  DEFAULT_DATE_FORMAT,
+  LANGUAGE_FLAGS,
+  LANGUAGE_NAMES,
+  LOCALES,
+  dateFormatSample,
+  type DateFormat,
+  type LanguageChoice
+} from '@shared/i18n'
 import {
   Choice,
   FocusButton,
@@ -33,7 +42,7 @@ import { useApp, useI18n } from '../../../state'
 const SUPPORT_URL = 'https://buymeacoffee.com/leclercb'
 
 export function GeneralTab(): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { status, settings, saveSettings, replace, notify } = useApp()
   const [supporting, setSupporting] = useState(false)
 
@@ -56,11 +65,25 @@ export function GeneralTab(): JSX.Element {
    */
   const languages: { value: LanguageChoice; label: string }[] = [
     { value: 'auto', label: `🌐 ${t('value.auto')}` },
-    ...LOCALES.map((locale) => ({
-      value: locale,
-      label: `${LANGUAGE_FLAGS[locale]} ${LANGUAGE_NAMES[locale]}`
+    ...LOCALES.map((code) => ({
+      value: code,
+      label: `${LANGUAGE_FLAGS[code]} ${LANGUAGE_NAMES[code]}`
     }))
   ]
+
+  /**
+   * The formats by name, with the one in force written out underneath.
+   *
+   * The sample belongs in the hint rather than in the options: it is what
+   * settles the choice — "day first" is a description, `25/12/2026` is the
+   * answer — but four names each trailing a date wrap this control onto three
+   * lines, and only the selected one is being read anyway.
+   */
+  const dateFormat = settings?.dateFormat ?? DEFAULT_DATE_FORMAT
+  const dateFormats: { value: DateFormat; label: string }[] = DATE_FORMATS.map((format) => ({
+    value: format,
+    label: t(`settings.date.${format}`)
+  }))
 
   return (
     <>
@@ -86,6 +109,13 @@ export function GeneralTab(): JSX.Element {
         value={settings?.language ?? 'auto'}
         options={languages}
         onChange={(next) => void saveSettings({ language: next })}
+      />
+      <Choice<DateFormat>
+        label={t('settings.dateFormat')}
+        hint={t('settings.dateFormatHint', { example: dateFormatSample(locale, dateFormat) })}
+        value={dateFormat}
+        options={dateFormats}
+        onChange={(next) => void saveSettings({ dateFormat: next })}
       />
       <Choice<UiScaleChoice>
         label={t('control.scale')}

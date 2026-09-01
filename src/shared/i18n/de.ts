@@ -643,6 +643,13 @@ export const de: Catalog = {
     'Auto richtet sich nach dem Bildschirm: doppelt so groß auf einem 4K-Fernseher.',
   'settings.language': 'Sprache',
   'settings.languageHint': 'Auto folgt der Sprache, auf die dieser Rechner eingestellt ist.',
+  'settings.dateFormat': 'Datumsformat',
+  'settings.dateFormatHint':
+    'Wie jedes Datum geschrieben wird — {example}. Die Uhrzeit ist immer 24-Stunden.',
+  'settings.date.dmy': 'Tag zuerst',
+  'settings.date.mdy': 'Monat zuerst',
+  'settings.date.iso': 'ISO 8601',
+  'settings.date.language': 'Der Sprache folgen',
   'settings.support': 'RomMix unterstützen',
   'settings.supportBody':
     'RomMix ist kostenlos und bleibt es. Wenn es Ihnen einen Nachmittag Emulator-Verkabelung ' +

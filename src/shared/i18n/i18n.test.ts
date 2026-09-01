@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createI18n, localize, resolveLocale, localeFor } from './index.ts'
+import {
+  DATE_FORMATS,
+  createI18n,
+  dateFormatSample,
+  localize,
+  resolveLocale,
+  localeFor
+} from './index.ts'
 import { de } from './de.ts'
 import { en } from './en.ts'
 import { es } from './es.ts'
@@ -110,6 +117,53 @@ test('a timestamp that is not one is nothing, not "Invalid Date"', () => {
   assert.equal(i18n.formatDateTime(null), null)
   assert.equal(i18n.formatDateTime('not a date'), null)
   assert.ok(i18n.formatDateTime('2026-08-24T09:05:00Z'))
+})
+
+test('each date format writes the same instant its own way', () => {
+  // Local time throughout: these are file times and release dates being read
+  // off the clock the reader is sitting at, so the test builds one that way.
+  const at = new Date(2026, 8, 1, 21, 20)
+
+  assert.equal(createI18n('en', 'dmy').formatDateTime(at.toISOString()), '01/09/2026 21:20')
+  assert.equal(createI18n('en', 'mdy').formatDateTime(at.toISOString()), '09/01/2026 21:20')
+  assert.equal(createI18n('en', 'iso').formatDateTime(at.toISOString()), '2026-09-01 21:20')
+})
+
+test('the fixed formats are the same in every language, and `language` is not', () => {
+  const at = new Date(2026, 8, 1, 21, 20).toISOString()
+
+  // The point of choosing one: it is the order asked for, whoever is reading.
+  assert.equal(
+    createI18n('de', 'dmy').formatDateTime(at),
+    createI18n('es', 'dmy').formatDateTime(at)
+  )
+  assert.notEqual(
+    createI18n('de', 'language').formatDateTime(at),
+    createI18n('en', 'language').formatDateTime(at)
+  )
+})
+
+test('a date with no time of day follows the same choice', () => {
+  // Both formatters, or the release date on the Details tab reads in an order
+  // the file dates above it do not.
+  const at = new Date(2026, 8, 1)
+  assert.equal(createI18n('en', 'dmy').formatDate(at), '01/09/2026')
+  assert.equal(createI18n('en', 'iso').formatDate(at), '2026-09-01')
+})
+
+test('the sample in Settings tells the two numeric orders apart', () => {
+  // A day past the twelfth, or the row offering both would show the same
+  // string twice on eleven days in twelve.
+  assert.equal(dateFormatSample('en', 'dmy'), '25/12/2026')
+  assert.equal(dateFormatSample('en', 'mdy'), '12/25/2026')
+  assert.notEqual(dateFormatSample('en', 'dmy'), dateFormatSample('en', 'mdy'))
+})
+
+test('midnight is 00:00 rather than 24:00, in every format', () => {
+  const at = new Date(2026, 8, 1, 0, 0).toISOString()
+  for (const format of DATE_FORMATS) {
+    assert.match(createI18n('en', format).formatDateTime(at) ?? '', /00:00/)
+  }
 })
 
 test('an unknown language tag falls back to English', () => {

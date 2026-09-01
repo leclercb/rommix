@@ -631,6 +631,13 @@ export const fr: Catalog = {
   'settings.scaleHint': 'Auto suit l’écran : deux fois plus grand sur un téléviseur 4K.',
   'settings.language': 'Langue',
   'settings.languageHint': 'Auto suit la langue configurée sur cette machine.',
+  'settings.dateFormat': 'Format de date',
+  'settings.dateFormatHint':
+    'Comment chaque date est écrite — {example}. L’heure est toujours sur 24 heures.',
+  'settings.date.dmy': 'Jour en premier',
+  'settings.date.mdy': 'Mois en premier',
+  'settings.date.iso': 'ISO 8601',
+  'settings.date.language': 'Suivre la langue',
   'settings.support': 'Soutenir RomMix',
   'settings.supportBody':
     'RomMix est gratuit et le restera. S’il vous a épargné un après-midi à câbler des émulateurs ' +

@@ -636,6 +636,12 @@ export const en = {
   'settings.scaleHint': 'Auto follows the screen: twice the size on a 4K television.',
   'settings.language': 'Language',
   'settings.languageHint': 'Auto follows the language this machine is set to.',
+  'settings.dateFormat': 'Date format',
+  'settings.dateFormatHint': 'How every date is written — {example}. The time is always 24-hour.',
+  'settings.date.dmy': 'Day first',
+  'settings.date.mdy': 'Month first',
+  'settings.date.iso': 'ISO 8601',
+  'settings.date.language': 'Match the language',
   'settings.support': 'Support RomMix',
   'settings.supportBody':
     'RomMix is free and always will be. If it saved you an afternoon of wiring emulators ' +

@@ -1,5 +1,5 @@
 import { artFor, PLATFORMS, ROMS as LIBRARY } from './library'
-import { createI18n, localeFor, type MessageKey } from '@shared/i18n'
+import { DEFAULT_DATE_FORMAT, createI18n, localeFor, type MessageKey } from '@shared/i18n'
 import { fileNameOf } from '@shared/gamefiles'
 import type { RomMixBridge } from '@shared/api'
 import type {
@@ -440,6 +440,7 @@ const SETTINGS: Settings = {
   // The browser's own language, so the published demo reads in whatever the
   // visitor's browser is set to — and the Settings row still switches it.
   language: 'auto',
+  dateFormat: DEFAULT_DATE_FORMAT,
   // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,
   updates: 'auto',

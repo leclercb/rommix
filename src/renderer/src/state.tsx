@@ -225,8 +225,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
    * redraws every screen in it without a restart.
    */
   const i18n = useMemo(
-    () => createI18n(localeFor(settings?.language, navigator.language)),
-    [settings?.language]
+    () => createI18n(localeFor(settings?.language, navigator.language), settings?.dateFormat),
+    [settings?.language, settings?.dateFormat]
   )
 
   // So the page itself says what it is written in: hyphenation, spell checking

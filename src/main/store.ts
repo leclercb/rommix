@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
+import { DEFAULT_DATE_FORMAT } from '@shared/i18n'
 import type { InstalledRom, PendingDownload, ServerConfig, Settings } from '@shared/types'
 import { log } from './log.ts'
 
@@ -77,6 +78,7 @@ function defaultSettings(): Settings {
     uiScale: 0,
     // The desktop's own language, until somebody says otherwise in Settings.
     language: 'auto',
+    dateFormat: DEFAULT_DATE_FORMAT,
     // Nothing on a Linux desktop updates an AppImage on RomMix's behalf, so the
     // default is the one that keeps an installation current on its own.
     updates: 'auto',

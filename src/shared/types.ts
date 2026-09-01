@@ -6,6 +6,7 @@
  * deal more per ROM (per-provider metadata blobs, sibling roms, ...).
  */
 
+import type { DateFormat } from './i18n/dates.ts'
 import type { LanguageChoice } from './i18n/locales.ts'
 
 // ---------------------------------------------------------------------------
@@ -506,6 +507,15 @@ export interface Settings {
    * different languages. See `LanguageChoice`.
    */
   language: LanguageChoice
+  /**
+   * How every date and time RomMix shows is written. See `DATE_FORMATS`.
+   *
+   * Separate from `language`, because the two answer different questions: one
+   * is what RomMix speaks, the other is what a date is expected to look like,
+   * and plenty of people read an interface in one language and dates in the
+   * order another writes them.
+   */
+  dateFormat: DateFormat
   /**
    * What RomMix does about a new version of itself. See `UpdatePolicy`.
    *

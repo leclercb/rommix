@@ -3,6 +3,7 @@ import { de } from './de.ts'
 import { en } from './en.ts'
 import { es } from './es.ts'
 import { fr } from './fr.ts'
+import { DEFAULT_DATE_FORMAT, dateFormatters, type DateFormat } from './dates.ts'
 import type { Locale } from './locales.ts'
 
 /**
@@ -22,6 +23,8 @@ import type { Locale } from './locales.ts'
  * name a phrase with `Text` and something with a language to hand resolves it.
  * Nothing anywhere holds a sentence of its own.
  */
+
+export { DATE_FORMATS, DEFAULT_DATE_FORMAT, dateFormatSample, type DateFormat } from './dates.ts'
 
 export {
   DEFAULT_LOCALE,
@@ -114,29 +117,26 @@ export interface I18n {
    * Null rather than "Invalid Date": every caller is describing a file or a
    * release, and a row that cannot say when is better off saying nothing there.
    *
-   * The locale decides month order, separators and the names of the months; the
-   * clock does not. `hourCycle: 'h23'` rather than `hour12: false`, which in
-   * some locales resolves to the h24 cycle and prints midnight as 24:00.
+   * How it is written is `Settings.dateFormat` — see `DATE_FORMATS`. Every date
+   * the interface shows comes through here or `formatDate`, which is what keeps
+   * one setting able to answer for all of them.
    */
   formatDateTime(iso: string | null | undefined): string | null
 }
 
-const CACHE = new Map<Locale, I18n>()
+const CACHE = new Map<string, I18n>()
 
-export function createI18n(locale: Locale): I18n {
-  const cached = CACHE.get(locale)
+export function createI18n(locale: Locale, dateFormat: DateFormat = DEFAULT_DATE_FORMAT): I18n {
+  // Keyed by both, the pair being what the formatters are built from.
+  const cacheKey = `${locale}:${dateFormat}`
+  const cached = CACHE.get(cacheKey)
   if (cached) return cached
 
   const catalog = CATALOGS[locale] ?? en
   const plurals = new Intl.PluralRules(locale)
   const numbers = new Intl.NumberFormat(locale)
   const decimals = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
-  const dateTime = new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    hourCycle: 'h23'
-  })
-  const dateOnly = new Intl.DateTimeFormat(locale, { dateStyle: 'long' })
+  const dates = dateFormatters(locale, dateFormat)
 
   const i18n: I18n = {
     locale,
@@ -179,17 +179,17 @@ export function createI18n(locale: Locale): I18n {
 
     formatDate(value) {
       const at = new Date(value)
-      return Number.isNaN(at.getTime()) ? null : dateOnly.format(at)
+      return Number.isNaN(at.getTime()) ? null : dates.date(at)
     },
 
     formatDateTime(iso) {
       if (!iso) return null
       const at = new Date(iso)
-      return Number.isNaN(at.getTime()) ? null : dateTime.format(at)
+      return Number.isNaN(at.getTime()) ? null : dates.dateTime(at)
     }
   }
 
-  CACHE.set(locale, i18n)
+  CACHE.set(cacheKey, i18n)
   return i18n
 }
 
