@@ -622,8 +622,7 @@ export class SaveSync {
    *
    * What it does not do is stay deleted on its own. Sync runs in both
    * directions around a launch, so the surviving copy comes back over the
-   * deleted one — that is the point of deleting one end, and the caller says so
-   * before asking.
+   * deleted one — that is the point of deleting one end.
    *
    * The asset is found by re-scanning rather than by trusting what the caller
    * passed. `id` identifies a row RomM knows about; a row only this device has

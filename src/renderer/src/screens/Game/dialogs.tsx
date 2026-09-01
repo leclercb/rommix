@@ -61,8 +61,8 @@ export function LaunchVariantDialog({
 /**
  * One save or state, and which end to delete it from.
  *
- * The ends are asked here rather than offered as two buttons on the row: they
- * need saying what they leave behind, and the row has no width for it. A file
+ * The ends are asked here rather than offered as two buttons on the row: the
+ * row has no width for two deletes beside the file name they act on. A file
  * only one end holds gets that one button, so the dialog never offers a delete
  * that would do nothing.
  */
@@ -82,15 +82,19 @@ export function DeleteAssetDialog({
   return (
     <Overlay title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle')}>
       <p className="muted">
-        {/* The file, where this device keeps it when it has it at all, and then
-            what survives — which is the reason for deleting one end rather than
-            both, and the one thing worth pausing over. */}
+        {/* The file, and where this device keeps it when it has it at all. */}
         {t('game.deleteAssetBody', {
           file: asset.fileName,
-          location: asset.localPath?.replace(/\/[^/]*$/, '') ?? 'RomM',
-          consequence: scopes.length === 2 ? t('game.deleteEitherEnd') : t('game.deleteOnlyCopy')
+          location: asset.localPath?.replace(/\/[^/]*$/, '') ?? 'RomM'
         })}
       </p>
+      {/* A delete at one end undoes itself: sync runs both ways around a launch
+          and the surviving copy comes back over it. A file only one end holds
+          has nothing to come back from, so that is the case that gets a line —
+          raised out of the one above so it is read before the buttons. */}
+      {scopes.length === 1 ? (
+        <p className="notice notice--warn">{t('game.deleteOnlyCopy')}</p>
+      ) : null}
       <div className="btn-row">
         {scopes.map((scope) => (
           <FocusButton key={scope} icon="delete" variant="danger" onSelect={() => onDelete(scope)}>
