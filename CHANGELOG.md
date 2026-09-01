@@ -4,6 +4,15 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.9.0-rc.5 — 2026-09-01
+
+- Show a push and the Saves tab the same way (4f23f59)
+- Ask which end to delete a save from in the dialog, not the row (38df6d4)
+- Let the date format be chosen, and default to day first (0a8f6c8)
+- Name the device a save came from (5b5980c)
+- Say where a save came from only where it changes what to do (937dbd8)
+- Order the Saves tab by the instant each save changed (0555fb6)
+
 ## 0.9.0-rc.4 — 2026-09-01
 
 - Give every dialog the width the rule already promised (fcd24aa)
