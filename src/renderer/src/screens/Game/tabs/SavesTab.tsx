@@ -110,6 +110,16 @@ export function SavesTab({
         // The time the badge is talking about: the end that is ahead. Shared
         // with the sort that put this row where it is.
         const at = changedAt(asset)
+        // Where the server's copy came from, on the rows where the answer
+        // changes what to do about it: one this device does not have, and one
+        // that is ahead of what it has. Everywhere else it is a copy the two
+        // ends already agree about, and saying whose it is only crowds the
+        // line — the more so as no state can ever say it, RomM recording an
+        // origin for saves alone.
+        const origin =
+          asset.sync === 'remote-only' || asset.sync === 'remote-newer'
+            ? asset.fromThisDevice
+            : null
 
         return (
           <li key={`${asset.kind}-${asset.id ?? asset.localPath}`}>
@@ -126,10 +136,8 @@ export function SavesTab({
             <span className="asset__meta">
               {formatBytes(asset.sizeBytes)}
               {asset.emulator ? ` · ${asset.emulator}` : ''}
-              {/* Where it came from, when the server recorded it: the useful
-                  thing to know about a save you did not expect to see. */}
-              {asset.fromThisDevice === true ? ` · ${t('push.thisDevice')}` : ''}
-              {asset.fromThisDevice === false ? ` · ${t('push.anotherDevice')}` : ''}
+              {origin === true ? ` · ${t('push.thisDevice')}` : ''}
+              {origin === false ? ` · ${t('push.anotherDevice')}` : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
             {/* One button per end that actually holds the file, each naming its
