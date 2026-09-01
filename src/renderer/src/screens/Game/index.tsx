@@ -462,11 +462,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         <div className="panel__body">
           {tab === 'details' ? <DetailsTab rom={rom} entry={entry} /> : null}
           {tab === 'saves' ? (
-            <SavesTab
-              assets={assets}
-              entry={entry}
-              onDelete={(asset, scope) => setDeleting({ asset, scope })}
-            />
+            <SavesTab assets={assets} entry={entry} onDelete={(asset) => setDeleting(asset)} />
           ) : null}
           {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
           {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
@@ -508,10 +504,9 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
       {deleting ? (
         <DeleteAssetDialog
-          asset={deleting.asset}
-          scope={deleting.scope}
+          asset={deleting}
           onKeep={() => setDeleting(null)}
-          onDelete={() => void deleteAsset(deleting.asset, deleting.scope)}
+          onDelete={(scope) => void deleteAsset(deleting, scope)}
         />
       ) : null}
 

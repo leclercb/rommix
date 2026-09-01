@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SaveAsset, SaveDeleteScope, SavePushPreview } from '@shared/types'
 import { useApp, useI18n } from '../../state'
-import { deleteScopeText } from './tabs'
+import { deleteScopeLabel } from './tabs'
 
 /** How this game is named and pictured in a toast. */
 type Subject = () => { title: string; coverPath: string | null }
@@ -37,18 +37,16 @@ export function useGameSaves(
    */
   confirmingPush: SavePushPreview | null
   setConfirmingPush: (preview: SavePushPreview | null) => void
-  /** The row and the end it was asked to be deleted from, awaiting an answer. */
-  deleting: { asset: SaveAsset; scope: SaveDeleteScope } | null
-  setDeleting: (target: { asset: SaveAsset; scope: SaveDeleteScope } | null) => void
+  /** The row whose delete was asked for, awaiting which end and an answer. */
+  deleting: SaveAsset | null
+  setDeleting: (asset: SaveAsset | null) => void
 } {
   const { t } = useI18n()
   const { notify, settings, saveSettings } = useApp()
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
-  const [deleting, setDeleting] = useState<{ asset: SaveAsset; scope: SaveDeleteScope } | null>(
-    null
-  )
+  const [deleting, setDeleting] = useState<SaveAsset | null>(null)
 
   /**
    * This game's saves on both sides, refetched after every pull or push so the
@@ -194,7 +192,7 @@ export function useGameSaves(
       notify(
         t('saves.deleted', {
           file: asset.fileName,
-          where: deleteScopeText(scope, t).where
+          where: deleteScopeLabel(scope, t)
         })
       )
       await reload()

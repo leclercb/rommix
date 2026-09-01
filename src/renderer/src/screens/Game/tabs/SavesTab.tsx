@@ -45,27 +45,14 @@ const SYNC_BADGES: Record<
 }
 
 /**
- * The two ends a row's delete buttons clear, one button each.
+ * The end a delete names, as it completes a sentence.
  *
- * Both buttons on every row that has both copies, rather than one that clears
- * the pair: the two ends are the whole subject of this tab — every badge above
- * is about which of them is ahead — and the reason to delete one is almost
- * always that the other is the copy worth keeping. Throwing away a corrupt
- * local save and pulling RomM's back is a thing to want, and "delete
- * everywhere" cannot say it.
- *
- * `where` completes both the button — `Delete {where}` — and the dialog's
- * question, so the two cannot drift apart. `consequence` is what the surviving
- * copy will do, which is the part worth pausing over: neither delete stays
- * deleted by itself, and that is exactly why one presses it.
+ * One phrase for the pair of them, because it finishes three: the button in the
+ * dialog — `Delete {where}` — the toast that reports what happened, and nothing
+ * else. Keeping it in one place is what stops the three drifting apart.
  */
-export function deleteScopeText(
-  scope: SaveDeleteScope,
-  t: I18n['t']
-): { where: string; consequence: string } {
-  return scope === 'local'
-    ? { where: t('saves.scopeLocal'), consequence: t('saves.consequenceLocal') }
-    : { where: t('saves.scopeRemote'), consequence: t('saves.consequenceRemote') }
+export function deleteScopeLabel(scope: SaveDeleteScope, t: I18n['t']): string {
+  return scope === 'local' ? t('saves.scopeLocal') : t('saves.scopeRemote')
 }
 
 /** Which ends hold this file, and so which of the two buttons can act. */
@@ -90,7 +77,7 @@ export function SavesTab({
 }: {
   assets: SaveAsset[] | null
   entry?: InstalledRom
-  onDelete: (asset: SaveAsset, scope: SaveDeleteScope) => void
+  onDelete: (asset: SaveAsset) => void
 }): JSX.Element {
   const { t, formatBytes, formatDateTime } = useI18n()
   if (!assets) return <Spinner />
@@ -147,20 +134,18 @@ export function SavesTab({
               {from ? ` · ${t('saves.fromDevice', { device: from })}` : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
-            {/* One button per end that actually holds the file, each naming its
-                end. A row with both copies gets both, which is what makes the
-                two ends separable: delete the local one, pull RomM's back. */}
+            {/* One mark, opening the dialog that asks which end. The ends stay
+                separable — deleting the local copy and pulling RomM's back is
+                the reason to delete one at all — but the choice belongs where
+                there is room to say what each one leaves behind, not in a row
+                that already carries a badge, a name and three facts. */}
             <span className="asset__actions">
-              {deleteScopesOf(asset).map((scope) => (
-                <FocusButton
-                  key={scope}
-                  icon="delete"
-                  variant="danger"
-                  onSelect={() => onDelete(asset, scope)}
-                >
-                  {t('game.deleteAt', { where: deleteScopeText(scope, t).where })}
-                </FocusButton>
-              ))}
+              <FocusButton
+                icon="delete"
+                variant="danger"
+                actionLabel={t('action.delete')}
+                onSelect={() => onDelete(asset)}
+              />
             </span>
           </li>
         )

@@ -9,5 +9,5 @@
 
 export { DetailsTab } from './DetailsTab'
 export { FilesTab } from './FilesTab'
-export { SavesTab, deleteScopeText, deleteScopesOf } from './SavesTab'
+export { SavesTab, deleteScopeLabel, deleteScopesOf } from './SavesTab'
 export { ScreenshotsTab } from './ScreenshotsTab'

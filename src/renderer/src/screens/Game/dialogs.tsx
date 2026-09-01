@@ -9,7 +9,7 @@ import type {
 import { FocusButton, Overlay } from '../../components'
 import { useI18n } from '../../state'
 import { PushPreviewList } from './PushPreviewList'
-import { deleteScopeText, deleteScopesOf } from './tabs'
+import { deleteScopeLabel, deleteScopesOf } from './tabs'
 
 /**
  * The four questions this screen asks before doing something it cannot undo.
@@ -58,44 +58,51 @@ export function LaunchVariantDialog({
   )
 }
 
-/** One save or state, deleted from the one end the row's button named. */
+/**
+ * One save or state, and which end to delete it from.
+ *
+ * The ends are asked here rather than offered as two buttons on the row: they
+ * need saying what they leave behind, and the row has no width for it. A file
+ * only one end holds gets that one button, so the dialog never offers a delete
+ * that would do nothing.
+ */
 export function DeleteAssetDialog({
   asset,
-  scope,
   onKeep,
   onDelete
 }: {
   asset: SaveAsset
-  scope: SaveDeleteScope
   onKeep: () => void
-  onDelete: () => void
+  onDelete: (scope: SaveDeleteScope) => void
 }): JSX.Element {
   const { t } = useI18n()
-  const { where, consequence } = deleteScopeText(scope, t)
+  const scopes = deleteScopesOf(asset)
   // Two whole questions rather than one with the kind slotted in: "this save"
   // and "this state" do not share an article in every language.
   return (
-    <Overlay
-      title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle', {
-        where
-      })}
-    >
+    <Overlay title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle')}>
       <p className="muted">
-        {/* The title says which end; this names the file and, for a local
-            delete, the folder it is actually in — and then what happens to the
-            copy left behind, which is the reason for deleting one end at all. */}
+        {/* The file, where this device keeps it when it has it at all, and then
+            what survives — which is the reason for deleting one end rather than
+            both, and the one thing worth pausing over. */}
         {t('game.deleteAssetBody', {
           file: asset.fileName,
-          location: scope === 'local' ? (asset.localPath?.replace(/\/[^/]*$/, '') ?? '') : 'RomM',
-          consequence: deleteScopesOf(asset).length === 2 ? consequence : t('game.deleteOnlyCopy')
+          location: asset.localPath?.replace(/\/[^/]*$/, '') ?? 'RomM',
+          consequence: scopes.length === 2 ? t('game.deleteEitherEnd') : t('game.deleteOnlyCopy')
         })}
       </p>
       <div className="btn-row">
+        {scopes.map((scope) => (
+          <FocusButton key={scope} icon="delete" variant="danger" onSelect={() => onDelete(scope)}>
+            {t('game.deleteAt', { where: deleteScopeLabel(scope, t) })}
+          </FocusButton>
+        ))}
+      </div>
+      <div className="btn-row">
+        {/* Focused, and on its own row below the two deletes: the answer that
+            changes nothing is the one a dialog should open on. */}
         <FocusButton icon="keep" onSelect={onKeep} autoFocus>
           {t('action.keep')}
-        </FocusButton>
-        <FocusButton icon="delete" variant="danger" onSelect={onDelete}>
-          {t('game.deleteAt', { where })}
         </FocusButton>
       </div>
     </Overlay>
