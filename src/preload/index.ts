@@ -15,6 +15,7 @@ import type {
   RomQuery,
   RomUserStatus,
   SaveDeleteScope,
+  SavesWaiting,
   Settings,
   UpdateStatus
 } from '@shared/types'
@@ -69,6 +70,10 @@ const bridge: RomMixBridge = {
   },
   saves: {
     list: (romId: number) => ipcRenderer.invoke('saves:list', romId),
+    waiting: () => ipcRenderer.invoke('saves:waiting'),
+    onWaiting: (listener: (waiting: SavesWaiting[]) => void) =>
+      subscribe<SavesWaiting[]>('saves:waiting', listener),
+    onSent: (listener: (romIds: number[]) => void) => subscribe<number[]>('saves:sent', listener),
     pull: (romId: number) => ipcRenderer.invoke('saves:pull', romId),
     push: (romId: number) => ipcRenderer.invoke('saves:push', romId),
     pushPreview: (romId: number) => ipcRenderer.invoke('saves:pushPreview', romId),

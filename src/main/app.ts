@@ -18,7 +18,8 @@ import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
-import type { EmulatorState } from '@shared/types'
+import { saveContext } from './ipc/context.ts'
+import type { EmulatorState, SavesWaiting } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
 
@@ -129,6 +130,7 @@ export class RomMixApp {
         })
       )
       await this.rememberServer()
+      await this.sendUnsentSaves()
     })().finally(() => {
       this.catchingUp = null
     })
@@ -159,6 +161,128 @@ export class RomMixApp {
         reason: (cause as Error).message
       })
     }
+  }
+
+  /**
+   * Hand RomM the saves written while it was away, as far as that is safe.
+   *
+   * The last step of the catch-up, and the only one that can destroy something:
+   * a save pushed over a newer one made on another device is gone from both
+   * ends. So nothing is decided from what was recorded — the record names a
+   * game and a moment, and everything else is worked out against the server as
+   * it is now. See `SaveSync.drain` and `mayBeSentUnasked`.
+   *
+   * Sending unasked is what `confirmSavePush` is already about, so it is the
+   * same switch here: with it on, even the files that could go up safely wait
+   * to be confirmed on the game's own screen.
+   */
+  private async sendUnsentSaves(): Promise<void> {
+    if (!this.store.settings.syncSavesUp) return
+    const sendUnasked = !this.store.settings.confirmSavePush
+
+    const sent: number[] = []
+    const waiting: SavesWaiting[] = []
+
+    for (const { romId, since } of this.store.unsentSaves) {
+      try {
+        const target = await saveContext(this, romId)
+        const result = await this.saveSync.drain(target, since, { sendUnasked })
+        if (result.sent > 0) sent.push(romId)
+        // Nothing waiting means nothing to come back for, however the record
+        // came to be written.
+        if (result.conflicts === 0 && result.ready === 0) this.store.clearUnsentSaves(romId)
+        else waiting.push({ romId, conflicts: result.conflicts, ready: result.ready })
+      } catch (cause) {
+        // The game may have been uninstalled, its emulator changed, or the
+        // server gone again mid-pass. The record stays and the next catch-up
+        // tries it: nothing is sent and nothing is lost by waiting.
+        log.info('saves', 'could not send what a session left behind', {
+          romId,
+          reason: (cause as Error).message
+        })
+      }
+    }
+    /**
+     * Said once, and only where something actually moved.
+     *
+     * The games rather than the files: a session writes a save and a state and
+     * sometimes several of each, and none of those numbers is what the person
+     * was wondering about — which of their games are safe now is. Named rather
+     * than counted, so a notification about one game can show it the way every
+     * other notification about a game does, with its cover and its title.
+     *
+     * What is *not* said is the other half. Saves RomMix would not send on its
+     * own stay on the game's own page, which is the only screen with the button
+     * that answers them.
+     */
+    if (sent.length > 0) this.send('saves:sent', sent)
+    // Built from the pass that just ran rather than by asking again: every
+    // entry here cost a listing from the server a moment ago, and repeating
+    // them all would double what a reconnection costs to say the same thing.
+    this.send('saves:waiting', waiting)
+  }
+
+  /**
+   * Look again at what this game still owes, after a push.
+   *
+   * Asked rather than assumed. A push that was refused file by file resolves
+   * having sent nothing, and an approval from the post-session dialog covers
+   * only the session it previewed — so "a push happened" is not "there is
+   * nothing left", and treating it as such loses the record for files that are
+   * still only on this disk. `waitingSaves` recomputes and clears whatever has
+   * genuinely gone.
+   */
+  async recheckUnsentSaves(romId: number): Promise<void> {
+    if (!this.store.unsentSaves.some((row) => row.romId === romId)) return
+    this.send('saves:waiting', await this.waitingSaves())
+  }
+
+  /**
+   * The games whose saves are on this disk and not on RomM.
+   *
+   * Carries why as well as which, because the game's page says so in as many
+   * words: a copy RomM holds from another device and a setting that asks before
+   * sending are different things to be told, and the second is not a problem at
+   * all.
+   *
+   * Recomputed rather than remembered — what is outstanding depends on what
+   * RomM holds right now — and a game the index has lost is one that was
+   * uninstalled, which takes its record with it.
+   */
+  async waitingSaves(): Promise<SavesWaiting[]> {
+    // Nothing is ever pushed automatically with up-sync off, so nothing is
+    // waiting on RomMix — and both reasons the game screen gives would be the
+    // wrong explanation for a user who switched pushing off on purpose.
+    if (!this.store.settings.syncSavesUp) return []
+
+    const waiting: SavesWaiting[] = []
+    const sendUnasked = !this.store.settings.confirmSavePush
+
+    for (const { romId, since } of this.store.unsentSaves) {
+      if (!this.store.getInstalled(romId)) {
+        this.store.clearUnsentSaves(romId)
+        continue
+      }
+      try {
+        const target = await saveContext(this, romId)
+        const counted = await this.saveSync.drain(target, since, { sendUnasked: false })
+        // Only where the setting is what is holding them: with sending set to
+        // go ahead unasked, these are not waiting on anybody and the catch-up
+        // has either sent them or will.
+        const ready = sendUnasked ? 0 : counted.ready
+        // Tested after that adjustment, or a game with no reason to give would
+        // be listed as waiting and then explain itself with nothing.
+        if (counted.conflicts === 0 && ready === 0) {
+          this.store.clearUnsentSaves(romId)
+          continue
+        }
+        waiting.push({ romId, conflicts: counted.conflicts, ready })
+      } catch {
+        // Unanswerable right now — see `sendUnsentSaves`. The game is left out
+        // rather than guessed at.
+      }
+    }
+    return waiting
   }
 
   async refreshEmulators(): Promise<EmulatorState[]> {

@@ -513,6 +513,13 @@ export const fr: Catalog = {
   'saves.unchecked': 'Sur cet appareil',
   'saves.uncheckedHint':
     'Sur cet appareil. RomM n’a pas pu être interrogé : rien ici ne dit s’il a ce fichier.',
+  'saves.waitingConflict':
+    'Des sauvegardes n’ont pas été envoyées à RomM car elles sont en conflit avec des sauvegardes existantes.',
+  'saves.waitingConfirm':
+    'Des sauvegardes n’ont pas été envoyées à RomM car « Demander avant d’envoyer des sauvegardes à RomM » est activé.',
+  'saves.sentAutomatically_one': 'Sauvegardes de {count} jeu envoyées à RomM',
+  'saves.sentAutomatically_other': 'Sauvegardes de {count} jeux envoyées à RomM',
+  'saves.sentAutomaticallyOne': 'Sauvegardes envoyées à RomM',
   'saves.remoteNewer': 'Plus récent sur RomM',
   'saves.remoteNewerHint':
     'RomM a une copie plus récente. Récupérer les sauvegardes la rapatriera.',
@@ -895,6 +902,8 @@ export const fr: Catalog = {
   'error.serverAddressEmpty': 'L’adresse du serveur est vide',
   'error.noServerConfigured': 'Aucun serveur RomM configuré',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
+  'error.savesNotSent_one': '{count} sauvegarde n’a pas pu être envoyée à RomM.',
+  'error.savesNotSent_other': '{count} sauvegardes n’ont pas pu être envoyées à RomM.',
   'error.serverTimedOut': 'Le serveur RomM {url} n’a pas répondu à temps.',
   'error.notAuthorised': 'Non autorisé — reconnectez-vous',
   'error.permissionDenied': 'Permission refusée : {detail}',

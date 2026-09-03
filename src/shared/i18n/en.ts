@@ -514,6 +514,13 @@ export const en = {
   'saves.unchecked': 'On this device',
   'saves.uncheckedHint':
     'On this device. RomM could not be asked, so nothing here says whether it has this file.',
+  'saves.waitingConflict':
+    'Some saves were not sent to RomM because there are conflicts with existing saves.',
+  'saves.waitingConfirm':
+    'Some saves were not sent to RomM because “Ask before sending saves to RomM” is on.',
+  'saves.sentAutomatically_one': 'Saves for {count} game sent to RomM',
+  'saves.sentAutomatically_other': 'Saves for {count} games sent to RomM',
+  'saves.sentAutomaticallyOne': 'Saves sent to RomM',
   'saves.remoteNewer': 'Newer on RomM',
   'saves.remoteNewerHint': 'RomM has a more recent copy. Pull saves fetches it.',
   'saves.remoteOnly': 'Not on this device',
@@ -876,6 +883,8 @@ export const en = {
   'error.serverAddressEmpty': 'Server address is empty',
   'error.noServerConfigured': 'No RomM server configured',
   'error.cannotReach': 'Cannot reach {url}: {reason}',
+  'error.savesNotSent_one': '{count} save could not be sent to RomM.',
+  'error.savesNotSent_other': '{count} saves could not be sent to RomM.',
   'error.serverTimedOut': 'The RomM server at {url} did not answer in time.',
   'error.notAuthorised': 'Not authorised — sign in again',
   'error.permissionDenied': 'Permission denied: {detail}',

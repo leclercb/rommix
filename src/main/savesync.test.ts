@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -76,6 +84,8 @@ function setUp(
     devices?: RommDevice[]
     /** What the server throws instead of answering, when it is not answering. */
     serverSays?: Error
+    /** Whether the server refuses every upload, as an unreachable one does. */
+    uploadFails?: boolean
   } = {}
 ): {
   sync: SaveSync
@@ -104,10 +114,12 @@ function setUp(
     downloadSave: async (_id: number, to: string) => writeFile(to, 'from the server'),
     downloadState: async (_id: number, to: string) => writeFile(to, 'from the server'),
     uploadSave: async (_romId: number, filePath: string, fileName: string) => {
+      if (options.uploadFails) throw new Error('fetch failed')
       uploaded.push({ fileName, from: filePath })
       return save({ file_name: fileName })
     },
     uploadState: async (_romId: number, filePath: string, fileName: string) => {
+      if (options.uploadFails) throw new Error('fetch failed')
       uploaded.push({ fileName, from: filePath })
       return save({ file_name: fileName })
     },
@@ -144,6 +156,142 @@ function setUp(
     store
   }
 }
+
+describe('draining what a session left behind', () => {
+  /** A local save written after `since`, which is what the drain looks at. */
+  function played(saveDir: string, at = '2026-08-10T12:00:00.000Z'): number {
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'played offline')
+    const when = new Date(at)
+    utimesSync(path, when, when)
+    return new Date('2026-08-10T11:00:00.000Z').getTime()
+  }
+
+  test('a name RomM holds nothing under goes up without asking', async () => {
+    const { sync, target, saveDir, uploaded } = setUp()
+    const since = played(saveDir)
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    assert.equal(result.sent, 1)
+    assert.equal(result.conflicts, 0)
+    assert.deepEqual(
+      uploaded.map((file) => file.fileName),
+      ['Sonic the Hedgehog (USA).srm']
+    )
+  })
+
+  test('a server copy this device uploaded is its own to carry on from', async () => {
+    const { sync, target, saveDir, uploaded, store } = setUp({
+      saves: [save({ origin_device_id: 'this-device' })]
+    })
+    store.updateSettings({ deviceId: 'this-device' })
+    const since = played(saveDir)
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    assert.equal(result.sent, 1)
+    assert.equal(result.conflicts, 0)
+    assert.equal(uploaded.length, 1)
+  })
+
+  test('a server copy from another device is never written over', async () => {
+    const { sync, target, saveDir, uploaded, store } = setUp({
+      saves: [save({ origin_device_id: 'the-other-console' })]
+    })
+    store.updateSettings({ deviceId: 'this-device' })
+    const since = played(saveDir)
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    // The whole point of the pass: a fortnight out of range says nothing about
+    // what the rest of the household did meanwhile.
+    assert.equal(result.sent, 0)
+    assert.equal(result.conflicts, 1)
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('a newer copy from another device is a question, not an overwrite', async () => {
+    const { sync, target, saveDir, uploaded, store } = setUp({
+      saves: [
+        save({ origin_device_id: 'the-other-console', updated_at: '2026-09-01T00:00:00.000Z' })
+      ]
+    })
+    store.updateSettings({ deviceId: 'this-device' })
+    const since = played(saveDir, '2026-08-10T12:00:00.000Z')
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    assert.equal(result.sent, 0)
+    assert.equal(result.conflicts, 1)
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('this device’s own later upload is nothing to send and nothing to ask', async () => {
+    const { sync, target, saveDir, uploaded, store } = setUp({
+      saves: [save({ origin_device_id: 'this-device', updated_at: '2026-09-01T00:00:00.000Z' })]
+    })
+    store.updateSettings({ deviceId: 'this-device' })
+    const since = played(saveDir, '2026-08-10T12:00:00.000Z')
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    // RomM holds this device's own copy, made after the file here — restored
+    // from a backup, most likely. `syncStateOf` already calls that pair in
+    // sync, so the file never reaches the decision: there is nothing to send
+    // and nothing worth interrupting anybody about.
+    assert.deepEqual(result, { sent: 0, conflicts: 0, ready: 0 })
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('a push that sends nothing reports the files it could not send', async () => {
+    const { sync, target, saveDir } = setUp({ uploadFails: true })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played')
+
+    const result = await sync.pushNow(target)
+
+    // The count that arrived is not the count that was tried, and anything
+    // deciding a save is safely on RomM has to be able to tell them apart.
+    assert.equal(result.saves + result.states, 0)
+    assert.equal(result.failed, 1)
+  })
+
+  test('nothing goes up unasked when the user asked to be asked', async () => {
+    const { sync, target, saveDir, uploaded } = setUp()
+    const since = played(saveDir)
+
+    const result = await sync.drain(target, since, { sendUnasked: false })
+
+    // Safe to send and still not sent: `confirmSavePush` means every push is a
+    // decision, and a pass nobody watched is the last place to make one.
+    assert.equal(result.sent, 0)
+    assert.equal(result.ready, 1)
+    assert.equal(result.conflicts, 0)
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('a server that will not take the files leaves them waiting', async () => {
+    const { sync, target, saveDir, uploaded } = setUp({ uploadFails: true })
+    const since = played(saveDir)
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    // Uploading carries on past a file the server refuses, so a push against a
+    // server that has gone *resolves* having sent nothing. Read as "nothing
+    // left to send", that is how a save still only on this disk is forgotten.
+    assert.equal(result.sent, 0)
+    assert.equal(result.ready, 1)
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('a session that wrote nothing leaves nothing waiting', async () => {
+    const { sync, target } = setUp()
+
+    const result = await sync.drain(target, Date.now(), { sendUnasked: true })
+
+    assert.deepEqual(result, { sent: 0, conflicts: 0, ready: 0 })
+  })
+})
 
 describe('listing both ends', () => {
   test('a save on the server and on disk is one row, not two', async () => {
@@ -213,7 +361,6 @@ describe('listing both ends', () => {
     const older = new Date('2026-07-01T00:00:00.000Z')
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'local')
-    const { utimesSync } = await import('node:fs')
     utimesSync(path, older, older)
 
     const [asset] = await sync.listAssets(7, target)
@@ -312,7 +459,6 @@ describe('listing both ends', () => {
     const later = new Date('2026-08-01T13:00:00.000Z')
     const path = join(saveDir, 'Sonic the Hedgehog (USA).sav')
     writeFileSync(path, 'local')
-    const { utimesSync } = await import('node:fs')
     utimesSync(path, later, later)
 
     const assets = await sync.listAssets(7, target)
@@ -339,7 +485,6 @@ describe('pulling', () => {
     const { sync, target, saveDir } = setUp({ saves: [save()] })
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'the local one')
-    const { utimesSync } = await import('node:fs')
     const older = new Date('2026-01-01T00:00:00.000Z')
     utimesSync(path, older, older)
 
@@ -353,7 +498,6 @@ describe('pulling', () => {
     const { sync, target, saveDir } = setUp({ saves: [save()] })
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'the local one')
-    const { utimesSync } = await import('node:fs')
     const when = new Date('2026-08-01T12:00:00.000Z')
     utimesSync(path, when, when)
 
@@ -410,7 +554,6 @@ describe('pushing', () => {
     const { sync, target, saveDir, uploaded } = setUp()
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'from last year')
-    const { utimesSync } = await import('node:fs')
     const older = new Date('2026-01-01T00:00:00.000Z')
     utimesSync(path, older, older)
 
@@ -450,7 +593,6 @@ describe('pushing', () => {
     const { sync, target, saveDir } = setUp({ saves: [save()] })
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'local')
-    const { utimesSync } = await import('node:fs')
     const uploadedAt = new Date('2026-08-01T12:00:00.000Z')
     utimesSync(path, uploadedAt, uploadedAt)
 

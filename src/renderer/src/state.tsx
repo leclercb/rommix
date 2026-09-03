@@ -15,6 +15,7 @@ import type {
   DownloadItem,
   DownloadState,
   InstalledRom,
+  SavesWaiting,
   Settings,
   UpdateStatus
 } from '@shared/types'
@@ -152,6 +153,13 @@ interface AppState {
   installed: InstalledRom[]
   installedIds: Set<number>
   refreshInstalled: () => Promise<void>
+  /**
+   * Games with saves on this device that RomM has not been given.
+   *
+   * The game screen draws a notice for these, and reads the same list to
+   * decide whether Push saves should ask first. See `saves:waiting`.
+   */
+  unsentSaves: SavesWaiting[]
 
   runningRomId: number | null
   /**
@@ -240,6 +248,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [history, setHistory] = useState<Route[]>([{ name: 'home' }])
   const [toasts, setToasts] = useState<Toast[]>([])
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
+  const [unsentSaves, setUnsentSaves] = useState<SavesWaiting[]>([])
 
   const route = history[history.length - 1]
 
@@ -354,6 +363,74 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const offline = status === null ? null : status.offline
   useEffect(() => {
     return window.rommix.server.onStatus(setStatus)
+  }, [])
+
+  /**
+   * The installed list as the last render saw it, for a subscription that must
+   * not be torn down and rebuilt every time a game is downloaded.
+   */
+  const installedNow = useRef<InstalledRom[]>([])
+  useEffect(() => {
+    installedNow.current = installed
+  }, [installed])
+
+  /**
+   * Saves a reconnection handed over by itself.
+   *
+   * The one thing worth saying out loud about this: it happened without anybody
+   * asking, so it is news. Its opposite — what RomMix would not send unasked —
+   * is deliberately not announced anywhere, because a notification about
+   * something the user has to come back to is a notification that comes back.
+   * That is a notice on the game's own page, where the button that answers it
+   * is.
+   */
+  useEffect(() => {
+    return window.rommix.saves.onSent((romIds) => {
+      if (romIds.length === 0) return
+      // One game is a game, and every notification about one in RomMix carries
+      // its cover and its name. Several is a number, there being no single
+      // cover to show.
+      const only =
+        romIds.length === 1
+          ? installedNow.current.find((entry) => entry.romId === romIds[0])
+          : undefined
+      notify(
+        only
+          ? i18n.t('saves.sentAutomaticallyOne')
+          : i18n.t('saves.sentAutomatically', { count: romIds.length }),
+        'ok',
+        only ? { title: only.name, coverPath: only.coverPath } : undefined
+      )
+    })
+  }, [notify, i18n])
+
+  /**
+   * The games whose saves are on this disk and not on RomM.
+   *
+   * Held here rather than fetched by the screen that draws it, because it
+   * changes without anybody having asked: a reconnection sends what it safely
+   * can, and what is left is what this holds.
+   *
+   * Not a notification. Something outstanding is worth seeing, and a warning
+   * that reappears until it is dealt with is a warning that teaches people to
+   * ignore warnings.
+   */
+  useEffect(() => {
+    /**
+     * Whether a pushed list has already arrived.
+     *
+     * The first ask is slow — it lists both ends for every outstanding game —
+     * and the catch-up finishes with a list of its own. Landing second, the
+     * ask would put back the games the catch-up had just sent.
+     */
+    let pushed = false
+    void window.rommix.saves.waiting().then((waiting) => {
+      if (!pushed) setUnsentSaves(waiting)
+    })
+    return window.rommix.saves.onWaiting((waiting) => {
+      pushed = true
+      setUnsentSaves(waiting)
+    })
   }, [])
 
   /**
@@ -544,6 +621,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       installed,
       installedIds,
       refreshInstalled,
+      unsentSaves,
       runningRomId,
       runningEmulator,
       runningStage,
@@ -566,6 +644,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       installed,
       installedIds,
       refreshInstalled,
+      unsentSaves,
       runningRomId,
       runningEmulator,
       runningStage,

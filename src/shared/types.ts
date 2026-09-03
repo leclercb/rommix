@@ -829,10 +829,58 @@ export interface SaveAsset {
   sync: SaveSyncState
 }
 
+/**
+ * A game whose saves this device has and RomM has not been given.
+ *
+ * Written when a session's push fails because the server was not there, and
+ * cleared as each game's files go up. Deliberately two fields: what is on the
+ * disk is on the disk, and re-reading it when there is a server again is both
+ * cheaper and more honest than a list of file names captured in the dark — a
+ * save written after the push failed belongs to the same session and would
+ * otherwise be missed.
+ */
+export interface UnsentSaves {
+  romId: number
+  /**
+   * The moment the earliest session in question started, in epoch millis.
+   *
+   * The same `since` the failed push used, which is what makes the drain send
+   * exactly what that push would have: everything the emulator wrote after this
+   * instant, and nothing that was already up there before it.
+   */
+  since: number
+}
+
+/**
+ * A game with saves still on this device, and why they have not gone up.
+ *
+ * Two reasons, and they read differently to the person answering: one is RomMix
+ * refusing to overwrite something it did not put there, the other is a setting
+ * saying every push is a decision. Both can be true of the same game at once,
+ * for different files.
+ */
+export interface SavesWaiting {
+  romId: number
+  /** Files RomM holds a copy of that this device did not put there. */
+  conflicts: number
+  /** Files that could go unasked, held back because sending asks first. */
+  ready: number
+}
+
 /** Result of an explicit save pull or push from the game screen. */
 export interface SaveSyncResult {
   saves: number
   states: number
+  /**
+   * Files the server would not take, on a push.
+   *
+   * Uploading keeps going past a file that fails — a partial sync beats
+   * abandoning the rest — so a count of what arrived cannot be read as a count
+   * of what was tried. Anything that decides a save is now safely on RomM has
+   * to look here as well, or it will decide it about a file still only on this
+   * disk. Always zero for a pull, which has no such half-state.
+   */
+  failed: number
   /** Set when the emulator's save layout is not one RomMix can sync per game. */
   skippedReason: string | null
 }

@@ -24,10 +24,17 @@ export function useGameSaves(
   subject: Subject
 ): {
   assets: SaveAsset[] | null
+  /** True while this game has saves RomM has not been given. See `drain`. */
+  waiting: boolean
   reload: () => Promise<void>
   busy: boolean
   syncSaves: (direction: 'pull' | 'push') => Promise<void>
-  beginPush: () => Promise<void>
+  /**
+   * `alwaysAsk` for the files a session left behind: those are the ones the
+   * automatic pass would not send unasked, so sending them silently on a press
+   * would answer the question the press was about.
+   */
+  beginPush: (alwaysAsk?: boolean) => Promise<void>
   sendPush: (preview: SavePushPreview, stopAsking?: boolean) => Promise<void>
   deleteAsset: (asset: SaveAsset, scope: SaveDeleteScope) => Promise<void>
   /**
@@ -42,7 +49,10 @@ export function useGameSaves(
   setDeleting: (asset: SaveAsset | null) => void
 } {
   const { t } = useI18n()
-  const { notify, offline, settings, saveSettings } = useApp()
+  const { notify, offline, settings, saveSettings, unsentSaves } = useApp()
+  // Read rather than asked for: the main process pushes this list whenever it
+  // changes, so a push made here updates it without this hook refetching.
+  const waiting = unsentSaves.some((game) => game.romId === romId)
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
@@ -116,8 +126,8 @@ export function useGameSaves(
    * becomes a dialog: there is no decision to take, and a message saying why
    * is more use than an empty list.
    */
-  const beginPush = async (): Promise<void> => {
-    if (settings?.confirmSavePush !== true) {
+  const beginPush = async (alwaysAsk = false): Promise<void> => {
+    if (!alwaysAsk && settings?.confirmSavePush !== true) {
       await syncSaves('push')
       return
     }
@@ -210,6 +220,7 @@ export function useGameSaves(
 
   return {
     assets,
+    waiting,
     reload,
     busy,
     syncSaves,

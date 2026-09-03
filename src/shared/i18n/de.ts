@@ -523,6 +523,13 @@ export const de: Catalog = {
   'saves.unchecked': 'Auf diesem Gerät',
   'saves.uncheckedHint':
     'Auf diesem Gerät. RomM konnte nicht gefragt werden, also sagt hier nichts, ob es diese Datei hat.',
+  'saves.waitingConflict':
+    'Einige Spielstände wurden nicht an RomM gesendet, weil sie mit vorhandenen Spielständen kollidieren.',
+  'saves.waitingConfirm':
+    'Einige Spielstände wurden nicht an RomM gesendet, weil „Vor dem Senden von Spielständen an RomM fragen“ aktiv ist.',
+  'saves.sentAutomatically_one': 'Spielstände von {count} Spiel an RomM gesendet',
+  'saves.sentAutomatically_other': 'Spielstände von {count} Spielen an RomM gesendet',
+  'saves.sentAutomaticallyOne': 'Spielstände an RomM gesendet',
   'saves.remoteNewer': 'Auf RomM neuer',
   'saves.remoteNewerHint': 'RomM hat eine neuere Kopie. Spielstände holen lädt sie herunter.',
   'saves.remoteOnly': 'Nicht auf diesem Gerät',
@@ -906,6 +913,8 @@ export const de: Catalog = {
   'error.serverAddressEmpty': 'Die Serveradresse ist leer',
   'error.noServerConfigured': 'Kein RomM-Server eingerichtet',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
+  'error.savesNotSent_one': '{count} Spielstand konnte nicht an RomM gesendet werden.',
+  'error.savesNotSent_other': '{count} Spielstände konnten nicht an RomM gesendet werden.',
   'error.serverTimedOut': 'Der RomM-Server unter {url} hat nicht rechtzeitig geantwortet.',
   'error.notAuthorised': 'Nicht berechtigt — melden Sie sich erneut an',
   'error.permissionDenied': 'Zugriff verweigert: {detail}',

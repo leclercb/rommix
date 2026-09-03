@@ -1,4 +1,10 @@
-import type { SaveAsset, SaveDeleteScope, SavePushPreview, SaveSyncResult } from '@shared/types'
+import type {
+  SaveAsset,
+  SaveDeleteScope,
+  SavePushPreview,
+  SavesWaiting,
+  SaveSyncResult
+} from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { saveContext } from './context.ts'
 import type { Handle } from './handler.ts'
@@ -20,13 +26,31 @@ export function registerSaveIpc(rommix: RomMixApp, handle: Handle): void {
     return saveSync.listAssets(romId, local ?? undefined)
   })
 
+  /**
+   * Games whose saves are still on this disk and not on RomM.
+   *
+   * Read by the game's own page, which is the only screen that says anything
+   * about them — and the only one with the button that answers them. See
+   * `RomMixApp.waitingSaves`.
+   */
+  handle('saves:waiting', (): Promise<SavesWaiting[]> => rommix.waitingSaves())
+
   handle('saves:pull', async (romId: number): Promise<SaveSyncResult> =>
     saveSync.pullNow(await saveContext(rommix, romId))
   )
 
-  handle('saves:push', async (romId: number): Promise<SaveSyncResult> =>
-    saveSync.pushNow(await saveContext(rommix, romId))
-  )
+  /**
+   * Everything on this disk for this game, sent now.
+   *
+   * Clears the note that this game's saves were left behind, because after this
+   * there is nothing left to leave: the push is unbounded in time and takes
+   * whatever the emulator wrote, whenever it wrote it. See `sendUnsentSaves`.
+   */
+  handle('saves:push', async (romId: number): Promise<SaveSyncResult> => {
+    const result = await saveSync.pushNow(await saveContext(rommix, romId))
+    await rommix.recheckUnsentSaves(romId)
+    return result
+  })
 
   /**
    * What a push would send, for the confirmation dialog.
@@ -47,9 +71,13 @@ export function registerSaveIpc(rommix: RomMixApp, handle: Handle): void {
    * than uploading what it is handed — the list came from this process in the
    * first place, and a path is not something the renderer gets to invent.
    */
-  handle('saves:pushSelected', async (romId: number, paths: string[]): Promise<SaveSyncResult> =>
-    saveSync.pushSelected(await saveContext(rommix, romId), paths)
-  )
+  handle('saves:pushSelected', async (romId: number, paths: string[]): Promise<SaveSyncResult> => {
+    const result = await saveSync.pushSelected(await saveContext(rommix, romId), paths)
+    // The list that was approved is the list that was waiting, so answering
+    // it is the end of the matter however many files went.
+    await rommix.recheckUnsentSaves(romId)
+    return result
+  })
 
   /**
    * Delete one save or state from one end of the sync — this device, or RomM.

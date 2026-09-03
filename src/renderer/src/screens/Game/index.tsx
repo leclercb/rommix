@@ -27,7 +27,8 @@ type GameTab = 'details' | 'saves' | 'files' | 'screenshots'
  */
 export function GameScreen({ romId }: { romId: number }): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { installed, offline, runningRomId, goBack, navigate, notify, settings } = useApp()
+  const { installed, offline, runningRomId, goBack, navigate, notify, settings, unsentSaves } =
+    useApp()
   const downloads = useDownloads()
 
   const [rom, setRom] = useState<RommRom | null>(null)
@@ -82,6 +83,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
    */
   const {
     assets,
+    waiting: savesWaiting,
     reload,
     busy: syncing,
     syncSaves,
@@ -213,6 +215,22 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     download && download.totalBytes > 0
       ? Math.round((download.receivedBytes / download.totalBytes) * 100)
       : 0
+
+  /**
+   * Why this game's saves have not gone up, in as many lines as there are
+   * reasons.
+   *
+   * Two, and they are not the same news. A file RomM holds a copy of that this
+   * device did not put there is a decision RomMix will not make for anybody.
+   * The rest are held by a setting, and naming it is the point: nothing is
+   * wrong with them, and the person reading this is the one who turned it on.
+   * Both can be true at once, for different files in one session.
+   */
+  const outstanding = unsentSaves.find((game) => game.romId === romId)
+  const waitingReasons = [
+    outstanding && outstanding.conflicts > 0 ? t('saves.waitingConflict') : null,
+    outstanding && outstanding.ready > 0 ? t('saves.waitingConfirm') : null
+  ].filter((reason) => reason !== null)
 
   return (
     <div className="content">
@@ -351,9 +369,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             >
               {t('game.pullSaves')}
             </FocusButton>
+            {/* Always asks while a session's saves are outstanding, whatever
+                the confirmation setting says. Those are precisely the files
+                RomMix would not send on its own — RomM holds a copy from
+                somewhere else, or a newer one — so sending them blind is the
+                one press on this screen that can lose somebody's progress. */}
             <FocusButton
               icon="push"
-              onSelect={() => void beginPush()}
+              onSelect={() => void beginPush(savesWaiting)}
               disabled={working || running || offline === true}
             >
               {t('game.pushSaves')}
@@ -411,6 +434,25 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
 
       {download?.state === 'error' && download.error ? (
         <div className="notice notice--error">{download.error}</div>
+      ) : null}
+
+      {/* Saves a session wrote that RomMix would not hand over on its own —
+          because RomM's copy came from somewhere else or has moved on, or
+          because the user has asked to be asked. The only place it is said:
+          this is the screen with the button that answers it, and a warning on
+          any other screen is one the user cannot act on from there. */}
+      {waitingReasons.length > 0 ? (
+        <div className="notice notice--warn">
+          {waitingReasons.length === 1 ? (
+            waitingReasons[0]
+          ) : (
+            <ul className="notice__list">
+              {waitingReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       ) : null}
 
       {/* A platform whose BIOS is not in place, said where the game is about to
@@ -539,6 +581,9 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       {confirmingPush ? (
         <PushConfirmDialog
           preview={confirmingPush}
+          // The setting is what makes stopping possible: where the ask was
+          // forced by files a session left behind, there is nothing to stop.
+          canStopAsking={settings?.confirmSavePush === true}
           onCancel={() => setConfirmingPush(null)}
           onSend={(stopAsking) => void sendPush(confirmingPush, stopAsking)}
         />

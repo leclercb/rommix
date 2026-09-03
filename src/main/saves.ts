@@ -2,7 +2,7 @@ import { copyFile, mkdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { localize } from '@shared/i18n'
-import { changedAt } from '@shared/saveassets'
+import { changedAt, mayBeSentUnasked } from '@shared/saveassets'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
@@ -453,7 +453,12 @@ export class SaveSync {
     const paths = this.locate(target)
     const saves = await this.pullKind(target, paths, 'save')
     const states = await this.pullKind(target, paths, 'state')
-    const result = { saves, states, skippedReason: this.reasonFor(paths, saves + states) }
+    const result = {
+      saves,
+      states,
+      failed: 0,
+      skippedReason: this.reasonFor(paths, saves + states)
+    }
     log.info('saves', 'pulled on request', { romId: target.rom.id, ...result })
     return result
   }
@@ -580,6 +585,64 @@ export class SaveSync {
   }
 
   /**
+   * Send what a session written out of range can be sent without asking.
+   *
+   * The whole point of the pass, and the reason it re-decides rather than
+   * replays: what would have been safe to send a fortnight ago says nothing
+   * about what is on the server now. So the preview is taken *again*, against
+   * RomM as it is this minute, and every file is put to `mayBeSentUnasked` —
+   * which sends only where the copy up there is this device's own, or where
+   * there is none at all.
+   *
+   * Whatever is left is neither sent nor thrown away. It stays a question, on
+   * the game's own screen, with both copies in front of whoever answers it.
+   *
+   * Reports what is still waiting so the caller can say so once, rather than a
+   * notification per file for a game nobody has looked at yet.
+   */
+  async drain(
+    target: SaveTarget,
+    since: number,
+    options: { sendUnasked: boolean }
+  ): Promise<{ sent: number; conflicts: number; ready: number }> {
+    const preview = await this.previewPush(target, since)
+    const unasked = preview.files.filter((file) => mayBeSentUnasked(file))
+    const conflicts = preview.files.length - unasked.length
+
+    // Nothing to send, or a user who has asked to be asked. Either way this
+    // pass moves no bytes, and the files stay where they are with the record
+    // still pointing at them.
+    if (!options.sendUnasked || unasked.length === 0) {
+      if (preview.files.length > 0) {
+        log.info('saves', 'saves written away from the server are waiting', {
+          romId: target.rom.id,
+          ready: unasked.length,
+          conflicts,
+          asked: !options.sendUnasked
+        })
+      }
+      return { sent: 0, conflicts, ready: unasked.length }
+    }
+
+    const result = await this.pushSelected(
+      target,
+      unasked.map((file) => file.path)
+    )
+    const sent = result.saves + result.states
+    // What was meant to go and did not is still here, and still nobody's to
+    // throw away: the caller clears its record when nothing is left, and a
+    // server that died mid-pass would otherwise have it forget the rest.
+    const ready = unasked.length - sent
+    log.info('saves', 'sent what was written away from the server', {
+      romId: target.rom.id,
+      sent,
+      ready,
+      conflicts
+    })
+    return { sent, conflicts, ready }
+  }
+
+  /**
    * Send exactly the files a person just approved, named by their paths.
    *
    * The paths are not trusted as paths. They are intersected with a fresh scan
@@ -597,7 +660,7 @@ export class SaveSync {
     const paths = this.locate(target)
     const wanted = new Set(chosen)
     const tag = this.tagFor(paths, target)
-    const moved = { saves: 0, states: 0 }
+    const moved = { saves: 0, states: 0, failed: 0 }
     /** Which of the approved paths this side actually found again. */
     const found = new Set<string>()
 
@@ -612,8 +675,9 @@ export class SaveSync {
       for (const asset of selected) found.add(asset.path)
 
       const count = await this.uploadAssets(target, kind, selected, tag)
-      if (kind === 'save') moved.saves += count
-      else moved.states += count
+      if (kind === 'save') moved.saves += count.sent
+      else moved.states += count.sent
+      moved.failed += count.failed
     }
 
     // A file the dialog offered that the scan no longer finds is how an
@@ -831,8 +895,11 @@ export class SaveSync {
    * Push saves and states written during the session back to RomM.
    * `since` is the launch timestamp, so untouched files are left alone.
    */
-  async push(target: SaveTarget, since: number): Promise<{ saves: number; states: number }> {
-    if (!this.store.settings.syncSavesUp) return { saves: 0, states: 0 }
+  async push(
+    target: SaveTarget,
+    since: number
+  ): Promise<{ saves: number; states: number; failed: number }> {
+    if (!this.store.settings.syncSavesUp) return { saves: 0, states: 0, failed: 0 }
     return this.upload(target, this.locate(target), since)
   }
 
@@ -841,11 +908,10 @@ export class SaveSync {
     target: SaveTarget,
     paths: SavePaths,
     since: number
-  ): Promise<{ saves: number; states: number }> {
-    return {
-      saves: await this.uploadKind(target, paths, 'save', since),
-      states: await this.uploadKind(target, paths, 'state', since)
-    }
+  ): Promise<{ saves: number; states: number; failed: number }> {
+    const saves = await this.uploadKind(target, paths, 'save', since)
+    const states = await this.uploadKind(target, paths, 'state', since)
+    return { saves: saves.sent, states: states.sent, failed: saves.failed + states.failed }
   }
 
   private async uploadKind(
@@ -853,9 +919,9 @@ export class SaveSync {
     paths: SavePaths,
     kind: 'save' | 'state',
     since: number
-  ): Promise<number> {
+  ): Promise<{ sent: number; failed: number }> {
     const location = this.locationFor(paths, kind)
-    if (!location) return 0
+    if (!location) return { sent: 0, failed: 0 }
 
     const assets = await this.findLocal(location, target.rom, target.romPath, kind, since)
     return this.uploadAssets(target, kind, assets, this.tagFor(paths, target))
@@ -873,8 +939,9 @@ export class SaveSync {
     kind: 'save' | 'state',
     assets: readonly LocalAsset[],
     tag: string
-  ): Promise<number> {
+  ): Promise<{ sent: number; failed: number }> {
     let uploaded = 0
+    let failed = 0
 
     for (const asset of assets) {
       // A directory save is zipped first; the archive is what the server holds.
@@ -906,20 +973,24 @@ export class SaveSync {
         uploaded += 1
         await this.stampUploaded(asset, Date.parse(sent.updated_at))
       } catch (cause) {
-        // Keep going; a partial sync beats aborting on the first failure. The
-        // count the interface shows cannot say which file was left behind, so
-        // this line is the only place that names it.
+        // Keep going; a partial sync beats aborting on the first failure. But
+        // it is counted: a caller that cannot tell "sent nothing because there
+        // was nothing" from "sent nothing because the server is gone" throws
+        // away the record of files that are still only on this disk. The count
+        // the interface shows cannot say *which* file was left behind, so this
+        // line is the only place that names it.
         log.error('saves', `could not upload a ${kind}`, cause, {
           romId: target.rom.id,
           fileName: asset.fileName,
           path: asset.path,
           emulator: tag
         })
+        failed += 1
       } finally {
         if (staged) await rm(staged, { force: true }).catch(() => undefined)
       }
     }
-    return uploaded
+    return { sent: uploaded, failed }
   }
 
   /**

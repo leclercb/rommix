@@ -25,6 +25,7 @@ import type {
   SaveAsset,
   SaveDeleteScope,
   SavePushPreview,
+  SavesWaiting,
   SaveSyncResult,
   Settings,
   AuthMode
@@ -161,6 +162,23 @@ export interface RomMixBridge {
      * per file name with a sync state each.
      */
     list(romId: number): Promise<SaveAsset[]>
+    /**
+     * Which games have saves on this device that RomM has not been given.
+     *
+     * Recomputed on every call against RomM as it is now, so a game with
+     * nothing left outstanding drops off the list rather than lingering.
+     */
+    waiting(): Promise<SavesWaiting[]>
+    /** The same list, pushed whenever it changes. */
+    onWaiting(listener: (waiting: SavesWaiting[]) => void): () => void
+    /**
+     * The games a reconnection sent the saves for, on its own.
+     *
+     * Raised only when something moved. The counterpart to `onWaiting`, which
+     * is what it would not send on its own — and which is shown on the game
+     * rather than announced.
+     */
+    onSent(listener: (romIds: number[]) => void): () => void
     /** Fetch newer remote saves now, ignoring the automatic-sync preference. */
     pull(romId: number): Promise<SaveSyncResult>
     /** Send every local save for this game to RomM, not only this session's. */

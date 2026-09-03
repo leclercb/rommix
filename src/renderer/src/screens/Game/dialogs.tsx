@@ -142,10 +142,21 @@ export function UninstallDialog({
 /** Exactly what a push would send, before it sends it. */
 export function PushConfirmDialog({
   preview,
+  canStopAsking,
   onCancel,
   onSend
 }: {
   preview: SavePushPreview
+  /**
+   * Whether "don't ask again" is an answer to this question.
+   *
+   * It is not, when the asking is not the setting's doing: a session played
+   * away from the server is confirmed whatever the setting says, because those
+   * are the files RomMix would not send on its own. Offering to stop asking
+   * there switches off a preference that is already off and promises silence
+   * the next such session will not keep.
+   */
+  canStopAsking: boolean
   onCancel: () => void
   /** `stopAsking` also turns the confirmation off for every future push. */
   onSend: (stopAsking: boolean) => void
@@ -165,9 +176,11 @@ export function PushConfirmDialog({
         </FocusButton>
         {/* Sends as well as stops asking: turning the setting off and leaving
             these files unsent is not what "don't ask me" means. */}
-        <FocusButton icon="hide" variant="ghost" onSelect={() => onSend(true)}>
-          {t('game.pushSendNoAsk')}
-        </FocusButton>
+        {canStopAsking ? (
+          <FocusButton icon="hide" variant="ghost" onSelect={() => onSend(true)}>
+            {t('game.pushSendNoAsk')}
+          </FocusButton>
+        ) : null}
         <FocusButton icon="cancel" onSelect={onCancel}>
           {t('action.cancel')}
         </FocusButton>

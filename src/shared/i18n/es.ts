@@ -508,6 +508,13 @@ export const es: Catalog = {
   'saves.unchecked': 'En este dispositivo',
   'saves.uncheckedHint':
     'En este dispositivo. No se ha podido preguntar a RomM, así que nada dice aquí si tiene este archivo.',
+  'saves.waitingConflict':
+    'Algunas partidas guardadas no se enviaron a RomM porque hay conflictos con las que ya están allí.',
+  'saves.waitingConfirm':
+    'Algunas partidas guardadas no se enviaron a RomM porque «Preguntar antes de enviar partidas a RomM» está activado.',
+  'saves.sentAutomatically_one': 'Partidas guardadas de {count} juego subidas a RomM',
+  'saves.sentAutomatically_other': 'Partidas guardadas de {count} juegos subidas a RomM',
+  'saves.sentAutomaticallyOne': 'Partidas guardadas subidas a RomM',
   'saves.remoteNewer': 'Más reciente en RomM',
   'saves.remoteNewerHint': 'RomM tiene una copia más reciente. Traer las partidas la bajará.',
   'saves.remoteOnly': 'No está en este dispositivo',
@@ -878,6 +885,8 @@ export const es: Catalog = {
   'error.serverAddressEmpty': 'La dirección del servidor está vacía',
   'error.noServerConfigured': 'No hay ningún servidor RomM configurado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
+  'error.savesNotSent_one': '{count} partida guardada no se ha podido enviar a RomM.',
+  'error.savesNotSent_other': '{count} partidas guardadas no se han podido enviar a RomM.',
   'error.serverTimedOut': 'El servidor RomM en {url} no ha respondido a tiempo.',
   'error.notAuthorised': 'No autorizado — inicia sesión otra vez',
   'error.permissionDenied': 'Permiso denegado: {detail}',

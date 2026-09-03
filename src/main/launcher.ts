@@ -403,6 +403,7 @@ export class Launcher {
           // Reported as a sync warning, the same as a failed upload: the files
           // are still on disk, but nobody has been told they are unsent.
           pushError = (cause as Error).message
+          this.rememberUnsent(rom.id, since)
           log.error('launch', 'could not list what the session wrote', cause, { romId: rom.id })
         }
       } else {
@@ -413,10 +414,24 @@ export class Launcher {
           log.info('launch', 'session saves pushed', {
             romId: rom.id,
             saves: uploadedSaves,
-            states: uploadedStates
+            states: uploadedStates,
+            failed: pushed.failed
           })
+          /**
+           * Files the server would not take, which is not an exception.
+           *
+           * `uploadAssets` carries on past one that fails, so an unreachable
+           * server produces a push that *resolves* having sent nothing — and
+           * without this the one case the whole thing exists for, a session
+           * played out of range, would be recorded nowhere at all.
+           */
+          if (pushed.failed > 0) {
+            pushError = t('error.savesNotSent', { count: pushed.failed })
+            this.rememberUnsent(rom.id, since)
+          }
         } catch (cause) {
           pushError = (cause as Error).message
+          this.rememberUnsent(rom.id, since)
           log.error('launch', 'save push failed; the files are still on disk', cause, {
             romId: rom.id
           })
@@ -475,6 +490,24 @@ export class Launcher {
       // emulator exits: until then the session still owns the save files.
       this.current = null
     }
+  }
+
+  /**
+   * Note that this session's saves are still on this disk and not on RomM.
+   *
+   * Written on any failed push, not only one that names an unreachable server:
+   * the reason is guesswork from here, and the drain that reads this is the
+   * thing that can actually check. It takes the preview again when there is a
+   * server, sends what is safe, and clears the record the moment there is
+   * nothing left waiting — so a note written for the wrong reason costs one
+   * listing and then goes.
+   *
+   * Nothing is written when the automatic push is switched off, because there
+   * is then no push to fail: `SaveSync.push` returns before it asks anything.
+   */
+  private rememberUnsent(romId: number, since: number): void {
+    this.store.noteUnsentSaves({ romId, since })
+    log.info('saves', 'this session’s saves are waiting for a server', { romId, since })
   }
 
   /**

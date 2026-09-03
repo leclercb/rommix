@@ -692,6 +692,9 @@ const bridge: RomMixBridge = {
     onAdopted: noSubscription
   },
   saves: {
+    waiting: () => later([]),
+    onWaiting: noSubscription,
+    onSent: noSubscription,
     list: (romId: number) => later(romId === CAVE_STORY ? SAVES : []),
     pull: () => refuse(),
     push: () => refuse(),

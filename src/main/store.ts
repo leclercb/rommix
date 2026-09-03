@@ -12,7 +12,13 @@ import {
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import { DEFAULT_DATE_FORMAT } from '@shared/i18n'
-import type { InstalledRom, PendingDownload, ServerConfig, Settings } from '@shared/types'
+import type {
+  InstalledRom,
+  PendingDownload,
+  ServerConfig,
+  Settings,
+  UnsentSaves
+} from '@shared/types'
 import { log } from './log.ts'
 
 /**
@@ -30,6 +36,7 @@ import { log } from './log.ts'
  *                        it; `DownloadManager.adopt` reconciles it against the
  *                        files
  *   migrations.json      the one-off steps this folder has already been through
+ *   unsent_saves.json    games played away from the server, with saves still here
  */
 
 interface StoredCredentials {
@@ -145,6 +152,7 @@ export class Store {
   private readonly installedPath: string
   private readonly pendingPath: string
   private readonly migrationsPath: string
+  private readonly unsentPath: string
 
   private settingsCache: Settings
   private serverCache: ServerConfig | null
@@ -163,6 +171,7 @@ export class Store {
     this.installedPath = join(this.dir, 'downloaded_roms.json')
     this.pendingPath = join(this.dir, 'pending_downloads.json')
     this.migrationsPath = join(this.dir, 'migrations.json')
+    this.unsentPath = join(this.dir, 'unsent_saves.json')
 
     const raw = readJson<{ settings: Settings; server: ServerConfig | null }>(this.settingsPath, {
       settings: defaultSettings(),
@@ -421,6 +430,39 @@ export class Store {
   removePending(romId: number): void {
     const kept = this.pending.filter((item) => item.romId !== romId)
     writeJsonAtomic(this.pendingPath, { downloads: kept })
+  }
+
+  // -- saves this device owes the server ------------------------------------
+
+  /**
+   * Games played while RomM was unreachable, whose saves never went up.
+   *
+   * Read from disk on every call, like `pending` and for the same reason: the
+   * list is short, it is read when a session ends and when the server comes
+   * back, and what actually matters is the files on the disk it points at.
+   */
+  get unsentSaves(): UnsentSaves[] {
+    return readRecords<UnsentSaves>(this.unsentPath, 'games')
+  }
+
+  /**
+   * Note that a game's session had nowhere to send its saves.
+   *
+   * The earliest moment wins where there is already a record: two sessions
+   * played out of range are one span of files to send, and the later `since`
+   * would leave the first session's saves out of it.
+   */
+  noteUnsentSaves(entry: UnsentSaves): void {
+    const held = this.unsentSaves.find((row) => row.romId === entry.romId)
+    const kept = this.unsentSaves.filter((row) => row.romId !== entry.romId)
+    const since = held ? Math.min(held.since, entry.since) : entry.since
+    writeJsonAtomic(this.unsentPath, { games: [...kept, { romId: entry.romId, since }] })
+  }
+
+  /** Forget one — its saves went up, or the game was uninstalled. */
+  clearUnsentSaves(romId: number): void {
+    const kept = this.unsentSaves.filter((row) => row.romId !== romId)
+    writeJsonAtomic(this.unsentPath, { games: kept })
   }
 
   // -- one-off steps this folder has been through ---------------------------
