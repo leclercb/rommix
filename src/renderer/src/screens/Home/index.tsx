@@ -1,4 +1,5 @@
 import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { hasMorePages } from '@shared/types'
 import type { RommRom, RomQuery } from '@shared/types'
 import {
   ArtBackdrop,
@@ -39,7 +40,9 @@ interface Shelf {
  */
 function useShelf(query: RomQuery, offline: boolean | null): Shelf {
   const [items, setItems] = useState<RommRom[]>([])
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState<number | null>(0)
+  /** Whether the last page came back full. See `hasMorePages`. */
+  const [more, setMore] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Synchronous guard: `loaded` lands a render too late to stop the row's
@@ -109,6 +112,7 @@ function useShelf(query: RomQuery, offline: boolean | null): Shelf {
         })
         if (mine !== run.current) return
         setTotal(page.total)
+        setMore(hasMorePages(page))
         setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]))
       } catch (cause) {
         if (mine === run.current) setError((cause as Error).message)
@@ -125,10 +129,10 @@ function useShelf(query: RomQuery, offline: boolean | null): Shelf {
   }, [fetchPage])
 
   const loadMore = useCallback(() => {
-    if (items.length > 0 && items.length < total) void fetchPage(items.length)
-  }, [fetchPage, items.length, total])
+    if (items.length > 0 && more) void fetchPage(items.length)
+  }, [fetchPage, items.length, more])
 
-  return { items, total, loaded, error, loadMore }
+  return { items, total: total ?? items.length, loaded, error, loadMore }
 }
 
 /** How many of the games on disk the shelf shows before Downloads takes over. */

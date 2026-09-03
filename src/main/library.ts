@@ -5,7 +5,7 @@ import { basename, dirname, join } from 'node:path'
 import { chooseLaunchFile, isLaunchable, type GameFile } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
-import { SHARED_LIBRARY } from '@shared/types'
+import { hasMorePages, SHARED_LIBRARY } from '@shared/types'
 import type { EmulatorState, InstalledRom, LibrarySyncResult, RommRom } from '@shared/types'
 import {
   directorySize,
@@ -495,16 +495,21 @@ export class Library extends EventEmitter {
     const PAGE = 200
     let checked = 0
     let adopted = 0
-    let total = 0
+    let more = true
 
-    do {
+    while (more) {
       const page = await this.client.roms({ limit: PAGE, offset: checked })
-      total = page.total
       if (page.items.length === 0) break
       adopted += (await this.adopt(page.items)).length
       checked += page.items.length
-      onProgress?.(checked, total)
-    } while (checked < total)
+      // Decided by the page rather than by a count: RomM does not always send
+      // one — see `RommRomPage.total` — and a walk that trusted it would stop
+      // after the first two hundred games and report the library reconciled.
+      more = hasMorePages(page)
+      // What is known so far where the server counted nothing, which is honest
+      // about the one thing progress can say: this many, and more to come.
+      onProgress?.(checked, page.total ?? checked)
+    }
 
     if (removed > 0) this.emit('installed')
     return { checked, removed, adopted }

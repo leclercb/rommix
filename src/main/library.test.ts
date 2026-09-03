@@ -115,12 +115,16 @@ function fakeClient(
      * throws, leaving whatever landed before it in place.
      */
     corruptFile?: number
+    /** A server that answers `total: null`, as RomM 5.2.0 may. */
+    countless?: boolean
   } = {}
 ): {
   client: RommClient
   resumed: boolean[]
+  asked: { limit: number; offset: number }[]
 } {
   const resumed: boolean[] = []
+  const asked: { limit: number; offset: number }[] = []
   const client = {
     async supportsRange() {
       return options.ranges !== false
@@ -161,9 +165,19 @@ function fakeClient(
     async asset() {
       return new Response(null, { status: 404 })
     },
-    async roms() {
-      const items = Object.values(options.roms ?? {})
-      return { items, total: items.length, limit: 200, offset: 0 }
+    async roms(query: { limit?: number; offset?: number } = {}) {
+      const all = Object.values(options.roms ?? {})
+      const limit = query.limit ?? 200
+      const offset = query.offset ?? 0
+      asked.push({ limit, offset })
+      return {
+        items: all.slice(offset, offset + limit),
+        // Null where the test asks for a server that counted nothing — which
+        // is what RomM 5.2.0 may answer. See `RommRomPage.total`.
+        total: options.countless === true ? null : all.length,
+        limit,
+        offset
+      }
     },
     async downloadRom(
       _rom: RommRom,
@@ -188,7 +202,7 @@ function fakeClient(
       onProgress({ received: contents.length, total: contents.length })
     }
   } as unknown as RommClient
-  return { client, resumed }
+  return { client, resumed, asked }
 }
 
 /**
@@ -213,6 +227,7 @@ function manager(
     perFile?: boolean
     corruptFile?: number
     roms?: Record<number, RommRom>
+    countless?: boolean
   } = {}
 ): {
   downloads: DownloadManager
@@ -221,15 +236,16 @@ function manager(
   root: string
   client: RommClient
   resumed: boolean[]
+  asked: { limit: number; offset: number }[]
 } {
   const root = scratch()
   process.env.ROMMIX_HOME = root
   const store = new Store(join(root, 'config'))
   store.updateSettings({ romStorage: options.shared === false ? 'emulator' : 'rommix' })
-  const { client, resumed } = fakeClient(options)
+  const { client, resumed, asked } = fakeClient(options)
   const library = new Library(store, client, cache(client), () => options.emulator ?? null)
   const downloads = new DownloadManager(store, client, library)
-  return { downloads, library, store, root, client, resumed }
+  return { downloads, library, store, root, client, resumed, asked }
 }
 
 function entry(fields: Partial<InstalledRom>): InstalledRom {
@@ -794,5 +810,66 @@ describe('the file handed to an emulator for a loose install', () => {
 
     // The descriptor, and one of this game's own files.
     assert.equal(target, join(dir, 'disc.cue'))
+  })
+})
+
+describe('walking the whole library', () => {
+  /** More games than one page holds, so the pass has to ask for a second. */
+  function shelf(count: number): Record<number, RommRom> {
+    const all: Record<number, RommRom> = {}
+    for (let at = 1; at <= count; at += 1) {
+      all[at] = rom({ id: at, name: `Game ${at}`, fs_name: `game-${at}.md` })
+    }
+    return all
+  }
+
+  test('every page is asked for, not just the first', async () => {
+    const { library, asked } = manager({ roms: shelf(250) })
+
+    const result = await library.sync()
+
+    assert.equal(result.checked, 250)
+    assert.deepEqual(
+      asked.map((one) => one.offset),
+      [0, 200]
+    )
+  })
+
+  test('a server that counts nothing is still walked to the end', async () => {
+    // RomM 5.2.0 may answer `total: null`. Counting up to it stops the pass
+    // after one page — `checked < null` is false — and the games never reached
+    // keep whatever the index last believed about them: a Play button on a
+    // game somebody deleted, and a download offered for one already on disk.
+    const { library, asked } = manager({ roms: shelf(250), countless: true })
+
+    const result = await library.sync()
+
+    assert.equal(result.checked, 250)
+    assert.deepEqual(
+      asked.map((one) => one.offset),
+      [0, 200]
+    )
+  })
+
+  test('a page that comes back short is the end of it', async () => {
+    // The stop condition, without which a library whose size is a multiple of
+    // the page would be asked for one page more than it has.
+    const { library, asked } = manager({ roms: shelf(20), countless: true })
+
+    await library.sync()
+
+    assert.equal(asked.length, 1)
+  })
+
+  test('progress reports what has been checked when nothing counted it', async () => {
+    const { library } = manager({ roms: shelf(250), countless: true })
+    const seen: { checked: number; total: number }[] = []
+
+    await library.sync((checked, total) => seen.push({ checked, total }))
+
+    // Never a total of null dressed up as a number, and never less than what
+    // has already been checked: the bar can only say "this many, so far".
+    assert.ok(seen.length > 0)
+    assert.ok(seen.every((one) => one.total >= one.checked))
   })
 })

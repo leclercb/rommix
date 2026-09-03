@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import { resolveSystem } from '@config/systems'
+import { hasMorePages } from '@shared/types'
 import type { InstalledRom, RommPlatform, RommRom } from '@shared/types'
 import {
   GameCard,
@@ -60,7 +61,9 @@ export function LibraryScreen(): JSX.Element {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [roms, setRoms] = useState<RommRom[]>([])
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState<number | null>(0)
+  /** Whether the last page came back full. See `hasMorePages`. */
+  const [more, setMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const searchRef = useRef<HTMLDivElement | null>(null)
@@ -131,6 +134,7 @@ export function LibraryScreen(): JSX.Element {
         })
         if (mine !== run.current) return
         setTotal(page.total)
+        setMore(hasMorePages(page))
         setRoms((current) => (offset === 0 ? page.items : [...current, ...page.items]))
       } catch (cause) {
         if (mine === run.current) setError((cause as Error).message)
@@ -157,7 +161,7 @@ export function LibraryScreen(): JSX.Element {
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel || scope === 'downloaded') return
-    if (roms.length === 0 || roms.length >= total) return
+    if (roms.length === 0 || !more) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -167,7 +171,7 @@ export function LibraryScreen(): JSX.Element {
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [load, roms.length, total, scope])
+  }, [load, roms.length, more, scope])
 
   // Y jumps to the search box, as the hint bar advertises.
   useAction('search', () => {
@@ -208,7 +212,9 @@ export function LibraryScreen(): JSX.Element {
     () => (scope === 'downloaded' ? downloaded.map(tileFromInstalled) : roms.map(tileFromRom)),
     [scope, downloaded, roms]
   )
-  const count = scope === 'downloaded' ? tiles.length : total
+  // What the server counted, or what is actually here when it counted
+  // nothing — which is the whole of it once there are no more pages.
+  const count = scope === 'downloaded' ? tiles.length : (total ?? roms.length)
   // Only the server scope has anything to wait for — and until the connection
   // has answered, every scope does: which one this screen is showing is not
   // settled yet.
@@ -312,9 +318,9 @@ export function LibraryScreen(): JSX.Element {
         </div>
       ) : null}
 
-      {!busy && scope === 'all' && roms.length > 0 && roms.length >= total ? (
+      {!busy && scope === 'all' && roms.length > 0 && !more ? (
         <div className="empty" style={{ padding: '28px 0' }}>
-          {t('library.thatIsAll', { count: total })}
+          {t('library.thatIsAll', { count })}
         </div>
       ) : null}
 

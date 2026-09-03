@@ -1,4 +1,5 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
+import { hasMorePages } from '@shared/types'
 import type { RommRom } from '@shared/types'
 import { GameCard, Hints, Spinner, tileFromRom } from '../../components'
 import { useApp, useI18n } from '../../state'
@@ -31,7 +32,9 @@ export function CollectionScreen({
   const { installedIds, navigate } = useApp()
 
   const [roms, setRoms] = useState<RommRom[]>([])
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState<number | null>(0)
+  /** Whether the last page came back full. See `hasMorePages`. */
+  const [more, setMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
@@ -55,6 +58,7 @@ export function CollectionScreen({
           offset
         })
         setTotal(page.total)
+        setMore(hasMorePages(page))
         setRoms((current) => (offset === 0 ? page.items : [...current, ...page.items]))
       } catch (cause) {
         setError((cause as Error).message)
@@ -73,7 +77,7 @@ export function CollectionScreen({
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel) return
-    if (roms.length === 0 || roms.length >= total) return
+    if (roms.length === 0 || !more) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -83,12 +87,12 @@ export function CollectionScreen({
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [load, roms.length, total])
+  }, [load, roms.length, more])
 
   return (
     <div className="content">
       <h1 className="page-title">{title}</h1>
-      <p className="page-subtitle">{t('library.count', { count: total })}</p>
+      <p className="page-subtitle">{t('library.count', { count: total ?? roms.length })}</p>
 
       {error ? <div className="notice notice--error">{error}</div> : null}
 

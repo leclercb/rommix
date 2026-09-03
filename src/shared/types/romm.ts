@@ -192,9 +192,33 @@ export interface RommRom {
 /** GET /api/roms envelope (`CustomLimitOffsetPage_SimpleRomSchema_`). */
 export interface RommRomPage {
   items: RommRom[]
-  total: number
+  /**
+   * How many the query matches, where the server counted them.
+   *
+   * Null since RomM 5.2.0, which stopped promising a count. Nothing may decide
+   * whether to ask for another page by counting up to this — see `hasMorePages`
+   * — because `checked < null` is false, and a pass that walks the library
+   * would stop after its first page and call the job done.
+   */
+  total: number | null
   limit: number
   offset: number
+}
+
+/**
+ * Is there another page after this one?
+ *
+ * A page that came back full is a page the server had to stop filling, so
+ * there is more behind it; a short one is the end. That holds whatever `total`
+ * says, and whether it says anything at all — which is why it is asked this way
+ * rather than by comparing what has been fetched against a count.
+ *
+ * The limit is the server's own echo of what was asked for, so a server that
+ * caps a page lower than the caller wanted still ends the walk in the right
+ * place.
+ */
+export function hasMorePages(page: RommRomPage): boolean {
+  return page.items.length >= page.limit
 }
 
 /**
