@@ -17,7 +17,20 @@ export default {
     // The tag is public the moment it is pushed, and a red release build is not
     // something a fix can take back. CI runs these too; this is just the cheaper
     // place to find out.
-    'before:init': ['npm run format:check', 'npm run lint', 'npm run typecheck', 'npm test'],
+    //
+    // `test:app` last, and here rather than in the pre-commit hook: it builds,
+    // drives a real window and takes about half a minute, which is a hook people
+    // pass `--no-verify` to. A release is the one moment that is worth paying,
+    // because it is the last one where the answer can still change anything. It
+    // needs a display — on a headless machine, run the release from under
+    // `xvfb-run`, the same as the workflow does.
+    'before:init': [
+      'npm run format:check',
+      'npm run lint',
+      'npm run typecheck',
+      'npm test',
+      'npm run test:app'
+    ],
 
     // Runs after package.json is bumped and before the release commit, so the
     // changelog entry lands in that same commit.

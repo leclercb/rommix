@@ -65,6 +65,17 @@ a second suite competing for the machine changes how long a list takes to draw �
 which showed up as the focus scan giving up on a library that was still filling.
 A GUI under test is not a thing to parallelise.
 
+Where it gives up it leaves a screenshot behind, named after what it was waiting
+for and pointed at from the failure message — see `capture` in
+[test/app/driver.ts](test/app/driver.ts). A failure here is otherwise a sentence
+about what did not happen with nothing to say what was on the screen instead,
+which on a runner nobody watched is the difference between a diagnosis and
+another run.
+
+Not in the pre-commit hook, which is budgeted in seconds — but `npm run release`
+runs it, because a tag is public the moment it is pushed. Releasing from a
+headless machine means running that under `xvfb-run` too.
+
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
 at: a module worth adding is worth testing, and the report says which lines of
@@ -192,11 +203,12 @@ way the rest of the codebase is.
 (`../components`); `input/` is the focus engine, split into the geometry, the
 scrolling and the two input sources it is built from.
 
-Four attributes exist for `npm run test:app` and nothing else: `data-screen` on
-the shell, `data-route` on a menu item, `data-rom` on a game card, and
-`data-action` on a `FocusButton` that a scenario presses. They are there because every other handle on the
-interface changes — the text with the language, the position with the next
-button added beside it. Add one when a test needs it, not before.
+Five attributes exist for `npm run test:app` and nothing else: `data-screen` on
+the shell, `data-route` on a menu item, `data-rom` on a game card,
+`data-emulator` on a row of the emulator list, and `data-action` on a
+`FocusButton` that a scenario presses. They are there because every other handle
+on the interface changes — the text with the language, the position with the
+next button added beside it. Add one when a test needs it, not before.
 
 Every screen is a folder under `screens/`, named after the screen and holding
 `index.tsx` — the screen itself — with its own parts beside it: `Game/` keeps
