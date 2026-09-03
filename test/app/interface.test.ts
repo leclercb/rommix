@@ -776,5 +776,58 @@ describe('putting a game on a shelf', () => {
       false,
       `the shelf still holds ${JSON.stringify(shelf.rom_ids)}`
     )
+
+    // Shut behind itself. This dialog stays open through several answers —
+    // unlike the ones that close on the first — and an `Overlay` binds nothing
+    // to Back, so the button is the way out and a scenario that walked away
+    // would leave the next one escaping through it.
+    await app.choose('[data-action="close-collections"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
+  })
+})
+
+describe('saying how far through a game you are', () => {
+  test('the dialog opens on the answer already given', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-action="status"]')
+
+    // Nothing has been said about this game, so the row the dialog opens on is
+    // the one that means nothing has — which is what makes the answer below a
+    // change rather than a repeat.
+    await app.waitFor(`document.querySelector('.overlay [data-status]')`, 'the answers')
+    await app.waitFor(
+      `document.querySelector('.overlay [data-status="none"]')?.dataset.focused === 'true'`,
+      'the highlight to open on the answer already given'
+    )
+  })
+
+  test('choosing one tells RomM, which keeps it', async () => {
+    await app.choose('.overlay [data-status="finished"]')
+
+    // The dialog closes on its own: a game has exactly one answer here, so
+    // there is nothing further to say once it is given.
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
+
+    // Kept on the server rather than in RomMix, which is the whole point of it
+    // — a game marked finished from the sofa is finished in a browser too. The
+    // fake merges the patch rather than replacing the object, so this also says
+    // nothing else about the game was cleared on the way.
+    const rom = server.roms.find((one) => one.id === 2)
+    assert.equal(rom?.rom_user.status, 'finished')
+    assert.equal(rom?.rom_user.rom_id, 2, 'the rest of what RomM holds should survive the patch')
+  })
+
+  test('and the dialog opens on it the next time', async () => {
+    await app.choose('[data-action="status"]')
+    await app.waitFor(
+      `document.querySelector('.overlay [data-status="finished"]')?.dataset.focused === 'true'`,
+      'the answer given last time'
+    )
+    // By its own button. An `Overlay` binds nothing to Back, so in every dialog
+    // but the handful that bind it themselves the way out is a button.
+    await app.choose('[data-action="close-status"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close again')
   })
 })

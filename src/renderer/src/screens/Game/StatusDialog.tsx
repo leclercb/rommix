@@ -92,7 +92,7 @@ export function StatusDialog({
       </ul>
 
       <div className="btn-row">
-        <FocusButton icon="back" onSelect={onClose}>
+        <FocusButton icon="back" action="close-status" onSelect={onClose}>
           {t('action.close')}
         </FocusButton>
       </div>
@@ -122,7 +122,12 @@ function StatusRow({
   })
 
   return (
-    <li ref={ref as Ref<HTMLLIElement>} aria-current={chosen} {...props}>
+    <li
+      ref={ref as Ref<HTMLLIElement>}
+      data-status={status ?? 'none'}
+      aria-current={chosen}
+      {...props}
+    >
       {/* The row is the tag it is about to put on the game, so the colour is
           learnt by choosing rather than by being explained. */}
       <StatusTag status={status} />

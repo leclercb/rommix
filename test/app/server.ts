@@ -11,6 +11,7 @@ import type {
   RommPlatform,
   RommRom,
   RommRomPage,
+  RommRomUser,
   RommSave,
   RommState,
   RommUser,
@@ -800,7 +801,22 @@ export async function startFakeRomm(): Promise<FakeRomm> {
 
       // Written to, and answered without keeping anything: what these are here
       // for is that RomMix sends them at all, and with a body RomM would take.
-      if (/^\/api\/roms\/\d+\/props$/.test(url.pathname)) return json({})
+      /**
+       * What the player has said about a game, kept rather than acknowledged.
+       *
+       * A patch in all but name: RomMix sends the one property it is changing
+       * and expects the rest left alone, so a fake that replaced the object
+       * would let a screen resetting a rating while marking a game finished
+       * pass unnoticed.
+       */
+      const props = /^\/api\/roms\/(\d+)\/props$/.exec(url.pathname)
+      if (props) {
+        const found = roms.find((entry) => entry.id === Number(props[1]))
+        if (!found) return json({ detail: 'No such ROM' }, 404)
+        const patch = JSON.parse(Buffer.concat(chunks).toString() || '{}') as Partial<RommRomUser>
+        found.rom_user = { ...found.rom_user, ...patch }
+        return json(found.rom_user)
+      }
       if (url.pathname === '/api/play-sessions') return json({})
 
       return json({ detail: `the fake RomM has no ${url.pathname}` }, 404)

@@ -97,7 +97,7 @@ export function CollectionsDialog({
       ) : null}
 
       <div className="btn-row">
-        <FocusButton icon="keep" onSelect={onClose} autoFocus>
+        <FocusButton icon="keep" action="close-collections" onSelect={onClose} autoFocus>
           {t('action.close')}
         </FocusButton>
       </div>

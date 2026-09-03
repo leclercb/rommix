@@ -330,6 +330,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             button would have said it a second time. */}
         <FocusButton
           icon="note"
+          action="status"
           actionLabel={t('status.button')}
           onSelect={() => setChoosingStatus(true)}
           disabled={offline === true}
