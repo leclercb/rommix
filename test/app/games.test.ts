@@ -1019,14 +1019,38 @@ describe('installing the BIOS a platform needs', () => {
     await bios?.stop()
   })
 
-  test('what the server holds lands where the emulator reads firmware from', async () => {
+  test('one file is fetched where one file is what was asked for', async () => {
     await bios.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
     await bios.goTo('bios')
     await bios.waitFor(`document.querySelector('[data-screen="bios"]')`, 'the BIOS screen')
 
-    // Enabled only once the screen has worked out there is something to fetch,
-    // which is a request per platform — so the button is waited for rather than
-    // pressed the moment it is drawn.
+    // Drawn only once the screen has worked out what each platform needs and
+    // what the server holds, which is a request per platform.
+    await bios.waitFor(
+      `document.querySelector('[data-bios="bios_CD_U.bin"] [data-action="install-bios"]')`,
+      'the row for one file'
+    )
+    await bios.choose('[data-bios="bios_CD_U.bin"] [data-action="install-bios"]')
+
+    await bios.waitFor(
+      `document.querySelector('[data-bios="bios_CD_U.bin"] .status')?.dataset.state === 'ok'`,
+      'the row to say it is in place'
+    )
+    assert.equal(existsSync(join(systemDir, 'bios_CD_U.bin')), true)
+
+    // And nothing else came with it. A row's own button is about that row; one
+    // that quietly fetched the platform's other files would be the same press
+    // as the button below it.
+    assert.equal(
+      existsSync(join(systemDir, 'bios_CD_E.bin')),
+      false,
+      'installing one file should not have installed the rest'
+    )
+  })
+
+  test('what the server holds lands where the emulator reads firmware from', async () => {
+    // Enabled only while something is still outstanding, which after the file
+    // above is the rest of them.
     await bios.waitFor(
       `document.querySelector('[data-action="install-all"]')?.dataset.disabled === 'false'`,
       'something to install'
@@ -1050,6 +1074,26 @@ describe('installing the BIOS a platform needs', () => {
     assert.ok(
       server.asked.some((one) => one.path.startsWith('/api/firmware/70/content/')),
       'it should have fetched the firmware itself'
+    )
+  })
+
+  test('and checking again reads the disk rather than what it said last time', async () => {
+    // Taken away the way a file manager takes it: nothing tells RomMix, and
+    // the screen goes on saying the file is in place because that is what it
+    // found when it was drawn.
+    rmSync(join(systemDir, 'bios_CD_U.bin'))
+    assert.equal(
+      await bios.read<string | undefined>(
+        `document.querySelector('[data-bios="bios_CD_U.bin"] .status')?.dataset.state`
+      ),
+      'ok',
+      'the screen should still be showing what it found before'
+    )
+
+    await bios.choose('[data-action="recheck-bios"]')
+    await bios.waitFor(
+      `document.querySelector('[data-bios="bios_CD_U.bin"] .status')?.dataset.state === 'warn'`,
+      'the row to notice the file has gone'
     )
   })
 })

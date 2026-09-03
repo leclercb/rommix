@@ -1122,4 +1122,21 @@ describe('the folder RomMix keeps everything in', () => {
       'the move to be off'
     )
   })
+
+  test('and the pre-flight check can be run again, and says what it found', async () => {
+    await app.waitFor(`document.querySelector('[data-action="recheck-system"]')`, 'the check')
+
+    // Almost every failure in RomMix is something about the machine rather
+    // than about RomMix, and this is the button that goes and looks again
+    // after the machine has been changed. It used to redraw the same list
+    // silently, which on a machine where nothing had changed was
+    // indistinguishable from a button that does nothing — so what is waited
+    // for here is it saying so.
+    await app.choose('[data-action="recheck-system"]')
+    await app.waitFor(`document.querySelector('.toast')`, 'what the check found')
+    await app.waitFor(
+      `document.querySelector('[data-action="recheck-system"]')?.dataset.disabled === 'false'`,
+      'the button to come back'
+    )
+  })
 })

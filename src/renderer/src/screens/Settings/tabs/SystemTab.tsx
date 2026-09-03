@@ -157,7 +157,12 @@ export function SystemTab({
           )}
 
           <div className="btn-row">
-            <FocusButton icon="refresh" disabled={rechecking} onSelect={() => void recheck()}>
+            <FocusButton
+              icon="refresh"
+              action="recheck-system"
+              disabled={rechecking}
+              onSelect={() => void recheck()}
+            >
               {rechecking ? t('action.checking') : t('system.rerunCheck')}
             </FocusButton>
           </div>

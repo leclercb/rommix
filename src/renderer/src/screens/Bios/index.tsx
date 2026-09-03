@@ -199,6 +199,7 @@ export function BiosScreen(): JSX.Element {
         </FocusButton>
         <FocusButton
           icon="refresh"
+          action="recheck-bios"
           onSelect={() => void recheck()}
           disabled={busy !== null || rechecking}
           autoFocus={offline === true}
@@ -342,7 +343,7 @@ function PlatformBios({
       ) : null}
 
       {platform.items.map((item) => (
-        <div className="bios__item" key={item.fileName}>
+        <div className="bios__item" data-bios={item.fileName} key={item.fileName}>
           <div className="bios__body">
             <div className="bios__name">
               {item.fileName}
@@ -385,6 +386,7 @@ function PlatformBios({
             ) : (
               <FocusButton
                 icon="install"
+                action="install-bios"
                 variant="ghost"
                 disabled={busy !== null || platform.biosDir === null || offline === true}
                 onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
