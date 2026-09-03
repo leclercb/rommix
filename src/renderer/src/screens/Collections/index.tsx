@@ -199,7 +199,12 @@ function CollectionCard({
   const covers = chosen ? [chosen] : collection.path_covers_small
 
   return (
-    <button ref={ref as Ref<HTMLButtonElement>} className="card" {...props}>
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      className="card"
+      data-collection={collection.id}
+      {...props}
+    >
       <CoverMosaic paths={covers} name={collection.name} />
       <div className="card__title">{collection.name}</div>
       <div className="card__meta">

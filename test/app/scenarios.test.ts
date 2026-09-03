@@ -615,6 +615,66 @@ describe('the collections screen', () => {
       'a game that is not on the shelf should not be drawn on it'
     )
   })
+
+  test('the ones RomM derives are behind a lid, and cost nothing while it is shut', async () => {
+    await app.goTo('collections')
+    await app.waitFor(`document.querySelector('.group__header')`, 'the shelves to fill')
+
+    // Two groups: the ones somebody made, open, and the ones RomM worked out,
+    // closed. `data-open` rather than which comes second — the order is a
+    // layout decision and this is about the lid.
+    await app.waitFor(
+      `document.querySelectorAll('.group__header[data-open="false"]').length === 1`,
+      'the derived shelves to be closed'
+    )
+
+    // Not merely hidden. RomM derives one per genre, per franchise, per
+    // company, which on a real library is dozens — a lid that still drew them
+    // all would be a lid in name only.
+    const drawn = await app.read<string[]>(
+      `[...document.querySelectorAll('.card__title')].map((one) => one.textContent)`
+    )
+    assert.equal(
+      drawn.some((name) => name === server.virtualCollections[0].name),
+      false,
+      `a closed group should have drawn no tiles, but the page has ${JSON.stringify(drawn)}`
+    )
+  })
+
+  test('opening it draws them, and leaves the empty one out', async () => {
+    await app.choose('.group__header[data-open="false"]')
+    await app.waitFor(
+      `[...document.querySelectorAll('.card__title')].some((one) => one.textContent === ${JSON.stringify(server.virtualCollections[0].name)})`,
+      'the derived shelves to be drawn'
+    )
+
+    // A shelf with nothing on it is one RomM keeps and this screen drops:
+    // opening it would be a page saying it is empty.
+    const drawn = await app.read<string[]>(
+      `[...document.querySelectorAll('.card__title')].map((one) => one.textContent)`
+    )
+    const bare = server.virtualCollections.find((one) => one.rom_count === 0)
+    assert.equal(
+      drawn.includes(bare?.name ?? ''),
+      false,
+      `${JSON.stringify(bare?.name)} holds nothing and should not be offered`
+    )
+  })
+
+  test('and a derived one is asked for by the name only it goes under', async () => {
+    const derived = server.virtualCollections[0]
+    await app.choose(`[data-collection="${derived.id}"]`)
+    await app.waitFor(`document.querySelector('[data-rom]')`, 'the games on the derived shelf')
+
+    // The id is a string and the parameter is not the one a collection somebody
+    // made uses. Sending `collection_id` here would answer with somebody's
+    // shelf number 0 or with nothing, and either reads as an empty genre rather
+    // than as a request built wrong.
+    const asked = server.asked.filter((one) =>
+      one.path.includes(`virtual_collection_id=${encodeURIComponent(derived.id)}`)
+    )
+    assert.ok(asked.length > 0, `it should have asked for ${derived.id} as a virtual collection`)
+  })
 })
 
 describe('the settings screen', () => {

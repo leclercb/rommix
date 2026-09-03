@@ -68,6 +68,8 @@ export interface FakeRomm {
   platforms: RommPlatform[]
   /** The shelves it serves, for a test that wants to assert against them. */
   collections: RommCollection[]
+  /** The ones RomM derives from metadata, likewise. */
+  virtualCollections: RommVirtualCollection[]
   /** The RomM version it reports, which is what a client shows as the server's. */
   version: string
   close: () => Promise<void>
@@ -377,6 +379,48 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     }
   ]
 
+  /**
+   * The shelves RomM works out for itself, which are a different kind of thing.
+   *
+   * Two of them, and one deliberately empty: a collection with nothing on it is
+   * one RomM keeps and the screen drops, so a list where every entry is stocked
+   * cannot tell a working filter from a missing one.
+   *
+   * The id is a string here and a number on a collection somebody made, and it
+   * goes to `/api/roms` under a different name — which is the whole reason the
+   * two are separate types rather than one with a flag.
+   */
+  const virtualCollections: RommVirtualCollection[] = [
+    {
+      id: 'genre/platform',
+      type: 'genre',
+      name: 'Platform',
+      description: 'Derived from what RomM knows about them.',
+      rom_ids: [1, 3],
+      rom_count: 2,
+      path_cover_small: null,
+      path_cover_large: null,
+      path_covers_small: [],
+      path_covers_large: [],
+      is_virtual: true,
+      is_favorite: false
+    },
+    {
+      id: 'company/nobody',
+      type: 'company',
+      name: 'Nobody',
+      description: 'Derived, and holding nothing.',
+      rom_ids: [],
+      rom_count: 0,
+      path_cover_small: null,
+      path_cover_large: null,
+      path_covers_small: [],
+      path_covers_large: [],
+      is_virtual: true,
+      is_favorite: false
+    }
+  ]
+
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -411,9 +455,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       if (url.pathname === '/api/platforms')
         return json([megadrive, gameboy, nintendoSwitch, segacd])
       if (url.pathname === '/api/collections') return json(collections)
-      if (url.pathname === '/api/collections/virtual') {
-        return json([] as RommVirtualCollection[])
-      }
+      if (url.pathname === '/api/collections/virtual') return json(virtualCollections)
       if (url.pathname === '/api/devices') return json([] as RommDevice[])
       if (url.pathname === '/api/firmware') {
         const wanted = url.searchParams.get('platform_id')
@@ -475,9 +517,12 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const offset = Number(url.searchParams.get('offset') ?? 0)
         const wanted = url.searchParams.getAll('platform_ids').map(Number)
         const shelf = url.searchParams.get('collection_id')
+        const derived = url.searchParams.get('virtual_collection_id')
         const onShelf = shelf
           ? (collections.find((one) => one.id === Number(shelf))?.rom_ids ?? [])
-          : null
+          : derived
+            ? (virtualCollections.find((one) => one.id === derived)?.rom_ids ?? [])
+            : null
         const matching = onShelf
           ? roms.filter((one) => onShelf.includes(one.id))
           : wanted.length
@@ -563,6 +608,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     version: VERSION,
     roms,
     collections,
+    virtualCollections,
     close: () =>
       new Promise<void>((resolve, reject) =>
         server.close((cause) => (cause ? reject(cause) : resolve()))
