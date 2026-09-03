@@ -640,3 +640,49 @@ describe('narrowing the library down', () => {
     await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the server library again')
   })
 })
+
+describe('searching the library', () => {
+  test('what is typed reaches the server as a search, once', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the whole library')
+
+    // Y is how anybody gets here, and the caret is what decides where typing
+    // lands — see `type` in the driver.
+    await app.press('Search')
+    await app.waitFor(`document.activeElement?.tagName === 'INPUT'`, 'the caret in the box')
+
+    const askedSoFar = server.asked.length
+    // A letter at a time, because the thing being checked is what happens
+    // between them: the box waits for a pause before asking, and without that a
+    // four-letter word is four queries against a library of thousands.
+    for (const letter of 'Tobu') await app.type(letter)
+
+    await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the game that matches')
+    await app.waitFor(`!document.querySelector('[data-rom="1"]')`, 'the ones that do not')
+
+    const sent = server.asked
+      .slice(askedSoFar)
+      .filter((one) => one.path.includes('search_term=Tobu'))
+    assert.equal(sent.length, 1, `four letters should be one query, not ${sent.length}`)
+
+    // Out of the field before anything else is driven. While it holds the caret
+    // the keyboard handler stands down, so a scenario that walked away leaving
+    // it there would take the menu with it for everything after.
+    await app.press('Escape')
+    await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
+  })
+
+  test('and leaving the screen forgets it', async () => {
+    // The search is a way of looking at the library rather than a setting, so
+    // coming back to it should be the whole library and not the last thing
+    // somebody looked for.
+    await app.goTo('home')
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the whole library again')
+    assert.equal(
+      await app.read<string>(`document.querySelector('.field__input')?.value`),
+      '',
+      'the box should have been emptied'
+    )
+  })
+})

@@ -523,11 +523,18 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           : derived
             ? (virtualCollections.find((one) => one.id === derived)?.rom_ids ?? [])
             : null
-        const matching = onShelf
+        const narrowed = onShelf
           ? roms.filter((one) => onShelf.includes(one.id))
           : wanted.length
             ? roms.filter((one) => wanted.includes(one.platform_id))
             : roms
+        // Substring and case-insensitive, which is what RomM does with it and
+        // what a screen typing a word at a time depends on. A ROM RomM has not
+        // named matches nothing, rather than matching everything.
+        const term = url.searchParams.get('search_term')?.toLowerCase()
+        const matching = term
+          ? narrowed.filter((one) => (one.name ?? '').toLowerCase().includes(term))
+          : narrowed
         const page: RommRomPage = {
           items: matching.slice(offset, offset + limit),
           total: matching.length,

@@ -91,6 +91,13 @@ change that breaks one and not the other would otherwise go out. The pad is what
 RomMix is designed around, so a scenario reaches a button by walking to it
 unless another input is the subject.
 
+Typing goes through `Input.insertText` rather than a key per letter: `press`
+sends `rawKeyDown`, which carries no character on purpose, and a controlled
+React field listens for an `input` event. The caret decides where it lands, so
+a scenario reaches the field first — and leaves it afterwards, because while a
+field holds the caret the keyboard handler stands down and the menu is
+unreachable.
+
 The controller is an object rather than a device — `navigator.getGamepads()` is
 polled and returns plain data, so `plugInPad` supplies some. That is what
 reaches the two things no key can describe: a held direction that repeats, and

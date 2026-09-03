@@ -141,6 +141,8 @@ export interface App {
   wheel: (selector: string, by: number) => Promise<void>
   /** Plug a controller in, which is the input RomMix is really built for. */
   plugInPad: (mapping?: PadMapping) => Promise<Pad>
+  /** Type into whatever holds the caret. Only a text field ever does. */
+  type: (text: string) => Promise<void>
   /** Go to one of the sections in the navigation bar. */
   goTo: (route: string) => Promise<void>
   /** The label of whatever is highlighted, for a failure worth reading. */
@@ -641,6 +643,31 @@ export async function startApp(options: StartOptions): Promise<App> {
     }
   }
 
+  /**
+   * Put text into the field that has the caret.
+   *
+   * `Input.insertText` rather than a key per letter, which would arrive as
+   * `rawKeyDown` and carry no character — the same distinction `press` is built
+   * around, from the other side. What the page sees is an ordinary `input`
+   * event, which is what a controlled React field listens for.
+   *
+   * There is exactly one text field in RomMix that a scenario reaches, and
+   * reaching it is the caller's business: the caret is what decides where this
+   * lands, and typing into a page that has none is a test quietly asserting
+   * nothing.
+   */
+  const type = async (text: string): Promise<void> => {
+    const holder = await read<string>(`document.activeElement?.tagName ?? ''`)
+    if (holder !== 'INPUT' && holder !== 'TEXTAREA') {
+      throw new Error(
+        `nothing has the caret, so ${JSON.stringify(text)} would go nowhere` +
+          (await capture(`typing ${text}`))
+      )
+    }
+    await session.send('Input.insertText', { text })
+    await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
+  }
+
   /** What the highlight is on, read the way `useFocusable` marks it. */
   const focused = (): Promise<string> =>
     read<string>(
@@ -865,6 +892,7 @@ export async function startApp(options: StartOptions): Promise<App> {
     click,
     wheel,
     plugInPad,
+    type,
     goTo,
     focused,
     home,
