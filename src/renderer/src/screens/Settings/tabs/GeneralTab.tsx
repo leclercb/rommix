@@ -102,7 +102,12 @@ export function GeneralTab(): JSX.Element {
         <dd>{status?.serverVersion ?? t('value.unknown')}</dd>
       </dl>
       <div className="btn-row">
-        <FocusButton icon="disconnect" variant="danger" onSelect={() => void disconnect()}>
+        <FocusButton
+          icon="disconnect"
+          action="disconnect"
+          variant="danger"
+          onSelect={() => void disconnect()}
+        >
           {t('settings.disconnect')}
         </FocusButton>
       </div>

@@ -108,3 +108,55 @@ describe('signing in for the first time', () => {
     assert.equal(library[library.length - 1].authorization, `Bearer ${server.token}`)
   })
 })
+
+/**
+ * And out again, which is the only way back to the screen above.
+ *
+ * Here rather than anywhere else for the same reason as the rest of this file:
+ * signing out takes the server away from the application it is pressed in, and
+ * every other suite is a session that has to keep one. This application has
+ * already done what it was started for.
+ */
+describe('signing out again', () => {
+  test('it takes the credentials away and goes back to the sign-in screen', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'the settings screen')
+
+    // Named on the page before it is pressed: this is the one button whose
+    // consequence is the whole session, and it reads as safe next to Language.
+    await app.waitFor(
+      `document.body.textContent.includes(${JSON.stringify(server.baseUrl)})`,
+      'the server it is about to disconnect from'
+    )
+
+    await app.choose('[data-action="disconnect"]')
+
+    // Back at the beginning, not merely one screen behind: every screen in the
+    // stack was a view of a library there is no longer a server for.
+    await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the connect screen')
+    assert.equal(
+      await app.read<boolean>(`(await window.rommix.server.status()).configured`),
+      false,
+      'the credentials should be gone rather than merely unused'
+    )
+  })
+
+  test('and it stops asking the server anything', async () => {
+    // Signed out is not the same as offline: the point of this state is that
+    // there is nothing to ask with, so a screen still polling would be one
+    // failing request a second behind a page that says to sign in.
+    const askedSoFar = server.asked.length
+    await app.waitFor(`document.querySelector('.field__input')`, 'the address field')
+
+    const until = Date.now() + 3000
+    while (Date.now() < until) await new Promise((done) => setTimeout(done, 250))
+
+    // The heartbeat is the exception: the screen checks an address as it is
+    // typed, and this one has nothing typed into it yet.
+    assert.deepEqual(
+      server.asked.slice(askedSoFar).map((one) => one.path),
+      [],
+      'nothing should be asked of a server this device has signed out of'
+    )
+  })
+})
