@@ -122,7 +122,7 @@ function CollectionRow({
   })
 
   return (
-    <li ref={ref as Ref<HTMLLIElement>} {...props}>
+    <li ref={ref as Ref<HTMLLIElement>} data-collection={collection.id} {...props}>
       <span className="status" data-state={member ? 'ok' : 'off'}>
         <Icon name={member ? 'confirm' : 'add'} size={13} />
         {member ? t('collections.on') : t('collections.off')}

@@ -719,3 +719,62 @@ describe('the artwork a library is mostly made of', () => {
     )
   })
 })
+
+describe('putting a game on a shelf', () => {
+  test('the dialog says which shelves this game is already on', async () => {
+    // Rom 3 is on none of them — the fake's shelf holds 1 and 2 — so the row
+    // starts off, which is the state the toggle below has somewhere to go from.
+    await app.goTo('library')
+    await app.choose('[data-rom="3"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-action="collections"]')
+
+    const shelf = server.collections[0]
+    await app.waitFor(
+      `document.querySelector('.overlay [data-collection="${shelf.id}"]')`,
+      'the shelves to be listed'
+    )
+    assert.equal(
+      await app.read<string>(
+        `document.querySelector('.overlay [data-collection="${shelf.id}"] .status')?.dataset.state`
+      ),
+      'off',
+      'a game that is not on the shelf should not be marked as on it'
+    )
+  })
+
+  test('choosing one puts the game on it', async () => {
+    const shelf = server.collections[0]
+    await app.choose(`.overlay [data-collection="${shelf.id}"]`)
+
+    await app.waitFor(
+      `document.querySelector('.overlay [data-collection="${shelf.id}"] .status')?.dataset.state === 'ok'`,
+      'the shelf to be marked'
+    )
+
+    // Asked for by the verb that means add. Two verbs share this path and the
+    // screen draws what it believes rather than what the server did, so the
+    // shelf itself is what settles it.
+    const added = server.asked.filter((one) => one.path === `/api/collections/${shelf.id}/roms`)
+    assert.equal(added.at(-1)?.method, 'POST')
+    assert.ok(shelf.rom_ids.includes(3), `the shelf holds ${JSON.stringify(shelf.rom_ids)}`)
+  })
+
+  test('and choosing it again takes the game off', async () => {
+    const shelf = server.collections[0]
+    await app.choose(`.overlay [data-collection="${shelf.id}"]`)
+
+    await app.waitFor(
+      `document.querySelector('.overlay [data-collection="${shelf.id}"] .status')?.dataset.state === 'off'`,
+      'the shelf to be cleared'
+    )
+
+    const asked = server.asked.filter((one) => one.path === `/api/collections/${shelf.id}/roms`)
+    assert.equal(asked.at(-1)?.method, 'DELETE')
+    assert.equal(
+      shelf.rom_ids.includes(3),
+      false,
+      `the shelf still holds ${JSON.stringify(shelf.rom_ids)}`
+    )
+  })
+})

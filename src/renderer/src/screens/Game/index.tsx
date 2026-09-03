@@ -339,6 +339,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             the server rather than touching the copy on this disk. */}
         <FocusButton
           icon="collection"
+          action="collections"
           onSelect={() => setChoosingCollections(true)}
           disabled={offline === true}
         >

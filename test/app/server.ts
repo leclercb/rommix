@@ -631,6 +631,34 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       if (url.pathname === '/api/platforms')
         return json([megadrive, gameboy, nintendoSwitch, segacd])
       if (url.pathname === '/api/collections') return json(collections)
+
+      /**
+       * A game put on a shelf, or taken off it.
+       *
+       * Two verbs on one path — POST to add, DELETE to remove — which is a
+       * shape easy to get the wrong way round and impossible to notice from
+       * the screen, since it draws what it believes rather than what the
+       * server did. So the shelf here really changes, and the dialog is read
+       * back from it.
+       */
+      const shelfRoms = /^\/api\/collections\/(\d+)\/roms$/.exec(url.pathname)
+      if (shelfRoms) {
+        const shelf = collections.find((one) => one.id === Number(shelfRoms[1]))
+        if (!shelf) return json({ detail: 'No such collection' }, 404)
+        const { rom_ids: ids = [] } = JSON.parse(Buffer.concat(chunks).toString() || '{}') as {
+          rom_ids?: number[]
+        }
+        for (const id of ids) {
+          const at = shelf.rom_ids.indexOf(id)
+          if (req.method === 'DELETE') {
+            if (at >= 0) shelf.rom_ids.splice(at, 1)
+          } else if (at < 0) {
+            shelf.rom_ids.push(id)
+          }
+        }
+        shelf.rom_count = shelf.rom_ids.length
+        return json(shelf)
+      }
       if (url.pathname === '/api/collections/virtual') return json(virtualCollections)
       if (url.pathname === '/api/devices') return json([] as RommDevice[])
       if (url.pathname === '/api/firmware') {
