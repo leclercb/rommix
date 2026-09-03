@@ -21,7 +21,7 @@ import type {
   SaveEnvironment
 } from '@shared/types'
 import type { OfflineCache } from './offline.ts'
-import { refusedUs, RommClient, RommError } from './romm.ts'
+import { refusedUs, RommClient, RommError } from './romm/index.ts'
 import type { Store } from './store.ts'
 
 /**

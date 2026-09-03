@@ -5,8 +5,8 @@ import { extname, join } from 'node:path'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
 import type { InstalledRom, RommFirmware, RommPlatform, RommRom } from '@shared/types'
 import { log } from './log.ts'
-import { answered } from './romm.ts'
-import type { RommClient } from './romm.ts'
+import { answered } from './romm/index.ts'
+import type { RommClient } from './romm/index.ts'
 
 /**
  * What RomM last said, kept for the times it cannot be asked again.

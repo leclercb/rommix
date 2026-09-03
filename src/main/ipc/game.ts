@@ -3,7 +3,7 @@ import type { LaunchChoice, LaunchResult } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { i18n, t } from '../i18n.ts'
 import { log } from '../log.ts'
-import { RommError } from '../romm.ts'
+import { RommError } from '../romm/index.ts'
 import { launchContext, launcherKey, launchOptions, romFor } from './context.ts'
 import type { Handle } from './handler.ts'
 

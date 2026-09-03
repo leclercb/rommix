@@ -50,7 +50,7 @@ The open question is what answers the HTTP:
   the database directly: `/api/users/register` for the first user, `/api/token`
   for a token, `/api/tasks/run/{task_name}` and `/api/tasks/status` to scan.
 - **A schema contract check.** Commit RomM's `openapi.json` for the version
-  RomMix targets and assert that every field `src/shared/types.ts` declares
+  RomMix targets and assert that every field `src/shared/types/` declares
   exists in it with a compatible type. Seconds, no Docker, and it catches drift
   in both directions. It is not a substitute for either of the above, but it is
   the cheapest answer to the fake's actual weakness.

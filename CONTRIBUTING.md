@@ -134,6 +134,23 @@ own channels. A new channel goes in the module it belongs to; `index.ts` only
 composes them, and `handler.ts` is the wrapper that logs every call and turns a
 thrown error into a message the renderer can show.
 
+`src/main/romm/` is everything that talks to the server, split by what each part
+answers for rather than by endpoint: `client.ts` says what to ask for,
+`transfer.ts` owns what happens to bytes on their way to the disk, `checksums.ts`
+decides which hash describes what is arriving, and `errors.ts` holds the three
+failures the rest of RomMix branches on. A new endpoint is a method on the
+client; everything else there is imported through `index.ts`.
+
+### Shared between the two
+
+`src/shared/types/` is the language the main process, the preload bridge and the
+renderer share, one file per subject and one barrel over them. `romm.ts` is the
+odd one out and is kept apart for it: it mirrors RomM's own schema and spells
+every field the way the server does — `fs_name`, `md5_hash`, `is_favorite` — so
+that a field can be looked up in RomM's `/openapi.json` without a translation
+step in between. Everything beside it is RomMix's own state and is written the
+way the rest of the codebase is.
+
 ### The renderer
 
 `src/renderer/src/components/` is the shared UI, imported as one module

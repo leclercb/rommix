@@ -18,7 +18,7 @@ import {
 } from './install.ts'
 import { log } from './log.ts'
 import type { OfflineCache } from './offline.ts'
-import { RommClient, RommError } from './romm.ts'
+import { RommClient, RommError } from './romm/index.ts'
 import { rootPaths } from './root.ts'
 import { safeJoin } from './safepath.ts'
 import type { Store } from './store.ts'

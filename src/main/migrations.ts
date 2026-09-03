@@ -1,6 +1,6 @@
 import { log } from './log.ts'
 import type { OfflineCache } from './offline.ts'
-import type { RommClient } from './romm.ts'
+import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 
 /**

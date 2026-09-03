@@ -1,5 +1,5 @@
 // Relative, with the extension: `src/shared/gamefiles.ts` explains why.
-import type { PendingSave, SaveAsset } from './types.ts'
+import type { PendingSave, SaveAsset } from './types/index.ts'
 
 /**
  * When a save last changed, on the end that is ahead.

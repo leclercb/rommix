@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { OfflineCache } from './offline.ts'
 import { MIGRATIONS, runMigrations, type Migration, type MigrationContext } from './migrations.ts'
-import type { RommClient } from './romm.ts'
+import type { RommClient } from './romm/index.ts'
 import { Store } from './store.ts'
 
 const scratches: string[] = []

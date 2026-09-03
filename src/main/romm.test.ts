@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RommFirmware, RommRom, RommRomFile } from '@shared/types'
-import { RommClient, RommError } from './romm.ts'
+import { RommClient, RommError } from './romm/index.ts'
 import type { Store } from './store.ts'
 
 /**
@@ -17,6 +17,11 @@ import type { Store } from './store.ts'
  * expired. So `fetch` is replaced with a server whose answers this file writes,
  * and what is asserted is what RomMix *sent* as much as what it did with the
  * reply.
+ *
+ * The whole of `src/main/romm/` through its entry point, rather than one file
+ * at a time: the transfer machinery and the checksum rules only ever run
+ * because the client asked for a ROM, and driving them any other way would be
+ * asserting against a call graph rather than against what a download does.
  *
  * Not covered here: anything that needs Electron. `startDevicePairing` reports
  * `app.getVersion()` to the server, which is a real call into a real Electron

@@ -5,7 +5,7 @@ import type { RomMixApp } from '../app.ts'
 import type { SaveTarget } from '../saves.ts'
 import { usableVariants } from '../emulators.ts'
 import { log } from '../log.ts'
-import { refusedUs, RommError } from '../romm.ts'
+import { refusedUs, RommError } from '../romm/index.ts'
 import { t } from '../i18n.ts'
 
 /**

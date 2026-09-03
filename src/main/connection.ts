@@ -1,8 +1,8 @@
 import type { ConnectionStatus } from '@shared/types'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
-import { refusedUs } from './romm.ts'
-import type { RommClient } from './romm.ts'
+import { refusedUs } from './romm/index.ts'
+import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 
 /**

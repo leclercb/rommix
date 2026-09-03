@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
-import { RommError, type RommClient } from './romm.ts'
+import { RommError, type RommClient } from './romm/index.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
 import { Store } from './store.ts'
 

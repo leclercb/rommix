@@ -6,7 +6,7 @@ import { flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
 import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from '../root.ts'
-import { RommError } from '../romm.ts'
+import { RommError } from '../romm/index.ts'
 import { isWebAddress } from '../weblink.ts'
 import type { Handle } from './handler.ts'
 

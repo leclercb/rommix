@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import type { PendingSave } from './types.ts'
+import type { PendingSave } from './types/index.ts'
 import { mayBeSentUnasked } from './saveassets.ts'
 
 function pending(replaces: PendingSave['replaces']): PendingSave {

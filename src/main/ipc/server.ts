@@ -2,7 +2,7 @@ import type { ConnectPayload } from '@shared/api'
 import type { ConnectionStatus } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { log } from '../log.ts'
-import { RommError, normaliseBaseUrl } from '../romm.ts'
+import { RommError, normaliseBaseUrl } from '../romm/index.ts'
 import { t } from '../i18n.ts'
 import type { Handle } from './handler.ts'
 

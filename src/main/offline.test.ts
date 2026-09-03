@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { InstalledRom, RommPlatform, RommRom } from '@shared/types'
 import { contentTypeOf, OfflineCache, rememberInstalledGames } from './offline.ts'
-import { RommError, type RommClient } from './romm.ts'
+import { RommError, type RommClient } from './romm/index.ts'
 
 const scratches: string[] = []
 afterEach(() => {

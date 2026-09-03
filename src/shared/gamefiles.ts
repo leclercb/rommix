@@ -1,6 +1,6 @@
 // Relative, with the extension: this module is imported both by the bundler
 // and by Node's TypeScript stripping in the tests, and the latter resolves no
-// aliases. `shared/types.ts` reaches into config the same way.
+// aliases. `shared/types/` reaches into config the same way.
 import { CONTAINER_SYSTEMS, DESCRIPTOR_EXTENSIONS, SIDECAR_EXTENSIONS } from '../config/romfiles.ts'
 import type { ContainerFormat } from '../config/romfiles.ts'
 

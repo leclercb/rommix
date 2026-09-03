@@ -23,7 +23,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test \"src/**/*.test.ts\"",
-    "test:coverage": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=87 --test-coverage-functions=88 \"src/**/*.test.ts\"",
+    "test:coverage": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test --experimental-test-coverage --test-coverage-lines=96 --test-coverage-branches=88 --test-coverage-functions=89 \"src/**/*.test.ts\"",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
     "package": "electron-builder --linux AppImage --publish never",

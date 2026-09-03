@@ -29,7 +29,7 @@ import type {
   SaveSyncResult,
   Settings,
   AuthMode
-} from './types'
+} from './types/index.ts'
 import type { GameFile } from './gamefiles'
 
 /** Payload for `server:connect`. */

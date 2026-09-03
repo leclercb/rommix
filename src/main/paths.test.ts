@@ -7,7 +7,7 @@ import type { RommRom } from '@shared/types'
 import { installName, listDir } from './install.ts'
 import { expandShell } from './emulators.ts'
 import { builtForThisMachine } from './releases.ts'
-import { normaliseBaseUrl } from './romm.ts'
+import { normaliseBaseUrl } from './romm/index.ts'
 
 /**
  * Deciding what a thing is called and where it goes.

@@ -1,7 +1,7 @@
 import type { LibrarySyncResult, RommPlatform, RomUserStatus } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { log } from '../log.ts'
-import { refusedUs } from '../romm.ts'
+import { refusedUs } from '../romm/index.ts'
 import { romFor } from './context.ts'
 import type { Handle } from './handler.ts'
 

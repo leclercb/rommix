@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { emulatorById } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
-import type { CoreProgress } from '@shared/api'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
 import { installCore, missingCore } from './cores.ts'
+import { complaint, readExit, stageFor, type ExitReport } from './emulatorexit.ts'
 import {
   execPrefix,
   killFlatpakApp,
@@ -13,7 +13,7 @@ import {
 } from './host.ts'
 import { realHome } from './xdg.ts'
 import { log } from './log.ts'
-import type { RommClient } from './romm.ts'
+import type { RommClient } from './romm/index.ts'
 import type { SaveSync } from './saves.ts'
 import type { Store } from './store.ts'
 import { t } from './i18n.ts'
@@ -42,75 +42,6 @@ interface LaunchOptions {
    * put this on screen.
    */
   onStage?: (stage: string | null) => void
-}
-
-/**
- * How long after the spawn an exit is still read as "it never started".
- *
- * Emulators are not consistent about their exit code on an ordinary quit — a
- * few return non-zero after a perfectly good session, and a launcher that
- * dispatches to one reports its *own* success rather than the emulator's, so
- * zero does not mean a game ran either. RetroDECK is the second kind: asked to
- * start a game it cannot start, it says so on stdout and exits 0.
- *
- * So the exit code cannot decide this on its own. What it can be paired with is
- * the clock: a process that is gone this quickly showed the user nothing,
- * whatever it returned, and a session someone actually played lasted longer
- * than any startup failure does.
- */
-const STARTUP_MS = 5000
-
-/**
- * How the emulator's process ended.
- *
- * Two answers rather than one string, because they lead to opposite handling
- * and conflating them is what makes either one dangerous. An emulator that
- * never started has no session to account for and the launch failed. An
- * emulator that ran and then exited oddly has written save files, and treating
- * its parting complaint as a failure would abandon them unsent — the exit code
- * would cost the user the very session it was reporting on.
- */
-interface ExitReport {
-  /** Why the emulator never got going, or null when it ran. */
-  startupError: string | null
-  /** Something it complained about, worth repeating but not worth failing on. */
-  warning: string | null
-}
-
-/**
- * The lines an emulator marked as its own errors, or null when it marked none.
- *
- * Emulators log their whole run, so the tail is usually shader compilation and
- * audio device names — true, and no use to anyone reading a notification. The
- * lines that say what went wrong announce themselves, and the ones here all use
- * the same few words to do it.
- */
-function flaggedLines(output: string): string | null {
-  const flagged = output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => /\berror\b|\bfatal\b/i.test(line))
-    .slice(-3)
-  return flagged.length ? flagged.join(' ') : null
-}
-
-/** The last of whatever the emulator said, for one that flags nothing. */
-function tailOf(output: string): string | null {
-  const lines = output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(-3)
-  return lines.length ? lines.join(' ') : null
-}
-
-/** The core download, as a line to put under the Play button. */
-function stageFor(progress: CoreProgress): string {
-  if (!progress.totalBytes) return t('launch.installingCore', { core: progress.core })
-  return t('launch.installingCorePercent', {
-    core: progress.core,
-    percent: Math.round((progress.receivedBytes / progress.totalBytes) * 100)
-  })
 }
 
 /**
@@ -325,7 +256,7 @@ export class Launcher {
         const core = await missingCore(emulator, system)
         if (core) {
           options.onStage?.(t('launch.installingCore', { core: core.name }))
-          await installCore(core, (progress: CoreProgress) => options.onStage?.(stageFor(progress)))
+          await installCore(core, (progress) => options.onStage?.(stageFor(progress)))
         }
       } catch (cause) {
         return failure((cause as Error).message, command)
@@ -596,57 +527,26 @@ export class Launcher {
         const ranMs = Date.now() - startedAt
         // The exit itself, before any of it is interpreted: the code and the
         // signal are what an emulator's own bug tracker asks for, and the
-        // classification below deliberately discards most of that distinction.
+        // reading below deliberately discards most of that distinction.
         const exit = { pid: child.pid ?? null, code, signal, ms: ranMs, signalled }
+        const { kind, report, detail } = readExit({ code, signal, signalled, ranMs, output })
 
-        const clean = { startupError: null, warning: null }
-        // Stopped from RomMix, or killed from outside. Either way somebody
-        // asked for this and it is not a failure to report back to them.
-        if (signalled || signal) {
-          log.info('emulator', 'exited after being asked to stop', exit)
-          return resolvePromise(clean)
-        }
-
-        // Long enough to have been a session, so whatever the code meant, the
-        // emulator ran and may have written saves.
-        if (ranMs >= STARTUP_MS) {
-          if (code === 0) {
-            log.info('emulator', 'exited cleanly', exit)
-            return resolvePromise(clean)
-          }
-          // Anything it flagged is worth passing on; it is not worth throwing
-          // the session away over.
-          const flagged = flaggedLines(output)
-          log.warn('emulator', 'exited non-zero after a real session', { ...exit, flagged })
-          return resolvePromise({
-            startupError: null,
-            warning: flagged ? t('launch.emulatorReported', { detail: flagged }) : null
+        if (kind === 'asked') log.info('emulator', 'exited after being asked to stop', exit)
+        else if (kind === 'clean') log.info('emulator', 'exited cleanly', exit)
+        else if (kind === 'complained') {
+          log.warn('emulator', 'exited non-zero after a real session', { ...exit, flagged: detail })
+        } else {
+          // The one case where the emulator's own output is worth keeping in
+          // full: nothing was shown on screen, so this is the only account of
+          // why. Trimmed to the tail, which is where a program that is about to
+          // die says so.
+          log.error('emulator', 'quit immediately — treated as a crash', undefined, {
+            ...exit,
+            detail,
+            output: output.slice(-2000)
           })
         }
-
-        // Gone before it could have shown the user anything. This is the launch
-        // that silently did nothing — a missing libretro core is exactly this
-        // shape — so it is reported even when the emulator explained nothing.
-        const detail = flaggedLines(output) ?? tailOf(output)
-        // The one case where the emulator's own output is worth keeping in
-        // full: nothing was shown on screen, so this is the only account of
-        // why. Trimmed to the tail, which is where a program that is about to
-        // die says so.
-        log.error('emulator', 'quit immediately — treated as a crash', undefined, {
-          ...exit,
-          detail,
-          output: output.slice(-2000)
-        })
-        return resolvePromise({
-          startupError: detail
-            ? t('launch.quitImmediatelyDetail', { detail })
-            : code === 0
-              ? // Zero is the least informative thing an exit can say, and
-                // quoting it invites the reply that nothing went wrong.
-                t('launch.quitImmediately')
-              : t('launch.quitImmediatelyCode', { code: code ?? 0 }),
-          warning: null
-        })
+        return resolvePromise(report)
       })
     })
   }
@@ -793,7 +693,7 @@ export class Launcher {
           // flagged, or failing that the last thing it said. An emulator that
           // exits this fast showed the user nothing, whatever its exit code —
           // RetroDECK reports its own success rather than the game's.
-          const detail = flaggedLines(output) ?? tailOf(output)
+          const detail = complaint(output)
           log.error('emulator', 'quit immediately when started on its own', undefined, {
             emulator: emulator.id,
             command,

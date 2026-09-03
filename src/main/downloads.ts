@@ -13,7 +13,7 @@ import {
   RommClient,
   RommError,
   UnreachableError
-} from './romm.ts'
+} from './romm/index.ts'
 import { safeJoin } from './safepath.ts'
 import { isZip } from './zip.ts'
 import type { Store } from './store.ts'

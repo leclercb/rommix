@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { log } from '../log.ts'
-import { RommError } from '../romm.ts'
+import { RommError } from '../romm/index.ts'
 
 /**
  * The wrapper every channel in this folder is registered through, so a thrown

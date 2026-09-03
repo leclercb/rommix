@@ -4,7 +4,7 @@ import type { RomMixApp } from '../app.ts'
 import { installFlatpak } from '../host.ts'
 import { log } from '../log.ts'
 import { builtForThisMachine, fetchReleases, installAsset } from '../releases.ts'
-import { RommError } from '../romm.ts'
+import { RommError } from '../romm/index.ts'
 import { t } from '../i18n.ts'
 import type { Handle } from './handler.ts'
 

@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ConnectionStatus } from '@shared/types'
 import { ConnectionWatch, connectionStatus } from './connection.ts'
-import { RommError, type RommClient } from './romm.ts'
+import { RommError, type RommClient } from './romm/index.ts'
 import { Store } from './store.ts'
 
 const scratches: string[] = []

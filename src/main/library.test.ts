@@ -22,7 +22,7 @@ import { SHARED_LIBRARY, type InstalledRom, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
 import { OfflineCache } from './offline.ts'
-import { CorruptDownloadError, RommError, type RommClient } from './romm.ts'
+import { CorruptDownloadError, RommError, type RommClient } from './romm/index.ts'
 import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 

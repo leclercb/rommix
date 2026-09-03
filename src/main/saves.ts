@@ -17,8 +17,8 @@ import type {
   SavePushPreview,
   SaveSyncResult
 } from '@shared/types'
-import { refusedUs } from './romm.ts'
-import type { RommClient } from './romm.ts'
+import { refusedUs } from './romm/index.ts'
+import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
 import { realHome } from './xdg.ts'

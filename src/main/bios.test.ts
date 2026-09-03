@@ -8,7 +8,7 @@ import type { EmulatorState } from '@config/emulators'
 import type { RommFirmware, RommPlatform } from '@shared/types'
 import { BiosManager } from './bios.ts'
 import { OfflineCache } from './offline.ts'
-import type { RommClient } from './romm.ts'
+import { RommError, UnreachableError, type RommClient } from './romm/index.ts'
 import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 
@@ -48,6 +48,36 @@ const playstation: RommPlatform = {
   rom_count: 10
 } as RommPlatform
 
+/** A console needing a file nobody has: the top of the order. */
+const atari7800: RommPlatform = {
+  id: 4,
+  slug: 'atari-7800',
+  fs_slug: 'atari7800',
+  display_name: 'Atari 7800',
+  name: 'Atari 7800',
+  rom_count: 2
+} as RommPlatform
+
+/** One whose only file is optional, and present. */
+const atarilynx: RommPlatform = {
+  id: 5,
+  slug: 'atari-lynx',
+  fs_slug: 'atarilynx',
+  display_name: 'Atari Lynx',
+  name: 'Atari Lynx',
+  rom_count: 2
+} as RommPlatform
+
+/** One that needs no BIOS at all, and belongs at the bottom. */
+const megadrive: RommPlatform = {
+  id: 6,
+  slug: 'genesis',
+  fs_slug: 'genesis',
+  display_name: 'Sega Mega Drive',
+  name: 'Sega Mega Drive',
+  rom_count: 2
+} as RommPlatform
+
 function firmware(fields: Partial<RommFirmware> = {}): RommFirmware {
   return {
     id: 1,
@@ -61,16 +91,30 @@ function firmware(fields: Partial<RommFirmware> = {}): RommFirmware {
 /** A manager over a fresh root, with the emulator and server answers a test wants. */
 function manager(options: {
   emulator?: EmulatorState | null
+  platforms?: RommPlatform[]
   firmware?: RommFirmware[]
+  /** Thrown instead of answering, for the tests about a server that will not. */
+  refuse?: { platforms?: unknown; firmware?: unknown }
   onDownload?: (item: RommFirmware, destination: string) => Promise<void>
+  /**
+   * An existing root to open, so a second manager can read what the first one
+   * saved. A fresh one otherwise.
+   */
+  root?: string
 }): { bios: BiosManager; root: string; downloaded: string[] } {
-  const root = scratch()
+  const root = options.root ?? scratch()
   process.env.ROMMIX_HOME = root
   const store = new Store(join(root, 'config'))
   const downloaded: string[] = []
   const client = {
-    platforms: async () => [playstation],
-    firmware: async () => options.firmware ?? [],
+    platforms: async () => {
+      if (options.refuse?.platforms) throw options.refuse.platforms
+      return options.platforms ?? [playstation]
+    },
+    firmware: async () => {
+      if (options.refuse?.firmware) throw options.refuse.firmware
+      return options.firmware ?? []
+    },
     downloadFirmware: async (item: RommFirmware, destination: string) => {
       downloaded.push(destination)
       await (options.onDownload?.(item, destination) ?? writeFile(destination, 'bios bytes'))
@@ -170,6 +214,23 @@ describe('the whole report', () => {
 
     assert.equal(report.platforms[0].platformId, 3)
   })
+
+  test('the whole order, because a server with forty platforms buries the point', async () => {
+    // Missing something required, then missing something optional, then
+    // complete, then consoles that need no BIOS at all.
+    const emulator = withBiosFolder(['7800 BIOS (U).rom', 'lynxboot.img'])
+    const { bios } = manager({
+      emulator,
+      platforms: [megadrive, atari7800, atarilynx, playstation]
+    })
+
+    const report = await bios.report()
+
+    assert.deepEqual(
+      report.platforms.map((platform) => platform.platformSlug),
+      ['ps', 'atari-7800', 'atari-lynx', 'genesis']
+    )
+  })
 })
 
 describe('installing a file', () => {
@@ -219,5 +280,199 @@ describe('installing a file', () => {
     const { bios } = manager({ emulator: withBiosFolder(), firmware: [firmware()] })
 
     await assert.rejects(() => bios.install(404))
+  })
+
+  test("a file with nowhere to go fails with the row's own reason", async () => {
+    // "Cannot install" explains nothing. The row already says why — no
+    // emulator runs this platform — and that is the sentence worth repeating.
+    const { bios } = manager({ emulator: null, firmware: [firmware()] })
+
+    await assert.rejects(() => bios.install(1), /PlayStation/)
+  })
+})
+
+/** Eden, whose keys folder takes `.keys` files and nothing else. */
+function eden(): EmulatorState {
+  const dir = scratch()
+  return {
+    id: 'eden',
+    name: 'Eden',
+    available: true,
+    install: null,
+    configDir: null,
+    dataDir: null,
+    unavailableReason: null,
+    paths: { home: dir, roms: dir, saves: dir, states: dir, bios: dir }
+  } as EmulatorState
+}
+
+const nintendoSwitch: RommPlatform = {
+  id: 9,
+  slug: 'switch',
+  fs_slug: 'switch',
+  display_name: 'Nintendo Switch',
+  name: 'Nintendo Switch',
+  rom_count: 4
+} as RommPlatform
+
+describe('a server that will not answer', () => {
+  test('the last live answer stands in, so the screen still says what is missing', async () => {
+    // The report is the only place a person finds out a console needs a file
+    // it has not got, and being out of range is when they are most likely to
+    // be looking — the game would not start a moment ago.
+    const online = manager({ emulator: withBiosFolder(), firmware: [firmware()] })
+    await online.bios.report()
+    const root = online.root
+
+    const offline = manager({
+      emulator: withBiosFolder(),
+      root,
+      refuse: { platforms: new UnreachableError('the network went away') }
+    })
+    const report = await offline.bios.report()
+
+    const row = report.platforms.find((platform) => platform.platformId === 3)
+    assert.equal(row?.items.find((item) => item.fileName === 'scph5501.bin')?.firmwareId, 1)
+  })
+
+  test('nothing saved and nothing answering is the failure it is', async () => {
+    const { bios } = manager({
+      emulator: withBiosFolder(),
+      refuse: { platforms: new UnreachableError('the network went away') }
+    })
+
+    await assert.rejects(() => bios.report())
+  })
+
+  test('a refusal is never papered over with last week', async () => {
+    // A token missing `platforms.read` would otherwise draw a screen from the
+    // saved copy with nothing to say why — and the only thing that fixes those
+    // credentials is being told about them.
+    const online = manager({ emulator: withBiosFolder(), firmware: [firmware()] })
+    await online.bios.report()
+    const root = online.root
+
+    const refused = manager({
+      emulator: withBiosFolder(),
+      root,
+      refuse: { platforms: new RommError('no', 403) }
+    })
+
+    await assert.rejects(() => refused.bios.report(), /no/)
+  })
+
+  test('a firmware list refused for one platform fails the whole scan', async () => {
+    // The misleading alternative is every file drawn as missing and absent
+    // from the server, when the server was simply never asked successfully.
+    const { bios } = manager({
+      emulator: withBiosFolder(),
+      refuse: { firmware: new RommError('no firmware.read scope', 403) }
+    })
+
+    await assert.rejects(() => bios.report())
+  })
+
+  test('one game page falls back the same way, and reports a refusal the same way', async () => {
+    const online = manager({ emulator: withBiosFolder(), firmware: [firmware()] })
+    await online.bios.report()
+    const root = online.root
+
+    const offline = manager({
+      emulator: withBiosFolder(),
+      root,
+      refuse: { platforms: new UnreachableError('the network went away') }
+    })
+    const row = await offline.bios.platformReport(3)
+    assert.equal(
+      row?.items.some((item) => item.fileName === 'scph5501.bin'),
+      true
+    )
+
+    const refused = manager({
+      emulator: withBiosFolder(),
+      root,
+      refuse: { platforms: new RommError('no', 401) }
+    })
+    await assert.rejects(() => refused.bios.platformReport(3))
+  })
+
+  test('with nothing saved, one game page says nothing rather than failing a launch', async () => {
+    const { bios } = manager({
+      emulator: withBiosFolder(),
+      refuse: { platforms: new UnreachableError('the network went away') }
+    })
+
+    assert.equal(await bios.platformReport(3), null)
+  })
+})
+
+describe("taking the server's half in the background", () => {
+  test('capture saves what a later outage will be described from', async () => {
+    // The device that has never opened this screen is the one it fails on: the
+    // first time anybody notices is the first time RomM is out of range.
+    const online = manager({ emulator: withBiosFolder(), firmware: [firmware()] })
+    await online.bios.capture()
+    const root = online.root
+
+    const offline = manager({
+      emulator: withBiosFolder(),
+      root,
+      refuse: { platforms: new UnreachableError('the network went away') }
+    })
+    const report = await offline.bios.report()
+
+    assert.equal(
+      report.platforms.some((platform) => platform.platformId === 3),
+      true
+    )
+  })
+})
+
+describe('a file the emulator cannot be given', () => {
+  test("it is staged in RomMix's own folder, and the row says so", async () => {
+    // Eden takes `.keys` into its keys folder and nothing else — its firmware
+    // is installed through its own interface. A row that pointed the download
+    // at the keys folder anyway would write a file Eden never reads.
+    const { bios, root } = manager({
+      emulator: eden(),
+      platforms: [nintendoSwitch],
+      firmware: [firmware({ id: 7, file_name: 'firmware.zip' })]
+    })
+
+    const row = await bios.platformReport(9)
+
+    const keys = row?.items.find((item) => item.fileName === 'prod.keys')
+    const staged = row?.items.find((item) => item.fileName === 'firmware.zip')
+    assert.equal(keys?.staged, false)
+    assert.equal(staged?.staged, true)
+    assert.equal(staged?.dir, join(root, 'bios', 'switch'))
+    // Said once for the row rather than per file: what to do about a staged
+    // file is the same answer whichever one it is.
+    assert.notEqual(row?.stagingNote, null)
+  })
+
+  test('installing a staged file writes it where the row said it would', async () => {
+    const { bios, root } = manager({
+      emulator: eden(),
+      platforms: [nintendoSwitch],
+      firmware: [firmware({ id: 7, file_name: 'firmware.zip' })]
+    })
+
+    const path = await bios.install(7)
+
+    assert.equal(path, join(root, 'bios', 'switch', 'firmware.zip'))
+    assert.equal(existsSync(path), true)
+  })
+})
+
+describe('a name from the server that is not a name', () => {
+  test('one that climbs out of its folder is refused rather than followed', async () => {
+    const { bios, downloaded } = manager({
+      emulator: withBiosFolder(),
+      firmware: [firmware({ id: 5, file_name: '../../../etc/rommix-owned' })]
+    })
+
+    await assert.rejects(() => bios.install(5))
+    assert.deepEqual(downloaded, [])
   })
 })
