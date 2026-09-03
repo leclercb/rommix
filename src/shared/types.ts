@@ -330,6 +330,23 @@ export interface ServerConfig {
 
 export interface ConnectionStatus {
   connected: boolean
+  /**
+   * A server is stored and so are credentials for it, whatever it answered.
+   *
+   * What separates a fresh installation from one that has simply lost its
+   * server: the first has nowhere to go but the sign-in screen, the second has
+   * a disk full of games and no reason to be asked to sign in again.
+   */
+  configured: boolean
+  /**
+   * Signed in as far as this device knows, and nothing answered.
+   *
+   * The state the rest of the interface changes shape for — see the games
+   * screen. Deliberately not simply `!connected`: credentials RomM refuses are
+   * an answer, and the only thing that fixes them is the sign-in screen, so a
+   * refusal is never offline however unreachable it feels.
+   */
+  offline: boolean
   baseUrl: string | null
   user: RommUser | null
   /** RomM version reported by /api/heartbeat, when available. */
@@ -743,6 +760,15 @@ export type SaveSyncState =
   | 'local-only'
   /** Only on RomM. Another device's, or deleted here — pull candidate. */
   | 'remote-only'
+  /**
+   * On this device, and the server was never asked.
+   *
+   * Deliberately not `local-only`, which is a claim about both ends: it says
+   * RomM has never been given this file, and a screen that says so about a
+   * server nobody could reach invites a push that would overwrite whatever is
+   * actually up there. This one says only what is known.
+   */
+  | 'unchecked'
 
 /**
  * Which end a delete clears.

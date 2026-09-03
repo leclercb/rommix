@@ -360,8 +360,9 @@ export class Launcher {
       // it is. Raised here rather than when the launch was asked for, so that a
       // session nobody got to start — a core that would not install, a stop
       // pressed while the saves came down — never shows up there at all.
-      await this.client.setNowPlaying(rom.id, true)
-      markedPlaying = true
+      markedPlaying = await this.tellRomm('now playing', () =>
+        this.client.setNowPlaying(rom.id, true)
+      )
 
       const exit = await this.run(argv, session, emulator.install, emulatorById(emulator.id)?.env)
       const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
@@ -425,7 +426,9 @@ export class Launcher {
       // Not for a launch that never became a session: a zero-second entry in
       // the play history is noise about something that did not happen.
       if (!exit.startupError) {
-        await this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+        await this.tellRomm('play session', () =>
+          this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+        )
       }
 
       log.info('launch', exit.startupError ? 'launch did not become a session' : 'session ended', {
@@ -465,10 +468,34 @@ export class Launcher {
       // Lowered after the session was reported and never before: RomM raises
       // this flag itself when it takes a play session, so an earlier clear
       // would be undone by the very call that says the session is over.
-      if (markedPlaying) await this.client.setNowPlaying(rom.id, false)
+      if (markedPlaying) {
+        await this.tellRomm('now playing', () => this.client.setNowPlaying(rom.id, false))
+      }
       // Released only once the saves are back on the server, not when the
       // emulator exits: until then the session still owns the save files.
       this.current = null
+    }
+  }
+
+  /**
+   * Tell RomM something about the session, where nothing depends on it hearing.
+   *
+   * What is playing and how long it was played for are both worth recording and
+   * neither is worth a failed launch: a handheld away from the network can
+   * still start a game that is on its own disk, and a session that ended cannot
+   * be un-ended because the server did not pick up. Reported as false so the
+   * flag RomM was never given is not lowered afterwards either.
+   */
+  private async tellRomm(what: string, tell: () => Promise<void>): Promise<boolean> {
+    try {
+      await tell()
+      return true
+    } catch (cause) {
+      log.warn('launch', 'RomM could not be told about the session', {
+        what,
+        reason: (cause as Error).message
+      })
+      return false
     }
   }
 

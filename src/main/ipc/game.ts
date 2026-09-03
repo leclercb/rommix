@@ -4,12 +4,12 @@ import type { RomMixApp } from '../app.ts'
 import { i18n, t } from '../i18n.ts'
 import { log } from '../log.ts'
 import { RommError } from '../romm.ts'
-import { launchContext, launcherKey, launchOptions } from './context.ts'
+import { launchContext, launcherKey, launchOptions, romFor } from './context.ts'
 import type { Handle } from './handler.ts'
 
 /** Starting a game, and stopping the emulator that is running one. */
 export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
-  const { store, client, library, launcher } = rommix
+  const { store, library, launcher } = rommix
 
   /**
    * What this game can be run with.
@@ -63,7 +63,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
       })
     }
 
-    const rom = await client.rom(romId)
+    const rom = await romFor(rommix, romId)
 
     log.info('game', 'launch requested', {
       romId,

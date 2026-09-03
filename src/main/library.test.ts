@@ -21,7 +21,9 @@ import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type InstalledRom, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
+import { OfflineCache } from './offline.ts'
 import { CorruptDownloadError, RommError, type RommClient } from './romm.ts'
+import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 
 /**
@@ -154,6 +156,11 @@ function fakeClient(
       if (!found) throw new RommError(`no ROM ${id}`)
       return found
     },
+    // No artwork on this server, which is a 404 rather than a failure: what
+    // the cache does with one is skip it and record the game anyway.
+    async asset() {
+      return new Response(null, { status: 404 })
+    },
     async roms() {
       const items = Object.values(options.roms ?? {})
       return { items, total: items.length, limit: 200, offset: 0 }
@@ -184,6 +191,17 @@ function fakeClient(
   return { client, resumed }
 }
 
+/**
+ * An offline cache under whatever scratch root the test has set.
+ *
+ * The real one rather than a stub: it writes into a throwaway folder and asks
+ * the fake client for artwork, which is the same shape as a real install
+ * against a server holding no covers.
+ */
+function cache(client: RommClient): OfflineCache {
+  return new OfflineCache(rootPaths().offline, client)
+}
+
 /** A manager over a fresh root, with whichever emulator the test wants. */
 function manager(
   options: {
@@ -209,7 +227,7 @@ function manager(
   const store = new Store(join(root, 'config'))
   store.updateSettings({ romStorage: options.shared === false ? 'emulator' : 'rommix' })
   const { client, resumed } = fakeClient(options)
-  const library = new Library(store, client, () => options.emulator ?? null)
+  const library = new Library(store, client, cache(client), () => options.emulator ?? null)
   const downloads = new DownloadManager(store, client, library)
   return { downloads, library, store, root, client, resumed }
 }
@@ -665,7 +683,7 @@ describe('the shapes an install can take that a plain name does not describe', (
     const roms = join(made.root, 'roms')
     return {
       ...made,
-      library: new Library(made.store, made.client, () =>
+      library: new Library(made.store, made.client, cache(made.client), () =>
         emulator({ id: 'eden', name: 'Eden', roms })
       )
     }

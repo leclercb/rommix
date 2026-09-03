@@ -49,6 +49,8 @@ Demo: https://leclercb.github.io/rommix/demo/
 - ⬇️ Downloads into your emulator's own ROM folder, or one folder you point them all at
 - 💿 Multi-disc sets unpacked and launched as one game
 - ☁️ Saves and states synced both ways, plus a per-game tab to do it by hand
+- 🛫 Works with RomM out of reach: every screen narrows to what is downloaded,
+  covers, details and Play included
 - 🧩 BIOS files installed from your own server
 - 🎛️ Emulators installed and assigned by RomMix, changeable per platform
 - 📱 Sign in by scanning a code with your phone
@@ -176,6 +178,13 @@ readable only by you where no keyring is reachable.
   Where an emulator offers more than one way to run a platform, RomMix asks once
   and remembers; **Run with…** changes the answer.
 
+When your server cannot be reached, the same screens narrow rather than
+disappearing: Home keeps **Ready to play**, the Library shows what is
+downloaded, BIOS still says what each console needs and what is in place, and a
+game keeps its cover, its details, its screenshots and its Play button. Only
+Collections goes, having no local half. Everything returns on its own once RomM
+answers again.
+
 ---
 
 ## 🔌 Emulators
@@ -286,6 +295,7 @@ somewhere RomMix would not look.
 | Saves and states                      | The emulator's own save folders                        |
 | BIOS files                            | The emulator's own BIOS folder                         |
 | Settings, credentials, download index | `~/rommix/config/`                                     |
+| What RomM says about installed games  | `~/rommix/offline/`                                    |
 | Emulators RomMix installed            | `~/rommix/emulators/`                                  |
 | Log file                              | `~/rommix/logs/rommix.log`                             |
 

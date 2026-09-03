@@ -590,6 +590,8 @@ const bridge: RomMixBridge = {
     status: () =>
       later({
         connected: true,
+        configured: true,
+        offline: false,
         baseUrl: 'https://demo.romm.app',
         user: {
           id: 1,
@@ -606,7 +608,8 @@ const bridge: RomMixBridge = {
     connect: () => Promise.reject(new Error(say('demo.notAvailable'))),
     disconnect: () => Promise.resolve(),
     startPairing: () => Promise.reject(new Error(say('demo.notAvailable'))),
-    pollPairing: () => Promise.resolve(false)
+    pollPairing: () => Promise.resolve(false),
+    onStatus: noSubscription
   },
   library: {
     platforms: () => later(PLATFORMS),

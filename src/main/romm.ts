@@ -61,6 +61,33 @@ export const REQUIRED_SCOPES = [
   'firmware.read'
 ]
 
+/**
+ * Did the server answer this at all?
+ *
+ * Asked by whatever has to decide whether trying again could help. A 404 for a
+ * game RomM no longer has is an answer, and no number of retries will change
+ * it; a request nothing answered is still to do.
+ */
+export function answered(cause: unknown): boolean {
+  return cause instanceof RommError && cause.status !== null
+}
+
+/**
+ * Did the server turn *us* away?
+ *
+ * The other question, and the one every fallback in RomMix is gated on. A
+ * saved copy stands in for a server that could not be reached — but never for
+ * one that is right there refusing the request, because the only thing that
+ * fixes those credentials is being told about them, and a screen quietly drawn
+ * from last week is the opposite of being told.
+ *
+ * Narrower than `answered` on purpose: a 502 from a proxy has answered, and is
+ * still nothing the user can act on.
+ */
+export function refusedUs(cause: unknown): boolean {
+  return cause instanceof RommError && (cause.status === 401 || cause.status === 403)
+}
+
 export class RommError extends Error {
   constructor(
     message: string,
@@ -241,7 +268,36 @@ export class RommClient {
   /** See `devices`. Carries its server, so switching servers cannot reuse it. */
   private cachedDevices: { baseUrl: string; devices: RommDevice[] } | null = null
 
+  /**
+   * Told after every request whether the server was there at all.
+   *
+   * Set once, by whatever is watching the connection. Every call RomMix makes
+   * is already a probe with a better answer than any poll could have — it is
+   * being made anyway, and it fails the instant the network does — so this is
+   * how the interface learns it is out of range within one request rather than
+   * within one polling interval. See `ConnectionWatch.observed`.
+   */
+  private reachability: ((reachable: boolean, reason?: string) => void) | null = null
+
   constructor(private readonly store: Store) {}
+
+  /** Watch whether requests are reaching the server. See `reachability`. */
+  observeReachability(listener: (reachable: boolean, reason?: string) => void): void {
+    this.reachability = listener
+  }
+
+  /**
+   * Report on a request, but only one aimed at the server RomMix is signed in
+   * to.
+   *
+   * Signing in and device pairing both talk to a server that is not the
+   * configured one yet, and a typo in that form is not evidence about the
+   * server the user's library is on.
+   */
+  private report(base: string, reachable: boolean, reason?: string): void {
+    if (this.store.server?.baseUrl !== base) return
+    this.reachability?.(reachable, reason)
+  }
 
   private get baseUrl(): string {
     const server = this.store.server
@@ -285,8 +341,14 @@ export class RommClient {
       res = await send()
     } catch (cause) {
       log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
+      // Nothing answered — as against answering with a refusal, which arrives
+      // below as an ordinary response. This is the only shape of failure that
+      // says the server is not there.
+      this.report(base, false, (cause as Error).message)
       throw new RommError(t('error.cannotReach', { url: base, reason: (cause as Error).message }))
     }
+    // Any status at all: a 404 is the server, present and answering.
+    this.report(base, true)
 
     if (res.status === 401 && retryOn401 && this.store.credentials.refreshToken) {
       log.info('romm', `${method} ${path} → 401, refreshing the access token and retrying`)

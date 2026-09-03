@@ -17,6 +17,7 @@ import {
   type InstallResult
 } from './install.ts'
 import { log } from './log.ts'
+import type { OfflineCache } from './offline.ts'
 import { RommClient, RommError } from './romm.ts'
 import { rootPaths } from './root.ts'
 import { safeJoin } from './safepath.ts'
@@ -62,6 +63,7 @@ export class Library extends EventEmitter {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
+    private readonly offline: OfflineCache,
     private readonly getEmulator: (system?: string) => EmulatorState | null
   ) {
     super()
@@ -441,6 +443,31 @@ export class Library extends EventEmitter {
       // reading a library the new games are already in.
       this.emit('installed')
       this.emit('adopted', adopted)
+
+      /**
+       * What RomM says about each of them, fetched behind the page rather than
+       * in front of it.
+       *
+       * Adoption recognises a whole library page at a time, and every game on
+       * it is a file to write and a handful of pictures to fetch — waited for,
+       * that is a spinner over browsing, for a cache nothing on that screen
+       * reads. Nothing is lost by it being late or by it failing: whatever this
+       * misses is what `rememberInstalledGames` finds on the next connected
+       * start.
+       */
+      const bySystem = new Map(adopted.map((entry) => [entry.romId, entry.system]))
+      void (async () => {
+        for (const rom of roms) {
+          const system = bySystem.get(rom.id)
+          if (!system) continue
+          await this.offline.save(rom, system).catch((cause: Error) =>
+            log.debug('library', 'could not write down an adopted game', {
+              romId: rom.id,
+              reason: cause.message
+            })
+          )
+        }
+      })()
     }
     return adopted
   }
@@ -577,6 +604,10 @@ export class Library extends EventEmitter {
     }
     this.forgetListings()
     this.store.removeInstalled(romId)
+    // The game is gone from the disk, so what RomM said about it is answering
+    // for nothing. Its artwork goes with it, which for a library of screenshots
+    // is the larger half of what was kept.
+    await this.offline.forget(romId)
   }
 
   /**
@@ -591,5 +622,18 @@ export class Library extends EventEmitter {
     this.forgetListings()
     this.store.addInstalled(entry)
     this.emit('installed')
+  }
+
+  /**
+   * Keep what RomM says about a game, so this device can answer for it alone.
+   *
+   * Separate from `record`, and after it, because the two are on different
+   * clocks: recording is a map write and the event every screen is waiting for,
+   * while this is a JSON file and however many pictures the game has. A
+   * download that has just finished can afford them; a page of adopted games
+   * cannot, which is why `adopt` does not wait. See `OfflineCache`.
+   */
+  async remember(rom: RommRom, system: string): Promise<void> {
+    await this.offline.save(rom, system)
   }
 }

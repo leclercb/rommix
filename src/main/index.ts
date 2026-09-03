@@ -78,12 +78,22 @@ if (!app.requestSingleInstanceLock()) {
     rommix.registerImageProtocol()
     const pruned = rommix.store.pruneInstalled()
     if (pruned > 0) log.info('library', 'dropped index entries whose files are gone', { pruned })
+    // After the prune, so a game that has just left the index takes what was
+    // written about it, and before anything can write more: adoption and the
+    // back-fill both add records, and a sweep running alongside one would
+    // measure a folder that is still being filled. See `OfflineCache.sweep`.
+    await rommix.offline.sweep(rommix.store.installed)
     await rommix.refreshEmulators()
     registerIpc(rommix)
     rommix.createWindow()
     // After the window, which is what the first result is announced to. The
     // check itself is delayed — see `Updater.schedule`.
     rommix.updates.schedule()
+    // Likewise: both of these push to the renderer, and both are things the
+    // interface should not be waiting on. The catch-up needs a server and is
+    // run again by the watch the moment there is one. See `RomMixApp.catchUp`.
+    rommix.connection.start()
+    void rommix.catchUp()
     log.info('app', 'ready', { ms: took() })
   })
 
@@ -102,8 +112,10 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.on('before-quit', () => {
-    // So a check cannot fire into a window that is closing.
+    // So neither a check nor a connection poll can fire into a window that is
+    // closing.
     rommix.updates.stop()
+    rommix.connection.stop()
     log.info('app', '--- RomMix quitting ---')
   })
 }

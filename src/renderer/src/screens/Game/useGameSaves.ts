@@ -42,7 +42,7 @@ export function useGameSaves(
   setDeleting: (asset: SaveAsset | null) => void
 } {
   const { t } = useI18n()
-  const { notify, settings, saveSettings } = useApp()
+  const { notify, offline, settings, saveSettings } = useApp()
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
@@ -53,8 +53,13 @@ export function useGameSaves(
    * list is never one action out of date.
    */
   const reload = useCallback(async (): Promise<void> => {
+    // Asked either way: the list falls back to the end that is on this disk,
+    // with each row marked as uncompared rather than as absent from the server.
+    // See `SaveSync.remoteEnds`. Not before the first connection answer, only
+    // because there is no reason to ask twice. See `AppState.offline`.
+    if (offline === null) return
     setAssets(await window.rommix.saves.list(romId).catch(() => []))
-  }, [romId])
+  }, [romId, offline])
 
   useEffect(() => {
     setAssets(null)

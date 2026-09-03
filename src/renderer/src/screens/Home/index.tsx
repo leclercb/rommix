@@ -37,7 +37,7 @@ interface Shelf {
  * which is a new reference every render, and comparing it by identity would
  * refetch the shelf on each one.
  */
-function useShelf(query: RomQuery): Shelf {
+function useShelf(query: RomQuery, offline: boolean | null): Shelf {
   const [items, setItems] = useState<RommRom[]>([])
   const [total, setTotal] = useState(0)
   const [loaded, setLoaded] = useState(false)
@@ -45,6 +45,16 @@ function useShelf(query: RomQuery): Shelf {
   // Synchronous guard: `loaded` lands a render too late to stop the row's
   // observer firing again while a request is already out.
   const inFlight = useRef(false)
+  /**
+   * Which fetch the shelf is currently listening to.
+   *
+   * A request already on the wire when the server goes away lands *after* the
+   * shelf has stood itself down, and its rejection would put the error back
+   * over a screen that had just finished narrowing — which is a Home page
+   * showing nothing but "fetch failed" until it is navigated away from and
+   * back. Bumping this disowns whatever is still out.
+   */
+  const run = useRef(0)
 
   /**
    * The same query, with an identity that only changes when the query does.
@@ -58,24 +68,56 @@ function useShelf(query: RomQuery): Shelf {
 
   const fetchPage = useCallback(
     async (offset: number): Promise<void> => {
+      // Before the first connection answer there is nothing to do but wait:
+      // asking then is what put a fetch error over a screen that was about to
+      // narrow, and left it there until the screen was navigated away from and
+      // back. The shelf stays unloaded, which is the spinner it already has.
+      if (offline === null) return
+
+      /**
+       * Nothing to query while the server is away, and nothing left standing
+       * from when it was there.
+       *
+       * The error goes because Home draws it in place of the whole screen, and
+       * a request that failed on the way out of range would otherwise leave
+       * that error over a screen with a perfectly good shelf on it. The items
+       * go because they are games from the server, most of which are not on
+       * this disk — a tile still on screen is one that opens a game page with
+       * nothing behind it. Loaded, so the shelves that do have something draw
+       * rather than waiting behind a spinner.
+       */
+      if (offline) {
+        run.current += 1
+        setItems([])
+        setTotal(0)
+        setError(null)
+        setLoaded(true)
+        return
+      }
       if (inFlight.current) return
       inFlight.current = true
+      const mine = ++run.current
+      // Cleared on the way in, not only set on the way out: a shelf that failed
+      // and then succeeded would otherwise keep the message from the attempt
+      // before, and Home draws it instead of the screen.
+      setError(null)
       try {
         const page = await window.rommix.library.roms({
           ...asked,
           limit: SHELF_PAGE,
           offset
         })
+        if (mine !== run.current) return
         setTotal(page.total)
         setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]))
       } catch (cause) {
-        setError((cause as Error).message)
+        if (mine === run.current) setError((cause as Error).message)
       } finally {
         inFlight.current = false
-        setLoaded(true)
+        if (mine === run.current) setLoaded(true)
       }
     },
-    [asked]
+    [asked, offline]
   )
 
   useEffect(() => {
@@ -94,7 +136,7 @@ const READY_TO_PLAY_SHELF = 30
 
 export function HomeScreen(): JSX.Element {
   const { t } = useI18n()
-  const { installed, installedIds, navigate, canGoBack } = useApp()
+  const { installed, installedIds, navigate, canGoBack, offline } = useApp()
 
   /**
    * The games on this device, newest install first.
@@ -119,13 +161,21 @@ export function HomeScreen(): JSX.Element {
   // the hint bar claims otherwise.
   useAction('search', () => navigate({ name: 'library' }))
 
-  const continuePlaying = useShelf({
-    last_played: true,
-    order_by: 'last_played',
-    order_dir: 'desc'
-  })
-  const favourites = useShelf({ favorite: true })
-  const recentlyAdded = useShelf({ order_by: 'created_at', order_dir: 'desc' })
+  /**
+   * Three of the four shelves are queries, and one is the download index.
+   *
+   * Which is the whole of what happens to this screen away from the server: the
+   * queries stand down and the shelf that was always about this machine is what
+   * is left, with a line above it saying why. The alternative — a screen of its
+   * own for the same games — was a different application appearing whenever the
+   * network dropped.
+   */
+  const continuePlaying = useShelf(
+    { last_played: true, order_by: 'last_played', order_dir: 'desc' },
+    offline
+  )
+  const favourites = useShelf({ favorite: true }, offline)
+  const recentlyAdded = useShelf({ order_by: 'created_at', order_dir: 'desc' }, offline)
 
   const error = continuePlaying.error ?? favourites.error ?? recentlyAdded.error
   const ready = continuePlaying.loaded && favourites.loaded && recentlyAdded.loaded
@@ -158,6 +208,8 @@ export function HomeScreen(): JSX.Element {
 
   return (
     <div className="content">
+      {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
+
       {highlight ? (
         <Hero
           rom={highlight}
@@ -198,8 +250,9 @@ export function HomeScreen(): JSX.Element {
 
       {continuePlaying.items.length === 0 &&
       recentlyAdded.items.length === 0 &&
-      favourites.items.length === 0 ? (
-        <div className="empty">{t('home.empty')}</div>
+      favourites.items.length === 0 &&
+      readyToPlay.length === 0 ? (
+        <div className="empty">{offline ? t('home.emptyOffline') : t('home.empty')}</div>
       ) : null}
 
       <Hints

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
-import type { RommClient } from './romm.ts'
+import { RommError, type RommClient } from './romm.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
 import { Store } from './store.ts'
 
@@ -70,7 +70,13 @@ function device(fields: Partial<RommDevice> = {}): RommDevice {
 
 /** A device with a save folder, a state folder, and a game installed. */
 function setUp(
-  options: { saves?: RommSave[]; states?: RommState[]; devices?: RommDevice[] } = {}
+  options: {
+    saves?: RommSave[]
+    states?: RommState[]
+    devices?: RommDevice[]
+    /** What the server throws instead of answering, when it is not answering. */
+    serverSays?: Error
+  } = {}
 ): {
   sync: SaveSync
   target: SaveTarget
@@ -88,10 +94,13 @@ function setUp(
 
   const uploaded: { fileName: string; from: string }[] = []
   const deleted: number[] = []
+  const refuse = (): never => {
+    throw options.serverSays as Error
+  }
   const client = {
-    saves: async () => options.saves ?? [],
-    states: async () => options.states ?? [],
-    devices: async () => options.devices ?? [],
+    saves: async () => (options.serverSays ? refuse() : (options.saves ?? [])),
+    states: async () => (options.serverSays ? refuse() : (options.states ?? [])),
+    devices: async () => (options.serverSays ? refuse() : (options.devices ?? [])),
     downloadSave: async (_id: number, to: string) => writeFile(to, 'from the server'),
     downloadState: async (_id: number, to: string) => writeFile(to, 'from the server'),
     uploadSave: async (_romId: number, filePath: string, fileName: string) => {
@@ -159,6 +168,32 @@ describe('listing both ends', () => {
     // The tag it would be uploaded under, so the column is not blank on the
     // rows that have never been anywhere.
     assert.equal(asset.emulator, 'retroarch')
+  })
+
+  test('a server that cannot be asked leaves the local files uncompared', async () => {
+    const { sync, target, saveDir } = setUp({ serverSays: new TypeError('fetch failed') })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    const [asset] = await sync.listAssets(7, target)
+
+    // Not `local-only`, which claims RomM has never been given this file. That
+    // reads as a push candidate, and pushing it would write over whatever is
+    // actually up there — which is the one thing nobody can see from here.
+    assert.equal(asset.sync, 'unchecked')
+    assert.ok(asset.localPath)
+    assert.equal(asset.id, null)
+  })
+
+  test('a server that refuses is a failure, not an empty list', async () => {
+    const { sync, target, saveDir } = setUp({
+      // A token paired without `assets.read`. The server is right there and
+      // saying no, and a screen of local files with no mention of it would
+      // hide the only thing that is wrong.
+      serverSays: new RommError('forbidden', 403)
+    })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+
+    await assert.rejects(() => sync.listAssets(7, target), /forbidden/)
   })
 
   test('a game that is not downloaded has the server side and nothing else', async () => {

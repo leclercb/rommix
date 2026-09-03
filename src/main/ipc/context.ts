@@ -1,10 +1,11 @@
 import { emulatorById } from '@config/emulators'
 import type { EmulatorDescriptor, LaunchVariant } from '@config/emulators'
-import type { EmulatorState, InstalledRom } from '@shared/types'
+import type { EmulatorState, InstalledRom, RommRom } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import type { SaveTarget } from '../saves.ts'
 import { usableVariants } from '../emulators.ts'
-import { RommError } from '../romm.ts'
+import { log } from '../log.ts'
+import { refusedUs, RommError } from '../romm.ts'
 import { t } from '../i18n.ts'
 
 /**
@@ -65,6 +66,61 @@ export function launchOptions(
 }
 
 /**
+ * The ROM as RomM has it, or as this device wrote it down when it arrived.
+ *
+ * Every call about a game that is already on this disk goes through here, which
+ * is what makes those calls survive a network that is not there: launching one
+ * needs its name and its files, and both were written down at install time
+ * precisely so the game could be started away from the server. See
+ * `OfflineCache`.
+ *
+ * The server first, always, because it is the copy that can have changed — a
+ * game rescanned, renamed, or matched to different artwork. The cache is the
+ * fallback and never the preference.
+ *
+ * A live answer for a game that is on this disk is written down on the way
+ * past, which is the whole of when the saved copy is refreshed: install time,
+ * and every time afterwards that something asks the server about a game it
+ * already has. That is deliberately not a sweep of the library on every
+ * reconnect — a thousand games is a thousand requests for records that were
+ * right when they were written — but it does mean the games actually opened
+ * and played, which are the ones that matter away from the network, keep an
+ * answer no older than the last time they were touched with a server present.
+ * Costs a small local write, since the artwork is only fetched when it has
+ * changed.
+ */
+export async function romFor(rommix: RomMixApp, romId: number): Promise<RommRom> {
+  let rom: RommRom
+  try {
+    rom = await rommix.client.rom(romId)
+  } catch (cause) {
+    // Never for a request RomM turned down. An expired token answers 401, and
+    // a game screen served from the cache would work perfectly while the rest
+    // of the app was on its way to the sign-in form. Everything else — nothing
+    // answered, a proxy in the way, a game the server has since deleted — is a
+    // game that is still on this disk and still worth showing.
+    const cached = refusedUs(cause) ? null : await rommix.offline.game(romId)
+    if (!cached) throw cause
+    log.info('game', 'the server did not answer, using the copy saved at install time', {
+      romId,
+      reason: (cause as Error).message
+    })
+    return cached
+  }
+
+  const installed = rommix.library.installedNow(romId)
+  if (installed) {
+    await rommix.library.remember(rom, installed.system).catch((cause: Error) =>
+      log.debug('game', 'could not write the game down again', {
+        romId,
+        reason: cause.message
+      })
+    )
+  }
+  return rom
+}
+
+/**
  * The ROM plus everything needed to sync its saves.
  *
  * Both save buttons on the game screen need the same four things, and each
@@ -72,7 +128,7 @@ export function launchOptions(
  * changed — has its own message.
  */
 export async function saveContext(rommix: RomMixApp, romId: number): Promise<SaveTarget> {
-  const { client, library } = rommix
+  const { library } = rommix
   // Before `installedNow`, not after: whether an entry belongs to the
   // emulator currently in charge is a question about the probe, and an
   // unprobed RomMix would answer "yes" to all of them.
@@ -86,7 +142,7 @@ export async function saveContext(rommix: RomMixApp, romId: number): Promise<Sav
     throw new RommError(t('error.noEmulatorForSystem', { system: installed.system }))
   }
   return {
-    rom: await client.rom(romId),
+    rom: await romFor(rommix, romId),
     emulator,
     system: installed.system,
     // The file the emulator is handed, never the game directory: RetroArch

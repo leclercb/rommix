@@ -43,7 +43,7 @@ const SUPPORT_URL = 'https://buymeacoffee.com/leclercb'
 
 export function GeneralTab(): JSX.Element {
   const { t, locale } = useI18n()
-  const { status, settings, saveSettings, replace, notify } = useApp()
+  const { status, offline, settings, saveSettings, replace, notify } = useApp()
   const [supporting, setSupporting] = useState(false)
 
   const disconnect = async (): Promise<void> => {
@@ -88,6 +88,11 @@ export function GeneralTab(): JSX.Element {
   return (
     <>
       <h2 className="section-title">{t('settings.server')}</h2>
+      {/* The one page that is about the server itself, and so the one place
+          that owes an explanation rather than a badge: the address below is
+          the machine that is not answering, and Disconnect is a button whose
+          consequences are very different from waiting for it to come back. */}
+      {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
       <dl className="kv">
         <dt>{t('settings.address')}</dt>
         <dd>{status?.baseUrl ?? t('value.notConfigured')}</dd>

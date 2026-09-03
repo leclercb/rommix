@@ -33,19 +33,25 @@ export function useGameMarks(
   chooseStatus: (next: RomUserStatus | null) => Promise<void>
 } {
   const { t } = useI18n()
-  const { notify } = useApp()
+  const { notify, offline } = useApp()
   const [favourite, setFavourite] = useState<boolean | null>(null)
   const [status, setStatus] = useState<RomUserStatus | null>(null)
 
   useEffect(() => {
     setFavourite(null)
+    // Not asked at all while the server is away: the screen hides both marks
+    // there, and every failed call raises a notification of its own, so asking
+    // anyway would greet a game opened offline with an error about a button
+    // that is not on it. Nor before the first answer, which is the same call
+    // made a moment earlier. See `AppState.offline`.
+    if (offline !== false) return
     void window.rommix.library
       .favourite(romId)
       .then(setFavourite)
       // Asked for a button, not for the screen: a server that will not answer
       // leaves the button waiting rather than putting an error over the game.
       .catch(() => setFavourite(null))
-  }, [romId])
+  }, [romId, offline])
 
   const toggleFavourite = async (): Promise<void> => {
     if (favourite === null) return

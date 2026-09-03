@@ -41,10 +41,20 @@ type Scope = 'all' | 'downloaded'
  */
 export function LibraryScreen(): JSX.Element {
   const { t } = useI18n()
-  const { installed, installedIds, navigate, settings } = useApp()
+  const { installed, installedIds, navigate, offline, settings } = useApp()
   const keyLabel = useKeyLabel()
 
-  const [scope, setScope] = useState<Scope>('all')
+  /**
+   * Away from the server there is one scope, and it is not a choice.
+   *
+   * The downloaded scope is already answered from the installed index rather
+   * than from a query — see `Scope` — so the screen keeps its search, its
+   * platform filter and its grid, and loses only the half that was never here.
+   * Held as the user's own choice underneath, so coming back into range puts
+   * the whole library back rather than leaving them on a filter they never set.
+   */
+  const [chosenScope, setScope] = useState<Scope>('all')
+  const scope: Scope = offline ? 'downloaded' : chosenScope
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
   const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
   const [search, setSearch] = useState('')
@@ -58,13 +68,35 @@ export function LibraryScreen(): JSX.Element {
   // Synchronous guard: `loading` state lands a render too late to stop the
   // observer firing several times while one request is still in flight.
   const inFlight = useRef(false)
+  /**
+   * Which fetch the grid is listening to. See the same guard in `useShelf`.
+   *
+   * A page already on the wire when the server goes away lands after the grid
+   * has narrowed to what is downloaded, and its rejection would put an error
+   * over a screen that is working perfectly well without it.
+   */
+  const run = useRef(0)
 
+  /**
+   * The platforms, which the server's last list stands in for while it is away.
+   * See `library:platforms`.
+   *
+   * Asked again when the connection changes, and not before it is known. A
+   * device that starts out of range with nothing saved has no filter to draw
+   * and an error to explain why; without this it would keep both after RomM
+   * came back, since the only other thing that clears the error is a fetch the
+   * downloaded scope never makes.
+   */
   useEffect(() => {
+    if (offline === null) return
     void window.rommix.library
       .platforms()
-      .then((list) => setPlatforms(list.filter((p) => p.rom_count > 0)))
+      .then((list) => {
+        setPlatforms(list.filter((p) => p.rom_count > 0))
+        setError(null)
+      })
       .catch((cause: Error) => setError(cause.message))
-  }, [])
+  }, [offline])
 
   // Debounce so typing a title does not fire a request per keystroke.
   useEffect(() => {
@@ -76,8 +108,18 @@ export function LibraryScreen(): JSX.Element {
     async (offset: number): Promise<void> => {
       // Nothing to fetch for the downloaded scope, and the effect below runs
       // again with a fresh page when the grid goes back to the server.
-      if (scope === 'downloaded' || inFlight.current) return
+      //
+      // Nor before the first connection answer: the grid is about to narrow to
+      // what is downloaded, and a request sent in the meantime comes back as a
+      // fetch error over a screen that has nothing to fetch. The spinner it
+      // already shows is the honest state until then.
+      if (offline !== false || scope === 'downloaded' || inFlight.current) {
+        // Whatever is still out belongs to a grid that has stopped listening.
+        if (offline === true) run.current += 1
+        return
+      }
       inFlight.current = true
+      const mine = ++run.current
       setLoading(true)
       setError(null)
       try {
@@ -87,16 +129,17 @@ export function LibraryScreen(): JSX.Element {
           limit: PAGE_SIZE,
           offset
         })
+        if (mine !== run.current) return
         setTotal(page.total)
         setRoms((current) => (offset === 0 ? page.items : [...current, ...page.items]))
       } catch (cause) {
-        setError((cause as Error).message)
+        if (mine === run.current) setError((cause as Error).message)
       } finally {
         inFlight.current = false
-        setLoading(false)
+        if (mine === run.current) setLoading(false)
       }
     },
-    [debouncedSearch, selectedPlatform, scope]
+    [debouncedSearch, selectedPlatform, scope, offline]
   )
 
   // Reset to the first page whenever the query changes.
@@ -166,15 +209,19 @@ export function LibraryScreen(): JSX.Element {
     [scope, downloaded, roms]
   )
   const count = scope === 'downloaded' ? tiles.length : total
-  // Only the server scope has anything to wait for.
-  const busy = loading && scope === 'all'
+  // Only the server scope has anything to wait for — and until the connection
+  // has answered, every scope does: which one this screen is showing is not
+  // settled yet.
+  const busy = (loading && scope === 'all') || offline === null
 
   return (
     <div className="content">
       <h1 className="page-title">{t('library.title')}</h1>
       <p className="page-subtitle">
         {count === 0
-          ? t('library.browseAll')
+          ? // "Browse everything on your server" is not what this screen is
+            // while the server is away, and the grid below says the rest.
+            t(offline ? 'library.noneDownloaded' : 'library.browseAll')
           : platformName
             ? t('library.countOnPlatform', { count, platform: platformName })
             : t('library.count', { count })}
@@ -182,18 +229,25 @@ export function LibraryScreen(): JSX.Element {
 
       {/* One block, in the order the questions narrow: which library, then a
           title, then which platform of it. */}
+      {/* Above the filters, because it explains what they are filtering: with
+          the server away this screen is the downloaded games and the scope
+          control has gone with it. */}
+      {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
+
       <div className="filters">
-        <div className="filter">
-          <span className="filter__label">{t('library.scopeLabel')}</span>
-          <SegmentedControl<Scope>
-            value={scope}
-            onChange={setScope}
-            options={[
-              { value: 'all', label: t('library.scopeAll') },
-              { value: 'downloaded', label: t('library.scopeDownloaded') }
-            ]}
-          />
-        </div>
+        {offline ? null : (
+          <div className="filter">
+            <span className="filter__label">{t('library.scopeLabel')}</span>
+            <SegmentedControl<Scope>
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: 'all', label: t('library.scopeAll') },
+                { value: 'downloaded', label: t('library.scopeDownloaded') }
+              ]}
+            />
+          </div>
+        )}
 
         <div ref={searchRef}>
           <TextField

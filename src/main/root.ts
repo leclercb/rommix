@@ -59,12 +59,14 @@ export function rootPaths(root = resolveRoot()): {
   config: string
   emulators: string
   roms: string
+  offline: string
 } {
   return {
     root,
     config: join(root, 'config'),
     emulators: join(root, 'emulators'),
-    roms: join(root, 'roms')
+    roms: join(root, 'roms'),
+    offline: join(root, 'offline')
   }
 }
 
@@ -77,6 +79,10 @@ export function ensureRoot(root = resolveRoot()): string {
   // no library of their own are pointed at, and the user has to be able to add
   // it to Eden's Game Directories before anything has been downloaded into it.
   mkdirSync(paths.roms, { recursive: true })
+  // What RomM said about each game that was downloaded, so the games on this
+  // disk can still be looked at and started with nothing to ask. See
+  // `OfflineCache`.
+  mkdirSync(paths.offline, { recursive: true })
   return root
 }
 
@@ -89,6 +95,13 @@ export function ensureRoot(root = resolveRoot()): string {
  * silently moving tens of gigabytes because a text field changed is not a
  * decision this function should be making. Takes effect on restart, because
  * Electron's userData path is fixed before the app starts.
+ *
+ * What was written down for playing offline comes along with the config rather
+ * than staying with the ROMs, because it is only useful beside the configuration
+ * that names the games: left behind, the new root would have an index of
+ * installed games and nothing to say about any of them away from the server, and
+ * nothing would ever fill it again — `runMigrations` reads the record of what it
+ * has already done from the config that was just copied.
  */
 export function relocateRoot(next: string): void {
   const current = rootPaths()
@@ -99,9 +112,15 @@ export function relocateRoot(next: string): void {
   mkdirSync(target.config, { recursive: true })
   mkdirSync(target.emulators, { recursive: true })
   mkdirSync(target.roms, { recursive: true })
+  mkdirSync(target.offline, { recursive: true })
 
-  if (existsSync(current.config) && current.config !== target.config) {
-    cpSync(current.config, target.config, { recursive: true, errorOnExist: false, force: true })
+  for (const [from, to] of [
+    [current.config, target.config],
+    [current.offline, target.offline]
+  ]) {
+    if (existsSync(from) && from !== to) {
+      cpSync(from, to, { recursive: true, errorOnExist: false, force: true })
+    }
   }
 
   const pointer = pointerPath()

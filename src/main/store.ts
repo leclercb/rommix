@@ -29,6 +29,7 @@ import { log } from './log.ts'
  *   downloaded_roms.json a cache of which ROMs are on disk, not the authority on
  *                        it; `DownloadManager.adopt` reconciles it against the
  *                        files
+ *   migrations.json      the one-off steps this folder has already been through
  */
 
 interface StoredCredentials {
@@ -143,6 +144,7 @@ export class Store {
   private readonly credentialsPath: string
   private readonly installedPath: string
   private readonly pendingPath: string
+  private readonly migrationsPath: string
 
   private settingsCache: Settings
   private serverCache: ServerConfig | null
@@ -160,6 +162,7 @@ export class Store {
     this.credentialsPath = join(this.dir, 'credentials.bin')
     this.installedPath = join(this.dir, 'downloaded_roms.json')
     this.pendingPath = join(this.dir, 'pending_downloads.json')
+    this.migrationsPath = join(this.dir, 'migrations.json')
 
     const raw = readJson<{ settings: Settings; server: ServerConfig | null }>(this.settingsPath, {
       settings: defaultSettings(),
@@ -418,5 +421,25 @@ export class Store {
   removePending(romId: number): void {
     const kept = this.pending.filter((item) => item.romId !== romId)
     writeJsonAtomic(this.pendingPath, { downloads: kept })
+  }
+
+  // -- one-off steps this folder has been through ---------------------------
+
+  /**
+   * The migrations already applied here, by name. See `runMigrations`.
+   *
+   * Read from disk rather than cached, for the same reason `pending` is: it is
+   * asked for once a run, and the file is the record — a cache would only be
+   * something for a second window or a crash mid-run to disagree with.
+   */
+  get appliedMigrations(): string[] {
+    const value = readJson<Record<string, unknown>>(this.migrationsPath, {}).applied
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
+  }
+
+  /** Note that a migration has finished, so it is not run again. */
+  recordMigration(id: string): void {
+    if (this.appliedMigrations.includes(id)) return
+    writeJsonAtomic(this.migrationsPath, { applied: [...this.appliedMigrations, id] })
   }
 }

@@ -17,7 +17,9 @@ import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
+import { OfflineCache } from './offline.ts'
 import { CorruptDownloadError, RommClient, RommError } from './romm.ts'
+import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 import { zipDirectory } from './zip.ts'
 
@@ -143,6 +145,11 @@ function fakeClient(
       if (!found) throw new RommError(`no ROM ${id}`)
       return found
     },
+    // No artwork on this server, which is a 404 rather than a failure: what
+    // the cache does with one is skip it and record the game anyway.
+    async asset() {
+      return new Response(null, { status: 404 })
+    },
     async roms() {
       const items = Object.values(options.roms ?? {})
       return { items, total: items.length, limit: 200, offset: 0 }
@@ -182,6 +189,17 @@ function fakeClient(
   return { client, resumed }
 }
 
+/**
+ * An offline cache under whatever scratch root the test has set.
+ *
+ * The real one rather than a stub: it writes into a throwaway folder and asks
+ * the fake client for artwork, which is the same shape as a real install
+ * against a server holding no covers.
+ */
+function cache(client: RommClient): OfflineCache {
+  return new OfflineCache(rootPaths().offline, client)
+}
+
 /** A manager over a fresh root, with whichever emulator the test wants. */
 function manager(
   options: {
@@ -217,7 +235,7 @@ function manager(
     verifyUnpacked: (game: RommRom, path: string) =>
       new RommClient(store).verifyUnpacked(game, path)
   })
-  const library = new Library(store, client, () => options.emulator ?? null)
+  const library = new Library(store, client, cache(client), () => options.emulator ?? null)
   const downloads = new DownloadManager(store, client, library)
   return { downloads, library, store, root, client, resumed }
 }
@@ -284,7 +302,11 @@ describe('a download that runs to the end', () => {
     process.env.ROMMIX_HOME = root
     const store = new Store(join(root, 'config'))
     const { client } = fakeClient({ contents: '0123456789' })
-    const downloads = new DownloadManager(store, client, new Library(store, client, () => null))
+    const downloads = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
 
     const finished = new Promise<void>((resolve) => {
       downloads.on('update', (items: { state: string }[]) => {
@@ -634,7 +656,11 @@ describe('after a restart', () => {
     // A second manager over the same root is what a restart looks like from
     // here: same files, same store, nothing in memory.
     const { client } = fakeClient()
-    const next = new DownloadManager(store, client, new Library(store, client, () => null))
+    const next = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     await next.restorePending()
 
     const [item] = next.items
@@ -653,7 +679,11 @@ describe('after a restart', () => {
     rmSync(join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md.part'))
 
     const { client } = fakeClient()
-    const next = new DownloadManager(store, client, new Library(store, client, () => null))
+    const next = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     await next.restorePending()
 
     assert.deepEqual(next.items, [])
@@ -668,7 +698,11 @@ describe('after a restart', () => {
     // The restart: a new manager over the same root, told to pick up what was
     // left, then asked for the same game again.
     const { client, resumed } = fakeClient({ contents: '0123456789', roms: { 1: rom() } })
-    const next = new DownloadManager(store, client, new Library(store, client, () => null))
+    const next = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     await next.restorePending()
     next.enqueue(rom())
     const item = await settled(next, 1)
@@ -699,12 +733,20 @@ describe('after a restart', () => {
         await new Promise(() => undefined)
       }
     } as unknown as RommClient
-    const killed = new DownloadManager(store, client, new Library(store, client, () => null))
+    const killed = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     killed.enqueue(rom())
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     const { client: next, resumed } = fakeClient({ contents: '0123456789', roms: { 1: rom() } })
-    const restarted = new DownloadManager(store, next, new Library(store, next, () => null))
+    const restarted = new DownloadManager(
+      store,
+      next,
+      new Library(store, next, cache(next), () => null)
+    )
     await restarted.restorePending()
 
     const [restored] = restarted.items
@@ -736,7 +778,11 @@ describe('after a restart', () => {
     })
 
     const { client } = fakeClient()
-    const next = new DownloadManager(store, client, new Library(store, client, () => null))
+    const next = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     await next.restorePending()
 
     assert.deepEqual(next.items, [])
@@ -749,7 +795,11 @@ describe('after a restart', () => {
     await settled(downloads, 1)
 
     const { client } = fakeClient()
-    const next = new DownloadManager(store, client, new Library(store, client, () => null))
+    const next = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     await next.restorePending()
     await next.restorePending()
 
@@ -787,7 +837,11 @@ describe('pausing on purpose', () => {
         })
       }
     } as unknown as RommClient
-    const downloads = new DownloadManager(store, client, new Library(store, client, () => null))
+    const downloads = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
 
     downloads.enqueue(rom())
     await new Promise((resolve) => setTimeout(resolve, 20))
@@ -828,7 +882,11 @@ describe('pausing on purpose', () => {
         await new Promise(() => undefined)
       }
     } as unknown as RommClient
-    const downloads = new DownloadManager(store, client, new Library(store, client, () => null))
+    const downloads = new DownloadManager(
+      store,
+      client,
+      new Library(store, client, cache(client), () => null)
+    )
     downloads.enqueue(rom())
     downloads.enqueue(second)
 

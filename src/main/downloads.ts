@@ -570,6 +570,24 @@ export class DownloadManager extends EventEmitter {
       // readings are its, and so is the event every screen listens on.
       this.library.record(await this.library.entryFor(rom, system, emulatorId, installed))
 
+      /**
+       * What RomM says about the game, written down beside it.
+       *
+       * After the game is announced as installed rather than before, because
+       * this is a cache and the news is not: a screen waiting on a Play button
+       * should not also be waiting on a screenshot. A failure is logged and
+       * nothing more — the game is downloaded either way, and the one thing
+       * lost is what it looks like away from the network, which
+       * `rememberInstalledGames` fills in on the next connected start. See
+       * `OfflineCache`.
+       */
+      await this.library.remember(rom, system).catch((cause: Error) =>
+        log.warn('download', 'could not write down what RomM says about the game', {
+          romId: rom.id,
+          reason: cause.message
+        })
+      )
+
       item.state = 'done'
       item.receivedBytes = item.totalBytes
       log.info('download', 'installed', {

@@ -20,7 +20,8 @@ import type {
   RommPlatform,
   SaveEnvironment
 } from '@shared/types'
-import { RommClient, RommError } from './romm.ts'
+import type { OfflineCache } from './offline.ts'
+import { refusedUs, RommClient, RommError } from './romm.ts'
 import type { Store } from './store.ts'
 
 /**
@@ -113,12 +114,26 @@ export class BiosManager {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
+    private readonly offline: OfflineCache,
     private readonly getEmulator: (system?: string) => EmulatorState | null
   ) {}
 
   /** The whole picture, one platform per row. */
   async report(): Promise<BiosReport> {
     return (await this.scan()).report
+  }
+
+  /**
+   * Take the server's half and keep it, without describing anything.
+   *
+   * For the one moment nobody is looking at this screen and it matters anyway:
+   * a device that has never opened it has no firmware written down, and the
+   * first time that is noticed is the first time it is out of range and a game
+   * will not start. One request per platform, so it is taken once and then left
+   * to the screen itself to keep current. See `RomMixApp.catchUp`.
+   */
+  async capture(): Promise<void> {
+    await this.serverHalf()
   }
 
   /**
@@ -129,19 +144,45 @@ export class BiosManager {
    * description of one row at the cost of two calls.
    *
    * Null means the server has no such platform, which is not a failure: RomMix
-   * knows platforms a given server has never heard of.
+   * knows platforms a given server has never heard of. A server that cannot be
+   * reached and has never been saved is the other null — the answer is not
+   * knowable, the game is about to start regardless, and a notification about
+   * a warning that could not be computed helps nobody.
    *
-   * Anything else throws. A failed check used to return null as well, and the
-   * game page then drew exactly what it draws for a platform with nothing
-   * wrong — no warning at all. The page still opens either way, because the
-   * caller keeps its own `catch`; what changes is that the user is told.
+   * Anything else throws. A refusal used to return null as well, and the game
+   * page then drew exactly what it draws for a platform with nothing wrong —
+   * no warning at all. The page still opens either way, because the caller
+   * keeps its own `catch`; what changes is that the user is told.
    */
   async platformReport(platformId: number): Promise<BiosPlatform | null> {
-    const platforms = await this.client.platforms()
-    const platform = platforms.find((row) => row.id === platformId)
-    if (!platform) return null
+    // Deliberately not `serverHalf`, which asks after every platform's
+    // firmware: this is opened every time a game is, and the cost of that
+    // whole pass is the reason this method exists at all.
+    let platform: RommPlatform | undefined
+    let firmware: readonly RommFirmware[]
+    try {
+      platform = (await this.client.platforms()).find((row) => row.id === platformId)
+      if (!platform) return null
+      firmware = await this.client.firmware(platformId)
+    } catch (cause) {
+      // A refusal is reported rather than papered over, as it is for the whole
+      // screen: this is the one call that would otherwise turn a token missing
+      // `firmware.read` into a game page with no warning on it at all.
+      if (refusedUs(cause)) throw cause
+      const platforms = await this.offline.platforms()
+      const held = platforms ? await this.offline.firmware() : null
+      if (!platforms || !held) {
+        log.info('bios', 'nothing to check this platform against', {
+          platformId,
+          reason: (cause as Error).message
+        })
+        return null
+      }
+      platform = platforms.find((row) => row.id === platformId)
+      if (!platform) return null
+      firmware = held[platformId] ?? []
+    }
 
-    const firmware = await this.client.firmware(platformId)
     const listings = new Map<string, Set<string>>()
     const listing = async (dir: string): Promise<Set<string>> => {
       const cached = listings.get(dir)
@@ -173,40 +214,7 @@ export class BiosManager {
     firmwareById: Map<number, RommFirmware>
     dirFor: Map<number, string>
   }> {
-    const platforms = await this.client.platforms()
-
-    const byPlatform = new Map<number, RommFirmware[]>()
-    const failures: string[] = []
-    const BATCH = 6
-    for (let i = 0; i < platforms.length; i += BATCH) {
-      await Promise.all(
-        platforms.slice(i, i + BATCH).map(async (platform) => {
-          try {
-            byPlatform.set(platform.id, await this.client.firmware(platform.id))
-          } catch (cause) {
-            byPlatform.set(platform.id, [])
-            failures.push((cause as Error).message)
-            log.warn('bios', 'the server refused to list firmware', {
-              platform: platform.slug,
-              reason: (cause as Error).message
-            })
-          }
-        })
-      )
-    }
-
-    // A refused firmware call must not be reported as an empty one. Swallowing
-    // it produces the most misleading screen RomMix can draw: every file listed
-    // as missing and absent from the server, when the truth is that the server
-    // was never asked successfully — which is what a token paired without the
-    // `firmware.read` scope does to this screen.
-    //
-    // One failure fails the scan rather than marking that row, because there is
-    // only one firmware endpoint: whatever refused it for one platform is going
-    // to refuse it for the rest.
-    if (failures.length > 0) {
-      throw new RommError(t('error.biosListFailed', { reason: failures[0] }))
-    }
+    const { platforms, byPlatform } = await this.serverHalf()
 
     // One listing per BIOS folder, not per platform: several platforms share
     // an emulator, and therefore share the folder.
@@ -252,6 +260,90 @@ export class BiosManager {
       ),
       dirFor
     }
+  }
+
+  /**
+   * The half of this screen that is the server's: its platforms, and the
+   * firmware it holds for each.
+   *
+   * Split out because it is the only half that can be unreachable, and because
+   * what is left — which files are required, and which are already in place —
+   * is a question for this disk and is worth answering on its own. Away from
+   * the network the last live answer stands in, so the screen still says what
+   * each console needs and what is missing; only the column saying what the
+   * server could supply is as old as the last time it was asked.
+   *
+   * Kept whole, and written only when every platform answered: a firmware list
+   * is tied to its platform by the id it was requested with and by nothing
+   * else, so half of one saved over a good copy would attribute files to the
+   * wrong consoles.
+   */
+  private async serverHalf(): Promise<{
+    platforms: RommPlatform[]
+    byPlatform: Map<number, RommFirmware[]>
+  }> {
+    let platforms: RommPlatform[]
+    try {
+      platforms = await this.client.platforms()
+    } catch (cause) {
+      // Both halves or neither. A platform list with no firmware behind it
+      // draws every file on every console as missing and absent from the
+      // server, which is a screen that sends people looking for BIOS files
+      // they may well already have uploaded. And neither half stands in for a
+      // request RomM refused — a token without `platforms.read` would draw
+      // last week's screen with nothing to say why.
+      const held = refusedUs(cause) ? null : await this.offline.platforms()
+      const firmware = held ? await this.offline.firmware() : null
+      if (!held || !firmware) throw cause
+      log.info('bios', 'the server did not answer, describing what it last held', {
+        reason: (cause as Error).message
+      })
+      return {
+        platforms: held,
+        byPlatform: new Map(
+          Object.entries(firmware).map(([id, items]) => [Number(id), items] as const)
+        )
+      }
+    }
+
+    const byPlatform = new Map<number, RommFirmware[]>()
+    const failures: string[] = []
+    const BATCH = 6
+    for (let i = 0; i < platforms.length; i += BATCH) {
+      await Promise.all(
+        platforms.slice(i, i + BATCH).map(async (platform) => {
+          try {
+            byPlatform.set(platform.id, await this.client.firmware(platform.id))
+          } catch (cause) {
+            byPlatform.set(platform.id, [])
+            failures.push((cause as Error).message)
+            log.warn('bios', 'the server refused to list firmware', {
+              platform: platform.slug,
+              reason: (cause as Error).message
+            })
+          }
+        })
+      )
+    }
+
+    // A refused firmware call must not be reported as an empty one. Swallowing
+    // it produces the most misleading screen RomMix can draw: every file listed
+    // as missing and absent from the server, when the truth is that the server
+    // was never asked successfully — which is what a token paired without the
+    // `firmware.read` scope does to this screen.
+    //
+    // One failure fails the scan rather than marking that row, because there is
+    // only one firmware endpoint: whatever refused it for one platform is going
+    // to refuse it for the rest. A refusal is also not something to fall back
+    // to the saved copy over: the server is right there and saying no, and a
+    // screen drawn from last week would hide that.
+    if (failures.length > 0) {
+      throw new RommError(t('error.biosListFailed', { reason: failures[0] }))
+    }
+
+    await this.offline.savePlatforms(platforms)
+    await this.offline.saveFirmware(Object.fromEntries(byPlatform))
+    return { platforms, byPlatform }
   }
 
   private async describe(

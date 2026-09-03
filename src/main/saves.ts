@@ -17,6 +17,7 @@ import type {
   SavePushPreview,
   SaveSyncResult
 } from '@shared/types'
+import { refusedUs } from './romm.ts'
 import type { RommClient } from './romm.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
@@ -307,14 +308,10 @@ export class SaveSync {
    * to look in — and every asset is then simply not on this device.
    */
   async listAssets(romId: number, local?: SaveTarget): Promise<SaveAsset[]> {
-    const [saves, states, devices] = await Promise.all([
-      this.client.saves(romId),
-      this.client.states(romId),
-      // Alongside, not before: it is cached and usually free, and a row would
-      // rather be a moment late than named nothing at all.
-      this.client.devices()
-    ])
-    const nameOf = deviceNamer(devices)
+    const remote = await this.remoteEnds(romId)
+    const saves = remote?.saves ?? []
+    const states = remote?.states ?? []
+    const nameOf = deviceNamer(remote?.devices ?? [])
 
     /**
      * What this device has, by kind and name.
@@ -389,7 +386,9 @@ export class SaveSync {
         fromThisDevice: null,
         originName: null,
         updatedAt: null,
-        sync: 'local-only'
+        // What is known, and no more. With the server unasked, "only on this
+        // device" is a claim about a end nobody looked at — see `unchecked`.
+        sync: remote ? 'local-only' : 'unchecked'
       })
     }
 
@@ -403,6 +402,42 @@ export class SaveSync {
     // stamp that will not parse sorts last rather than anywhere.
     const at = (asset: SaveAsset): number => Date.parse(changedAt(asset) ?? '') || 0
     return assets.sort((a, b) => at(b) - at(a))
+  }
+
+  /**
+   * Both of RomM's lists for this game, and the devices that named them — or
+   * null when the server could not be asked at all.
+   *
+   * Null rather than empty, because the two mean opposite things to the list
+   * above: an empty answer is "RomM has none of this game's saves", which makes
+   * every local file a push candidate, and no answer is "nobody knows", which
+   * makes none of them anything yet. Conflating them is what would put a Push
+   * badge on a row whose server copy might be newer than the one here.
+   *
+   * A refusal is still a failure. RomM turning this request down — a token
+   * without `assets.read`, most likely — is the one thing wrong on the screen,
+   * and drawing a list of local files with no mention of it hides it.
+   */
+  private async remoteEnds(
+    romId: number
+  ): Promise<{ saves: RommSave[]; states: RommState[]; devices: RommDevice[] } | null> {
+    try {
+      const [saves, states, devices] = await Promise.all([
+        this.client.saves(romId),
+        this.client.states(romId),
+        // Alongside, not before: it is cached and usually free, and a row would
+        // rather be a moment late than named nothing at all.
+        this.client.devices()
+      ])
+      return { saves, states, devices }
+    } catch (cause) {
+      if (refusedUs(cause)) throw cause
+      log.info('saves', 'the server could not be asked, listing what is on this device', {
+        romId,
+        reason: (cause as Error).message
+      })
+      return null
+    }
   }
 
   /**

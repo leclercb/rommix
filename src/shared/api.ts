@@ -108,6 +108,15 @@ export interface RomMixBridge {
     disconnect(): Promise<void>
     startPairing(baseUrl: string): Promise<RommDeviceAuthInit>
     pollPairing(deviceCode: string, baseUrl: string): Promise<boolean>
+    /**
+     * Every change in whether RomM is reachable, pushed rather than asked for.
+     *
+     * This is what makes offline a mode rather than a failure: a handheld
+     * carried out of range asks the server nothing, so nothing would ever
+     * notice — and the interface has to put a different set of screens up when
+     * it happens, and take them down again when the network comes back.
+     */
+    onStatus(listener: (status: ConnectionStatus) => void): () => void
   }
   library: {
     platforms(): Promise<RommPlatform[]>

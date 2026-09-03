@@ -73,6 +73,8 @@ export const fr: Catalog = {
   'nav.settings': 'Réglages',
 
   'app.notConnected': 'Non connecté',
+  'app.offline': 'Hors ligne',
+  'app.offlineNotice': 'RomMix est en mode hors ligne — le serveur RomM est injoignable.',
   'app.loading': 'Chargement',
   'app.qrCode': 'QR code',
   'app.credit': 'Développé avec {heart} par leclercb',
@@ -225,6 +227,7 @@ export const fr: Catalog = {
   'home.recentlyAdded': 'Ajoutés récemment',
   'home.empty':
     'Votre bibliothèque RomM a l’air vide. Ajoutez des ROM sur le serveur et lancez une analyse.',
+  'home.emptyOffline': 'Rien n’est encore téléchargé sur cet appareil.',
   'home.pressToOpen': 'Appuyez sur {key} pour ouvrir',
 
   // -- bibliothèque ---------------------------------------------------------
@@ -507,6 +510,9 @@ export const fr: Catalog = {
   'saves.localNewerHint': 'Joué depuis le dernier envoi. Envoyer les sauvegardes le transmettra.',
   'saves.localOnly': 'Absent de RomM',
   'saves.localOnlyHint': 'Uniquement sur cet appareil. Envoyer les sauvegardes le transmettra.',
+  'saves.unchecked': 'Sur cet appareil',
+  'saves.uncheckedHint':
+    'Sur cet appareil. RomM n’a pas pu être interrogé : rien ici ne dit s’il a ce fichier.',
   'saves.remoteNewer': 'Plus récent sur RomM',
   'saves.remoteNewerHint':
     'RomM a une copie plus récente. Récupérer les sauvegardes la rapatriera.',
@@ -889,6 +895,7 @@ export const fr: Catalog = {
   'error.serverAddressEmpty': 'L’adresse du serveur est vide',
   'error.noServerConfigured': 'Aucun serveur RomM configuré',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
+  'error.serverTimedOut': 'Le serveur RomM {url} n’a pas répondu à temps.',
   'error.notAuthorised': 'Non autorisé — reconnectez-vous',
   'error.permissionDenied': 'Permission refusée : {detail}',
   'error.rommReturned': 'RomM a répondu {status} : {detail}',

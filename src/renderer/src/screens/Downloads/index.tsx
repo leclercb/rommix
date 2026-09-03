@@ -69,7 +69,7 @@ function isActive(item: DownloadItem): boolean {
 /** Transfer queue plus everything currently on local disk. */
 export function DownloadsScreen(): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { installed, navigate, notify, refreshInstalled, settings } = useApp()
+  const { installed, navigate, notify, offline, refreshInstalled, settings } = useApp()
   const downloads = useDownloads()
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState<{ checked: number; total: number } | null>(null)
@@ -368,7 +368,15 @@ export function DownloadsScreen(): JSX.Element {
                 value: grouped ? t('value.yesTitle') : t('value.noTitle')
               })}
             </FocusButton>
-            <FocusButton icon="refresh" onSelect={() => void sync()} disabled={syncing}>
+            {/* The one control here that is purely a question for RomM: it
+                walks the whole server library. Everything else on this screen
+                is about files on this disk, or about a transfer that is
+                already allowed to stop and wait for one. */}
+            <FocusButton
+              icon="refresh"
+              onSelect={() => void sync()}
+              disabled={syncing || offline === true}
+            >
               {syncing ? t('action.checking') : t('downloads.syncWithDisk')}
             </FocusButton>
           </div>

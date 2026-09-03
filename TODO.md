@@ -5,29 +5,32 @@ worked out about each — so that picking one up does not mean starting from
 nothing. An entry here is a decision that has been thought about and deferred,
 not a wish.
 
-## Play without the server
+## Catching up after a spell offline
 
-Launching a game that is already on this device needs RomM to be reachable.
-`game:launch` in [`src/main/ipc/game.ts`](src/main/ipc/game.ts) fetches the ROM
-from the server before it does anything, and every shelf on the home screen is a
-query. So a handheld away from the network — the arm64 case RomMix is built for
-— cannot start a game sitting on its own disk.
+Playing away from RomM works; coming back does not finish the job.
 
-What makes this tractable is that the index already holds most of the answer:
-`InstalledRom` carries the name, the cover, the system, the platform's display
-name and the file list, because the Downloads screen never fetches the library.
-The gap is the rest of `RommRom`, which the launcher and save sync want.
+What the server says about a game is written down when it is installed — the
+whole `RommRom` and its artwork, see
+[`src/main/offline.ts`](src/main/offline.ts) — and every screen narrows to what
+is on the disk whenever the server stops answering. Two things are held back
+while that lasts, and nothing hands them on afterwards.
 
-Two shapes, neither tried:
+- **Saves written offline.** A session away from the network writes its saves
+  normally and the push fails; the launcher reports it and that is the end of
+  it. Nothing records that this device holds a save RomM has not seen, so the
+  next launch that _can_ reach the server does not send it either — the push
+  only ever looks at what the session just wrote. What is wanted is a note of
+  the game and the moment, drained on reconnect, and an answer for the case
+  where RomM's copy moved on in the meantime.
+- **Downloads queued offline.** A transfer started with nothing to talk to
+  pauses, keeps its bytes and stays in the queue, which is right; it simply
+  waits for somebody to press Resume. `ConnectionWatch` already announces the
+  moment the server comes back, so the missing part is the decision about
+  whether draining the queue then is help or a surprise on a metered link.
 
-- keep the whole `RommRom` beside the index entry at install time, and read it
-  when the server cannot be reached;
-- or synthesise one from `InstalledRom` on a failed fetch, which is less data to
-  store and more places to be wrong.
-
-Whatever is downloaded while offline is a queue to drain later, and the saves
-written are a push that has to wait — so this is also a question about what
-RomMix does when it comes back, not only about what it does while away.
+Neither is a matter of what is known — the index and the queue both survive a
+restart already. Both are questions about what RomMix should do without being
+asked.
 
 ## Integration tests that drive the real application
 

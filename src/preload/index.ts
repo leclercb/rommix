@@ -7,6 +7,7 @@ import type {
   SyncProgress
 } from '@shared/api'
 import type {
+  ConnectionStatus,
   DownloadItem,
   InstalledRom,
   EmulatorAsset,
@@ -39,7 +40,9 @@ const bridge: RomMixBridge = {
     disconnect: () => ipcRenderer.invoke('server:disconnect'),
     startPairing: (baseUrl: string) => ipcRenderer.invoke('server:startPairing', baseUrl),
     pollPairing: (deviceCode: string, baseUrl: string) =>
-      ipcRenderer.invoke('server:pollPairing', deviceCode, baseUrl)
+      ipcRenderer.invoke('server:pollPairing', deviceCode, baseUrl),
+    onStatus: (listener: (status: ConnectionStatus) => void) =>
+      subscribe<ConnectionStatus>('server:status', listener)
   },
   library: {
     platforms: () => ipcRenderer.invoke('library:platforms'),

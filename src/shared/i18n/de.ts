@@ -76,6 +76,8 @@ export const de: Catalog = {
   'nav.settings': 'Einstellungen',
 
   'app.notConnected': 'Nicht verbunden',
+  'app.offline': 'Offline',
+  'app.offlineNotice': 'RomMix ist im Offline-Modus — der RomM-Server ist nicht erreichbar.',
   'app.loading': 'Wird geladen',
   'app.qrCode': 'QR-Code',
   'app.credit': 'Mit {heart} entwickelt von leclercb',
@@ -233,6 +235,7 @@ export const de: Catalog = {
   'home.empty':
     'Ihre RomM-Bibliothek sieht leer aus. Legen Sie ROMs auf dem Server ab und starten Sie einen ' +
     'Scan.',
+  'home.emptyOffline': 'Auf dieses Gerät wurde noch nichts heruntergeladen.',
   'home.pressToOpen': '{key} drücken zum Öffnen',
 
   // -- Bibliothek -----------------------------------------------------------
@@ -517,6 +520,9 @@ export const de: Catalog = {
   'saves.localNewerHint': 'Seit dem letzten Hochladen gespielt. Spielstände senden schickt ihn.',
   'saves.localOnly': 'Nicht auf RomM',
   'saves.localOnlyHint': 'Nur auf diesem Gerät. Spielstände senden schickt ihn.',
+  'saves.unchecked': 'Auf diesem Gerät',
+  'saves.uncheckedHint':
+    'Auf diesem Gerät. RomM konnte nicht gefragt werden, also sagt hier nichts, ob es diese Datei hat.',
   'saves.remoteNewer': 'Auf RomM neuer',
   'saves.remoteNewerHint': 'RomM hat eine neuere Kopie. Spielstände holen lädt sie herunter.',
   'saves.remoteOnly': 'Nicht auf diesem Gerät',
@@ -900,6 +906,7 @@ export const de: Catalog = {
   'error.serverAddressEmpty': 'Die Serveradresse ist leer',
   'error.noServerConfigured': 'Kein RomM-Server eingerichtet',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
+  'error.serverTimedOut': 'Der RomM-Server unter {url} hat nicht rechtzeitig geantwortet.',
   'error.notAuthorised': 'Nicht berechtigt — melden Sie sich erneut an',
   'error.permissionDenied': 'Zugriff verweigert: {detail}',
   'error.rommReturned': 'RomM antwortete {status}: {detail}',

@@ -1,13 +1,17 @@
 import { BrowserWindow, protocol, screen, shell } from 'electron'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { resolveEmulator } from '@config/emulators'
 import { BiosManager } from './bios.ts'
+import { ConnectionWatch, connectionStatus } from './connection.ts'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
 import { detectEmulators } from './emulators.ts'
 import { setLanguage } from './i18n.ts'
 import { Launcher } from './launcher.ts'
 import { log } from './log.ts'
+import { contentTypeOf, OfflineCache, rememberInstalledGames } from './offline.ts'
+import { runMigrations } from './migrations.ts'
 import { RommClient } from './romm.ts'
 import { SaveSync } from './saves.ts'
 import { rootPaths } from './root.ts'
@@ -46,6 +50,24 @@ export class RomMixApp {
   readonly client = new RommClient(this.store)
   readonly saveSync = new SaveSync(this.store, this.client)
   readonly launcher = new Launcher(this.store, this.client, this.saveSync)
+  /** What RomM said about each installed game, for when it cannot be asked. */
+  readonly offline = new OfflineCache(rootPaths().offline, this.client)
+  /**
+   * Whether RomM is reachable, watched rather than merely asked.
+   *
+   * Every change is pushed, because the interface offers different screens
+   * depending on the answer — see the games screen — and a handheld carried out
+   * of range asks nothing at all.
+   */
+  readonly connection = new ConnectionWatch(
+    () => connectionStatus(this.store, this.client),
+    (status) => {
+      this.send('server:status', status)
+      // Back on the network is the moment anything left undone for want of a
+      // server becomes possible again.
+      if (status.connected) void this.catchUp()
+    }
+  )
   /** What is on this disk, and whether the index still agrees with it. */
   readonly library: Library
   readonly downloads: DownloadManager
@@ -60,19 +82,83 @@ export class RomMixApp {
   /** Cached emulator probe; refreshed on demand rather than on every call. */
   private emulatorCache: EmulatorState[] | null = null
   private window: BrowserWindow | null = null
+  /** The pass in progress, so a second trigger joins it. See `catchUp`. */
+  private catchingUp: Promise<void> | null = null
 
   constructor() {
     // Before anything can have something to say: the store is the only place
     // that knows which language RomMix was left in.
     setLanguage(this.store.settings.language)
-    this.library = new Library(this.store, this.client, (system) => this.activeEmulator(system))
+    // Every request is a connection check with a better answer than any poll:
+    // it is being made anyway, and it fails the moment the network does.
+    this.client.observeReachability((reachable, reason) =>
+      this.connection.observed(reachable, reason)
+    )
+    this.library = new Library(this.store, this.client, this.offline, (system) =>
+      this.activeEmulator(system)
+    )
     this.downloads = new DownloadManager(this.store, this.client, this.library)
-    this.bios = new BiosManager(this.store, this.client, (system) => this.activeEmulator(system))
+    this.bios = new BiosManager(this.store, this.client, this.offline, (system) =>
+      this.activeEmulator(system)
+    )
     this.downloads.on('update', (items) => this.send('downloads:update', items))
     // The renderer keeps its own copy of the installed list; without these it
     // would still believe a game is missing right after RomMix adopted it.
     this.library.on('installed', () => this.send('library:installed', this.library.installed))
     this.library.on('adopted', (entries) => this.send('library:adopted', entries))
+  }
+
+  /**
+   * Everything that wants a server and has not had one, in one place.
+   *
+   * Run at start-up and again whenever RomM comes back, because both halves
+   * need it — so on a machine that started out of range the reconnection is the
+   * only chance either gets. Never twice at once: a reconnection while the
+   * first pass is still running joins it rather than starting a second.
+   */
+  catchUp(): Promise<void> {
+    this.catchingUp ??= (async () => {
+      await runMigrations({ store: this.store, client: this.client, offline: this.offline })
+      await rememberInstalledGames(
+        this.store.installed,
+        (romId) => this.client.rom(romId),
+        this.offline
+      ).catch((cause: Error) =>
+        log.info('offline', 'could not write down the games that had nothing', {
+          reason: cause.message
+        })
+      )
+      await this.rememberServer()
+    })().finally(() => {
+      this.catchingUp = null
+    })
+    return this.catchingUp
+  }
+
+  /**
+   * Keep the answers three local screens are built on. See `OfflineCache`.
+   *
+   * Deliberately not a migration, though it runs on the same trigger: a
+   * migration is recorded once and never runs again, and this is a list that
+   * has to keep up with a server that gains platforms and firmware. Nor is it
+   * left to the screens that read it — before this, the platform list was
+   * written only if somebody happened to open the Library, the Emulators page
+   * or BIOS while connected, so whether RomMix worked out of range depended on
+   * where the user had been.
+   *
+   * One request for the platforms, every time. The firmware behind them is one
+   * request *per platform*, so it is taken only when there is none at all, and
+   * refreshed from then on by the BIOS screen whenever it is looked at.
+   */
+  private async rememberServer(): Promise<void> {
+    try {
+      await this.offline.savePlatforms(await this.client.platforms())
+      if (!(await this.offline.firmware())) await this.bios.capture()
+    } catch (cause) {
+      log.info('offline', 'could not write down what the server holds', {
+        reason: (cause as Error).message
+      })
+    }
   }
 
   async refreshEmulators(): Promise<EmulatorState[]> {
@@ -250,12 +336,47 @@ export class RomMixApp {
   /**
    * Serve RomM images to the renderer with the auth header attached.
    * URLs look like `rommix-img://asset/?p=<url-encoded RomM path>`.
+   *
+   * The copy saved when the game was installed is preferred to the server's,
+   * which is what makes every cover, screenshot and console icon on a screen
+   * draw with nothing reachable. It is also the faster answer for a library of
+   * games already on the disk: a page of them is sixty round trips otherwise.
+   *
+   * Preferring it is not the same as showing something out of date. A saved
+   * picture answers for one exact RomM path, and RomM stamps the path with the
+   * ROM's `updated_at` — so a cover it has replaced is asked for under a stamp
+   * nothing here was saved under, misses, and comes off the wire. This is the
+   * one read in RomMix that looks at the saved copy first; everything else
+   * asks the server and falls back. See `OfflineCache`.
    */
   registerImageProtocol(): void {
     protocol.handle(IMAGE_SCHEME, async (request) => {
       const path = new URL(request.url).searchParams.get('p')
       if (!path) return new Response('missing path', { status: 400 })
+
       try {
+        /**
+         * The saved copy, if it is still there a moment after it was found.
+         *
+         * Inside the try, because `assetFile` is a check and this is the read:
+         * uninstalling a game deletes its covers while a notification is still
+         * drawing one of them. Losing that race falls through to the server,
+         * which is the answer the request would have had anyway.
+         */
+        const cached = this.offline.assetFile(path)
+        if (cached) {
+          const bytes = await readFile(cached).catch(() => null)
+          if (bytes) {
+            return new Response(bytes, {
+              status: 200,
+              headers: {
+                'Content-Type': contentTypeOf(cached),
+                'Cache-Control': 'public, max-age=86400'
+              }
+            })
+          }
+        }
+
         const upstream = await this.client.asset(path)
         if (!upstream.ok) return new Response('not found', { status: upstream.status })
         return new Response(upstream.body, {

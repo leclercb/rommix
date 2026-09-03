@@ -1,13 +1,40 @@
-import type { LibrarySyncResult, RomUserStatus } from '@shared/types'
+import type { LibrarySyncResult, RommPlatform, RomUserStatus } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { log } from '../log.ts'
+import { refusedUs } from '../romm.ts'
+import { romFor } from './context.ts'
 import type { Handle } from './handler.ts'
 
 /** The library as RomM has it, reconciled with what is on this disk. */
 export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   const { client, library } = rommix
 
-  handle('library:platforms', () => client.platforms())
+  /**
+   * The platforms on the server, or the last list it gave.
+   *
+   * Three screens are built on this list and only one of them is about the
+   * server: which emulator runs each platform, which BIOS files are in place,
+   * and the library narrowed to one console. Refusing all three because the
+   * server is not answering makes an unreachable RomM look like a broken
+   * RomMix. See `OfflineCache`.
+   */
+  handle('library:platforms', async (): Promise<RommPlatform[]> => {
+    try {
+      const platforms = await client.platforms()
+      await rommix.offline.savePlatforms(platforms)
+      return platforms
+    } catch (cause) {
+      // Not for a refusal: three screens drawn from a saved list would hide a
+      // token that RomM has stopped accepting. See `refusedUs`.
+      const held = refusedUs(cause) ? null : await rommix.offline.platforms()
+      if (!held) throw cause
+      log.info('library', 'the server did not answer, using the platforms it last listed', {
+        count: held.length,
+        reason: (cause as Error).message
+      })
+      return held
+    }
+  })
   handle('library:collections', () => client.collections())
   handle('library:virtualCollections', () => client.virtualCollections())
   /**
@@ -24,9 +51,23 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
     return page
   })
 
+  /**
+   * One game, from the server or from what was written down when it arrived.
+   *
+   * The game screen is the one screen that has to work for a game already on
+   * this disk with nothing to ask — it is where Play is — so a server that does
+   * not answer falls back to the copy saved at install time rather than putting
+   * an error where the game goes. See `OfflineCache`.
+   *
+   * A successful answer is written down again on the way past, for an installed
+   * game: it is the newer copy, the artwork it names is already cached, and it
+   * is what keeps the offline view of a rescanned game from ageing.
+   */
   handle('library:rom', async (id: number) => {
     await rommix.ensureEmulators()
-    const rom = await client.rom(id)
+    const rom = await romFor(rommix, id)
+    // Harmless on the saved copy: a record only exists for a game that is
+    // already in the index, which is the first thing adoption passes over.
     await library.adopt([rom])
     return rom
   })

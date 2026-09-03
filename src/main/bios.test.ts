@@ -7,7 +7,9 @@ import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import type { RommFirmware, RommPlatform } from '@shared/types'
 import { BiosManager } from './bios.ts'
+import { OfflineCache } from './offline.ts'
 import type { RommClient } from './romm.ts'
+import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 
 /**
@@ -74,7 +76,11 @@ function manager(options: {
       await (options.onDownload?.(item, destination) ?? writeFile(destination, 'bios bytes'))
     }
   } as unknown as RommClient
-  const bios = new BiosManager(store, client, () => options.emulator ?? null)
+  // Real rather than stubbed: it writes into the throwaway root, and what the
+  // screen falls back to when the server is gone is worth exercising here
+  // rather than being the one path nothing runs.
+  const offline = new OfflineCache(rootPaths().offline, client)
+  const bios = new BiosManager(store, client, offline, () => options.emulator ?? null)
   return { bios, root, downloaded }
 }
 

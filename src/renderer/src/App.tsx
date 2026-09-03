@@ -34,8 +34,17 @@ import { SettingsScreen } from './screens/Settings'
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
   const { t } = useI18n()
-  const { route, goBack, canGoBack, navigate, runningRomId, runningEmulator, status, update } =
-    useApp()
+  const {
+    route,
+    goBack,
+    canGoBack,
+    navigate,
+    offline,
+    runningRomId,
+    runningEmulator,
+    status,
+    update
+  } = useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
 
@@ -125,12 +134,17 @@ export function App(): JSX.Element {
               route={{ name: 'library' }}
               active={route.name === 'library'}
             />
-            <NavItem
-              icon="collection"
-              label={t('nav.collections')}
-              route={{ name: 'collections' }}
-              active={route.name === 'collections' || route.name === 'collection'}
-            />
+            {/* The one section with no local half at all: a collection is a
+                list the server keeps, and there is nothing of it on this disk
+                to show instead. Every other screen narrows to what is here. */}
+            {offline ? null : (
+              <NavItem
+                icon="collection"
+                label={t('nav.collections')}
+                route={{ name: 'collections' }}
+                active={route.name === 'collections' || route.name === 'collection'}
+              />
+            )}
             <DownloadsNavItem active={route.name === 'downloads'} />
             <NavItem
               icon="bios"
@@ -166,6 +180,20 @@ export function App(): JSX.Element {
                 </span>
                 <span className="topbar__host">
                   <span>{hostOf(status.baseUrl)}</span>
+                  <Icon name="server" size={15} />
+                </span>
+              </>
+            ) : offline ? (
+              /* The server it cannot reach is still worth naming: this is the
+                 one place that says which machine is missing, and "offline" on
+                 its own reads as a setting somebody turned on. */
+              <>
+                <span className="topbar__user">
+                  <span>{t('app.offline')}</span>
+                  <Icon name="warn" size={15} />
+                </span>
+                <span className="topbar__host">
+                  <span>{hostOf(status?.baseUrl ?? null)}</span>
                   <Icon name="server" size={15} />
                 </span>
               </>

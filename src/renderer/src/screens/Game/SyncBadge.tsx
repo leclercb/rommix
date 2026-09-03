@@ -39,7 +39,10 @@ const SYNC_BADGES: Record<
     tone: 'off',
     icon: 'pull',
     hint: 'saves.remoteOnlyHint'
-  }
+  },
+  // No arrow on this one: every other badge points at the end that is ahead,
+  // and the whole of what this one says is that nobody knows which that is.
+  unchecked: { label: 'saves.unchecked', tone: 'off', icon: 'saves', hint: 'saves.uncheckedHint' }
 }
 
 /**

@@ -85,6 +85,8 @@ export const en = {
   'nav.settings': 'Settings',
 
   'app.notConnected': 'Not connected',
+  'app.offline': 'Offline',
+  'app.offlineNotice': 'RomMix is in offline mode — the RomM server cannot be reached.',
   'app.loading': 'Loading',
   'app.qrCode': 'QR code',
   'app.credit': 'Developed with {heart} by leclercb',
@@ -231,6 +233,7 @@ export const en = {
   'home.favourites': 'Favourites',
   'home.recentlyAdded': 'Recently added',
   'home.empty': 'Your RomM library looks empty. Add some ROMs on the server and run a scan.',
+  'home.emptyOffline': 'Nothing is downloaded to this device yet.',
   'home.pressToOpen': 'Press {key} to open',
 
   // -- library --------------------------------------------------------------
@@ -508,6 +511,9 @@ export const en = {
   'saves.localNewerHint': 'Played since it was last uploaded. Push saves sends it.',
   'saves.localOnly': 'Not on RomM',
   'saves.localOnlyHint': 'Only on this device. Push saves sends it.',
+  'saves.unchecked': 'On this device',
+  'saves.uncheckedHint':
+    'On this device. RomM could not be asked, so nothing here says whether it has this file.',
   'saves.remoteNewer': 'Newer on RomM',
   'saves.remoteNewerHint': 'RomM has a more recent copy. Pull saves fetches it.',
   'saves.remoteOnly': 'Not on this device',
@@ -870,6 +876,7 @@ export const en = {
   'error.serverAddressEmpty': 'Server address is empty',
   'error.noServerConfigured': 'No RomM server configured',
   'error.cannotReach': 'Cannot reach {url}: {reason}',
+  'error.serverTimedOut': 'The RomM server at {url} did not answer in time.',
   'error.notAuthorised': 'Not authorised — sign in again',
   'error.permissionDenied': 'Permission denied: {detail}',
   'error.rommReturned': 'RomM returned {status}: {detail}',

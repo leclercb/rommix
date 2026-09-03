@@ -75,6 +75,9 @@ export const es: Catalog = {
   'nav.settings': 'Ajustes',
 
   'app.notConnected': 'Sin conexión',
+  'app.offline': 'Sin conexión',
+  'app.offlineNotice':
+    'RomMix está en modo sin conexión: no se puede contactar con el servidor RomM.',
   'app.loading': 'Cargando',
   'app.qrCode': 'Código QR',
   'app.credit': 'Desarrollado con {heart} por leclercb',
@@ -223,6 +226,7 @@ export const es: Catalog = {
   'home.recentlyAdded': 'Añadidos hace poco',
   'home.empty':
     'Tu biblioteca de RomM parece vacía. Añade algunas ROM en el servidor y lanza un análisis.',
+  'home.emptyOffline': 'Todavía no hay nada descargado en este dispositivo.',
   'home.pressToOpen': 'Pulsa {key} para abrir',
 
   // -- biblioteca -----------------------------------------------------------
@@ -501,6 +505,9 @@ export const es: Catalog = {
   'saves.localNewerHint': 'Jugado desde la última subida. Enviar las partidas la mandará.',
   'saves.localOnly': 'No está en RomM',
   'saves.localOnlyHint': 'Solo en este dispositivo. Enviar las partidas la mandará.',
+  'saves.unchecked': 'En este dispositivo',
+  'saves.uncheckedHint':
+    'En este dispositivo. No se ha podido preguntar a RomM, así que nada dice aquí si tiene este archivo.',
   'saves.remoteNewer': 'Más reciente en RomM',
   'saves.remoteNewerHint': 'RomM tiene una copia más reciente. Traer las partidas la bajará.',
   'saves.remoteOnly': 'No está en este dispositivo',
@@ -871,6 +878,7 @@ export const es: Catalog = {
   'error.serverAddressEmpty': 'La dirección del servidor está vacía',
   'error.noServerConfigured': 'No hay ningún servidor RomM configurado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
+  'error.serverTimedOut': 'El servidor RomM en {url} no ha respondido a tiempo.',
   'error.notAuthorised': 'No autorizado — inicia sesión otra vez',
   'error.permissionDenied': 'Permiso denegado: {detail}',
   'error.rommReturned': 'RomM respondió {status}: {detail}',

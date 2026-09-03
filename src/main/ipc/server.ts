@@ -10,42 +10,15 @@ import type { Handle } from './handler.ts'
 export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
   const { store, client } = rommix
 
-  /** Current connection state, including who we are signed in as. */
-  const status = async (): Promise<ConnectionStatus> => {
-    const server = store.server
-    const creds = store.credentials
-    if (!server || (!creds.accessToken && !creds.clientToken)) {
-      return {
-        connected: false,
-        baseUrl: server?.baseUrl ?? null,
-        user: null,
-        serverVersion: null,
-        error: null
-      }
-    }
-    try {
-      const [user, beat] = await Promise.all([client.me(), client.heartbeat()])
-      return {
-        connected: true,
-        baseUrl: server.baseUrl,
-        user,
-        serverVersion: beat.version,
-        error: null
-      }
-    } catch (cause) {
-      log.warn('server', 'not connected', {
-        baseUrl: server.baseUrl,
-        reason: (cause as Error).message
-      })
-      return {
-        connected: false,
-        baseUrl: server.baseUrl,
-        user: null,
-        serverVersion: null,
-        error: (cause as Error).message
-      }
-    }
-  }
+  /**
+   * Current connection state, including who we are signed in as.
+   *
+   * Through the watch rather than straight to `connectionStatus`, so an answer
+   * somebody asked for counts as one the watch has seen: the interface changes
+   * shape between connected and offline, and a push arriving a moment later
+   * saying what the screen already knows would redraw it for nothing.
+   */
+  const status = (): Promise<ConnectionStatus> => rommix.connection.refresh()
 
   handle('server:status', status)
 

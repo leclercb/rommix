@@ -63,6 +63,16 @@ const SECTIONS: readonly Route['name'][] = [
 ]
 
 /**
+ * The screens with no local half, and so nothing to show while RomM is away.
+ *
+ * Only the shelves the server keeps. Every other screen narrows instead of
+ * disappearing — Home to the games on this disk, the Library to the ones
+ * downloaded, BIOS to what is in place — which is what keeps the menu the same
+ * shape offline as on, rather than swapping it for a different application.
+ */
+const NEEDS_SERVER: readonly Route['name'][] = ['collections', 'collection']
+
+/**
  * Is this the same screen, rather than one of the same kind?
  *
  * What decides whether a move continues the path or returns along it. Opening
@@ -121,6 +131,20 @@ interface AppState {
   i18n: I18n
 
   status: ConnectionStatus | null
+  /**
+   * Signed in and the server is not answering, or null before it has been
+   * asked. See `ConnectionStatus.offline`.
+   *
+   * Three states rather than two, because the moment before the first answer is
+   * neither of the other two and the two kinds of caller want it read
+   * differently. Chrome that only appears offline — a warning, a control that
+   * is hidden — reads it as a plain condition, so an unknown answer draws the
+   * ordinary screen and nothing flickers on every start. Anything that would
+   * *ask the server* has to wait for `offline === false` instead: fetching
+   * before the first answer is how a screen that should have narrowed puts up
+   * a fetch error and keeps it.
+   */
+  offline: boolean | null
   refreshStatus: () => Promise<ConnectionStatus>
   settings: Settings | null
   saveSettings: (patch: Partial<Settings>) => Promise<void>
@@ -312,9 +336,44 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       // Whatever the main process already knows — a check that ran before this
       // window existed, or an image downloaded during the previous session.
       setUpdate(await window.rommix.updates.status())
-      if (!nextStatus.connected) setHistory([{ name: 'connect' }])
+      // A server that did not answer is not a reason to ask for the sign-in
+      // form again: the credentials are fine, the games are on the disk, and
+      // Home shows them. Anything else — never set up, or credentials RomM
+      // refuses — has nowhere to go but Connect.
+      if (!nextStatus.connected && !nextStatus.offline) setHistory([{ name: 'connect' }])
     })()
   }, [])
+
+  /**
+   * The server coming and going, which nothing on screen asked about.
+   *
+   * A handheld carried out of range makes no requests to fail, so this is the
+   * only thing that notices — and the screens that need RomM have to give way
+   * before somebody presses one of them, not after. See `ConnectionWatch`.
+   */
+  const offline = status === null ? null : status.offline
+  useEffect(() => {
+    return window.rommix.server.onStatus(setStatus)
+  }, [])
+
+  /**
+   * Off a screen that has just stopped working.
+   *
+   * The whole path rather than the screen on top of it: a game opened from a
+   * collection is still perfectly readable offline, and leaving the collection
+   * underneath it would make B a press onto a screen with nothing on it. What
+   * is left hangs off Home, which is where the menu starts.
+   *
+   * Nothing to undo on the way back: every other screen narrows rather than
+   * going, so the path is still a path once RomM answers again.
+   */
+  useEffect(() => {
+    if (!offline) return
+    setHistory((current) => {
+      const kept = current.filter((step) => !NEEDS_SERVER.includes(step.name))
+      return kept.length === current.length ? current : [{ name: 'home' }, ...kept]
+    })
+  }, [offline])
 
   /**
    * The update, and the two moments in it worth interrupting for.
@@ -478,6 +537,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     () => ({
       i18n,
       status,
+      offline,
       refreshStatus,
       settings,
       saveSettings,
@@ -499,6 +559,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     [
       i18n,
       status,
+      offline,
       refreshStatus,
       settings,
       saveSettings,

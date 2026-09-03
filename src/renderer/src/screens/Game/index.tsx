@@ -27,7 +27,7 @@ type GameTab = 'details' | 'saves' | 'files' | 'screenshots'
  */
 export function GameScreen({ romId }: { romId: number }): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { installed, runningRomId, goBack, navigate, notify, settings } = useApp()
+  const { installed, offline, runningRomId, goBack, navigate, notify, settings } = useApp()
   const downloads = useDownloads()
 
   const [rom, setRom] = useState<RommRom | null>(null)
@@ -51,6 +51,10 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
   useEffect(() => {
     setBios(null)
     if (platformId === null) return
+    // Asked away from the server too: the answer is what the platform needs and
+    // what is in place here, and only the list of what RomM holds comes from
+    // the server — which it saved the last time it was asked. See
+    // `BiosManager.platformReport`.
     void window.rommix.bios
       .platform(platformId)
       .then(setBios)
@@ -280,17 +284,23 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           </FocusButton>
         ) : null}
 
+        {/* The three marks that live on RomM rather than on this disk. Greyed
+            while it is away rather than taken off the screen: a heart that
+            cannot be saved undoes itself a second after it is pressed, but a
+            heart that has vanished has moved Play under the player's thumb and
+            told a first-time offline user that RomMix has no favourites. */}
+
         {/* Marked on RomM, so the Favourites row on the home screen and the
             same game in a browser agree. Always offered: a game does not have
-            to be downloaded to be marked. Icon only — a filled heart says
-            which way it is set, and the word beside it said the same thing
-            twice; `actionLabel` is what the hint bar and a screen reader get. */}
+            to be downloaded to be marked. Icon only — a filled heart says which
+            way it is set, and the word beside it said the same thing twice;
+            `actionLabel` is what the hint bar and a screen reader get. */}
         <FocusButton
           icon="favourite"
           on={favourite === true}
           actionLabel={favourite ? t('game.removeFavourite') : t('game.addFavourite')}
           onSelect={() => void toggleFavourite()}
-          disabled={favourite === null}
+          disabled={favourite === null || offline === true}
         />
 
         {/* And how far through it you are, next to the heart for the same
@@ -301,11 +311,16 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           icon="note"
           actionLabel={t('status.button')}
           onSelect={() => setChoosingStatus(true)}
+          disabled={offline === true}
         />
 
         {/* Collections on RomM. Beside the heart because both mark the game on
             the server rather than touching the copy on this disk. */}
-        <FocusButton icon="collection" onSelect={() => setChoosingCollections(true)}>
+        <FocusButton
+          icon="collection"
+          onSelect={() => setChoosingCollections(true)}
+          disabled={offline === true}
+        >
           {t('collections.button')}
         </FocusButton>
 
@@ -323,20 +338,23 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         ) : null}
 
         {/* Only for a game that is here: there is no local save directory to
-            read from or write into until the ROM has been downloaded. */}
+            read from or write into until the ROM has been downloaded. Greyed
+            while RomM is away, since neither direction has anywhere to go —
+            the saves a session writes are still written, they simply do not go
+            up until something can reach the server. */}
         {entry ? (
           <>
             <FocusButton
               icon="pull"
               onSelect={() => void syncSaves('pull')}
-              disabled={working || running}
+              disabled={working || running || offline === true}
             >
               {t('game.pullSaves')}
             </FocusButton>
             <FocusButton
               icon="push"
               onSelect={() => void beginPush()}
-              disabled={working || running}
+              disabled={working || running || offline === true}
             >
               {t('game.pushSaves')}
             </FocusButton>

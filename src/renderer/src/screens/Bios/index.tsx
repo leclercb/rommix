@@ -18,7 +18,7 @@ import { useApp, useI18n, type ToastSubject } from '../../state'
  */
 export function BiosScreen(): JSX.Element {
   const { t } = useI18n()
-  const { notify } = useApp()
+  const { notify, offline } = useApp()
   const [report, setReport] = useState<BiosReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -179,12 +179,19 @@ export function BiosScreen(): JSX.Element {
         {t('bios.explainer')}
       </p>
 
+      {/* What each console needs and what is in place are questions for this
+          disk, so they are still answered; where the files would come from is
+          the server, so the install buttons below are greyed until it answers.
+          The screen is worth reaching either way — a missing BIOS is the
+          likeliest reason a game about to be started will not start. */}
+      {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
+
       <div className="btn-row">
         <FocusButton
           icon="install"
           variant="primary"
           onSelect={() => void syncAll()}
-          disabled={busy !== null || fetchable === 0}
+          disabled={busy !== null || fetchable === 0 || offline === true}
           autoFocus
         >
           {fetchable === 0 ? t('bios.nothingToInstall') : t('action.installAll')}
@@ -193,6 +200,7 @@ export function BiosScreen(): JSX.Element {
           icon="refresh"
           onSelect={() => void recheck()}
           disabled={busy !== null || rechecking}
+          autoFocus={offline === true}
         >
           {rechecking ? t('action.checking') : t('bios.recheck')}
         </FocusButton>
@@ -206,6 +214,7 @@ export function BiosScreen(): JSX.Element {
             key={platform.platformId}
             platform={platform}
             busy={busy}
+            offline={offline}
             onInstall={install}
             onInstallAll={syncAll}
           />
@@ -225,7 +234,7 @@ export function BiosScreen(): JSX.Element {
 
       <Hints
         items={[
-          { key: 'A', label: t('action.install') },
+          ...(offline ? [] : [{ key: 'A', label: t('action.install') }]),
           { key: 'B', label: t('action.back') }
         ]}
       />
@@ -236,11 +245,14 @@ export function BiosScreen(): JSX.Element {
 function PlatformBios({
   platform,
   busy,
+  offline,
   onInstall,
   onInstallAll
 }: {
   platform: BiosPlatform
   busy: string | null
+  /** No button that fetches anything, because there is nothing to fetch from. */
+  offline: boolean | null
   onInstall: (firmwareId: number, fileName: string, platform: BiosPlatform) => void
   onInstallAll: (platform: BiosPlatform) => void
 }): JSX.Element | null {
@@ -304,7 +316,7 @@ function PlatformBios({
               icon="install"
               variant="ghost"
               onSelect={() => onInstallAll(platform)}
-              disabled={busy !== null || platform.biosDir === null}
+              disabled={busy !== null || platform.biosDir === null || offline === true}
             >
               {t('action.installAll')}
             </FocusButton>
@@ -373,7 +385,7 @@ function PlatformBios({
               <FocusButton
                 icon="install"
                 variant="ghost"
-                disabled={busy !== null || platform.biosDir === null}
+                disabled={busy !== null || platform.biosDir === null || offline === true}
                 onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
               >
                 {busy === item.fileName
