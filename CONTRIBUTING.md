@@ -203,12 +203,13 @@ way the rest of the codebase is.
 (`../components`); `input/` is the focus engine, split into the geometry, the
 scrolling and the two input sources it is built from.
 
-Five attributes exist for `npm run test:app` and nothing else: `data-screen` on
+Six attributes exist for `npm run test:app` and nothing else: `data-screen` on
 the shell, `data-route` on a menu item, `data-rom` on a game card,
-`data-emulator` on a row of the emulator list, and `data-action` on a
-`FocusButton` that a scenario presses. They are there because every other handle
-on the interface changes — the text with the language, the position with the
-next button added beside it. Add one when a test needs it, not before.
+`data-emulator` on a row of the emulator list, `data-tab` on a tab, and
+`data-action` on a `FocusButton` that a scenario presses. They are there because
+every other handle on the interface changes — the text with the language, the
+position with the next button added beside it. Add one when a test needs it, not
+before.
 
 Every screen is a folder under `screens/`, named after the screen and holding
 `index.tsx` — the screen itself — with its own parts beside it: `Game/` keeps

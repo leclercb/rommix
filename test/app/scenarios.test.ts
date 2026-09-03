@@ -636,6 +636,31 @@ describe('the settings screen', () => {
       `the server version was not among ${JSON.stringify(shown)}`
     )
   })
+
+  test('and its other two tabs are reachable from the shoulder buttons', async () => {
+    // Everything RomMix can be told to do that is not about one game lives
+    // behind this strip — where the library goes, which emulator runs what.
+    // Until now nothing had opened either of them.
+    await app.press('TabNext')
+    await app.waitFor(
+      `document.querySelector('[data-tab="games"]')?.dataset.active === 'true'`,
+      'the games tab'
+    )
+
+    await app.press('TabNext')
+    await app.waitFor(
+      `document.querySelector('[data-tab="system"]')?.dataset.active === 'true'`,
+      'the system tab'
+    )
+
+    // The panel under the strip is what actually changed; a tab that marked
+    // itself active over the previous tab's contents would pass a check on the
+    // strip alone.
+    await app.waitFor(
+      `document.querySelectorAll('.panel__body *').length > 0`,
+      'the system tab to have drawn something'
+    )
+  })
 })
 
 describe('the emulators screen', () => {
@@ -675,6 +700,118 @@ describe('the emulators screen', () => {
     // the screen is a whole feature missing with nothing red to say so.
     const listed = await app.read<number>(`document.querySelectorAll('[data-emulator]').length`)
     assert.ok(listed > 1, `only ${listed} emulators reached the screen`)
+  })
+})
+
+describe('the buttons that are not on the D-pad', () => {
+  test('Start opens the menu from wherever you are', async () => {
+    // Bound in App.tsx and advertised in the hint bar as M. Nothing else can
+    // reach it: it is not a button on any screen, so a test that only presses
+    // directions cannot tell a working binding from a missing one.
+    await app.goTo('home')
+    await app.press('Menu')
+    await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'the settings screen')
+  })
+
+  test('and Y goes to the one search box there is', async () => {
+    // The library is where the box lives, so from the home screen the button
+    // has to travel before it can search — which is the behaviour, not a
+    // shortcut around it.
+    await app.goTo('home')
+    await app.press('Search')
+    await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library screen')
+
+    // And on the library itself it lands in the box, which is the only place in
+    // RomMix where a key press is meant to become a letter.
+    await app.press('Search')
+    await app.waitFor(
+      `document.activeElement?.tagName === 'INPUT'`,
+      'the search box to take the caret'
+    )
+
+    // Out again, which the hint under the box promises and which nothing else
+    // here could recover from: while a field holds the caret the keyboard
+    // handler stands down, so a test that walked away leaving it there would
+    // take the menu with it.
+    await app.press('Escape')
+    await app.waitFor(
+      `document.activeElement?.tagName !== 'INPUT'`,
+      'the search box to give the caret back'
+    )
+  })
+})
+
+/**
+ * The game screen is opened by the download and launch scenarios above. What
+ * none of them touch is the strip across its panel, and three of its four tabs
+ * are the only place saves, files and screenshots are ever drawn.
+ */
+describe('the tabs on a game', () => {
+  test('it opens on details, and the shoulder buttons walk the strip', async () => {
+    await app.goTo('library')
+    // Rom 3 rather than any: it is the one that has been downloaded, launched
+    // and had its saves synced by the scenarios above, so its tabs have
+    // something in them to read.
+    await app.choose('[data-rom="3"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    // The strip is bound to LB/RB as well as being focusable, because reaching
+    // it by walking focus up from the content is not how a console UI changes
+    // tab. That binding is what is under test here.
+    await app.waitFor(
+      `document.querySelector('[data-tab="details"]')?.dataset.active === 'true'`,
+      'the details tab to be the one open'
+    )
+
+    await app.press('TabNext')
+    await app.waitFor(
+      `document.querySelector('[data-tab="saves"]')?.dataset.active === 'true'`,
+      'the saves tab'
+    )
+
+    await app.press('TabNext')
+    await app.waitFor(
+      `document.querySelector('[data-tab="files"]')?.dataset.active === 'true'`,
+      'the files tab'
+    )
+
+    // Back the way it came, which is the half a single direction cannot show.
+    await app.press('TabBack')
+    await app.waitFor(
+      `document.querySelector('[data-tab="saves"]')?.dataset.active === 'true'`,
+      'the saves tab again'
+    )
+  })
+
+  test('the files tab lists the file the server named', async () => {
+    await app.press('TabNext')
+    await app.waitFor(
+      `document.querySelector('[data-tab="files"]')?.dataset.active === 'true'`,
+      'the files tab'
+    )
+
+    // What a game is called on disk comes off `fs_name`, and it is what the
+    // emulator is handed. A tab that showed the game's title instead would look
+    // perfectly reasonable and name a file nothing can open.
+    const listed = await app.read<string[]>(
+      `[...document.querySelectorAll('.asset__name')].map((one) => one.textContent)`
+    )
+    const rom = server.roms.find((one) => one.id === 3)
+    assert.ok(
+      listed.some((name) => name === rom?.fs_name),
+      `${JSON.stringify(listed)} should have held ${rom?.fs_name}`
+    )
+  })
+
+  test('and the strip comes round rather than stopping at the end', async () => {
+    // Four tabs, four presses. A strip that stopped at the last one would leave
+    // the first three unreachable without changing direction, which on a pad is
+    // the difference between a control and a puzzle.
+    for (let step = 0; step < 4; step += 1) await app.press('TabNext')
+    await app.waitFor(
+      `document.querySelector('[data-tab="files"]')?.dataset.active === 'true'`,
+      'the files tab, one lap later'
+    )
   })
 })
 

@@ -214,6 +214,7 @@ export function Tabs<T extends string>({
       {tabs.map((tab) => (
         <TabButton
           key={tab.id}
+          id={tab.id}
           label={tab.label}
           icon={tab.icon}
           badge={tab.badge}
@@ -226,12 +227,14 @@ export function Tabs<T extends string>({
 }
 
 function TabButton({
+  id,
   label,
   icon,
   badge,
   active,
   onSelect
 }: {
+  id: string
   label: string
   icon?: IconName
   badge?: number | string
@@ -240,7 +243,13 @@ function TabButton({
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect })
   return (
-    <button ref={ref as Ref<HTMLButtonElement>} className="tab" data-active={active} {...props}>
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      className="tab"
+      data-tab={id}
+      data-active={active}
+      {...props}
+    >
       {/* Never instead of the word: a strip of marks alone is a puzzle from the
           sofa, and the shoulder buttons move through it without reading it. */}
       {icon ? <Icon name={icon} size={17} /> : null}

@@ -9,8 +9,9 @@ import { join } from 'node:path'
  * No automation library. RomMix is already an Electron process, and started
  * with `--remote-debugging-port` it serves the DevTools protocol over a
  * WebSocket — which Node has had built in since 22, so this needs nothing
- * installed. Two messages do everything: `Runtime.evaluate` to read the page
- * and `Input.dispatchKeyEvent` to press something.
+ * installed. Three messages do everything: `Runtime.evaluate` to read the page,
+ * `Input.dispatchKeyEvent` to press something, and `Page.captureScreenshot`
+ * where a failure is worth looking at.
  *
  * What it drives is `out/`, the real build, so the preload bridge and every IPC
  * channel are the ones that ship. That is the whole point of it — a channel
@@ -140,15 +141,37 @@ export interface App {
   stop: () => Promise<void>
 }
 
-export type Key = 'Up' | 'Down' | 'Left' | 'Right' | 'Enter' | 'Escape'
+/**
+ * The keys `useKeyboard` listens for, by what they do rather than what they are.
+ *
+ * The four beyond the D-pad are the ones a controller reaches with a button and
+ * a keyboard reaches with a key nobody would guess: the shoulder buttons step
+ * through a tab strip, Y opens search, Start opens the menu. Without them three
+ * of the five actions the interface defines cannot be produced by a test at
+ * all — see `keyboardLabel`, which names the same pairs for the hint bar.
+ */
+export type Key =
+  'Up' | 'Down' | 'Left' | 'Right' | 'Enter' | 'Escape' | 'TabNext' | 'TabBack' | 'Search' | 'Menu'
 
-const KEYS: Record<Key, { code: string; key: string; windowsVirtualKeyCode: number }> = {
+/** Shift, as `Input.dispatchKeyEvent` counts modifiers. */
+const SHIFT = 8
+
+const KEYS: Record<
+  Key,
+  { code: string; key: string; windowsVirtualKeyCode: number; modifiers?: number }
+> = {
   Up: { code: 'ArrowUp', key: 'ArrowUp', windowsVirtualKeyCode: 38 },
   Down: { code: 'ArrowDown', key: 'ArrowDown', windowsVirtualKeyCode: 40 },
   Left: { code: 'ArrowLeft', key: 'ArrowLeft', windowsVirtualKeyCode: 37 },
   Right: { code: 'ArrowRight', key: 'ArrowRight', windowsVirtualKeyCode: 39 },
   Enter: { code: 'Enter', key: 'Enter', windowsVirtualKeyCode: 13 },
-  Escape: { code: 'Escape', key: 'Escape', windowsVirtualKeyCode: 27 }
+  Escape: { code: 'Escape', key: 'Escape', windowsVirtualKeyCode: 27 },
+  TabNext: { code: 'Tab', key: 'Tab', windowsVirtualKeyCode: 9 },
+  // The same key held with Shift, which is what the handler reads to tell the
+  // two directions apart.
+  TabBack: { code: 'Tab', key: 'Tab', windowsVirtualKeyCode: 9, modifiers: SHIFT },
+  Search: { code: 'Slash', key: '/', windowsVirtualKeyCode: 191 },
+  Menu: { code: 'KeyM', key: 'm', windowsVirtualKeyCode: 77 }
 }
 
 export interface StartOptions {
