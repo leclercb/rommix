@@ -65,6 +65,15 @@ a second suite competing for the machine changes how long a list takes to draw �
 which showed up as the focus scan giving up on a library that was still filling.
 A GUI under test is not a thing to parallelise.
 
+Two scenario files, split by whether order matters. `games.test.ts` is one
+session read top to bottom — the game downloaded by one scenario is the game
+launched by the next, and the last takes the server away — because none of those
+states can be seeded from outside without seeding away the thing under test.
+`interface.test.ts` needs nothing on disk and each of its scenarios opens the
+section it is about, so it can be read, and run, in any order. Both start from
+`startScenario` in `harness.ts`, which is what stops the settings the two share
+from drifting apart.
+
 Where it gives up it leaves a screenshot behind, named after what it was waiting
 for and pointed at from the failure message — see `capture` in
 [test/app/driver.ts](test/app/driver.ts). A failure here is otherwise a sentence
