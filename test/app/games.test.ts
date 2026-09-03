@@ -578,13 +578,23 @@ describe('saves either side of a session', () => {
     const askedSoFar = server.asked.length
     await saved.choose('[data-action="delete-local"]')
 
-    // Gone from this disk.
+    // Gone from this disk. The dialog shuts on the press rather than on the
+    // delete, so a scenario that read the disk as soon as it closed would be
+    // racing the main process — and would report a delete that never happened
+    // as one that did. The list is what has waited for it.
     await saved.waitFor(`!document.querySelector('.overlay')`, 'the question to close again')
+    await saved.waitFor(
+      `!(await window.rommix.saves.list(1)).some(
+        (one) => one.fileName === 'cavestory.srm' && one.localPath
+      )`,
+      'the local copy to leave the list'
+    )
     assert.equal(existsSync(join(saveDir, 'cavestory.srm')), false, 'the local copy should be gone')
 
     // And still on the server, which is the whole point of asking which end:
     // deleting the copy here and pulling RomM's back is a reason somebody
-    // deletes one at all.
+    // deletes one at all. Asked after the wait above, so an absent request is
+    // one that was never made rather than one that has not been made yet.
     assert.deepEqual(
       server.asked.slice(askedSoFar).filter((one) => one.path === '/api/saves/delete'),
       [],
