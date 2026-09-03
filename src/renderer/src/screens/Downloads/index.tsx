@@ -332,6 +332,7 @@ export function DownloadsScreen(): JSX.Element {
               <div className="btn-row">
                 <FocusButton
                   icon="clear"
+                  action="clear-finished"
                   onSelect={() => {
                     // Counted before the call: the list is what is about to be
                     // emptied, and afterwards there is nothing left to count.

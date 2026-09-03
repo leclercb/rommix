@@ -664,6 +664,38 @@ describe('driving the queue from the activity tab', () => {
     )
     assert.equal(await stateOf(4), 'done', 'the game promoted past it should still have finished')
   })
+
+  test('and the finished rows can be cleared away without touching the games', async () => {
+    // Everything this session has moved is on the screen: one finished, one
+    // cancelled, and the rest of the downloads above. The list is a history,
+    // and this is the only thing that empties it.
+    const finished = await app.read<number[]>(
+      `(await window.rommix.downloads.list())
+         .filter((one) => ['done', 'error', 'cancelled'].includes(one.state))
+         .map((one) => one.romId)`
+    )
+    assert.ok(finished.length > 0, 'there should be something to clear')
+
+    const onDisk = await app.read<number[]>(
+      `(await window.rommix.library.installed()).map((one) => one.romId)`
+    )
+
+    await app.choose('[data-action="clear-finished"]')
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).every(
+         (one) => !['done', 'error', 'cancelled'].includes(one.state)
+       )`,
+      'the finished rows to go'
+    )
+
+    // The list, not the library. What was downloaded is still downloaded —
+    // clearing the history of a transfer that finished is not undoing it.
+    assert.deepEqual(
+      await app.read<number[]>(`(await window.rommix.library.installed()).map((one) => one.romId)`),
+      onDisk,
+      'clearing the list should not have removed anything from the disk'
+    )
+  })
 })
 
 /**
