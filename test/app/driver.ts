@@ -219,6 +219,22 @@ export async function startApp(options: StartOptions): Promise<App> {
     }
     child.stdout?.on('data', watch)
     child.stderr?.on('data', watch)
+    // Never started at all, as against started and gone wrong. Worth its own
+    // answer because the message is the fix: a checkout that has not run
+    // `npx install-electron` has no binary at that path, and without this the
+    // spawn failure surfaces thirty seconds later as a debugger that never came
+    // up — with nothing in the output to say why, because nothing ever ran.
+    child.on('error', (cause) => {
+      clearTimeout(timer)
+      reject(
+        new Error(
+          `${electronBinary()} could not be started (${cause.message}). ` +
+            'Run `npx install-electron`, or point ELECTRON_EXEC_PATH at an Electron ' +
+            'this machine can execute.'
+        )
+      )
+    })
+
     child.on('exit', (code) => {
       clearTimeout(timer)
       reject(new Error(`the application exited with ${code} before it was ready:\n${output}`))

@@ -103,6 +103,12 @@ jobs:
       # After the package step rather than beside the other four: it drives the
       # bundle in `out/`, so it is only worth running once there is one that
       # built.
+      # `npm ci` does not fetch Electron's binary — the package no longer does it
+      # on install, which is why CONTRIBUTING has it as a separate line too. The
+      # AppImage above is unaffected: electron-builder downloads its own. Only
+      # something that actually *runs* Electron needs this, and until now
+      # nothing in CI did.
+      - run: npx install-electron
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run test:app
 
