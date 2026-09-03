@@ -189,6 +189,14 @@ Each type is bound to its schema by the name in its own doc comment — `GET
 /api/users/me (\`UserSchema\`)`— so there is no table to keep beside it.`?` on
 a field means one supported version does not send it, and nothing else.
 
+Bodies RomMix **sends** are declared there too, and say `body` in their comment,
+because the two directions are checked by opposite rules. A response may carry
+more than a type admits and that is caution; a request that omits a field RomM
+requires is a 422 nobody sees until it meets a real server — and the fake in
+`test/app/` cannot find it, having been written from the same reading of the
+schema. `satisfies` at the call site is what binds the body actually sent to the
+type being checked.
+
 Add a version with `npm run schema:fetch https://your.romm`, which names the
 file after whatever the server says it is. Dropping one is how a version stops
 being supported: a decision worth a commit rather than drift.

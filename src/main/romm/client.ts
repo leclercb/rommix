@@ -3,11 +3,18 @@ import { Blob } from 'node:buffer'
 import { readFile, rename, rm } from 'node:fs/promises'
 import type {
   RommCollection,
+  RommCollectionRomsPayload,
   RommVirtualCollection,
   RommDeviceAuthInit,
+  RommDeviceAuthInitPayload,
   RommDevice,
   RommDeviceAuthToken,
+  RommDeviceAuthTokenPayload,
   RommFirmware,
+  RommPlaySessionPayload,
+  RommRomUserPayload,
+  RommSaveDeletePayload,
+  RommStateDeletePayload,
   RommPlatform,
   RommRom,
   RommRomFile,
@@ -297,7 +304,7 @@ export class RommClient {
           // would have reported a made-up version forever.
           client_version: app.getVersion(),
           requested_scopes: REQUIRED_SCOPES
-        })
+        } satisfies RommDeviceAuthInitPayload)
       },
       { baseUrl, retryOn401: false }
     )
@@ -315,7 +322,7 @@ export class RommClient {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_code: deviceCode })
+        body: JSON.stringify({ device_code: deviceCode } satisfies RommDeviceAuthTokenPayload)
       },
       { baseUrl, retryOn401: false }
     )
@@ -468,7 +475,7 @@ export class RommClient {
     const res = await this.request(`/api/roms/${romId}/props`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status } satisfies RommRomUserPayload)
     })
     if (!res.ok) throw await this.toError(res)
     log.info('romm', 'status set', { romId, status })
@@ -492,7 +499,7 @@ export class RommClient {
       const res = await this.request(`/api/roms/${romId}/props`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ now_playing: playing })
+        body: JSON.stringify({ now_playing: playing } satisfies RommRomUserPayload)
       })
       if (!res.ok) throw await this.toError(res)
     } catch (cause) {
@@ -520,7 +527,7 @@ export class RommClient {
     const res = await this.request(`/api/collections/${collectionId}/roms`, {
       method: member ? 'POST' : 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rom_ids: [romId] })
+      body: JSON.stringify({ rom_ids: [romId] } satisfies RommCollectionRomsPayload)
     })
     if (!res.ok) throw await this.toError(res)
     log.info('romm', member ? 'added to a collection' : 'removed from a collection', {
@@ -890,7 +897,7 @@ export class RommClient {
     const res = await this.request('/api/saves/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ saves: ids })
+      body: JSON.stringify({ saves: [...ids] } satisfies RommSaveDeletePayload)
     })
     if (!res.ok) throw await this.toError(res)
     log.info('romm', 'saves deleted on the server', { ids })
@@ -902,7 +909,7 @@ export class RommClient {
     const res = await this.request('/api/states/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ states: ids })
+      body: JSON.stringify({ states: [...ids] } satisfies RommStateDeletePayload)
     })
     if (!res.ok) throw await this.toError(res)
     log.info('romm', 'states deleted on the server', { ids })
@@ -1015,7 +1022,7 @@ export class RommClient {
               duration_ms: seconds * 1000
             }
           ]
-        })
+        } satisfies RommPlaySessionPayload)
       })
       // Checked, unlike the reply to a fire-and-forget: a refused report is the
       // one thing that can go wrong here, and unread it goes wrong in silence.

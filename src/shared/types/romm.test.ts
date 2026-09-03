@@ -38,6 +38,8 @@ import { readdirSync, readFileSync } from 'node:fs'
 
 interface JsonSchema {
   type?: string
+  /** Names the server insists a request body carries. Absent on a response. */
+  required?: string[]
   properties?: Record<string, JsonSchema>
   items?: JsonSchema
   anyOf?: JsonSchema[]
@@ -78,6 +80,15 @@ interface Transcription {
   name: string
   /** Schema names cited in the doc comment, whether or not a version has them. */
   cites: string[]
+  /**
+   * A body RomMix sends rather than one it reads, said by the word `body` in
+   * the doc comment.
+   *
+   * The two are checked by opposite rules, so which one this is cannot be
+   * guessed — `sent` below asserts the list, so a comment that stops saying it
+   * fails here rather than quietly moving a type to the lenient check.
+   */
+  sends: boolean
   fields: Field[]
 }
 
@@ -105,7 +116,7 @@ function transcriptions(): Transcription[] {
       const field = /^ {2}(\w+)(\??): (.+?);?$/.exec(line)
       if (field) fields.push({ name: field[1], optional: field[2] === '?', type: field[3].trim() })
     }
-    found.push({ name, cites: [...new Set(cites)], fields })
+    found.push({ name, cites: [...new Set(cites)], sends: /\bbody \(/.test(comment), fields })
   }
   return found
 }
@@ -178,6 +189,42 @@ function accepts(
   return holds('object', 'string')
 }
 
+/**
+ * Is what RomMix sends something the server will take?
+ *
+ * The mirror of `accepts`, and it has to be a separate function rather than the
+ * same one called the other way round. A response may arrive as `integer | null`
+ * and be declared `number | null`; the same field on a request body is one
+ * RomMix fills with a number and never with null, and calling that a mismatch
+ * would be an assertion about caution rather than about correctness.
+ */
+function sendable(
+  declared: string,
+  schema: JsonSchema,
+  schemas: Record<string, JsonSchema>
+): boolean {
+  const actual = jsonTypes(schema, schemas)
+  if (actual.size === 0) return true
+
+  const nullable = declared.endsWith(' | null')
+  const base = nullable ? declared.slice(0, -' | null'.length).trim() : declared
+  // Sending null where the server does not admit it is the one direction that
+  // is definitely wrong.
+  if (nullable && !actual.has('null')) return false
+
+  if (base.endsWith('[]')) {
+    if (!actual.has('array')) return false
+    const element = schema.anyOf?.find((one) => one.type === 'array')?.items ?? schema.items
+    return element ? sendable(base.slice(0, -2), element, schemas) : true
+  }
+
+  const takes = (...kinds: string[]): boolean => kinds.some((one) => actual.has(one))
+  if (base === 'string') return takes('string')
+  if (base === 'number') return takes('integer', 'number')
+  if (base === 'boolean') return takes('boolean')
+  return takes('object', 'string')
+}
+
 describe('the schemas RomMix is checked against', () => {
   test('there is at least one, so an empty folder cannot pass by saying nothing', () => {
     assert.ok(documents.length > 0, 'schema/ should hold at least one RomM openapi.json')
@@ -218,6 +265,25 @@ describe('the transcription', () => {
     assert.ok(all.every((one) => one.fields.length > 0))
   })
 
+  test('the bodies RomMix sends are the ones held to the stricter rule', () => {
+    // Named rather than counted: the two directions are checked by opposite
+    // rules, and a type that slipped from one list to the other would go on
+    // passing while checking the wrong thing about itself.
+    assert.deepEqual(
+      all.filter((one) => one.sends).map((one) => one.name),
+      [
+        'RommDeviceAuthInitPayload',
+        'RommDeviceAuthTokenPayload',
+        'RommRomUserPayload',
+        'RommCollectionRomsPayload',
+        'RommSaveDeletePayload',
+        'RommStateDeletePayload',
+        'RommPlaySessionPayload',
+        'RommPlaySessionEntry'
+      ]
+    )
+  })
+
   test('every type names a schema some supported version defines', () => {
     // `RomQuery` is the exception and stays one: query parameters are not a
     // response body, and RomM describes them per endpoint rather than as a
@@ -230,7 +296,7 @@ describe('the transcription', () => {
 for (const { version, schemas } of documents) {
   describe(`every field RomMix reads, against RomM ${version}`, () => {
     for (const transcription of all) {
-      if (transcription.cites.length === 0) continue
+      if (transcription.cites.length === 0 || transcription.sends) continue
 
       for (const schemaName of transcription.cites) {
         // A schema this version does not have at all: the type is bound to a
@@ -254,6 +320,59 @@ for (const { version, schemas } of documents) {
                 ].join('|')})`
             )
           assert.deepEqual(wrong, [], `RomM ${version}'s ${schemaName} sends something else`)
+        })
+      }
+    }
+  })
+}
+
+/**
+ * The other direction, and the one the fake server cannot stand in for.
+ *
+ * `test/app/server.ts` is written from the same reading of RomM as the client
+ * is, so it takes whatever RomMix sends and a scenario goes green over a body
+ * no real server would accept. What settles it is the same thing that settles a
+ * response: the document RomM publishes about itself.
+ */
+for (const { version, schemas } of documents) {
+  describe(`every body RomMix sends, against RomM ${version}`, () => {
+    for (const transcription of all) {
+      if (!transcription.sends) continue
+
+      for (const schemaName of transcription.cites) {
+        if (!(schemaName in schemas)) continue
+
+        test(`${transcription.name} against ${schemaName}`, () => {
+          const schema = schemas[schemaName]
+          const properties = schema.properties ?? {}
+
+          // A field RomM insists on. Optional here means RomMix may leave it
+          // out, so an optional declaration of a required field is the same
+          // fault as not declaring it — a 422 the first time a real server
+          // sees it, and nothing before that.
+          const withheld = (schema.required ?? []).filter(
+            (name) => !transcription.fields.some((field) => field.name === name && !field.optional)
+          )
+          assert.deepEqual(withheld, [], `RomM ${version}'s ${schemaName} insists on these`)
+
+          // A field RomM has no place for. Harmless on a lenient server and a
+          // rejection on a strict one, and either way it is a name that has
+          // moved without this following it.
+          const unknown = transcription.fields
+            .filter((field) => !(field.name in properties))
+            .map((field) => field.name)
+          assert.deepEqual(unknown, [], `RomM ${version}'s ${schemaName} has no such fields`)
+
+          const wrong = transcription.fields
+            .filter((field) => field.name in properties)
+            .filter((field) => !sendable(field.type, properties[field.name], schemas))
+            .map(
+              (field) =>
+                `${field.name}: ${field.type} (server takes: ${[
+                  ...jsonTypes(properties[field.name], schemas)
+                ].join('|')})`
+            )
+          assert.deepEqual(wrong, [], `RomM ${version}'s ${schemaName} will not take these`)
         })
       }
     }

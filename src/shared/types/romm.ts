@@ -325,6 +325,84 @@ export interface RommFirmware {
   updated_at: string
 }
 
+/**
+ * The bodies RomMix sends, as against the ones it reads.
+ *
+ * Everything above this line is a transcription of something RomM answers with,
+ * and the check on it runs one way: a declaration with room to spare is
+ * caution, and caution is not a fault. A request body is the other direction
+ * and the other risk. A field RomM requires and RomMix stops sending is a 422
+ * nobody sees until it reaches a real server, and the fake cannot find it —
+ * `test/app/server.ts` believes whatever RomMix says, because it was written
+ * from the same reading of the schema.
+ *
+ * So these are declared here beside the responses, cite their schemas the same
+ * way, and `romm.test.ts` holds them to the stricter rule: every field the
+ * server marks required has to be one this sends.
+ */
+
+/** POST /api/auth/device/init body (`DeviceAuthInitPayload`). */
+export interface RommDeviceAuthInitPayload {
+  client_device_identifier: string
+  name: string
+  client: string
+  platform?: string | null
+  /** From the packaged app — see `RommClient.startDevicePairing`. */
+  client_version?: string | null
+  requested_scopes: string[]
+}
+
+/** POST /api/auth/device/token body (`DeviceAuthTokenPayload`). */
+export interface RommDeviceAuthTokenPayload {
+  device_code: string
+}
+
+/**
+ * PUT /api/roms/{id}/props body (`RomUserData`).
+ *
+ * Every field optional because the endpoint is a patch in all but name: RomMix
+ * sends the one property it is changing and RomM leaves the rest alone. Sending
+ * the whole object would make marking a game played reset its rating.
+ */
+export interface RommRomUserPayload {
+  now_playing?: boolean
+  backlogged?: boolean
+  hidden?: boolean
+  rating?: number
+  difficulty?: number
+  completion?: number
+  status?: RomUserStatus | null
+}
+
+/** POST and DELETE /api/collections/{id}/roms body (`CollectionRomsPayload`). */
+export interface RommCollectionRomsPayload {
+  rom_ids: number[]
+}
+
+/** POST /api/saves/delete body (`Body_delete_saves_api_saves_delete_post`). */
+export interface RommSaveDeletePayload {
+  saves: number[]
+}
+
+/** POST /api/states/delete body (`Body_delete_states_api_states_delete_post`). */
+export interface RommStateDeletePayload {
+  states: number[]
+}
+
+/** POST /api/play-sessions body (`PlaySessionIngestPayload`). */
+export interface RommPlaySessionPayload {
+  device_id?: string | null
+  sessions: RommPlaySessionEntry[]
+}
+
+/** One session inside that body (`PlaySessionEntry`). */
+export interface RommPlaySessionEntry {
+  rom_id: number
+  start_time: string
+  end_time: string
+  duration_ms: number
+}
+
 /** Query parameters RomMix passes to GET /api/roms. */
 export interface RomQuery {
   search_term?: string
