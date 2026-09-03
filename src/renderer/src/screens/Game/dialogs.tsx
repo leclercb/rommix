@@ -202,11 +202,16 @@ export function PushConfirmDialog({
         {/* Sends as well as stops asking: turning the setting off and leaving
             these files unsent is not what "don't ask me" means. */}
         {canStopAsking ? (
-          <FocusButton icon="hide" variant="ghost" onSelect={() => onSend(true)}>
+          <FocusButton
+            icon="hide"
+            action="push-send-no-ask"
+            variant="ghost"
+            onSelect={() => onSend(true)}
+          >
             {t('game.pushSendNoAsk')}
           </FocusButton>
         ) : null}
-        <FocusButton icon="cancel" onSelect={onCancel}>
+        <FocusButton icon="cancel" action="push-cancel" onSelect={onCancel}>
           {t('action.cancel')}
         </FocusButton>
       </div>

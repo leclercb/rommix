@@ -1032,6 +1032,78 @@ describe('saves either side of a session', () => {
       'both should have been filed under the game and the emulator that wrote them'
     )
   })
+
+  test('cancelling the question sends nothing at all', async () => {
+    // Something new to send, so the dialog has a list rather than a message
+    // saying everything is already up.
+    writeFileSync(join(saveDir, 'cavestory.srm'), 'one more evening')
+
+    const sentSoFar = server.uploaded.length
+    await saved.choose('[data-action="push-saves"]')
+    await saved.waitFor(`document.querySelector('.overlay')`, 'the question')
+    await saved.choose('[data-action="push-cancel"]')
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+
+    // Nothing went. Waited out rather than read at once: an upload started and
+    // then abandoned would arrive a moment after the dialog closed.
+    await new Promise((done) => setTimeout(done, 1000))
+    assert.equal(
+      server.uploaded.length,
+      sentSoFar,
+      `it should have sent nothing: ${JSON.stringify(server.uploaded.slice(sentSoFar))}`
+    )
+
+    // And the file is still waiting to go, which is the other half of cancel:
+    // the question was refused, not the file.
+    assert.equal(
+      await saved.read<boolean>(
+        `(await window.rommix.saves.list(1)).some(
+           (one) => one.fileName === 'cavestory.srm' && one.sync === 'local-newer'
+         )`
+      ),
+      true
+    )
+  })
+
+  test('and the third answer sends it and stops asking', async () => {
+    const sentSoFar = server.uploaded.length
+    await saved.choose('[data-action="push-saves"]')
+    await saved.waitFor(`document.querySelector('.overlay')`, 'the question again')
+    await saved.choose('[data-action="push-send-no-ask"]')
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+
+    // Both halves of one press: turning the question off and leaving the files
+    // unsent is not what "do not ask me again" means.
+    const until = Date.now() + 10_000
+    while (server.uploaded.length === sentSoFar && Date.now() < until) {
+      await new Promise((done) => setTimeout(done, 100))
+    }
+    assert.ok(server.uploaded.length > sentSoFar, 'it should have sent what it was showing')
+    await saved.waitFor(
+      `(await window.rommix.system.settings()).confirmSavePush === false`,
+      'the question to be turned off'
+    )
+  })
+
+  test('so the next push goes without a word', async () => {
+    writeFileSync(join(saveDir, 'cavestory.srm'), 'and another')
+    const sentSoFar = server.uploaded.length
+
+    await saved.choose('[data-action="push-saves"]')
+
+    // Straight up, which is what the setting means. The dialog is the thing
+    // being watched for here, so its absence is the assertion.
+    const until = Date.now() + 10_000
+    while (server.uploaded.length === sentSoFar && Date.now() < until) {
+      await new Promise((done) => setTimeout(done, 100))
+    }
+    assert.ok(server.uploaded.length > sentSoFar, 'it should have sent it')
+    assert.equal(
+      await saved.read<boolean>(`Boolean(document.querySelector('.overlay'))`),
+      false,
+      'nothing should have been asked this time'
+    )
+  })
 })
 
 /**
