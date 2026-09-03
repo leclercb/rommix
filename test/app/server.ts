@@ -688,6 +688,27 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       }
       if (url.pathname === '/api/states') return json([] as RommState[])
 
+      /**
+       * Saves and states taken off the server.
+       *
+       * A POST with a list rather than a DELETE per id, which is RomM's own
+       * shape — see `RommClient.deleteSaves`. The ids are read back out rather
+       * than ignored, so a screen that deleted the wrong one is a scenario that
+       * finds the wrong one still here.
+       */
+      if (url.pathname === '/api/saves/delete' || url.pathname === '/api/states/delete') {
+        const sent = Buffer.concat(chunks).toString()
+        const { saves = [], states = [] } = JSON.parse(sent || '{}') as {
+          saves?: number[]
+          states?: number[]
+        }
+        for (const id of [...saves, ...states]) {
+          const at = held.findIndex((one) => one.save.id === id)
+          if (at >= 0) held.splice(at, 1)
+        }
+        return json({})
+      }
+
       if (url.pathname === '/api/roms') {
         const limit = Number(url.searchParams.get('limit') ?? 60)
         const offset = Number(url.searchParams.get('offset') ?? 0)

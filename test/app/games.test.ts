@@ -591,6 +591,43 @@ describe('saves either side of a session', () => {
       'deleting the local copy should not have asked RomM to delete anything'
     )
   })
+
+  test('and then from RomM, which is the copy nothing brings back', async () => {
+    // One end left, so one button: the dialog never offers a delete that would
+    // do nothing. The warning comes with it — a delete at one end undoes itself
+    // when sync next runs, and this one has nothing to come back from.
+    // Come back to the screen rather than carrying on from where the dialog
+    // above left off. Closing one leaves the highlight nowhere for a moment and
+    // the list rebuilds underneath it, so a walk that starts there is racing
+    // both; arriving fresh is neither.
+    await saved.goTo('library')
+    await saved.choose('[data-rom="1"]')
+    await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await saved.choose('[data-tab="saves"]')
+    await saved.waitFor(`document.querySelector('[data-action="delete-asset"]')`, 'the save row')
+
+    await saved.choose('[data-action="delete-asset"]')
+    await saved.waitFor(`document.querySelector('.overlay')`, 'the delete question')
+    await saved.waitFor(
+      `!document.querySelector('[data-action="delete-local"]')`,
+      'the end that no longer holds it to be dropped'
+    )
+    await saved.waitFor(`document.querySelector('.notice--warn')`, 'the only-copy warning')
+
+    await saved.choose('[data-action="delete-remote"]')
+
+    // The row goes, and that is what says the right id was sent: the fake
+    // removes by id and the screen re-lists from the server, so a delete
+    // carrying the wrong one would leave the save exactly where it was.
+    await saved.waitFor(
+      `!document.querySelector('[data-action="delete-asset"]')`,
+      'the save to leave the list'
+    )
+    assert.ok(
+      server.asked.some((one) => one.path === '/api/saves/delete'),
+      'it should have asked RomM to delete the save'
+    )
+  })
 })
 
 /**
