@@ -696,6 +696,44 @@ describe('driving the queue from the activity tab', () => {
       'clearing the list should not have removed anything from the disk'
     )
   })
+
+  test('and a game can be thrown away from the list it is in', async () => {
+    // The other end of the same screen: the device tab is where a full disk is
+    // dealt with, and its rows have an uninstall of their own. It is a
+    // different call site from the game screen's, on a row rather than on a
+    // page about one game — which is exactly where deleting the wrong one
+    // would not be noticed.
+    await app.choose('[data-tab="device"]')
+    await app.choose('[data-action="group-by-system"]')
+    await app.waitFor(`document.querySelector('[data-rom="4"]')`, 'the row for the disc set')
+
+    const entry = await app.read<{ path: string }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 4)`
+    )
+    await app.choose('[data-rom="4"] [data-action="uninstall-game"]')
+
+    // Asked here too. One press on a focused danger button is otherwise a
+    // multi-gigabyte download gone, and the row is easier to land on by
+    // accident than the button on a game's own page.
+    await app.waitFor(`document.querySelector('.overlay')`, 'the confirmation')
+    await app.choose('[data-action="keep-game"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+    assert.equal(existsSync(entry.path), true, 'Keep should keep it')
+
+    await app.choose('[data-rom="4"] [data-action="uninstall-game"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the confirmation again')
+    await app.choose('[data-action="uninstall-confirm"]')
+
+    await app.waitFor(
+      `!(await window.rommix.library.installed()).some((one) => one.romId === 4)`,
+      'the game to leave the index'
+    )
+    assert.equal(existsSync(entry.path), false, `${entry.path} is still there`)
+    await app.waitFor(`!document.querySelector('[data-rom="4"]')`, 'the row to go with it')
+
+    // Left as the rest of the file expects to find it.
+    await app.choose('[data-action="group-by-system"]')
+  })
 })
 
 /**

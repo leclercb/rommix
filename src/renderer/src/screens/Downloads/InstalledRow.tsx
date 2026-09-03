@@ -24,7 +24,7 @@ export function InstalledRow({
   const files = entry.files
 
   return (
-    <div ref={ref as Ref<HTMLDivElement>} className="installed" {...props}>
+    <div ref={ref as Ref<HTMLDivElement>} className="installed" data-rom={entry.romId} {...props}>
       <div className="installed__art">
         <CoverArt path={entry.coverPath ?? null} name={title} />
       </div>
@@ -48,7 +48,7 @@ export function InstalledRow({
       </div>
 
       <div className="installed__actions">
-        <FocusButton icon="uninstall" variant="danger" onSelect={onRemove}>
+        <FocusButton icon="uninstall" action="uninstall-game" variant="danger" onSelect={onRemove}>
           {t('action.uninstall')}
         </FocusButton>
       </div>

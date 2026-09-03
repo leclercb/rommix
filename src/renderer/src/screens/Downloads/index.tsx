@@ -437,10 +437,20 @@ export function DownloadsScreen(): JSX.Element {
             {t('uninstall.body', { folder: confirming.path.replace(/\/[^/]*$/, '') })}
           </p>
           <div className="btn-row">
-            <FocusButton icon="keep" onSelect={() => setConfirming(null)} autoFocus>
+            <FocusButton
+              icon="keep"
+              action="keep-game"
+              onSelect={() => setConfirming(null)}
+              autoFocus
+            >
               {t('action.keep')}
             </FocusButton>
-            <FocusButton icon="uninstall" variant="danger" onSelect={() => void remove(confirming)}>
+            <FocusButton
+              icon="uninstall"
+              action="uninstall-confirm"
+              variant="danger"
+              onSelect={() => void remove(confirming)}
+            >
               {t('uninstall.freeing', { size: formatBytes(confirming.sizeBytes) })}
             </FocusButton>
           </div>

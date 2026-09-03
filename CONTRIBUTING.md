@@ -260,7 +260,7 @@ scrolling and the two input sources it is built from.
 
 Seventeen attributes exist for `npm run test:app` and nothing else:
 `data-screen` on the shell, `data-route` on a menu item, `data-rom` on a game
-card, `data-emulator` on a row of the emulator list, `data-collection` on a
+card or an installed row, `data-emulator` on a row of the emulator list, `data-collection` on a
 shelf, `data-tab` on a tab, `data-option` on one side of a segmented control,
 `data-setting` on a toggle in Settings, `data-field` on a text box,
 `data-platform` on a platform chip or a platform's row on the Emulators
