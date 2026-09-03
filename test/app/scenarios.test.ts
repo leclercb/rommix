@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { existsSync } from 'node:fs'
-import { startApp, type App } from './driver.ts'
+import { standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -28,15 +28,32 @@ import { startFakeRomm, type FakeRomm } from './server.ts'
 
 let server: FakeRomm
 let app: App
+let emulator: ReturnType<typeof standInEmulator>
 
 before(async () => {
   server = await startFakeRomm()
-  app = await startApp({ baseUrl: server.baseUrl, token: server.token })
+  emulator = standInEmulator()
+  app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    settings: {
+      // Eden, pointed at a shell script. `emulatorPaths` is an ordinary setting
+      // that exists for the person whose AppImage is somewhere RomMix does not
+      // look — it is not a seam added for the tests, which is what makes a
+      // launch drivable without one.
+      systemEmulators: { switch: 'eden' },
+      emulatorPaths: { eden: emulator.path },
+      // The push after a session would otherwise stop to ask, and there is
+      // nobody here to answer it.
+      confirmSavePush: false
+    }
+  })
 })
 
 after(async () => {
   await app?.stop()
-  await server?.close()
+  // Tolerated, because the last scenario closes it on purpose.
+  await server?.close().catch(() => undefined)
 })
 
 describe('starting up', () => {
@@ -103,7 +120,7 @@ describe('downloading a game', () => {
     await app.goTo('library')
     await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library')
 
-    await app.choose('.card')
+    await app.choose('[data-rom="1"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'a game screen')
 
     await app.choose('[data-action="download"]')
@@ -127,5 +144,102 @@ describe('downloading a game', () => {
     assert.equal(roms.length, 1)
     assert.ok(roms[0].path.endsWith('cavestory.md'), roms[0].path)
     assert.equal(existsSync(roms[0].path), true)
+  })
+})
+
+describe('launching a game', () => {
+  test('the emulator is started with the game, and the session is reported', async () => {
+    // A different game from the download above, and a Switch one on purpose:
+    // Eden is one emulator rather than a core loader, so a launch here fetches
+    // nothing off the internet. Through RetroArch the same test would try to
+    // download a libretro core.
+    await app.goTo('library')
+    await app.choose('[data-rom="3"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    await app.choose('[data-action="download"]')
+    await app.waitFor(
+      `(await window.rommix.library.installed()).some((one) => one.romId === 3)`,
+      'the game to arrive'
+    )
+
+    // The Play button appears in the download button's place once there is
+    // something on disk to play.
+    await app.choose('[data-action="play"]')
+
+    // Up, and staying up: the overlay is what says the emulator has the screen,
+    // and it is the only thing on it while a game is running.
+    await app.waitFor(`document.querySelector('.overlay')`, 'the running overlay')
+
+    // The command RomMix built, read from what the stand-in wrote down. Eden
+    // takes the game after `-g`; a path assembled wrongly is an emulator that
+    // starts and shows an error in its own words, long after RomMix has
+    // reported a successful launch.
+    const argv = await emulator.argv()
+    assert.deepEqual(argv.slice(0, 2), ['-f', '-g'])
+    assert.ok(argv[2]?.endsWith('testchamber.nsp'), argv.join(' '))
+
+    // Raised while it runs, so RomM's own interface says so on every device.
+    await app.waitFor(`${JSON.stringify(server.asked.length)} >= 0`, 'the app to have settled')
+    assert.ok(
+      server.asked.some(
+        (one) => one.path === '/api/roms/3/props' && JSON.parse(one.body).now_playing === true
+      ),
+      'it should have told RomM the game is being played'
+    )
+  })
+
+  test('and when the emulator exits, the session is accounted for', async () => {
+    // The overlay comes down by itself when the process ends — nothing is
+    // pressed here.
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the session to end')
+
+    const played = server.asked.filter((one) => one.path === '/api/play-sessions')
+    assert.ok(played.length > 0, 'it should have reported the time played')
+    const body = JSON.parse(played[0].body) as { sessions: { rom_id: number }[] }
+    assert.equal(body.sessions[0].rom_id, 3)
+
+    // Lowered again, which nothing on the server ever does for us: a flag left
+    // raised leaves the game in "now playing" on every device, for good.
+    assert.ok(
+      server.asked.some(
+        (one) => one.path === '/api/roms/3/props' && JSON.parse(one.body).now_playing === false
+      ),
+      'it should have cleared what is playing'
+    )
+  })
+})
+
+/**
+ * Last on purpose: it takes the server away and does not put it back.
+ */
+describe('when the server goes away', () => {
+  test('it says so, and still shows what is on this disk', async () => {
+    // The failure this is really about: a screen that goes blank, or one that
+    // sits on a spinner, when the answer — the games are right here on the
+    // disk — is one RomMix already has. Nothing below the main process can be
+    // asked this question; the fallback is decided there and shown here.
+    await server.close()
+
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('.notice--warn')`, 'the offline notice')
+
+    // Named rather than merely marked offline: "offline" on its own reads as a
+    // setting somebody turned on.
+    await app.waitFor(`document.querySelector('.topbar__user')`, 'the status in the bar')
+
+    // Both games downloaded above are still listed, from the local index.
+    await app.waitFor(
+      `document.querySelector('[data-rom="1"]') && document.querySelector('[data-rom="3"]')`,
+      'the downloaded games'
+    )
+
+    // And the one that was never downloaded is not: offline, the library is
+    // what this disk holds, and offering a game that cannot be fetched would
+    // be a download button that fails on every press.
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-rom="2"]'))`),
+      false
+    )
   })
 })

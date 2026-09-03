@@ -65,7 +65,15 @@ export function GameCard({
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
 
   return (
-    <button ref={ref as Ref<HTMLButtonElement>} className="card" {...props}>
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      className="card"
+      // Which game this is, for `npm run test:app` — the title is the server's
+      // and a test that matched on it would be asserting against somebody's
+      // library rather than against RomMix. See `data-action` on FocusButton.
+      data-rom={tile.romId}
+      {...props}
+    >
       <div style={{ position: 'relative' }}>
         <CoverArt path={tile.coverPath} name={tile.title} />
         {installed ? (

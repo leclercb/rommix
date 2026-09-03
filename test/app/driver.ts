@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -142,6 +142,58 @@ export interface StartOptions {
   token: string
   /** Settings to write before the first start — an emulator path, say. */
   settings?: Record<string, unknown>
+}
+
+/** How long the stand-in emulator stays up. See `standInEmulator`. */
+const STAND_IN_SECONDS = 8
+
+/**
+ * A shell script that behaves enough like an emulator to be launched.
+ *
+ * It has to outlive `Launcher`'s startup grace — a process gone sooner than
+ * that is correctly read as a launch that never happened rather than a session
+ * somebody played, whatever it returned. So it sleeps for longer than that
+ * grace, which is what makes this a session with save files to account for.
+ *
+ * It writes its own arguments down before sleeping. That file is the only place
+ * the command RomMix actually built can be seen from outside, and the command
+ * is the thing worth checking: an emulator started with the wrong path, or with
+ * a flag it does not take, fails in the emulator's own words long after RomMix
+ * has reported success.
+ */
+export function standInEmulator(): { path: string; argv: () => Promise<string[]> } {
+  const dir = mkdtempSync(join(tmpdir(), 'rommix-stand-in-'))
+  const path = join(dir, 'stand-in-emulator')
+  const record = join(dir, 'argv')
+  writeFileSync(
+    path,
+    [
+      '#!/bin/sh',
+      `printf '%s\n' "$@" > ${JSON.stringify(record)}`,
+      `sleep ${STAND_IN_SECONDS}`,
+      ''
+    ].join('\n'),
+    { mode: 0o755 }
+  )
+  return {
+    path,
+    /**
+     * What it was started with, once it has said.
+     *
+     * Waited for rather than read: the overlay goes up when RomMix has spawned
+     * the process, which is a moment before a shell inside it has run its first
+     * line. Reading straight away is a race that loses often enough to be
+     * noticed and rarely enough to be blamed on something else.
+     */
+    argv: async () => {
+      const until = Date.now() + SETTLE_TIMEOUT_MS
+      while (Date.now() < until) {
+        if (existsSync(record)) return readFileSync(record, 'utf8').split('\n').filter(Boolean)
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+      }
+      return []
+    }
+  }
 }
 
 /**
@@ -345,17 +397,65 @@ export async function startApp(options: StartOptions): Promise<App> {
       )
 
     /**
-     * Where the walk has already stood.
+     * Which way the target lies from the highlight, or '' when it is reached.
      *
-     * The interface is not a grid and its moves are not symmetrical — from a
-     * game the highlight goes right onto a platform filter, and left from that
-     * filter does not come back. So the walk never tries to retrace a step; it
-     * takes whatever a press gave it and prefers somewhere it has not been.
+     * Homing on where the thing actually is, rather than sweeping and hoping.
+     * The interface is laid out for a person pointing a D-pad at what they can
+     * see, so the direction that closes the larger gap is the direction they
+     * would press — and it converges in a handful of presses where a search
+     * wanders for a hundred.
+     */
+    const towards = (): Promise<string> =>
+      read<string>(
+        `(() => {
+           const target = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect()
+           const here = document.querySelector('[data-focused="true"]')?.getBoundingClientRect()
+           if (!target || !here) return ''
+           const across = target.left + target.width / 2 - (here.left + here.width / 2)
+           const down = target.top + target.height / 2 - (here.top + here.height / 2)
+           if (Math.abs(across) < 4 && Math.abs(down) < 4) return ''
+           return Math.abs(down) >= Math.abs(across)
+             ? down > 0 ? 'Down' : 'Up'
+             : across > 0 ? 'Right' : 'Left'
+         })()`
+      )
+
+    for (let step = 0; step < 40; step += 1) {
+      if (await there()) return press('Enter')
+      const key = (await towards()) as Key | ''
+      if (!key) break
+      const before = await highlight()
+      await press(key)
+      // A wall in the direction it wanted. The other axis is the way round it —
+      // a game two rows down and one column left is not reachable by pressing
+      // Down alone once the column has run out.
+      if ((await highlight()) === before) {
+        const sideways: Key =
+          key === 'Up' || key === 'Down'
+            ? (await towards()) === 'Left'
+              ? 'Left'
+              : 'Right'
+            : (await towards()) === 'Up'
+              ? 'Up'
+              : 'Down'
+        await press(sideways)
+        if ((await highlight()) === before) break
+      }
+    }
+
+    /**
+     * Failing that, a walk that remembers where it has been.
+     *
+     * Homing assumes the highlight can be moved towards what is on screen, and
+     * that is not true across a zone boundary — where the geometry says one
+     * thing and the focus engine another. This covers that: it takes whatever a
+     * press gives it and prefers somewhere it has not stood, which gets out of
+     * a corner homing would press into for ever.
      */
     const seen = new Set<string>()
     const keys: Key[] = ['Right', 'Down', 'Left', 'Up']
 
-    for (let step = 0; step < 120; step += 1) {
+    for (let step = 0; step < 60; step += 1) {
       if (await there()) return press('Enter')
       const before = await highlight()
       seen.add(before)
@@ -370,8 +470,6 @@ export async function startApp(options: StartOptions): Promise<App> {
         if (await there()) return press('Enter')
         if (after === before) continue
         landed = after
-        // Somewhere new is worth taking now; somewhere seen is worth taking
-        // only if nothing else moves at all, so keep looking from here.
         if (!seen.has(after)) break
       }
       if (!landed) break
@@ -409,35 +507,44 @@ export async function startApp(options: StartOptions): Promise<App> {
       read<boolean>(
         `Boolean(document.querySelector('[data-focused="true"]')?.closest('.topbar__nav'))`
       )
-    for (let step = 0; step < 5 && !(await inBar()); step += 1) {
-      await press('Escape')
-      if (await read<boolean>(`Boolean(document.querySelector('.overlay'))`)) {
-        throw new Error('backing out to the menu reached the quit confirmation')
+    const arrived = (): Promise<boolean> =>
+      read<boolean>(
+        `document.querySelector(${JSON.stringify(item)})?.matches('[data-focused="true"]') ?? false`
+      )
+
+    // Three goes at it, because a screen still filling can move the highlight
+    // out of the bar between measuring the distance and walking it — which is
+    // not a broken menu, just a slow one, and the answer is to look again.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let step = 0; step < 5 && !(await inBar()); step += 1) {
+        await press('Escape')
+        if (await read<boolean>(`Boolean(document.querySelector('.overlay'))`)) {
+          throw new Error('backing out to the menu reached the quit confirmation')
+        }
       }
-    }
-    if (!(await inBar())) throw new Error('Back never reached the navigation bar')
+      if (!(await inBar())) continue
 
-    const distance = await read<number>(
-      `(() => {
-         const items = [...document.querySelectorAll('.topbar__nav [data-route]')]
-         const wanted = items.findIndex((one) => one.dataset.route === ${JSON.stringify(route)})
-         const here = items.findIndex((one) => one.matches('[data-focused="true"]'))
-         return wanted < 0 || here < 0 ? NaN : wanted - here
-       })()`
-    )
-    if (Number.isNaN(distance)) throw new Error(`the ${route} menu item is not in the bar`)
+      const distance = await read<number>(
+        `(() => {
+           const items = [...document.querySelectorAll('.topbar__nav [data-route]')]
+           const wanted = items.findIndex((one) => one.dataset.route === ${JSON.stringify(route)})
+           const here = items.findIndex((one) => one.matches('[data-focused="true"]'))
+           return wanted < 0 || here < 0 ? NaN : wanted - here
+         })()`
+      )
+      if (Number.isNaN(distance)) continue
 
-    for (let step = 0; step < Math.abs(distance); step += 1) {
-      await press(distance > 0 ? 'Right' : 'Left')
+      // One press at a time, checking after each: a fixed count walked blindly
+      // carries on past the bar if anything moved the highlight on the way.
+      for (let step = 0; step < Math.abs(distance); step += 1) {
+        if (await arrived()) break
+        if (!(await inBar())) break
+        await press(distance > 0 ? 'Right' : 'Left')
+      }
+      if (await arrived()) return press('Enter')
     }
 
-    const arrived = await read<boolean>(
-      `document.querySelector(${JSON.stringify(item)})?.matches('[data-focused="true"]') ?? false`
-    )
-    if (!arrived) {
-      throw new Error(`the menu never reached ${route}; the highlight is on "${await focused()}"`)
-    }
-    await press('Enter')
+    throw new Error(`the menu never reached ${route}; the highlight is on "${await focused()}"`)
   }
 
   return {

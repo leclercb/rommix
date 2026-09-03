@@ -196,9 +196,14 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   const asked: Asked[] = []
   const megadrive = platform(1, 'genesis', 'Sega Mega Drive')
   const gameboy = platform(2, 'gb', 'Game Boy')
+  // A Switch game because Eden is the emulator a launch can be tested with:
+  // one system, one way to run it, and no core to fetch off the internet
+  // first — which is what running a libretro game through RetroArch would do.
+  const nintendoSwitch = platform(3, 'switch', 'Nintendo Switch')
   const roms = [
     rom(1, 'Cave Story MD', megadrive, 'cavestory.md'),
-    rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb')
+    rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb'),
+    rom(3, 'Test Chamber', nintendoSwitch, 'testchamber.nsp')
   ]
 
   const server: Server = createServer((req, res) => {
@@ -231,14 +236,37 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       }
 
       if (url.pathname === '/api/users/me') return json(user)
-      if (url.pathname === '/api/platforms') return json([megadrive, gameboy])
+      if (url.pathname === '/api/platforms') return json([megadrive, gameboy, nintendoSwitch])
       if (url.pathname === '/api/collections') return json([] as RommCollection[])
       if (url.pathname === '/api/collections/virtual') {
         return json([] as RommVirtualCollection[])
       }
       if (url.pathname === '/api/devices') return json([] as RommDevice[])
       if (url.pathname === '/api/firmware') return json([] as RommFirmware[])
-      if (url.pathname === '/api/saves') return json([] as RommSave[])
+      if (url.pathname === '/api/saves') {
+        // Uploaded rather than listed. A session that wrote something ends with
+        // a multipart POST here, and answering it is what lets the push be
+        // asserted rather than merely not crashing.
+        if (req.method === 'POST') {
+          const uploaded: RommSave = {
+            id: 900 + asked.length,
+            rom_id: Number(url.searchParams.get('rom_id') ?? 0),
+            user_id: user.id,
+            file_name: 'uploaded',
+            file_name_no_ext: 'uploaded',
+            file_extension: '',
+            file_size_bytes: 0,
+            download_path: 'uploaded',
+            emulator: url.searchParams.get('emulator'),
+            slot: null,
+            origin_device_id: url.searchParams.get('device_id'),
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z'
+          }
+          return json(uploaded)
+        }
+        return json([] as RommSave[])
+      }
       if (url.pathname === '/api/states') return json([] as RommState[])
 
       if (url.pathname === '/api/roms') {

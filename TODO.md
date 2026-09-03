@@ -35,10 +35,18 @@ this an afternoon of CI wiring rather than a second suite.
 
 ## Scenarios not yet written
 
-`test/app/scenarios.test.ts` covers starting up, moving around and downloading a
-game. Launching one is the obvious next: the seams are already there —
-`emulatorPaths` points an emulator at a shell script that stands in for one, and
-a stand-in has to outlive `Launcher`'s startup grace or it is correctly treated
-as a launch that failed rather than a session that happened. What it would buy
-is the save sync either side of a session, which is the part of RomMix that can
-lose something the user cannot get back.
+`test/app/scenarios.test.ts` covers starting up, moving around, downloading a
+game, launching one, and the server going away underneath all of it. What is not
+covered yet, in the order the risk sits:
+
+- **Saves either side of a session.** The launch scenario proves a session
+  happened and was reported; it does not prove the files the emulator wrote went
+  up, or that a newer copy on the server came down before it started. That is
+  the part of RomMix that can lose something the user cannot get back, and the
+  fake already answers the endpoints it needs — see the save upload in
+  `test/app/server.ts`.
+- **A game of several files.** The one shape the fake cannot honestly stand in
+  for, because what a real RomM serves is an archive built per request. See
+  above.
+- **BIOS.** The screen has good unit coverage and no end-to-end path; the
+  firmware endpoints on the fake are stubs returning nothing.
