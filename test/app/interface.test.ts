@@ -1021,3 +1021,105 @@ describe('marking a game a favourite', () => {
     assert.deepEqual(shelves[0].rom_ids, [])
   })
 })
+
+/**
+ * Where downloaded games are written, and where RomMix keeps its own folder.
+ *
+ * Two settings that move files rather than change how something is drawn, and
+ * neither had been driven. The first is asked about before it takes effect —
+ * both directions have a consequence that shows up on another screen entirely —
+ * and the question is the part worth testing: it is what stands between one
+ * press and a library the emulators stop reading.
+ */
+describe('moving where games are kept', () => {
+  const storage = (): Promise<string> =>
+    app.read<string>(`(await window.rommix.system.settings()).romStorage`)
+
+  test('changing it asks first, and holds the answer until it is agreed to', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="games"]')`, 'the settings tabs')
+    await app.choose('[data-tab="games"]')
+    await app.waitFor(`document.querySelector('[data-option="rommix"]')`, 'the storage control')
+    assert.equal(await storage(), 'rommix', 'the fixtures should start on the shared folder')
+
+    await app.choose('[data-option="emulator"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the question')
+
+    // Held, not applied: the dialog is up and the setting is what it was. A
+    // control that wrote first and asked afterwards would be explaining a
+    // change that had already happened.
+    assert.equal(await storage(), 'rommix')
+  })
+
+  test('and staying put leaves the control where it was', async () => {
+    await app.choose('[data-action="storage-keep"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+
+    // The control follows the setting rather than the press, so the row that
+    // was pressed does not stay lit after the answer was no.
+    await app.waitFor(
+      `document.querySelector('[data-option="rommix"]')?.dataset.active === 'true'`,
+      'the shared folder to still be the one in force'
+    )
+    assert.equal(await storage(), 'rommix')
+  })
+
+  test('agreeing moves the library into each emulator’s own folder', async () => {
+    await app.choose('[data-option="emulator"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the question again')
+    await app.choose('[data-action="storage-confirm"]')
+
+    await app.waitFor(
+      `(await window.rommix.system.settings()).romStorage === 'emulator'`,
+      'the setting to change'
+    )
+    await app.waitFor(
+      `document.querySelector('[data-option="emulator"]')?.dataset.active === 'true'`,
+      'the control to agree with it'
+    )
+  })
+
+  test('and back again, which is the other half of the question', async () => {
+    // Both directions are asked about and the two are not the same question —
+    // one warns that a download stops counting when a platform is repointed,
+    // the other that no emulator reads the shared folder until it is told to.
+    await app.choose('[data-option="rommix"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the other direction')
+    await app.choose('[data-action="storage-confirm"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).romStorage === 'rommix'`,
+      'the setting to come back'
+    )
+  })
+})
+
+describe('the folder RomMix keeps everything in', () => {
+  test('it is named on the screen, and pinned where the environment set it', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the settings tabs')
+    await app.choose('[data-tab="system"]')
+    await app.waitFor(`document.querySelector('[data-field="root"]')`, 'the folder')
+
+    // The folder in force, not the default one: a box that showed where RomMix
+    // would keep its files by default, while it is keeping them somewhere else,
+    // is worse than not naming a folder at all.
+    const root = await app.read<{ current: string; fromEnvironment: boolean }>(
+      `await window.rommix.system.root()`
+    )
+    assert.equal(
+      await app.read<string>(`document.querySelector('[data-field="root"]')?.value`),
+      root.current
+    )
+
+    // And it cannot be moved from here, because `ROMMIX_HOME` wins over the
+    // pointer file this button writes — so moving it would report success and
+    // be ignored on the next launch. Every application in this suite is run
+    // that way, which is also why the move itself is `root.test.ts` rather
+    // than a scenario.
+    assert.equal(root.fromEnvironment, true, 'the harness pins this with ROMMIX_HOME')
+    await app.waitFor(
+      `document.querySelector('[data-action="move-root"]')?.dataset.disabled === 'true'`,
+      'the move to be off'
+    )
+  })
+})

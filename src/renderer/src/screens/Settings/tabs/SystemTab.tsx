@@ -88,6 +88,7 @@ export function SystemTab({
       <div className="form">
         <TextField
           label={t('system.folder')}
+          field="root"
           value={draft}
           onChange={setRootDraft}
           placeholder={root?.fallback ?? '/home/you/rommix'}
@@ -96,6 +97,7 @@ export function SystemTab({
         <div className="btn-row">
           <FocusButton
             icon="folder"
+            action="move-root"
             disabled={root?.fromEnvironment || draft.trim() === root?.current}
             onSelect={() => void moveRoot()}
           >

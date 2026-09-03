@@ -56,10 +56,10 @@ export function RomStorageNotice({
         {/* Staying put is focused, not the change: the control has already been
             pressed, so the press that lands here is one press away from
             agreeing to whatever the list above is explaining. */}
-        <FocusButton icon="cancel" onSelect={onCancel} autoFocus>
+        <FocusButton icon="cancel" action="storage-keep" onSelect={onCancel} autoFocus>
           {t(shared ? 'storage.toSharedKeep' : 'storage.toEmulatorKeep')}
         </FocusButton>
-        <FocusButton icon="confirm" variant="primary" onSelect={onConfirm}>
+        <FocusButton icon="confirm" action="storage-confirm" variant="primary" onSelect={onConfirm}>
           {t(shared ? 'storage.toSharedConfirm' : 'storage.toEmulatorConfirm')}
         </FocusButton>
       </div>
