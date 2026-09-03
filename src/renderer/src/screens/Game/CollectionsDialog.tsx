@@ -73,7 +73,7 @@ export function CollectionsDialog({
   }
 
   return (
-    <Overlay title={t('collections.dialogTitle')}>
+    <Overlay title={t('collections.dialogTitle')} icon="collection">
       {!collections ? <Spinner /> : null}
 
       {/* RomMix makes no collections of its own: one is a thing somebody named,

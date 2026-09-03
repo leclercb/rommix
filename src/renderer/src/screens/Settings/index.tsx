@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
-import { Hints, Spinner, Tabs } from '../../components'
+import { Hints, PageTitle, Spinner, Tabs } from '../../components'
 import { useApp, useI18n } from '../../state'
 import { GamesTab, GeneralTab, SystemTab } from './tabs'
 
@@ -64,7 +64,7 @@ export function SettingsScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">{t('nav.settings')}</h1>
+      <PageTitle icon="settings">{t('nav.settings')}</PageTitle>
 
       <div className="panel">
         <Tabs<SettingsTab>

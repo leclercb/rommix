@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
 import type { DiagnosticsReport } from '@shared/types'
-import { Hints } from '../../components'
+import { Hints, PageTitle } from '../../components'
 import { useApp, useI18n } from '../../state'
 import { EmulatorChangeNotice, EMULATOR_CHANGE_NOTICE } from './EmulatorChangeNotice'
 import { EmulatorList } from './EmulatorList'
@@ -74,7 +74,7 @@ export function EmulatorsScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">{t('nav.emulators')}</h1>
+      <PageTitle icon="emulator">{t('nav.emulators')}</PageTitle>
       <p className="page-subtitle">{t('emulators.explainer')}</p>
 
       <EmulatorList

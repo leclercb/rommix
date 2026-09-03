@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { BiosPlatform, BiosReport } from '@shared/types'
-import { FocusButton, Hints, Overlay, PlatformIcon, Spinner } from '../../components'
+import { FocusButton, Hints, Overlay, PageTitle, PlatformIcon, Spinner } from '../../components'
 import { useApp, useI18n, type ToastSubject } from '../../state'
 
 /**
@@ -129,7 +129,7 @@ export function BiosScreen(): JSX.Element {
   if (error) {
     return (
       <div className="content">
-        <h1 className="page-title">{t('nav.bios')}</h1>
+        <PageTitle icon="bios">{t('nav.bios')}</PageTitle>
         <div className="notice notice--error">{error}</div>
         <div className="btn-row">
           {/* The same call the Re-check button makes, so a retry that works
@@ -151,7 +151,7 @@ export function BiosScreen(): JSX.Element {
   if (!report) {
     return (
       <div className="content">
-        <h1 className="page-title">{t('nav.bios')}</h1>
+        <PageTitle icon="bios">{t('nav.bios')}</PageTitle>
         <Spinner />
       </div>
     )
@@ -169,7 +169,7 @@ export function BiosScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">{t('nav.bios')}</h1>
+      <PageTitle icon="bios">{t('nav.bios')}</PageTitle>
       <p className="page-subtitle">
         {missing === 0
           ? t('bios.allInPlace')
@@ -223,7 +223,7 @@ export function BiosScreen(): JSX.Element {
       )}
 
       {busy === 'all' || busy?.startsWith('platform:') ? (
-        <Overlay title={t('bios.installingTitle')}>
+        <Overlay title={t('bios.installingTitle')} icon="bios">
           <p className="muted">
             {progress
               ? t('bios.progress', { done: progress.done, total: progress.total })

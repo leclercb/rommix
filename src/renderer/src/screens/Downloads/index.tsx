@@ -1,6 +1,6 @@
 import type { MessageKey } from '@shared/i18n'
 import { isStopped, type DownloadItem, type InstalledRom } from '@shared/types'
-import { FocusButton, Hints, Overlay, Spinner, Tabs } from '../../components'
+import { FocusButton, Hints, Overlay, PageTitle, Spinner, Tabs } from '../../components'
 import { useApp, useDownloads, useI18n } from '../../state'
 import { startedMessage } from '../Game/useGameCopy'
 import { useEffect, useMemo, useState, type JSX } from 'react'
@@ -250,7 +250,7 @@ export function DownloadsScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">{t('nav.downloads')}</h1>
+      <PageTitle icon="downloads">{t('nav.downloads')}</PageTitle>
       <p className="page-subtitle">
         {t('downloads.onDisk', { count: installed.length, size: formatBytes(totalOnDisk) })}
       </p>
@@ -273,7 +273,7 @@ export function DownloadsScreen(): JSX.Element {
       />
 
       {syncing ? (
-        <Overlay title={t('downloads.checkingTitle')}>
+        <Overlay title={t('downloads.checkingTitle')} icon="refresh">
           <p className="muted">
             {progress
               ? t('downloads.checkedOf', { checked: progress.checked, total: progress.total })
@@ -425,7 +425,7 @@ export function DownloadsScreen(): JSX.Element {
       )}
 
       {confirming ? (
-        <Overlay title={t('uninstall.title')}>
+        <Overlay title={t('uninstall.title')} icon="uninstall">
           <p className="muted">
             {t('uninstall.body', { folder: confirming.path.replace(/\/[^/]*$/, '') })}
           </p>

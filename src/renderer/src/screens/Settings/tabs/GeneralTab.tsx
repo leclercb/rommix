@@ -160,7 +160,7 @@ export function GeneralTab(): JSX.Element {
       </div>
 
       {supporting ? (
-        <Overlay title={t('settings.buyCoffee')}>
+        <Overlay title={t('settings.buyCoffee')} icon="coffee">
           <p className="muted">{t('settings.scanOrOpen')}</p>
           <ScanToOpen url={SUPPORT_URL} />
           <div className="btn-row">

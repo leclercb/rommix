@@ -43,6 +43,7 @@ export function SetupNotesNotice({
       title={t(installed ? 'emulator.installedTitle' : 'emulator.setupTitle', {
         name: emulator.name
       })}
+      icon="note"
     >
       <p className="muted">{t('emulator.setupIntro', { name: emulator.name })}</p>
       <ul className="notice__list muted">

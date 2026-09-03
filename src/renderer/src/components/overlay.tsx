@@ -1,10 +1,34 @@
 import { type JSX, type ReactNode } from 'react'
 import { FocusLayer, useAction, useFocusContext, useKeyLabel } from '../input/focus'
 import { useI18n } from '../state'
+import { Icon, type IconName } from '../icons'
 import { FocusButton } from './controls'
 import { Filled } from './text'
 
-/** The two frames every screen sits in: a modal over it, hints under it. */
+/** The frames every screen sits in: its heading, a modal over it, hints under it. */
+
+/**
+ * A screen's own heading, under the mark the menu reaches it by.
+ *
+ * The same icon the navigation bar uses, on purpose: a section is recognised by
+ * that mark from across the room long before its name is read, and a heading
+ * that dropped it made the page look like somewhere else. The two setup pages
+ * pass none, having no menu item to be recognised from.
+ */
+export function PageTitle({
+  icon,
+  children
+}: {
+  icon?: IconName
+  children: ReactNode
+}): JSX.Element {
+  return (
+    <h1 className="page-title">
+      {icon ? <Icon name={icon} size={28} /> : null}
+      {children}
+    </h1>
+  )
+}
 
 export function Spinner(): JSX.Element {
   const { t } = useI18n()
@@ -18,11 +42,30 @@ export function Spinner(): JSX.Element {
  * being reachable while it is open — without that, the pad walks straight out
  * of a confirmation dialog onto the buttons it is asking about.
  */
-export function Overlay({ title, children }: { title: string; children: ReactNode }): JSX.Element {
+export function Overlay({
+  title,
+  icon,
+  children
+}: {
+  title: string
+  /**
+   * What this dialog is about, in the heading beside its words.
+   *
+   * A modal arrives over whatever the player was doing and has to say what it
+   * is before it is read — from a sofa, the mark is what does that, and the
+   * sentence is what confirms it. The buttons underneath have carried one all
+   * along; the heading over them had nothing.
+   */
+  icon?: IconName
+  children: ReactNode
+}): JSX.Element {
   return (
     <div className="overlay">
       <div className="overlay__panel">
-        <h2 className="overlay__title">{title}</h2>
+        <h2 className="overlay__title">
+          {icon ? <Icon name={icon} size={22} /> : null}
+          {title}
+        </h2>
         <FocusLayer>{children}</FocusLayer>
       </div>
     </div>
@@ -43,7 +86,7 @@ export function Overlay({ title, children }: { title: string; children: ReactNod
 export function QuitOverlay({ onCancel }: { onCancel: () => void }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('app.quitTitle')}>
+    <Overlay title={t('app.quitTitle')} icon="quit">
       <QuitActions onCancel={onCancel} />
     </Overlay>
   )

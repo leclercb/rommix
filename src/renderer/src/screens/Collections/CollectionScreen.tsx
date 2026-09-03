@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
 import { hasMorePages } from '@shared/types'
 import type { RommRom } from '@shared/types'
-import { GameCard, Hints, Spinner, tileFromRom } from '../../components'
+import { GameCard, Hints, PageTitle, Spinner, tileFromRom } from '../../components'
 import { useApp, useI18n } from '../../state'
 
 /** How many covers a page of a collection is. Matches the library's grid. */
@@ -91,7 +91,7 @@ export function CollectionScreen({
 
   return (
     <div className="content">
-      <h1 className="page-title">{title}</h1>
+      <PageTitle icon="collection">{title}</PageTitle>
       <p className="page-subtitle">{t('library.count', { count: total ?? roms.length })}</p>
 
       {error ? <div className="notice notice--error">{error}</div> : null}

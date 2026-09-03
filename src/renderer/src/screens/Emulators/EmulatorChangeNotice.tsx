@@ -26,7 +26,7 @@ export function EmulatorChangeNotice({
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('change.title')}>
+    <Overlay title={t('change.title')} icon="warn">
       <p className="muted">{t('change.body')}</p>
       <ul className="notice__list muted">
         <li>{t('change.bios')}</li>

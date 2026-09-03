@@ -35,7 +35,7 @@ export function RomStorageNotice({
   const shared = to === 'rommix'
 
   return (
-    <Overlay title={t(shared ? 'storage.toSharedTitle' : 'storage.toEmulatorTitle')}>
+    <Overlay title={t(shared ? 'storage.toSharedTitle' : 'storage.toEmulatorTitle')} icon="folder">
       <p className="muted">{t(shared ? 'storage.toSharedBody' : 'storage.toEmulatorBody')}</p>
       <ul className="notice__list muted">
         {shared ? (

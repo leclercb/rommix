@@ -5,6 +5,7 @@ import type { InstalledRom, RommPlatform, RommRom } from '@shared/types'
 import {
   GameCard,
   Hints,
+  PageTitle,
   PlatformIcon,
   SegmentedControl,
   Spinner,
@@ -222,7 +223,7 @@ export function LibraryScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">{t('library.title')}</h1>
+      <PageTitle icon="library">{t('library.title')}</PageTitle>
       <p className="page-subtitle">
         {count === 0
           ? // "Browse everything on your server" is not what this screen is

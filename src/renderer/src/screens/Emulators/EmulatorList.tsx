@@ -547,7 +547,7 @@ export function EmulatorList({
       })}
 
       {flatpakBusy ? (
-        <Overlay title={t('emulator.installingFlathub')}>
+        <Overlay title={t('emulator.installingFlathub')} icon="install">
           <p className="muted">{flatpakLine ?? t('emulator.contactingFlathub')}</p>
           <Spinner />
         </Overlay>
@@ -556,7 +556,7 @@ export function EmulatorList({
       {/* Every route this emulator has, each naming what it would do — and the
           answer "none of them" where that is the truth. */}
       {pending ? (
-        <Overlay title={t('emulator.installTitle', { name: pending.name })}>
+        <Overlay title={t('emulator.installTitle', { name: pending.name })} icon="install">
           {installMethods(pending).map((spec, index) => (
             <div className="choice" key={spec.kind}>
               <FocusButton

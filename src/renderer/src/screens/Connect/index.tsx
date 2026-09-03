@@ -6,14 +6,15 @@ import {
   FocusButton,
   Hints,
   Overlay,
+  PageTitle,
   QrCode,
   QuitOverlay,
   RomStorageChoice,
   SegmentedControl,
   TextField,
   uiScaleChoice,
-  uiScaleOptions,
-  type UiScaleChoice
+  type UiScaleChoice,
+  uiScaleOptions
 } from '../../components'
 import { useApp, useI18n } from '../../state'
 
@@ -180,14 +181,14 @@ export function ConnectScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">
+      <PageTitle>
         {wizard ? (
           <span className="setup__step">
             {t('setup.stepOf', { step: stepNumber, total: SETUP_STEPS.length })}
           </span>
         ) : null}
         {t('connect.title')}
-      </h1>
+      </PageTitle>
       <p className="page-subtitle">{t('connect.subtitle')}</p>
 
       <div className="form">
@@ -328,12 +329,12 @@ function SetupPage({
 
   return (
     <div className="content">
-      <h1 className="page-title">
+      <PageTitle>
         <span className="setup__step">
           {t('setup.stepOf', { step, total: SETUP_STEPS.length })}
         </span>
         {title}
-      </h1>
+      </PageTitle>
       <p className="page-subtitle">{subtitle}</p>
 
       {children}
@@ -438,7 +439,7 @@ function PairingOverlay({
     : `${origin.replace(/\/+$/, '')}${pairing.verification_path_complete}`
 
   return (
-    <Overlay title={t('connect.pairTitle')}>
+    <Overlay title={t('connect.pairTitle')} icon="connect">
       <p className="muted">{t('connect.pairExplainer')}</p>
 
       <div className="pair-qr">

@@ -76,7 +76,10 @@ export function InstallPicker({
         ? Math.round((progress.receivedBytes / progress.totalBytes) * 100)
         : null
     return (
-      <Overlay title={t('install.installing', { name: descriptor?.name ?? emulatorId })}>
+      <Overlay
+        title={t('install.installing', { name: descriptor?.name ?? emulatorId })}
+        icon="install"
+      >
         <p className="muted">{busy}</p>
         <p className="muted">
           {formatBytes(progress?.receivedBytes ?? 0)}
@@ -103,7 +106,7 @@ export function InstallPicker({
   }
 
   return (
-    <Overlay title={t('install.title', { name: descriptor?.name ?? emulatorId })}>
+    <Overlay title={t('install.title', { name: descriptor?.name ?? emulatorId })} icon="install">
       {error ? <div className="notice notice--error">{error}</div> : null}
       {!releases && !error ? <Spinner /> : null}
 
@@ -216,7 +219,7 @@ function AssetPicker({
   useAction('back', onBack)
 
   return (
-    <Overlay title={`${emulatorName} ${release.name || release.tag}`}>
+    <Overlay title={`${emulatorName} ${release.name || release.tag}`} icon="package">
       {error ? <div className="notice notice--error">{error}</div> : null}
       <p className="muted">{t('install.whichBuild')}</p>
 

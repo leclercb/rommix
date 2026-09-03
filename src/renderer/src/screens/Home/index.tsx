@@ -6,6 +6,7 @@ import {
   CoverArt,
   GameRow,
   Hints,
+  PageTitle,
   PlatformIcon,
   Spinner,
   tileFromInstalled,
@@ -187,7 +188,7 @@ export function HomeScreen(): JSX.Element {
   if (error) {
     return (
       <div className="content">
-        <h1 className="page-title">{t('home.title')}</h1>
+        <PageTitle icon="home">{t('home.title')}</PageTitle>
         <div className="notice notice--error">{error}</div>
       </div>
     )

@@ -31,7 +31,7 @@ export function LaunchVariantDialog({
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('game.variantTitle', { system: choice.system })}>
+    <Overlay title={t('game.variantTitle', { system: choice.system })} icon="play">
       <p className="muted">
         {t('game.variantBody', { emulator: choice.emulatorName, system: choice.system })}
       </p>
@@ -80,7 +80,10 @@ export function DeleteAssetDialog({
   // Two whole questions rather than one with the kind slotted in: "this save"
   // and "this state" do not share an article in every language.
   return (
-    <Overlay title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle')}>
+    <Overlay
+      title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle')}
+      icon="delete"
+    >
       <p className="muted">
         {/* The file, and where this device keeps it when it has it at all. */}
         {t('game.deleteAssetBody', {
@@ -131,7 +134,7 @@ export function UninstallDialog({
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
   return (
-    <Overlay title={t('uninstall.title')}>
+    <Overlay title={t('uninstall.title')} icon="uninstall">
       <p className="muted">{t('uninstall.body', { folder: entry.path.replace(/\/[^/]*$/, '') })}</p>
       <div className="btn-row">
         <FocusButton icon="keep" onSelect={onKeep} autoFocus>
@@ -178,7 +181,7 @@ export function PushConfirmDialog({
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('game.pushTitle', { count: preview.files.length })}>
+    <Overlay title={t('game.pushTitle', { count: preview.files.length })} icon="push">
       <p className="muted">{t('game.pushUploadedAs', { device: preview.deviceName })}</p>
       <PushPreviewList files={preview.files} />
       {/* Sending first and focused, because it is what the dialog is for: a

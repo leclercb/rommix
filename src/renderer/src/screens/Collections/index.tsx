@@ -1,6 +1,6 @@
 import { type JSX, type Ref, useEffect, useState } from 'react'
 import type { RommCollection, RommCollectionBase, RommVirtualCollection } from '@shared/types'
-import { CoverMosaic, Hints, Spinner } from '../../components'
+import { CoverMosaic, Hints, PageTitle, Spinner } from '../../components'
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
 import { useApp, useI18n } from '../../state'
@@ -57,7 +57,7 @@ export function CollectionsScreen(): JSX.Element {
   if (error) {
     return (
       <div className="content">
-        <h1 className="page-title">{t('nav.collections')}</h1>
+        <PageTitle icon="collection">{t('nav.collections')}</PageTitle>
         <div className="notice notice--error">{error}</div>
       </div>
     )
@@ -66,7 +66,7 @@ export function CollectionsScreen(): JSX.Element {
   if (!own) {
     return (
       <div className="content">
-        <h1 className="page-title">{t('nav.collections')}</h1>
+        <PageTitle icon="collection">{t('nav.collections')}</PageTitle>
         <Spinner />
       </div>
     )
@@ -84,7 +84,7 @@ export function CollectionsScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <h1 className="page-title">{t('nav.collections')}</h1>
+      <PageTitle icon="collection">{t('nav.collections')}</PageTitle>
       <p className="page-subtitle">{t('collections.subtitle')}</p>
 
       {mine.length === 0 && theirs.length === 0 ? (

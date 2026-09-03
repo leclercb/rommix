@@ -76,7 +76,7 @@ export function RunningOverlay(): JSX.Element {
 
   if (runningStage) {
     return (
-      <Overlay title={t('app.gettingReady')}>
+      <Overlay title={t('app.gettingReady')} icon="play">
         <p className="muted">{runningStage}</p>
         <Spinner />
       </Overlay>
@@ -90,7 +90,7 @@ export function RunningOverlay(): JSX.Element {
   // way back.
   if (runningEmulator) {
     return (
-      <Overlay title={t('app.emulatorRunning', { name: runningEmulator })}>
+      <Overlay title={t('app.emulatorRunning', { name: runningEmulator })} icon="emulator">
         {/* The name is already the title above; saying it twice in two lines
             is one line too many. What is left is the same sentence a running
             game gets, which is the only thing the two situations share. */}
@@ -101,7 +101,7 @@ export function RunningOverlay(): JSX.Element {
   }
 
   return (
-    <Overlay title={t('app.gameRunning')}>
+    <Overlay title={t('app.gameRunning')} icon="play">
       <p className="muted">{t('app.emulatorHasFocus')}</p>
       <RunningActions />
     </Overlay>

@@ -47,9 +47,20 @@
 }
 
 .overlay__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 26px;
   font-weight: 720;
   margin: 0 0 10px;
+}
+
+/* The mark reads as part of the heading rather than as a second thing beside
+   it, so it takes the dimmer of the two text colours and does not shrink when
+   the words beside it run to two lines. */
+.overlay__title svg {
+  flex: none;
+  color: var(--text-dim);
 }
 
 /* The QR sits on its own white plate: the code needs a light quiet zone, and a

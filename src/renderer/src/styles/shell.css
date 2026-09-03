@@ -202,10 +202,20 @@
    -------------------------------------------------------------------------- */
 
 .page-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 34px;
   font-weight: 750;
   letter-spacing: -0.7px;
   margin: 0 0 4px;
+}
+
+/* Dimmer than the name beside it, and not squeezed by a long one: the mark is
+   what the page is, and the words are which one. */
+.page-title svg {
+  flex: none;
+  color: var(--text-dim);
 }
 
 .page-subtitle {
