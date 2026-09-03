@@ -41,6 +41,8 @@ export interface Asked {
   /** Path with the query string, which is most of what RomMix says. */
   path: string
   authorization: string | null
+  /** The range asked for, where one was — how a resumed transfer shows itself. */
+  range: string | null
   body: string
 }
 
@@ -73,6 +75,53 @@ const TOKEN = 'rmm_fake_token_for_tests'
 /** The bytes of the one game that can be downloaded, and its digest. */
 const ROM_BYTES = Buffer.from('RomMix integration test ROM\n'.repeat(64))
 const ROM_MD5 = createHash('md5').update(ROM_BYTES).digest('hex')
+
+/**
+ * A game big enough, and served slowly enough, to be caught half-way.
+ *
+ * Everything else here answers instantly, which is right for a test about what
+ * RomMix does with an answer and useless for one about interrupting it: a
+ * transfer that is over before the first key press cannot be paused. Two
+ * megabytes in small pieces is a couple of seconds — long enough to press
+ * something, short enough that nobody waits for it.
+ */
+const SLOW_ROM_BYTES = Buffer.alloc(2 * 1024 * 1024, 'RomMix slow transfer test\n')
+const SLOW_ROM_MD5 = createHash('md5').update(SLOW_ROM_BYTES).digest('hex')
+
+/** How the slow game is broken up, and the pause between pieces. */
+const SLOW_CHUNK = 32 * 1024
+const SLOW_CHUNK_MS = 30
+
+/**
+ * Dribble the bytes out, stopping if the other end goes away.
+ *
+ * Only for a request with no range on it — the first attempt. A resumed one is
+ * answered at full speed: what it is there to prove is that the range was
+ * asked for and honoured, and making the test wait through the rest of the
+ * file a second time proves nothing further.
+ */
+function serveSlowly(res: ServerResponse, bytes: Buffer): void {
+  res.writeHead(200, {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': bytes.length,
+    'Accept-Ranges': 'bytes'
+  })
+  let at = 0
+  const timer = setInterval(() => {
+    if (at >= bytes.length) {
+      clearInterval(timer)
+      res.end()
+      return
+    }
+    res.write(bytes.subarray(at, at + SLOW_CHUNK))
+    at += SLOW_CHUNK
+  }, SLOW_CHUNK_MS)
+  // The response, not the request: a GET's request body ends the moment it
+  // arrives, so watching that stops the timer before a single chunk goes out.
+  // A pause aborts the transfer, and a timer still writing into a closed socket
+  // is an unhandled error that takes the fake down with it.
+  res.on('close', () => clearInterval(timer))
+}
 
 /** The bytes of one file of a game made of several. */
 function bytesFor(fileName: string): Buffer {
@@ -280,6 +329,12 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   // first — which is what running a libretro game through RetroArch would do.
   const nintendoSwitch = platform(3, 'switch', 'Nintendo Switch')
   const segacd = platform(4, 'segacd', 'Sega CD')
+  const slow = { ...rom(5, 'The Long Haul', megadrive, 'longhaul.md') }
+  slow.fs_size_bytes = SLOW_ROM_BYTES.length
+  slow.md5_hash = SLOW_ROM_MD5
+  slow.files = [
+    { ...slow.files[0], file_size_bytes: SLOW_ROM_BYTES.length, md5_hash: SLOW_ROM_MD5 }
+  ]
   // Held for the Sega CD alone, so a test can tell a platform that needs
   // something from one that does not. The required file and one of the
   // optional ones — the third stays missing, which is what makes the screen's
@@ -291,7 +346,8 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     rom(1, 'Cave Story MD', megadrive, 'cavestory.md'),
     rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb'),
     rom(3, 'Test Chamber', nintendoSwitch, 'testchamber.nsp'),
-    discSet(4, 'Disc Adventure', segacd, 'Disc Adventure')
+    discSet(4, 'Disc Adventure', segacd, 'Disc Adventure'),
+    slow
   ]
 
   const server: Server = createServer((req, res) => {
@@ -304,6 +360,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         method: req.method ?? 'GET',
         path,
         authorization: req.headers.authorization ?? null,
+        range: req.headers.range ?? null,
         body: Buffer.concat(chunks).toString()
       })
 
@@ -406,7 +463,12 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       if (content) {
         const found = roms.find((one) => one.id === Number(content[1]))
         if (!found) return json({ detail: 'No such ROM' }, 404)
-        return serveBytes(req, res, ROM_BYTES)
+        if (found.id !== 5) return serveBytes(req, res, ROM_BYTES)
+        // The probe that asks whether this can be resumed wants one byte, not
+        // two megabytes of it — and a transfer picking itself up says so with a
+        // range too. Both are answered at once; only a fresh start is slow.
+        if (req.headers.range) return serveBytes(req, res, SLOW_ROM_BYTES)
+        return serveSlowly(res, SLOW_ROM_BYTES)
       }
 
       const fileContent = /^\/api\/roms\/(\d+)\/files\/content\/(.+)$/.exec(url.pathname)

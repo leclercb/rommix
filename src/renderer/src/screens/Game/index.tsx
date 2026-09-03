@@ -256,6 +256,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             {download?.resumable !== false ? (
               <FocusButton
                 icon="pause"
+                action="pause"
                 onSelect={() => void window.rommix.downloads.pause(romId)}
                 autoFocus
               >

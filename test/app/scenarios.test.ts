@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { standInEmulator, startApp, type App } from './driver.ts'
@@ -304,6 +304,75 @@ describe('uninstalling a game', () => {
     for (const file of discSet.files) {
       assert.equal(existsSync(join(discSet.path, file)), false, `${file} survived`)
     }
+  })
+})
+
+describe('pausing a download and picking it up again', () => {
+  test('what arrived is kept, and the rest is asked for by range', async () => {
+    // The one game the fake serves slowly, because a transfer that is over
+    // before the first key press cannot be interrupted. Everything under test
+    // here is in `transfer.ts`, and this is the only place it runs against a
+    // real socket rather than a stubbed fetch.
+    await app.goTo('library')
+    await app.choose('[data-rom="5"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-action="download"]')
+
+    // Part-way, and not finished: pausing something already done proves
+    // nothing, and pausing before a byte has landed leaves nothing to resume
+    // onto.
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).some(
+         (one) => one.romId === 5 && one.state === 'downloading' && one.receivedBytes > 0
+       )`,
+      'the transfer to be under way'
+    )
+
+    await app.choose('[data-action="pause"]')
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).some(
+         (one) => one.romId === 5 && one.state === 'paused'
+       )`,
+      'the transfer to stop'
+    )
+
+    const stopped = await app.read<{ receivedBytes: number; totalBytes: number }>(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)`
+    )
+    assert.ok(stopped.receivedBytes > 0, 'it should have kept what had arrived')
+    assert.ok(
+      stopped.receivedBytes < stopped.totalBytes,
+      `it finished before it could be paused: ${JSON.stringify(stopped)}`
+    )
+
+    // The same button, which is what the screen offers: what the player wants
+    // is the game, and whether that means starting or finishing a transfer is
+    // not a second decision to make.
+    await app.choose('[data-action="download"]')
+    await app.waitFor(
+      `(await window.rommix.library.installed()).some((one) => one.romId === 5)`,
+      'the transfer to finish'
+    )
+
+    // Picked up rather than started again: a range was asked for, and it began
+    // where the first attempt stopped. Without this the test would pass just as
+    // well over a download that quietly fetched the whole file twice.
+    const ranged = server.asked.filter(
+      (one) => one.path.startsWith('/api/roms/5/content/') && one.range !== null
+    )
+    assert.ok(ranged.length > 0, 'the resumed transfer should have asked for a range')
+    assert.ok(
+      ranged.some((one) => one.range !== 'bytes=0-0' && one.range !== 'bytes=0-'),
+      `every range asked for started from nothing: ${ranged.map((one) => one.range).join(', ')}`
+    )
+
+    // And the whole game is there, which is the point of keeping the bytes: a
+    // resume onto the wrong offset produces a file of the right size that no
+    // emulator will load, and the hash is what refuses it.
+    const entry = await app.read<{ path: string; sizeBytes: number }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 5)`
+    )
+    assert.equal(statSync(entry.path).size, stopped.totalBytes)
   })
 })
 
