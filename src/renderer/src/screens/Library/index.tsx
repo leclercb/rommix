@@ -269,6 +269,7 @@ export function LibraryScreen(): JSX.Element {
           <span className="filter__label">{t('library.platformLabel')}</span>
           <div className="segmented">
             <PlatformChip
+              id="all"
               label={t('library.allPlatforms')}
               active={selectedPlatform === undefined}
               onSelect={() => setSelectedPlatform(undefined)}
@@ -276,6 +277,7 @@ export function LibraryScreen(): JSX.Element {
             {platforms.map((platform) => (
               <PlatformChip
                 key={platform.id}
+                id={String(platform.id)}
                 label={t('library.platformChip', {
                   name: platform.display_name,
                   count: platform.rom_count
@@ -336,11 +338,13 @@ export function LibraryScreen(): JSX.Element {
 }
 
 function PlatformChip({
+  id,
   label,
   icon,
   active,
   onSelect
 }: {
+  id: string
   label: string
   icon?: JSX.Element
   active: boolean
@@ -351,6 +355,7 @@ function PlatformChip({
     <button
       ref={ref as Ref<HTMLButtonElement>}
       className="segmented__option segmented__option--icon"
+      data-platform={id}
       data-active={active}
       {...props}
     >

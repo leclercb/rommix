@@ -151,6 +151,7 @@ export function SegmentedControl<T extends string>({
       {options.map((option) => (
         <SegmentedOption
           key={option.value}
+          id={option.value}
           label={option.label}
           active={option.value === value}
           onSelect={() => onChange(option.value)}
@@ -161,10 +162,12 @@ export function SegmentedControl<T extends string>({
 }
 
 function SegmentedOption({
+  id,
   label,
   active,
   onSelect
 }: {
+  id: string
   label: string
   active: boolean
   onSelect: () => void
@@ -174,6 +177,7 @@ function SegmentedOption({
     <button
       ref={ref as Ref<HTMLButtonElement>}
       className="segmented__option"
+      data-option={id}
       data-active={active}
       {...props}
     >

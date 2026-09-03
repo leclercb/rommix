@@ -574,3 +574,69 @@ describe('driving it with a controller', () => {
 /**
  * Last on purpose: it takes the server away and does not put it back.
  */
+
+describe('narrowing the library down', () => {
+  test('a platform chip asks the server for that platform and nothing else', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the whole library')
+
+    const megadrive = server.platforms[0]
+    await app.choose(`[data-platform="${megadrive.id}"]`)
+
+    // Narrowed at the server rather than in the page. A library runs to
+    // thousands and arrives a page at a time, so a filter applied to what has
+    // been fetched so far would agree with this fake and be wrong on anything
+    // real — it would hide the games it has and never ask for the rest.
+    await app.waitFor(`!document.querySelector('[data-rom="2"]')`, 'the other platforms to go')
+    assert.ok(
+      server.asked.some((one) => one.path.includes(`platform_ids=${megadrive.id}`)),
+      'it should have asked for that platform by id'
+    )
+
+    // What is left is the platform that was asked for.
+    const shown = await app.read<number[]>(
+      `[...document.querySelectorAll('[data-rom]')].map((one) => Number(one.dataset.rom))`
+    )
+    const expected = server.roms
+      .filter((one) => one.platform_id === megadrive.id)
+      .map((one) => one.id)
+    const byNumber = (a: number, b: number): number => a - b
+    assert.deepEqual(
+      shown.sort(byNumber),
+      expected.sort(byNumber),
+      'the grid should hold that platform'
+    )
+  })
+
+  test('and All platforms puts them back', async () => {
+    await app.choose('[data-platform="all"]')
+    await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the whole library again')
+  })
+
+  test('Downloaded only is answered from this disk, without asking the server', async () => {
+    // The one filter that is not a query. The downloaded scope is what the
+    // machine holds, which RomMix already knows — asking the server to name
+    // them would be a request that cannot be answered, since RomM has no idea
+    // what is on this disk.
+    const askedSoFar = server.asked.length
+    await app.choose('[data-option="downloaded"]')
+    await app.waitFor(
+      `document.querySelector('[data-option="downloaded"]')?.dataset.active === 'true'`,
+      'the downloaded scope to be chosen'
+    )
+
+    // Nothing has been downloaded in this file, so the honest answer is none —
+    // and the interesting half is that it did not go and ask.
+    await app.waitFor(`!document.querySelector('[data-rom]')`, 'the grid to empty')
+    assert.deepEqual(
+      server.asked.slice(askedSoFar).filter((one) => one.path.startsWith('/api/roms?')),
+      [],
+      'the downloaded scope should not have asked the server for a library'
+    )
+  })
+
+  test('and All games goes back to what the server has', async () => {
+    await app.choose('[data-option="all"]')
+    await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the server library again')
+  })
+})
