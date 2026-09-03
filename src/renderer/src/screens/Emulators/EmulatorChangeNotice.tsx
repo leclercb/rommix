@@ -34,13 +34,19 @@ export function EmulatorChangeNotice({
         <li>{t('change.saves')}</li>
       </ul>
       <div className="btn-row">
-        <FocusButton icon="confirm" variant="primary" onSelect={() => onConfirm(false)} autoFocus>
+        <FocusButton
+          icon="confirm"
+          action="emulator-change"
+          variant="primary"
+          onSelect={() => onConfirm(false)}
+          autoFocus
+        >
           {t('change.confirm')}
         </FocusButton>
-        <FocusButton icon="hide" onSelect={() => onConfirm(true)}>
+        <FocusButton icon="hide" action="emulator-change-quiet" onSelect={() => onConfirm(true)}>
           {t('change.confirmNoAsk')}
         </FocusButton>
-        <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
+        <FocusButton icon="cancel" action="emulator-keep" variant="ghost" onSelect={onCancel}>
           {t('action.cancel')}
         </FocusButton>
       </div>

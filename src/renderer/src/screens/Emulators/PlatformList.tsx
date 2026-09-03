@@ -106,7 +106,7 @@ export function PlatformList({
         }
 
         return (
-          <div className="emulator" key={platform.id}>
+          <div className="emulator" data-platform={system} key={platform.id}>
             <PlatformIcon
               slug={platform.slug}
               system={system}
@@ -133,6 +133,7 @@ export function PlatformList({
             <div className="emulator__actions">
               <FocusButton
                 icon="emulator"
+                action="choose-emulator"
                 variant="ghost"
                 disabled={candidates.length === 0}
                 onSelect={() => void advance()}

@@ -57,7 +57,13 @@ before(async () => {
   app = await startApp({
     baseUrl: server.baseUrl,
     token: server.token,
-    settings: { systemEmulators: { gb: 'emudeck' } },
+    settings: {
+      systemEmulators: { gb: 'emudeck' },
+      // A second emulator that covers the same systems, which is what the
+      // scenario at the end of this file needs: handing a platform from one to
+      // another is only a change where there is another to hand it to.
+      emulatorPaths: { retroarch: retroarch.path }
+    },
     // What makes that folder EmuDeck's: the descriptor reads its layout from
     // the home directory when EmuDeck's own settings file is not there.
     env: { HOME: home }
@@ -149,6 +155,102 @@ describe('a game its emulator has more than one way to run', () => {
     await app.waitFor(
       `(await window.rommix.system.settings()).systemLaunchers['emudeck:gb'] === 'gambatte'`,
       'the new answer to replace the old one'
+    )
+  })
+})
+
+/**
+ * Handing a platform to a different emulator.
+ *
+ * The other half of what this file's machine is for: two emulators here cover
+ * the same systems, which is the only state in which this control does
+ * anything. It decides where a download for that platform is written and
+ * whether the games already there still count as installed — so it asks first,
+ * and that question had never been raised by a scenario.
+ */
+describe('handing a platform to another emulator', () => {
+  /**
+   * Which emulator this platform has been given, or nothing while it is on
+   * whatever the default is. Keyed by RomMix's own name for the system rather
+   * than RomM's: the server calls it `genesis-slash-megadrive`, and
+   * `resolveSystem` is what turns that into the id the descriptors are written
+   * against.
+   */
+  const chosen = (): Promise<string | null> =>
+    app.read<string | null>(
+      `(await window.rommix.system.settings()).systemEmulators['genesis'] ?? null`
+    )
+
+  test('it asks before it changes anything', async () => {
+    // The scenario above left a game running, and while one is up it owns the
+    // screen — there is no menu to walk to underneath it.
+    await app.waitFor(`!document.querySelector('.curtain')`, 'the session to end', 20_000)
+
+    await app.goTo('emulators')
+    await app.waitFor(`document.querySelector('[data-platform="genesis"]')`, 'the platforms')
+    assert.equal(await chosen(), null, 'it should start on whatever the default is')
+
+    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the question')
+
+    // Asked before it is done, like the storage question: a download under the
+    // old emulator's folder stops counting the moment this is agreed to, and
+    // that is discovered on the game screen rather than here.
+    assert.equal(await chosen(), null, 'the platform should not have moved yet')
+  })
+
+  test('staying put leaves the platform where it was', async () => {
+    await app.choose('[data-action="emulator-keep"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+    assert.equal(await chosen(), null)
+  })
+
+  test('and agreeing hands it over', async () => {
+    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the question again')
+    await app.choose('[data-action="emulator-change"]')
+
+    await app.waitFor(
+      `(await window.rommix.system.settings()).systemEmulators['genesis'] !== undefined`,
+      'the platform to change hands'
+    )
+  })
+
+  test('and the third answer stops it being asked at all', async () => {
+    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the question once more')
+    const wasOn = await chosen()
+    await app.choose('[data-action="emulator-change-quiet"]')
+
+    // It changes as well as silences: turning the question off and leaving the
+    // platform where it was is not what "do not ask me again" means.
+    await app.waitFor(
+      `(await window.rommix.system.settings()).systemEmulators['genesis'] !== ${JSON.stringify(
+        wasOn
+      )}`,
+      'the change to be made as well'
+    )
+    await app.waitFor(
+      `(await window.rommix.system.settings()).dismissedNotices.length > 0`,
+      'the notice to be written off'
+    )
+
+    // And the proof of it: the same press, one step further round the cycle,
+    // with nothing in the way. Unlike the storage question, this one is asked
+    // every time a platform is repointed — which on a machine being set up is
+    // once per console — so it is the one that has to be silenceable.
+    const wasOnAgain = await chosen()
+    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).systemEmulators['genesis'] !== ${JSON.stringify(
+        wasOnAgain
+      )}`,
+      'the next change to go through unasked'
+    )
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('.overlay'))`),
+      false,
+      'nothing should have been asked this time'
     )
   })
 })

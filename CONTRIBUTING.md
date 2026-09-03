@@ -263,7 +263,8 @@ Seventeen attributes exist for `npm run test:app` and nothing else:
 card, `data-emulator` on a row of the emulator list, `data-collection` on a
 shelf, `data-tab` on a tab, `data-option` on one side of a segmented control,
 `data-setting` on a toggle in Settings, `data-field` on a text box,
-`data-platform` on a platform chip, `data-system` on a downloads group,
+`data-platform` on a platform chip or a platform's row on the Emulators
+screen, `data-system` on a downloads group,
 `data-status` on one answer in the status dialog, `data-shot` on a screenshot
 thumbnail, `data-shelf` on a row of games on the home screen, `data-download` on
 a row of the transfer queue, `data-bios` on a row of the firmware list, and
