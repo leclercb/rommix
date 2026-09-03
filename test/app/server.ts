@@ -344,9 +344,8 @@ function rom(
  *
  * Faithful in the part that matters: RomMix asks for these one at a time,
  * through the per-file endpoint, because they are ordinary files on the
- * server's disk. What this fake cannot stand in for is the other path — a
- * server too old for that endpoint builds an archive per request, which is not
- * the same size twice and has nothing to seek into. See TODO.md.
+ * server's disk. Every version under `schema/` has that endpoint, so this is
+ * the path a supported RomM actually takes.
  */
 function discSet(id: number, name: string, host: RommPlatform, folder: string): RommRom {
   const parts = [`${folder}.cue`, `${folder} (Track 1).bin`]

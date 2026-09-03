@@ -199,9 +199,9 @@ describe('downloading a game of several files', () => {
   test('every file arrives, in a folder of its own, and the set is launchable', async () => {
     // Fetched one file at a time rather than as one archive: these are ordinary
     // files on RomM's disk, so each can be resumed and the sum of them is
-    // smaller than a zip around bytes it does not compress. That the fake can
-    // serve this path faithfully is the reason it is worth a scenario — the
-    // other path, an archive built per request, it cannot. See TODO.md.
+    // smaller than a zip around bytes it does not compress. Every RomM under
+    // `schema/` serves them this way, which is what makes the fake's version of
+    // it worth asserting against.
     await app.goTo('library')
     await app.choose('[data-rom="4"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
