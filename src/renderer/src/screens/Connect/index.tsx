@@ -194,6 +194,7 @@ export function ConnectScreen(): JSX.Element {
       <div className="form">
         <TextField
           label={t('connect.serverAddress')}
+          field="server"
           value={baseUrl}
           onChange={setBaseUrl}
           placeholder="https://romm.example.org"
@@ -217,6 +218,7 @@ export function ConnectScreen(): JSX.Element {
         {mode === 'token' ? (
           <TextField
             label={t('connect.modeToken')}
+            field="token"
             value={token}
             onChange={setToken}
             placeholder="rmm_…"
@@ -227,9 +229,15 @@ export function ConnectScreen(): JSX.Element {
 
         {mode === 'password' ? (
           <>
-            <TextField label={t('connect.username')} value={username} onChange={setUsername} />
+            <TextField
+              label={t('connect.username')}
+              field="username"
+              value={username}
+              onChange={setUsername}
+            />
             <TextField
               label={t('connect.password')}
+              field="password"
               value={password}
               onChange={setPassword}
               type="password"
@@ -260,6 +268,7 @@ export function ConnectScreen(): JSX.Element {
           ) : (
             <FocusButton
               icon="connect"
+              action="connect"
               variant="primary"
               onSelect={() => void connect()}
               disabled={busy || !baseUrl}
@@ -341,11 +350,11 @@ function SetupPage({
 
       <div className="btn-row">
         {onBack ? (
-          <FocusButton icon="previous" variant="ghost" onSelect={onBack}>
+          <FocusButton icon="previous" action="setup-back" variant="ghost" onSelect={onBack}>
             {t('action.back')}
           </FocusButton>
         ) : null}
-        <FocusButton icon="next" variant="primary" onSelect={onNext} autoFocus>
+        <FocusButton icon="next" action="setup-next" variant="primary" onSelect={onNext} autoFocus>
           {t('action.next')}
         </FocusButton>
       </div>

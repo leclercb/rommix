@@ -83,6 +83,12 @@ Three applications to a file is the ceiling. A fourth in the same process
 reliably never brought its debugger up, which is why `running.test.ts` is a file
 rather than another `describe`.
 
+A second application in the same file needs `XDG_CONFIG_HOME` of its own, and
+every one that starts one passes it. Two Electrons sharing a configuration
+directory refuse to be two: the second finds the first's profile locked and
+exits, which arrives as a debugger that never came up rather than as anything
+about profiles.
+
 Where it gives up it leaves a screenshot behind, named after what it was waiting
 for and pointed at from the failure message — see `capture` in
 [test/app/driver.ts](test/app/driver.ts). A failure here is otherwise a sentence
@@ -252,15 +258,16 @@ way the rest of the codebase is.
 (`../components`); `input/` is the focus engine, split into the geometry, the
 scrolling and the two input sources it is built from.
 
-Fifteen attributes exist for `npm run test:app` and nothing else: `data-screen`
+Sixteen attributes exist for `npm run test:app` and nothing else: `data-screen`
 on the shell, `data-route` on a menu item, `data-rom` on a game card,
 `data-emulator` on a row of the emulator list, `data-collection` on a shelf,
 `data-tab` on a tab, `data-option` on one side of a segmented control,
-`data-setting` on a toggle in Settings, `data-platform` on a platform chip,
-`data-system` on a downloads group, `data-status` on one answer in the status
-dialog, `data-shot` on a screenshot thumbnail, `data-shelf` on a row of games on
-the home screen, `data-download` on a row of the transfer queue, and
-`data-action` on a `FocusButton` that a scenario presses. They are there because
+`data-setting` on a toggle in Settings, `data-field` on a text box,
+`data-platform` on a platform chip, `data-system` on a downloads group,
+`data-status` on one answer in the status dialog, `data-shot` on a screenshot
+thumbnail, `data-shelf` on a row of games on the home screen, `data-download` on
+a row of the transfer queue, and `data-action` on a `FocusButton` that a
+scenario presses. They are there because
 every other handle on the interface changes — the text with the language, the
 position with the next button added beside it. Add one when a test needs it, not
 before.

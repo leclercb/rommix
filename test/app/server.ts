@@ -13,6 +13,7 @@ import type {
   RommRomPage,
   RommRomUser,
   RommSave,
+  RommTokenResponse,
   RommState,
   RommUser,
   RommVirtualCollection
@@ -72,6 +73,10 @@ export interface FakeRomm {
   asked: Asked[]
   /** The token a client must present. See `seedCredentials`. */
   token: string
+  /** What the sign-in screen's other two modes need typed into them. */
+  signIn: { username: string; password: string }
+  /** The access token the password grant hands out, which is not `token`. */
+  grantedToken: string
   /** The library it serves, for a test that wants to assert against it. */
   roms: RommRom[]
   /** The platforms it serves, likewise. */
@@ -107,6 +112,16 @@ export interface FakeRomm {
 
 const VERSION = '5.1.0'
 const TOKEN = 'rmm_fake_token_for_tests'
+
+/**
+ * What signing in with a username and password produces.
+ *
+ * A different string from the client token on purpose: the grant is the only
+ * thing that could have handed it out, so a request carrying it is a request
+ * carrying what the sign-in returned rather than something already on disk.
+ */
+const PASSWORD_TOKEN = 'rmm_fake_access_token_from_the_password_grant'
+const PASSWORD = 'hunter2'
 
 /** The bytes of the one game that can be downloaded, and its digest. */
 const ROM_BYTES = Buffer.from('RomMix integration test ROM\n'.repeat(64))
@@ -630,10 +645,35 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         return json(answer)
       }
 
-      // Everything else is behind the token, so a harness that seeds
-      // credentials wrongly fails here rather than three screens later with an
-      // empty library and no explanation.
-      if (req.headers.authorization !== `Bearer ${TOKEN}`) {
+      /**
+       * The OAuth2 password grant, which is one of the three ways in.
+       *
+       * Form-encoded rather than JSON, as the grant is specified and as RomM
+       * takes it. A refusal is a 401 and nothing else: that is the one status
+       * the sign-in screen has its own sentence for, and any other is reported
+       * as the server having gone wrong.
+       */
+      if (url.pathname === '/api/token') {
+        const form = new URLSearchParams(Buffer.concat(chunks).toString())
+        if (form.get('username') !== user.username || form.get('password') !== PASSWORD) {
+          return json({ detail: 'Invalid credentials' }, 401)
+        }
+        const granted: RommTokenResponse = {
+          access_token: PASSWORD_TOKEN,
+          token_type: 'bearer',
+          expires: 3600,
+          refresh_token: 'rmm_fake_refresh_token',
+          refresh_expires: 7200
+        }
+        return json(granted)
+      }
+
+      // Everything else is behind a token, so a harness that seeds credentials
+      // wrongly fails here rather than three screens later with an empty
+      // library and no explanation. Either token is one: what a device was
+      // paired with, and what the grant above handed out.
+      const bearer = req.headers.authorization
+      if (bearer !== `Bearer ${TOKEN}` && bearer !== `Bearer ${PASSWORD_TOKEN}`) {
         return json({ detail: 'Not authenticated' }, 401)
       }
 
@@ -963,6 +1003,8 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       })
     },
     token: TOKEN,
+    signIn: { username: user.username, password: PASSWORD },
+    grantedToken: PASSWORD_TOKEN,
     version: VERSION,
     approvePairing: () => {
       if (pairing) pairing.approved = true

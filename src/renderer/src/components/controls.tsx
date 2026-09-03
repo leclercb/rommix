@@ -100,6 +100,7 @@ export function TextField({
   placeholder,
   type = 'text',
   hint,
+  field,
   autoFocus = false
 }: {
   label: string
@@ -108,6 +109,8 @@ export function TextField({
   placeholder?: string
   type?: 'text' | 'password'
   hint?: string
+  /** Which box this is, for `npm run test:app`. See CONTRIBUTING. */
+  field?: string
   autoFocus?: boolean
 }): JSX.Element {
   const { t } = useI18n()
@@ -123,6 +126,7 @@ export function TextField({
       <input
         ref={ref as Ref<HTMLInputElement>}
         className="field__input"
+        data-field={field}
         type={type}
         value={value}
         placeholder={placeholder}
