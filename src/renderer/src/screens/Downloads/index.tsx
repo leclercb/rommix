@@ -350,7 +350,12 @@ export function DownloadsScreen(): JSX.Element {
       ) : (
         <>
           <div className="btn-row">
-            <FocusButton icon="sort" onSelect={cycleSort} disabled={installed.length === 0}>
+            <FocusButton
+              icon="sort"
+              action="sort-by"
+              onSelect={cycleSort}
+              disabled={installed.length === 0}
+            >
               {t('downloads.sortBy', {
                 mode: t(SORTS.find((option) => option.id === sort)?.label ?? SORTS[0].label)
               })}
@@ -371,6 +376,7 @@ export function DownloadsScreen(): JSX.Element {
                 already allowed to stop and wait for one. */}
             <FocusButton
               icon="refresh"
+              action="sync-with-disk"
               onSelect={() => void sync()}
               disabled={syncing || offline === true}
             >

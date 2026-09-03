@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { standInEmulator, startApp, type App } from './driver.ts'
@@ -359,7 +367,10 @@ describe('pausing a download and picking it up again', () => {
   })
 })
 
-describe('the downloads screen, grouped by system', () => {
+describe('the downloads screen', () => {
+  /** The game taken off the disk by hand, so the test after can put it back. */
+  let deleted: { path: string; bytes: Buffer } | null = null
+
   test('it arrives grouped, with a header per system this disk holds', async () => {
     await app.goTo('downloads')
     await app.waitFor(`document.querySelector('.group__header')`, 'the groups')
@@ -412,6 +423,125 @@ describe('the downloads screen, grouped by system', () => {
   test('and back on restores the headers', async () => {
     await app.choose('[data-action="group-by-system"]')
     await app.waitFor(`document.querySelector('.group__header')`, 'the groups again')
+  })
+
+  test('the sort button cycles the order, and comes round to where it started', async () => {
+    // Flat, because an order is only visible where the rows are: grouped, the
+    // games sit behind lids and what the sort moved is the lids.
+    await app.choose('[data-action="group-by-system"]')
+    await app.waitFor(`!document.querySelector('.group__header')`, 'the flat list')
+
+    type Held = { name: string; sizeBytes: number; installedAt: string }
+    const held = await app.read<Held[]>(`await window.rommix.library.installed()`)
+    /** The names this disk holds, in the order a rule would put them. */
+    const namesBy = (rule: (a: Held, b: Held) => number): string[] =>
+      [...held].sort(rule).map((one) => one.name)
+    const titles = (): Promise<string[]> =>
+      app.read<string[]>(
+        `[...document.querySelectorAll('.installed__title')].map((one) => one.textContent)`
+      )
+
+    // Where it opens, and the order that answers the question this screen is
+    // usually opened with: what did I just download.
+    const recent = namesBy((a, b) => b.installedAt.localeCompare(a.installedAt))
+    assert.deepEqual(await titles(), recent, 'it should open on the most recent install')
+
+    // Largest next. These two orders agree on this disk — the big game is also
+    // the last one downloaded — so this press says the button answers, and the
+    // press after it is the one that says the order really moved.
+    await app.choose('[data-action="sort-by"]')
+    assert.deepEqual(
+      await titles(),
+      namesBy((a, b) => b.sizeBytes - a.sizeBytes),
+      'largest first'
+    )
+
+    // The one order on this disk that puts a different game first — without
+    // which the two assertions below would pass over a button that does
+    // nothing, and say so cheerfully.
+    const byName = namesBy((a, b) => a.name.localeCompare(b.name))
+    assert.notDeepEqual(byName, recent, 'these games should disagree about the two orders')
+
+    await app.choose('[data-action="sort-by"]')
+    await app.waitFor(
+      `document.querySelector('.installed__title')?.textContent === ${JSON.stringify(byName[0])}`,
+      'the list to be reordered by name'
+    )
+    assert.deepEqual(await titles(), byName, 'by name')
+
+    // Three orders, three presses. A cycle that stopped at the last would leave
+    // the first two behind a button that had gone quiet.
+    await app.choose('[data-action="sort-by"]')
+    await app.waitFor(
+      `document.querySelector('.installed__title')?.textContent === ${JSON.stringify(recent[0])}`,
+      'the order it opened on'
+    )
+
+    await app.choose('[data-action="group-by-system"]')
+    await app.waitFor(`document.querySelector('.group__header')`, 'the groups, as they were found')
+  })
+
+  test('checking against the disk drops a game that was deleted behind its back', async () => {
+    const entry = await app.read<{ path: string }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 5)`
+    )
+    // Kept, so the test below can put the file back where this one found it and
+    // the disk ends the way the session left it.
+    deleted = { path: entry.path, bytes: readFileSync(entry.path) }
+
+    // Deleted the way a file manager deletes it: nothing tells RomMix. It
+    // reconciles as you browse, which only ever covers the pages a screen has
+    // loaded, so until something walks the whole library this game keeps its
+    // Play button and hands the emulator a file that is not there.
+    rmSync(entry.path)
+
+    const askedSoFar = server.asked.length
+    await app.choose('[data-action="sync-with-disk"]')
+    await app.waitFor(
+      `!(await window.rommix.library.installed()).some((one) => one.romId === 5)`,
+      'the game that is no longer on disk to leave the index'
+    )
+
+    // The whole library rather than a page of it, which is the whole of what
+    // this button is: the listing it makes names no platform, no collection and
+    // no search, and every other listing this session made named one.
+    const walked = server.asked
+      .slice(askedSoFar)
+      .filter(
+        (one) =>
+          one.path.startsWith('/api/roms?') &&
+          !one.path.includes('platform_ids') &&
+          !one.path.includes('collection_id') &&
+          !one.path.includes('search_term')
+      )
+    assert.ok(
+      walked.length > 0,
+      `it should have asked RomM for the whole library, and asked ${JSON.stringify(
+        server.asked.slice(askedSoFar).map((one) => one.path)
+      )}`
+    )
+  })
+
+  test('and adopts one that was copied in behind its back', async () => {
+    // The other half of the same walk, and why it asks the server at all: a
+    // file sitting where a game belongs is only a game if RomM has one by that
+    // name, and without this it is offered as a download of what is already
+    // there.
+    assert.ok(deleted, 'the test above should have left a file to put back')
+    writeFileSync(deleted.path, deleted.bytes)
+
+    await app.choose('[data-action="sync-with-disk"]')
+    await app.waitFor(
+      `(await window.rommix.library.installed()).some((one) => one.romId === 5)`,
+      'the game on the disk to be taken back into the index'
+    )
+
+    // Back under the same file, not merely back in the list: an entry adopted
+    // onto the wrong path is one the launch would fail on.
+    const entry = await app.read<{ path: string }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 5)`
+    )
+    assert.equal(entry.path, deleted.path)
   })
 })
 
