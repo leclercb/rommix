@@ -65,9 +65,10 @@ a second suite competing for the machine changes how long a list takes to draw �
 which showed up as the focus scan giving up on a library that was still filling.
 A GUI under test is not a thing to parallelise.
 
-Three scenario files. `connect.test.ts` is the odd one: it starts signed out,
-because getting signed in is the only screen a working RomMix cannot reach, and
-no application can be both. The other two are split by whether order matters. `games.test.ts` is one
+Four scenario files. Two of them are apart because they need an application the
+others cannot be: `connect.test.ts` starts signed out, and `stuck.test.ts` runs
+an emulator that ignores being asked to quit. The other two are split by whether
+order matters. `games.test.ts` is one
 session read top to bottom — the game downloaded by one scenario is the game
 launched by the next, and the last takes the server away — because none of those
 states can be seeded from outside without seeding away the thing under test.
@@ -75,6 +76,10 @@ states can be seeded from outside without seeding away the thing under test.
 section it is about, so it can be read, and run, in any order. Those two start
 from `startScenario` in `harness.ts`, which is what stops the settings they
 share from drifting apart.
+
+Three applications to a file is the ceiling. A fourth in the same process
+reliably never brought its debugger up, which is why `stuck.test.ts` is a file
+rather than another `describe`.
 
 Where it gives up it leaves a screenshot behind, named after what it was waiting
 for and pointed at from the failure message — see `capture` in

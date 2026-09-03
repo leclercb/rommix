@@ -197,7 +197,7 @@ function RunningActions(): JSX.Element {
         <p className="muted">{t(forced ? 'app.couldNotClose' : 'app.notClosing')}</p>
         <p className="muted">{t('app.holdToForce', { key: keyLabel('START') })}</p>
         <div className="btn-row">
-          <FocusButton icon="quit" variant="danger" onSelect={force}>
+          <FocusButton icon="quit" variant="danger" action="force-close" onSelect={force}>
             {t('app.forceClose')}
           </FocusButton>
         </div>
@@ -216,7 +216,7 @@ function RunningActions(): JSX.Element {
       <div className="btn-row">
         {/* Not autofocused: the pad cannot reach it while a game is running, and
             a focused danger button nothing can press only looks armed. */}
-        <FocusButton icon="cancel" variant="danger" onSelect={stop}>
+        <FocusButton icon="cancel" variant="danger" action="close-emulator" onSelect={stop}>
           {t('app.closeEmulator')}
         </FocusButton>
       </div>

@@ -251,6 +251,15 @@ export interface StartOptions {
 const STAND_IN_SECONDS = 8
 
 /**
+ * How long the one that refuses to quit stays up.
+ *
+ * Longer than the overlay waits before offering to force it, so the scenario
+ * reaches that offer, and short enough that a run which never presses it is not
+ * left with a process nobody is watching.
+ */
+const STUBBORN_SECONDS = 30
+
+/**
  * A shell script that behaves enough like an emulator to be launched.
  *
  * It has to outlive `Launcher`'s startup grace — a process gone sooner than
@@ -264,7 +273,7 @@ const STAND_IN_SECONDS = 8
  * a flag it does not take, fails in the emulator's own words long after RomMix
  * has reported success.
  */
-export function standInEmulator(): {
+export function standInEmulator(options: { stubborn?: boolean } = {}): {
   path: string
   argv: () => Promise<string[]>
   /** What the save file held when the emulator started, or null if there was none. */
@@ -296,7 +305,22 @@ export function standInEmulator(): {
       '  mkdir -p "$(dirname "$ROMMIX_STAND_IN_SAVE")"',
       '  printf %s "$ROMMIX_STAND_IN_SAVE_CONTENT" > "$ROMMIX_STAND_IN_SAVE"',
       'fi',
-      `sleep ${STAND_IN_SECONDS}`,
+      // An emulator that will not take no for an answer, for the scenario about
+      // forcing one closed.
+      //
+      // `askToQuit` signals the whole process group, so ignoring TERM in the
+      // shell is not enough — the `sleep` it is waiting on would take the
+      // signal and end the wait anyway. A loop of short sleeps outlives that:
+      // each one dies, the shell does not, and the next starts. Only SIGKILL,
+      // which nothing can trap, ends it. Bounded so a run that goes wrong
+      // leaves nothing behind for long.
+      ...(options.stubborn
+        ? [
+            "trap '' TERM",
+            'left=' + String(STUBBORN_SECONDS),
+            'while [ $left -gt 0 ]; do sleep 1; left=$((left - 1)); done'
+          ]
+        : [`sleep ${STAND_IN_SECONDS}`]),
       ''
     ].join('\n'),
     { mode: 0o755 }
