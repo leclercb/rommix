@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
@@ -207,6 +209,110 @@ describe('launching a game', () => {
       ),
       'it should have cleared what is playing'
     )
+  })
+})
+
+/**
+ * A session with saves on both sides of it.
+ *
+ * Its own application, with its own settings and its own throwaway home,
+ * because what it needs is a different emulator: RetroArch keeps a save named
+ * after the ROM, which is the shape RomM's own web player can read and the one
+ * worth checking a round trip against. Eden's are a folder keyed by a title id
+ * read out of the game, and this fake game has none.
+ *
+ * `XDG_CONFIG_HOME` is pinned so the folders RetroArch's descriptor computes
+ * are folders this test knows: it is an ordinary variable the descriptor reads
+ * through `xdgConfigHome`, not a seam added for testing.
+ */
+describe('saves either side of a session', () => {
+  let saved: App
+  let configHome: string
+  let saveDir: string
+
+  before(async () => {
+    configHome = mkdtempSync(join(tmpdir(), 'rommix-xdg-'))
+    saveDir = join(configHome, 'retroarch', 'saves')
+
+    // The core RetroArch would otherwise stop and download before the launch.
+    // Present, so `missingCore` answers null and nothing reaches the internet;
+    // it is never loaded, because the emulator is a shell script.
+    const coreDir = join(configHome, 'retroarch', 'cores')
+    mkdirSync(coreDir, { recursive: true })
+    writeFileSync(join(coreDir, 'genesis_plus_gx_libretro.so'), '')
+
+    // Left by another device, and newer than anything here — which is what
+    // makes it a save worth bringing down before the game starts.
+    server.holdSave({
+      romId: 1,
+      fileName: 'cavestory.srm',
+      // The tag RomMix files a RetroArch save under. A save tagged for another
+      // emulator is deliberately not pulled into this one's folder, so getting
+      // this wrong reads as a pull that quietly did nothing.
+      emulator: 'retroarch',
+      content: 'the save from another device'
+    })
+
+    saved = await startApp({
+      baseUrl: server.baseUrl,
+      token: server.token,
+      settings: {
+        systemEmulators: { genesis: 'retroarch' },
+        emulatorPaths: { retroarch: emulator.path },
+        confirmSavePush: false
+      },
+      env: {
+        XDG_CONFIG_HOME: configHome,
+        // Reaches the stand-in through `Launcher`, which hands the emulator its
+        // own environment.
+        ROMMIX_STAND_IN_SAVE: join(saveDir, 'cavestory.srm'),
+        ROMMIX_STAND_IN_SAVE_CONTENT: 'what the session wrote'
+      }
+    })
+  })
+
+  after(async () => {
+    await saved?.stop()
+  })
+
+  test("the server's copy is brought down before the game starts", async () => {
+    await saved.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    await saved.goTo('library')
+    await saved.choose('[data-rom="1"]')
+    await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    await saved.choose('[data-action="download"]')
+    await saved.waitFor(
+      `(await window.rommix.library.installed()).some((one) => one.romId === 1)`,
+      'the game to arrive'
+    )
+
+    await saved.choose('[data-action="play"]')
+    await saved.waitFor(`document.querySelector('.overlay')`, 'the running overlay')
+
+    // On disk before the emulator could have written anything: a pull that
+    // happens after the session is a pull that overwrites the session.
+    const pulled = join(saveDir, 'cavestory.srm')
+    assert.equal(existsSync(pulled), true, `nothing was pulled into ${saveDir}`)
+    assert.ok(
+      server.asked.some((one) => /^\/api\/saves\/\d+\/content$/.test(one.path)),
+      'it should have fetched the save itself, not only listed it'
+    )
+  })
+
+  test('and what the session wrote goes back up', async () => {
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the session to end')
+
+    // The file the emulator left, not the one pulled down: a push that sent the
+    // copy it had just brought down would be a round trip that loses the game.
+    assert.equal(readFileSync(join(saveDir, 'cavestory.srm'), 'utf8'), 'what the session wrote')
+
+    const sent = server.uploaded.filter((one) => one.romId === 1)
+    assert.equal(sent.length, 1, `uploads: ${JSON.stringify(server.uploaded)}`)
+    assert.equal(sent[0].emulator, 'retroarch')
+    // Under the name RomM files it by, which is what another device pulls it
+    // down as.
+    assert.ok(sent[0].body.includes('cavestory.srm'), sent[0].body.slice(0, 200))
   })
 })
 

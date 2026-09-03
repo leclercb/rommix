@@ -142,6 +142,16 @@ export interface StartOptions {
   token: string
   /** Settings to write before the first start — an emulator path, say. */
   settings?: Record<string, unknown>
+  /**
+   * Environment for the application, and so for anything it starts.
+   *
+   * `Launcher` hands its own environment to the emulator it spawns, so a
+   * variable set here reaches the stand-in too — which is how a test says where
+   * it should pretend to write a save. `XDG_CONFIG_HOME` is the other use: it
+   * decides where an emulator's descriptor says its saves and cores live, and
+   * pinning it is what makes those paths knowable from outside.
+   */
+  env?: Record<string, string>
 }
 
 /** How long the stand-in emulator stays up. See `standInEmulator`. */
@@ -170,6 +180,14 @@ export function standInEmulator(): { path: string; argv: () => Promise<string[]>
     [
       '#!/bin/sh',
       `printf '%s\n' "$@" > ${JSON.stringify(record)}`,
+      // A save, where the test asked for one. An emulator writing while it runs
+      // is the whole of what a save sync has to notice, and the push after the
+      // session only looks at files touched since it started — so this has to
+      // happen here rather than being staged before the launch.
+      'if [ -n "$ROMMIX_STAND_IN_SAVE" ]; then',
+      '  mkdir -p "$(dirname "$ROMMIX_STAND_IN_SAVE")"',
+      '  printf %s "$ROMMIX_STAND_IN_SAVE_CONTENT" > "$ROMMIX_STAND_IN_SAVE"',
+      'fi',
       `sleep ${STAND_IN_SECONDS}`,
       ''
     ].join('\n'),
@@ -251,7 +269,8 @@ export async function startApp(options: StartOptions): Promise<App> {
       ROMMIX_HOME: home,
       // The run must not touch the developer's own RomMix, and must not ask a
       // keyring to encrypt anything it will then be unable to read.
-      ROMMIX_LOG: 'debug'
+      ROMMIX_LOG: 'debug',
+      ...options.env
     }
   })
 

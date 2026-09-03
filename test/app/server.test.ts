@@ -69,7 +69,7 @@ describe('what the fake answers', () => {
     assert.equal((await romm.me()).username, 'tester')
     assert.deepEqual(
       (await romm.platforms()).map((one) => one.slug),
-      ['genesis', 'gb', 'switch']
+      ['genesis-slash-megadrive', 'gb', 'switch']
     )
     const page = await romm.roms()
     assert.equal(page.total, 3)

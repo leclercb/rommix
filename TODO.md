@@ -36,15 +36,10 @@ this an afternoon of CI wiring rather than a second suite.
 ## Scenarios not yet written
 
 `test/app/scenarios.test.ts` covers starting up, moving around, downloading a
-game, launching one, and the server going away underneath all of it. What is not
-covered yet, in the order the risk sits:
+game, launching one, a save round trip either side of that session, and the
+server going away underneath all of it. What is not covered yet, in the order
+the risk sits:
 
-- **Saves either side of a session.** The launch scenario proves a session
-  happened and was reported; it does not prove the files the emulator wrote went
-  up, or that a newer copy on the server came down before it started. That is
-  the part of RomMix that can lose something the user cannot get back, and the
-  fake already answers the endpoints it needs — see the save upload in
-  `test/app/server.ts`.
 - **A game of several files.** The one shape the fake cannot honestly stand in
   for, because what a real RomM serves is an archive built per request. See
   above.

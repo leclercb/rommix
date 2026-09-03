@@ -46,6 +46,16 @@ export interface Asked {
 
 export interface FakeRomm {
   baseUrl: string
+  /**
+   * Put a save on the server, as another device would have.
+   *
+   * `emulator` is what decides whether RomMix will take it: a save tagged for
+   * one emulator is never dropped into another's folder, so a tag that does not
+   * match is a pull that correctly does nothing.
+   */
+  holdSave: (save: { romId: number; fileName: string; emulator: string; content: string }) => void
+  /** Saves this server was sent, in order. */
+  uploaded: { romId: number; emulator: string | null; deviceId: string | null; body: string }[]
   /** Every request, in order. */
   asked: Asked[]
   /** The token a client must present. See `seedCredentials`. */
@@ -62,11 +72,11 @@ const TOKEN = 'rmm_fake_token_for_tests'
 const ROM_BYTES = Buffer.from('RomMix integration test ROM\n'.repeat(64))
 const ROM_MD5 = createHash('md5').update(ROM_BYTES).digest('hex')
 
-function platform(id: number, slug: string, name: string): RommPlatform {
+function platform(id: number, slug: string, name: string, folder = slug): RommPlatform {
   return {
     id,
     slug,
-    fs_slug: slug,
+    fs_slug: folder,
     name,
     display_name: name,
     custom_name: null,
@@ -194,7 +204,9 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
 /** Start it on a port the operating system picks, so tests can run at once. */
 export async function startFakeRomm(): Promise<FakeRomm> {
   const asked: Asked[] = []
-  const megadrive = platform(1, 'genesis', 'Sega Mega Drive')
+  const held: { save: RommSave; content: string }[] = []
+  const uploaded: FakeRomm['uploaded'] = []
+  const megadrive = platform(1, 'genesis-slash-megadrive', 'Sega Mega Drive', 'genesis')
   const gameboy = platform(2, 'gb', 'Game Boy')
   // A Switch game because Eden is the emulator a launch can be tested with:
   // one system, one way to run it, and no core to fetch off the internet
@@ -243,12 +255,25 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       }
       if (url.pathname === '/api/devices') return json([] as RommDevice[])
       if (url.pathname === '/api/firmware') return json([] as RommFirmware[])
+      const saveContent = /^\/api\/saves\/(\d+)\/content$/.exec(url.pathname)
+      if (saveContent) {
+        const found = held.find((one) => one.save.id === Number(saveContent[1]))
+        if (!found) return json({ detail: 'No such save' }, 404)
+        return serveBytes(req, res, Buffer.from(found.content))
+      }
+
       if (url.pathname === '/api/saves') {
         // Uploaded rather than listed. A session that wrote something ends with
         // a multipart POST here, and answering it is what lets the push be
         // asserted rather than merely not crashing.
         if (req.method === 'POST') {
-          const uploaded: RommSave = {
+          uploaded.push({
+            romId: Number(url.searchParams.get('rom_id') ?? 0),
+            emulator: url.searchParams.get('emulator'),
+            deviceId: url.searchParams.get('device_id'),
+            body: Buffer.concat(chunks).toString()
+          })
+          const saved: RommSave = {
             id: 900 + asked.length,
             rom_id: Number(url.searchParams.get('rom_id') ?? 0),
             user_id: user.id,
@@ -263,9 +288,10 @@ export async function startFakeRomm(): Promise<FakeRomm> {
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-01T00:00:00Z'
           }
-          return json(uploaded)
+          return json(saved)
         }
-        return json([] as RommSave[])
+        const romId = Number(url.searchParams.get('rom_id') ?? 0)
+        return json(held.filter((one) => one.save.rom_id === romId).map((one) => one.save))
       }
       if (url.pathname === '/api/states') return json([] as RommState[])
 
@@ -316,6 +342,28 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     asked,
+    uploaded,
+    holdSave: ({ romId, fileName, emulator, content }) => {
+      held.push({
+        content,
+        save: {
+          id: 500 + held.length,
+          rom_id: romId,
+          user_id: user.id,
+          file_name: fileName,
+          file_name_no_ext: fileName.replace(/\.[^.]+$/, ''),
+          file_extension: fileName.split('.').pop() ?? '',
+          file_size_bytes: Buffer.byteLength(content),
+          download_path: fileName,
+          emulator,
+          slot: null,
+          // Another device's, which is what makes it worth bringing down.
+          origin_device_id: 'some-other-device',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: new Date().toISOString()
+        }
+      })
+    },
     token: TOKEN,
     roms,
     close: () =>
