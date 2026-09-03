@@ -109,6 +109,18 @@ jobs:
       # something that actually *runs* Electron needs this, and until now
       # nothing in CI did.
       - run: npx install-electron
+
+      # Chromium will not run without its sandbox, and the helper npm unpacks is
+      # owned by the build user with no setuid bit — so Electron finds it,
+      # refuses to start unsandboxed, and aborts. This is the fix rather than
+      # passing `--no-sandbox`: the tests then drive the application the way it
+      # actually runs for people, and a runner where this cannot be done is a
+      # runner where `--no-sandbox` is the local answer rather than a change to
+      # what is under test.
+      - run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run test:app
 
