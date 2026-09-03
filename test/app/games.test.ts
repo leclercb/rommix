@@ -546,6 +546,127 @@ describe('the downloads screen', () => {
 })
 
 /**
+ * The queue, driven from the row each transfer is drawn on.
+ *
+ * The activity tab is where a transfer is watched and where the four things
+ * that can be done to one live — move it up, pause it, pick it up, throw it
+ * away. None of them had a handle, so `downloads:promote` and `downloads:cancel`
+ * were reached from nowhere at all, and pause and resume only from the game
+ * screen's own pair.
+ *
+ * It runs on the slow game, which is the only one here that can be caught in
+ * the middle, and it leaves the game uninstalled: this is the last scenario
+ * that has anything to say about it.
+ */
+describe('driving the queue from the activity tab', () => {
+  /** What the queue says about one game right now. */
+  const stateOf = (romId: number): Promise<string | undefined> =>
+    app.read<string | undefined>(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === ${romId})?.state`
+    )
+
+  test('one moved to the front takes the wire off the one that had it', async () => {
+    // Uninstalled first, so there is something to download. The confirmation is
+    // the same one the uninstall scenario above answers.
+    await app.goTo('library')
+    await app.choose('[data-rom="5"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-action="uninstall"]')
+    await app.choose('[data-action="uninstall-confirm"]')
+    await app.waitFor(
+      `!(await window.rommix.library.installed()).some((one) => one.romId === 5)`,
+      'the slow game to leave the disk'
+    )
+
+    await app.choose('[data-action="download"]')
+    await app.waitFor(`(await window.rommix.downloads.list()).length > 0`, 'the transfer to start')
+
+    // And a second game behind it. One transfer at a time is what makes a queue
+    // a queue, and what makes moving something up mean anything.
+    await app.goTo('library')
+    await app.choose('[data-rom="4"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the other game')
+    await app.choose('[data-action="download"]')
+
+    await app.goTo('downloads')
+    await app.waitFor(`document.querySelector('[data-download="5"]')`, 'the transfer rows')
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 4)?.state === 'queued'`,
+      'the second game to be waiting its turn'
+    )
+
+    await app.choose('[data-download="4"] [data-action="promote"]')
+
+    // The slow one gives way rather than being cancelled: it can be picked up
+    // where it stopped, which is the whole reason the button offers to start
+    // the other game now rather than merely next.
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state !== 'downloading'`,
+      'the slow game to give the wire up'
+    )
+    await app.waitFor(
+      `['downloading', 'extracting', 'done'].includes(
+         (await window.rommix.downloads.list()).find((one) => one.romId === 4)?.state
+       )`,
+      'the promoted game to take it'
+    )
+  })
+
+  test('pausing one stops it where it is, and it picks up from there', async () => {
+    // Back on the wire on its own once the promoted game is done, which is the
+    // other half of a queue: nothing is pressed to make this happen.
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'downloading'`,
+      'the slow game to get its turn back'
+    )
+
+    await app.choose('[data-download="5"] [data-action="pause-transfer"]')
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'paused'`,
+      'the transfer to stop'
+    )
+
+    // What it had fetched is kept. A pause that threw the bytes away would be
+    // cancel under a gentler word, and the row goes on saying how far it got.
+    const held = await app.read<number>(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.receivedBytes`
+    )
+    assert.ok(held > 0, 'the paused transfer should have kept what it fetched')
+
+    await app.choose('[data-download="5"] [data-action="resume"]')
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'downloading'`,
+      'the transfer to pick itself up'
+    )
+    assert.ok(
+      (await app.read<number>(
+        `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.receivedBytes`
+      )) >= held,
+      'it should carry on from what it had rather than start again'
+    )
+  })
+
+  test('and cancelling throws it away rather than pausing it', async () => {
+    await app.choose('[data-download="5"] [data-action="cancel-transfer"]')
+
+    // Cancelled is an end: the row leaves the active list and the game is not
+    // on the disk, which is what separates this button from the one beside it.
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'cancelled'`,
+      'the transfer to be given up on'
+    )
+    assert.equal(
+      await app.read<boolean>(
+        `(await window.rommix.library.installed()).some((one) => one.romId === 5)`
+      ),
+      false,
+      'a cancelled transfer should leave nothing installed'
+    )
+    assert.equal(await stateOf(4), 'done', 'the game promoted past it should still have finished')
+  })
+})
+
+/**
  * A session with saves on both sides of it.
  *
  * Its own application, with its own settings and its own throwaway home,

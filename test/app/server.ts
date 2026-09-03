@@ -125,25 +125,27 @@ const SLOW_CHUNK_MS = 30
 /**
  * Dribble the bytes out, stopping if the other end goes away.
  *
- * Only for a request with no range on it — the first attempt. A resumed one is
- * answered at full speed: what it is there to prove is that the range was
- * asked for and honoured, and making the test wait through the rest of the
- * file a second time proves nothing further.
+ * `from` is where a resumed transfer left off, and it is served just as slowly
+ * as the first attempt: this is the one game that can be caught in the middle,
+ * and a scenario that pauses it, picks it up and then cancels it has to be able
+ * to catch it twice.
  */
-function serveSlowly(res: ServerResponse, bytes: Buffer): void {
-  res.writeHead(200, {
+function serveSlowly(res: ServerResponse, bytes: Buffer, from = 0): void {
+  const rest = bytes.subarray(from)
+  res.writeHead(from > 0 ? 206 : 200, {
     'Content-Type': 'application/octet-stream',
-    'Content-Length': bytes.length,
-    'Accept-Ranges': 'bytes'
+    'Content-Length': rest.length,
+    'Accept-Ranges': 'bytes',
+    ...(from > 0 ? { 'Content-Range': `bytes ${from}-${bytes.length - 1}/${bytes.length}` } : {})
   })
   let at = 0
   const timer = setInterval(() => {
-    if (at >= bytes.length) {
+    if (at >= rest.length) {
       clearInterval(timer)
       res.end()
       return
     }
-    res.write(bytes.subarray(at, at + SLOW_CHUNK))
+    res.write(rest.subarray(at, at + SLOW_CHUNK))
     at += SLOW_CHUNK
   }, SLOW_CHUNK_MS)
   // The response, not the request: a GET's request body ends the moment it
@@ -833,11 +835,13 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const found = roms.find((one) => one.id === Number(content[1]))
         if (!found) return json({ detail: 'No such ROM' }, 404)
         if (found.id !== 5) return serveBytes(req, res, ROM_BYTES)
-        // The probe that asks whether this can be resumed wants one byte, not
-        // two megabytes of it — and a transfer picking itself up says so with a
-        // range too. Both are answered at once; only a fresh start is slow.
-        if (req.headers.range) return serveBytes(req, res, SLOW_ROM_BYTES)
-        return serveSlowly(res, SLOW_ROM_BYTES)
+        // The probe that asks whether this can be resumed wants one byte rather
+        // than two megabytes of it, and is answered at once. Everything else is
+        // a transfer, including one picking itself up from where it stopped,
+        // and every transfer of this game is slow. See `serveSlowly`.
+        const askedFor = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '')
+        if (askedFor && askedFor[2]) return serveBytes(req, res, SLOW_ROM_BYTES)
+        return serveSlowly(res, SLOW_ROM_BYTES, Number(askedFor?.[1] ?? 0))
       }
 
       const fileContent = /^\/api\/roms\/(\d+)\/files\/content\/(.+)$/.exec(url.pathname)

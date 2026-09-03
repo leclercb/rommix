@@ -58,6 +58,7 @@ export function ProgressRow({
     <div
       ref={ref as Ref<HTMLDivElement>}
       className={`download download--row ${acts ? 'download--action' : ''}`}
+      data-download={item.romId}
       {...props}
     >
       <div className="download__art">
@@ -111,22 +112,27 @@ export function ProgressRow({
               about: a small game moved past a large one is the difference
               between playing it now and pausing something to get at it. */}
           {onNext ? (
-            <FocusButton icon="next" onSelect={onNext}>
+            <FocusButton icon="next" action="promote" onSelect={onNext}>
               {interrupts ? t('downloads.now') : t('downloads.next')}
             </FocusButton>
           ) : null}
           {resumable ? (
-            <FocusButton icon="download" onSelect={onResume}>
+            <FocusButton icon="download" action="resume" onSelect={onResume}>
               {t('action.resume')}
             </FocusButton>
           ) : null}
           {stoppable ? (
-            <FocusButton icon="pause" onSelect={onPause}>
+            <FocusButton icon="pause" action="pause-transfer" onSelect={onPause}>
               {t('action.pause')}
             </FocusButton>
           ) : null}
           {onCancel ? (
-            <FocusButton icon="cancel" variant="danger" onSelect={onCancel}>
+            <FocusButton
+              icon="cancel"
+              variant="danger"
+              action="cancel-transfer"
+              onSelect={onCancel}
+            >
               {t('action.cancel')}
             </FocusButton>
           ) : null}
