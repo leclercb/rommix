@@ -686,3 +686,36 @@ describe('searching the library', () => {
     )
   })
 })
+
+describe('the artwork a library is mostly made of', () => {
+  test('a cover is fetched through the main process and decodes', async () => {
+    // The one asset path in RomMix, and the reason it exists: RomM serves
+    // artwork behind the same token as everything else, so the renderer cannot
+    // ask for a cover directly. `imageUrl` hands it a `rommix-img://` URL, and
+    // the main process answers that by going to the server — or to the copy it
+    // saved. Nothing had ever driven it, because every cover the fake served
+    // was null.
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('.cover img')`, 'a cover to be drawn')
+
+    const src = await app.read<string>(`document.querySelector('.cover img')?.getAttribute('src')`)
+    assert.match(src, /^rommix-img:\/\//, 'a cover should go through the main process')
+
+    // Decoded, not merely requested. A path that answered 404 leaves an `img`
+    // in the page looking exactly like this one, and the fallback that replaces
+    // it is drawn on an error the test would otherwise never see.
+    await app.waitFor(
+      `[...document.querySelectorAll('.cover img')].some((one) => one.naturalWidth > 0)`,
+      'the picture to arrive and decode'
+    )
+  })
+
+  test('and a game RomM has no artwork for falls back to its name', async () => {
+    // Not every game has a cover, and the tile for one that does not has to say
+    // something rather than leave a hole the size of a cover.
+    await app.waitFor(
+      `document.querySelector('[data-rom="3"] .cover__fallback')`,
+      'the fallback for the game with no art'
+    )
+  })
+})

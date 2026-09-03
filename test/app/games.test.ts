@@ -522,10 +522,23 @@ describe('saves either side of a session', () => {
   })
 
   test('and what the session wrote goes back up', async () => {
+    // The curtain rather than the panel: this game has a cover, and a launch
+    // that has one draws it full-screen instead. Waiting on the panel here
+    // would find no panel and call the session over before it started.
+    //
+    // It is also the screen RomMix is looked at hardest — the one somebody
+    // waits through from across the room — and until the fake served artwork
+    // nothing had ever drawn it.
+    await saved.waitFor(`document.querySelector('.curtain')`, 'the cover to fill the screen')
+    await saved.waitFor(
+      `document.querySelector('.curtain__cover img')?.naturalWidth > 0`,
+      'the cover to arrive'
+    )
+
     // Longer than the usual wait: the stand-in stays up past `Launcher`'s
     // startup grace on purpose, and everything before the spawn — the core
     // check, the pull — is time a busy machine adds to that.
-    await saved.waitFor(`!document.querySelector('.overlay')`, 'the session to end', 45_000)
+    await saved.waitFor(`!document.querySelector('.curtain')`, 'the session to end', 45_000)
 
     // The file the emulator left, not the one pulled down: a push that sent the
     // copy it had just brought down would be a round trip that loses the game.

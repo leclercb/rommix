@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { deflateSync } from 'node:zlib'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type {
@@ -140,6 +141,84 @@ function serveSlowly(res: ServerResponse, bytes: Buffer): void {
   res.on('close', () => clearInterval(timer))
 }
 
+/**
+ * A cover, as a picture rather than as a path that answers nothing.
+ *
+ * A real PNG, because the screens do not merely reference these: `imageUrl`
+ * builds a `rommix-img://` URL, the main process answers it through
+ * `registerImageProtocol`, and what comes back has to decode or the tile is
+ * blank in exactly the way a broken path would be. One pixel is enough to tell
+ * those two apart.
+ *
+ * A different colour per game, derived from its id. Nothing asserts the colour
+ * — what it is for is the screenshot a failure leaves behind, where a wall of
+ * identical tiles says nothing about which row the highlight is on and a wall
+ * of different ones says it at a glance.
+ */
+function coverPng(romId: number): Buffer {
+  // Spread around the wheel by a turn that shares no factor with it, so
+  // consecutive ids land nowhere near each other.
+  const hue = (romId * 137) % 360
+  const [r, g, b] = hueToRgb(hue)
+
+  const chunk = (type: string, body: Buffer): Buffer => {
+    const head = Buffer.alloc(8)
+    head.writeUInt32BE(body.length, 0)
+    head.write(type, 4, 'ascii')
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), body])), 0)
+    return Buffer.concat([head, body, crc])
+  }
+
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(1, 0)
+  header.writeUInt32BE(1, 4)
+  // Eight bits a channel, colour type 2: plain RGB, no palette and no alpha.
+  header[8] = 8
+  header[9] = 2
+  // One scanline, led by the filter byte every PNG row carries.
+  const pixels = deflateSync(Buffer.from([0, r, g, b]))
+
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', pixels),
+    chunk('IEND', Buffer.alloc(0))
+  ])
+}
+
+/** A saturated colour at that angle, which is all the wheel is wanted for. */
+function hueToRgb(hue: number): [number, number, number] {
+  const section = hue / 60
+  const fade = Math.round(255 * (1 - Math.abs((section % 2) - 1)))
+  const wheel: [number, number, number][] = [
+    [255, fade, 0],
+    [fade, 255, 0],
+    [0, 255, fade],
+    [0, fade, 255],
+    [fade, 0, 255],
+    [255, 0, fade]
+  ]
+  return wheel[Math.floor(section) % 6]
+}
+
+/** PNG's own CRC, which every chunk carries and no decoder will skip. */
+function crc32(bytes: Buffer): number {
+  let crc = 0xffffffff
+  for (const byte of bytes) {
+    crc ^= byte
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+/** Where the fake keeps a game's artwork, in the shape RomM's own paths take. */
+function coverPath(romId: number, size: 'small' | 'big'): string {
+  return `/assets/romm/resources/roms/${romId}/cover/${size}.png`
+}
+
 /** The bytes of one file of a game made of several. */
 function bytesFor(fileName: string): Buffer {
   return Buffer.from(`RomMix integration test — ${fileName}\n`.repeat(16))
@@ -160,7 +239,21 @@ function platform(id: number, slug: string, name: string, folder = slug): RommPl
   }
 }
 
-function rom(id: number, name: string, host: RommPlatform, fsName: string): RommRom {
+function rom(
+  id: number,
+  name: string,
+  host: RommPlatform,
+  fsName: string,
+  /**
+   * Whether RomM has artwork for it.
+   *
+   * Not every game: a library with a cover for everything cannot tell the
+   * screens that draw one apart from the screens that fall back, and the
+   * running overlay picks between two entirely different layouts on exactly
+   * this. See `RunningOverlay`.
+   */
+  art = true
+): RommRom {
   return {
     id,
     name,
@@ -176,8 +269,8 @@ function rom(id: number, name: string, host: RommPlatform, fsName: string): Romm
     fs_extension: fsName.split('.').pop() ?? '',
     fs_path: `${host.fs_slug}/${fsName}`,
     fs_size_bytes: ROM_BYTES.length,
-    path_cover_small: null,
-    path_cover_large: null,
+    path_cover_small: art ? coverPath(id, 'small') : null,
+    path_cover_large: art ? coverPath(id, 'big') : null,
     url_cover: null,
     path_video: null,
     regions: ['USA'],
@@ -362,7 +455,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   const roms = [
     rom(1, 'Cave Story MD', megadrive, 'cavestory.md'),
     rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb'),
-    rom(3, 'Test Chamber', nintendoSwitch, 'testchamber.nsp'),
+    // The one without artwork, so both halves of the running overlay are drawn
+    // by something: this game gets the panel, and the others get the cover.
+    rom(3, 'Test Chamber', nintendoSwitch, 'testchamber.nsp', false),
     discSet(4, 'Disc Adventure', segacd, 'Disc Adventure'),
     slow
   ]
@@ -508,6 +603,18 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       // empty library and no explanation.
       if (req.headers.authorization !== `Bearer ${TOKEN}`) {
         return json({ detail: 'Not authenticated' }, 401)
+      }
+
+      // Artwork, on the paths the rows above hand out. Authenticated like
+      // everything else RomM serves, which is the whole reason the renderer
+      // cannot ask for one directly and goes through the main process instead.
+      const cover = /^\/assets\/romm\/resources\/roms\/(\d+)\/cover\/(small|big)\.png$/.exec(
+        url.pathname
+      )
+      if (cover) {
+        const png = coverPng(Number(cover[1]))
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
+        return res.end(png)
       }
 
       if (url.pathname === '/api/users/me') return json(user)
