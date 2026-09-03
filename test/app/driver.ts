@@ -110,8 +110,14 @@ async function connect(url: string): Promise<Session> {
 export interface App {
   /** Evaluate an expression in the page and return what it produced. */
   read: <T>(expression: string) => Promise<T>
-  /** Keep asking until the expression is true, or fail saying what it was. */
-  waitFor: (expression: string, what: string) => Promise<void>
+  /**
+   * Keep asking until the expression is true, or fail saying what it was.
+   *
+   * `timeoutMs` for the few things that are slow by design rather than slow
+   * because something is wrong — a session runs for as long as the emulator
+   * does.
+   */
+  waitFor: (expression: string, what: string, timeoutMs?: number) => Promise<void>
   /** Press a key, the way the focus engine hears one. */
   press: (key: Key) => Promise<void>
   /** Move the highlight onto the element matching a selector, then select it. */
@@ -171,7 +177,12 @@ const STAND_IN_SECONDS = 8
  * a flag it does not take, fails in the emulator's own words long after RomMix
  * has reported success.
  */
-export function standInEmulator(): { path: string; argv: () => Promise<string[]> } {
+export function standInEmulator(): {
+  path: string
+  argv: () => Promise<string[]>
+  /** What the save file held when the emulator started, or null if there was none. */
+  found: (savePath: string) => Promise<string | null>
+} {
   const dir = mkdtempSync(join(tmpdir(), 'rommix-stand-in-'))
   const path = join(dir, 'stand-in-emulator')
   const record = join(dir, 'argv')
@@ -185,6 +196,16 @@ export function standInEmulator(): { path: string; argv: () => Promise<string[]>
       // session only looks at files touched since it started — so this has to
       // happen here rather than being staged before the launch.
       'if [ -n "$ROMMIX_STAND_IN_SAVE" ]; then',
+      // What was already there when the emulator started, before it writes
+      // anything of its own. This is the only race-free way to ask whether the
+      // pull happened first: every other signal — the overlay, the file on
+      // disk — is one the test reads after the fact, by which time this has
+      // overwritten it.
+      // Always written, empty where there was nothing: a missing file cannot
+      // tell "the pull left nothing" apart from "the emulator never ran", and
+      // waiting for one that is never coming turns a clear failure into a
+      // timeout.
+      '  cp "$ROMMIX_STAND_IN_SAVE" "$ROMMIX_STAND_IN_SAVE.found" 2>/dev/null || : > "$ROMMIX_STAND_IN_SAVE.found"',
       '  mkdir -p "$(dirname "$ROMMIX_STAND_IN_SAVE")"',
       '  printf %s "$ROMMIX_STAND_IN_SAVE_CONTENT" > "$ROMMIX_STAND_IN_SAVE"',
       'fi',
@@ -210,6 +231,15 @@ export function standInEmulator(): { path: string; argv: () => Promise<string[]>
         await new Promise((resolve) => setTimeout(resolve, POLL_MS))
       }
       return []
+    },
+    found: async (savePath: string) => {
+      const asFound = `${savePath}.found`
+      const until = Date.now() + SETTLE_TIMEOUT_MS
+      while (Date.now() < until) {
+        if (existsSync(asFound)) return readFileSync(asFound, 'utf8')
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+      }
+      return null
     }
   }
 }
@@ -330,8 +360,12 @@ export async function startApp(options: StartOptions): Promise<App> {
     return result.result?.value as T
   }
 
-  const waitFor = async (expression: string, what: string): Promise<void> => {
-    const until = Date.now() + SETTLE_TIMEOUT_MS
+  const waitFor = async (
+    expression: string,
+    what: string,
+    timeoutMs = SETTLE_TIMEOUT_MS
+  ): Promise<void> => {
+    const until = Date.now() + timeoutMs
     while (Date.now() < until) {
       if (await read<boolean>(`Boolean(${expression})`)) return
       await new Promise((resolve) => setTimeout(resolve, POLL_MS))

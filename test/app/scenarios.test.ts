@@ -285,8 +285,11 @@ describe('saves either side of a session', () => {
   let saved: App
   let configHome: string
   let saveDir: string
+  /** Its own, so what it wrote down belongs to this session and no other. */
+  let retroarch: ReturnType<typeof standInEmulator>
 
   before(async () => {
+    retroarch = standInEmulator()
     configHome = mkdtempSync(join(tmpdir(), 'rommix-xdg-'))
     saveDir = join(configHome, 'retroarch', 'saves')
 
@@ -314,7 +317,7 @@ describe('saves either side of a session', () => {
       token: server.token,
       settings: {
         systemEmulators: { genesis: 'retroarch' },
-        emulatorPaths: { retroarch: emulator.path },
+        emulatorPaths: { retroarch: retroarch.path },
         confirmSavePush: false
       },
       env: {
@@ -344,12 +347,27 @@ describe('saves either side of a session', () => {
     )
 
     await saved.choose('[data-action="play"]')
-    await saved.waitFor(`document.querySelector('.overlay')`, 'the running overlay')
 
-    // On disk before the emulator could have written anything: a pull that
-    // happens after the session is a pull that overwrites the session.
-    const pulled = join(saveDir, 'cavestory.srm')
-    assert.equal(existsSync(pulled), true, `nothing was pulled into ${saveDir}`)
+    // Asked of the emulator rather than of the disk. `launch` pulls before it
+    // spawns, so what the stand-in found when it started is what the pull left
+    // — and it is the only account of that moment which the session cannot
+    // have overwritten by the time a test looks.
+    //
+    // The overlay is no answer here: it goes up the moment Play is pressed,
+    // ahead of the core check and the pull both, so a machine slow enough to
+    // still be working reads as a pull that never happened.
+    // Started at all, first: a launch that stopped earlier — a core it decided
+    // to fetch, a path it would not write — leaves nothing to have found, and
+    // "found nothing" is a different fault from "was never asked".
+    const argv = await retroarch.argv()
+    assert.ok(argv.length > 0, 'the emulator was never started')
+
+    assert.equal(
+      await retroarch.found(join(saveDir, 'cavestory.srm')),
+      'the save from another device',
+      'the emulator started, and the save the server was holding was not there'
+    )
+
     assert.ok(
       server.asked.some((one) => /^\/api\/saves\/\d+\/content$/.test(one.path)),
       'it should have fetched the save itself, not only listed it'
@@ -357,7 +375,10 @@ describe('saves either side of a session', () => {
   })
 
   test('and what the session wrote goes back up', async () => {
-    await saved.waitFor(`!document.querySelector('.overlay')`, 'the session to end')
+    // Longer than the usual wait: the stand-in stays up past `Launcher`'s
+    // startup grace on purpose, and everything before the spawn — the core
+    // check, the pull — is time a busy machine adds to that.
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the session to end', 45_000)
 
     // The file the emulator left, not the one pulled down: a push that sent the
     // copy it had just brought down would be a round trip that loses the game.
