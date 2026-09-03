@@ -84,6 +84,17 @@ export interface FakeRomm {
   approvePairing: () => void
   /** The code the screen should be showing, once pairing has been started. */
   pairing: () => { userCode: string; deviceCode: string } | null
+  /**
+   * Take the server away, keeping its address.
+   *
+   * A handheld carried out of the room, rather than a server that has been
+   * decommissioned: what makes the offline path worth testing is that it ends,
+   * and it can only end if the same address answers again. `close` is the other
+   * one — it gives the port up for good.
+   */
+  goAway: () => Promise<void>
+  /** And back into range, on the address it had. */
+  comeBack: () => Promise<void>
   close: () => Promise<void>
 }
 
@@ -787,10 +798,26 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     roms,
     collections,
     virtualCollections,
-    close: () =>
+    goAway: () =>
       new Promise<void>((resolve, reject) =>
         server.close((cause) => (cause ? reject(cause) : resolve()))
-      )
+      ),
+    comeBack: () =>
+      new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        // The same port it had. Nothing else was listening on it a moment ago,
+        // and RomMix is still holding the address in its settings — which is
+        // the whole of what "back in range" means to it.
+        server.listen(port, '127.0.0.1', () => {
+          server.removeListener('error', reject)
+          resolve()
+        })
+      }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        if (!server.listening) return resolve()
+        server.close((cause) => (cause ? reject(cause) : resolve()))
+      })
   }
 }
 
