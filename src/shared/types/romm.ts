@@ -198,11 +198,14 @@ export interface RommRomPage {
 }
 
 /**
- * What every kind of collection has in common (`BaseCollectionSchema`).
+ * What every kind of collection has in common — RomMix's own factoring of
+ * `CollectionSchema` and `VirtualCollectionSchema`, which each carry all of it.
  *
  * RomM has two, on two endpoints, and they differ in one field that matters:
  * a collection somebody made has an integer id and can be written to, and one
- * RomM derived has a string id like `genre/platform` and cannot.
+ * RomM derived has a string id like `genre/platform` and cannot. There is no
+ * base schema on the server to point at — the two are flattened — so this is
+ * checked against both.
  */
 export interface RommCollectionBase {
   name: string

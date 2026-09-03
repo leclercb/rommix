@@ -24,6 +24,7 @@
     "format:check": "prettier --check .",
     "test": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test \"src/**/*.test.ts\"",
     "test:coverage": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test --experimental-test-coverage --test-coverage-lines=96 --test-coverage-branches=88 --test-coverage-functions=89 \"src/**/*.test.ts\"",
+    "schema:fetch": "node scripts/fetch-openapi.mjs",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
     "package": "electron-builder --linux AppImage --publish never",

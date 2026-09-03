@@ -141,6 +141,21 @@ decides which hash describes what is arriving, and `errors.ts` holds the three
 failures the rest of RomMix branches on. A new endpoint is a method on the
 client; everything else there is imported through `index.ts`.
 
+### Talking to RomM's API
+
+`src/shared/types/romm.ts` is a transcription of RomM's schema made by hand, and
+`schema/` holds the `/openapi.json` of every RomM version RomMix supports.
+`npm test` checks the first against all of the second: a field renamed upstream
+is otherwise `undefined` with nothing between it and a screen.
+
+Each type is bound to its schema by the name in its own doc comment — `GET
+/api/users/me (\`UserSchema\`)`— so there is no table to keep beside it.`?` on
+a field means one supported version does not send it, and nothing else.
+
+Add a version with `npm run schema:fetch https://your.romm`, which names the
+file after whatever the server says it is. Dropping one is how a version stops
+being supported: a decision worth a commit rather than drift.
+
 ### Shared between the two
 
 `src/shared/types/` is the language the main process, the preload bridge and the
