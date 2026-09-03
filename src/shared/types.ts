@@ -618,9 +618,36 @@ export type DownloadState =
    * across restarts, see `PendingDownload` — until it finishes or is cancelled.
    */
   | 'paused'
+  /**
+   * Stopped because nothing answered, rather than because anybody asked.
+   *
+   * What makes a queue survive a network going away: the transfer that was on
+   * the wire and every one waiting behind it stop for the same reason, and none
+   * of them needs a person to press anything to carry on — see
+   * `DownloadManager.resumeAfterOutage`. Its own state rather than a flag
+   * beside `paused`, so that a finished transfer cannot also be waiting for a
+   * server; what the two have in common is `isStopped`.
+   *
+   * Only ever the server being unreachable. A refusal, an unsafe name and a
+   * failed hash check all stay stopped until somebody looks at them.
+   */
+  | 'stalled'
   | 'done'
   | 'error'
   | 'cancelled'
+
+/**
+ * Stopped with its bytes kept, whoever stopped it.
+ *
+ * The question nearly every screen is actually asking: such a row is in the
+ * active list, is amber, and offers to be finished. Which of the two it is
+ * matters in two places only — whether it says "Paused" or "Waiting for RomM",
+ * and whether it starts itself again — so everywhere else asks this instead,
+ * and a third stopped state would cost one line rather than twenty.
+ */
+export function isStopped(state: DownloadState): boolean {
+  return state === 'paused' || state === 'stalled'
+}
 
 export interface DownloadItem {
   romId: number
@@ -694,6 +721,21 @@ export interface PendingDownload {
   ownsFolder: boolean
   fileName: string
   totalBytes: number
+  /**
+   * Which of the two stopped states this transfer is in.
+   *
+   * The record has no state of its own — it only ever describes a transfer that
+   * stopped — but *how* it stopped has to survive with it, because the two
+   * answer for different spans of time. The queue row lasts as long as RomMix
+   * is running, and an outage easily outlives that: a handheld carried out of
+   * range, closed, and opened again at home. Restored, this is what lets the
+   * queue pick itself up on the first start that has a server rather than
+   * asking somebody to press Resume once per game for a stop nobody chose.
+   *
+   * Absent on a record written before this field existed, which reads as the
+   * cautious answer: paused, and waiting to be asked.
+   */
+  stoppedAs?: 'paused' | 'stalled'
 }
 
 /**

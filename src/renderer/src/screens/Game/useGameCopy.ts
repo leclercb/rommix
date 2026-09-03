@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { MessageKey } from '@shared/i18n'
-import type { DownloadItem, InstalledRom, RommRom } from '@shared/types'
+import { isStopped, type DownloadItem, type InstalledRom, type RommRom } from '@shared/types'
 import { useApp, useI18n } from '../../state'
 import { fileNameOf } from '@shared/gamefiles'
 
@@ -51,7 +51,7 @@ export function useGameCopy(options: {
     // Read before the call, because the answer changes it: the same button
     // finishes a transfer that was stopped, and picking one up again is not
     // the same news as starting one.
-    const resuming = download?.state === 'paused'
+    const resuming = isStopped(download?.state ?? 'downloading')
     try {
       const item = await window.rommix.downloads.start(romId)
       notify(t(startedMessage(item, resuming)), 'ok', {

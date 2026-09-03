@@ -629,10 +629,16 @@ export class SaveSync {
       unasked.map((file) => file.path)
     )
     const sent = result.saves + result.states
-    // What was meant to go and did not is still here, and still nobody's to
-    // throw away: the caller clears its record when nothing is left, and a
-    // server that died mid-pass would otherwise have it forget the rest.
-    const ready = unasked.length - sent
+    /**
+     * What was meant to go, did not, and is still here.
+     *
+     * The server's refusals, rather than everything that did not arrive:
+     * uploading passes over a save folder that turns out to be empty without
+     * either sending or failing it, and counted as still waiting that game
+     * would never clear — a permanent notice about a folder an emulator made
+     * and never wrote to.
+     */
+    const ready = result.failed
     log.info('saves', 'sent what was written away from the server', {
       romId: target.rom.id,
       sent,

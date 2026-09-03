@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import type { MessageKey } from '@shared/i18n'
-import type { DownloadState } from '@shared/types'
+import { isStopped, type DownloadState } from '@shared/types'
 import { Icon, type IconName } from '../icons'
 import { useI18n } from '../state'
 
@@ -38,6 +38,9 @@ const BADGES = {
   downloading: { label: 'downloads.state.downloading', tone: 'info', icon: 'download' },
   extracting: { label: 'downloads.state.extracting', tone: 'info', icon: 'package' },
   paused: { label: 'downloads.state.paused', tone: 'warn', icon: 'pause' },
+  // Amber like a pause, because it is one to look at and one to finish. Not
+  // the pause icon: nobody pressed anything.
+  stalled: { label: 'downloads.state.stalled', tone: 'warn', icon: 'server' },
   done: { label: 'downloads.state.done', tone: 'ok', icon: 'confirm' },
   error: { label: 'downloads.state.error', tone: 'bad', icon: 'warn' },
   cancelled: { label: 'downloads.state.cancelled', tone: 'off', icon: 'cancel' }
@@ -70,7 +73,7 @@ export function DownloadBar({
   percent: number
 }): JSX.Element {
   const colour =
-    state === 'error' ? 'var(--danger)' : state === 'paused' ? 'var(--warning)' : undefined
+    state === 'error' ? 'var(--danger)' : isStopped(state) ? 'var(--warning)' : undefined
 
   return (
     <div className="download__bar">

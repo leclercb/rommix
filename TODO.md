@@ -5,33 +5,6 @@ worked out about each — so that picking one up does not mean starting from
 nothing. An entry here is a decision that has been thought about and deferred,
 not a wish.
 
-## Catching up after a spell offline
-
-Playing away from RomM works; coming back does not finish the job.
-
-What the server says about a game is written down when it is installed — the
-whole `RommRom` and its artwork, see
-[`src/main/offline.ts`](src/main/offline.ts) — and every screen narrows to what
-is on the disk whenever the server stops answering. Two things are held back
-while that lasts, and nothing hands them on afterwards.
-
-- **Saves written offline.** A session away from the network writes its saves
-  normally and the push fails; the launcher reports it and that is the end of
-  it. Nothing records that this device holds a save RomM has not seen, so the
-  next launch that _can_ reach the server does not send it either — the push
-  only ever looks at what the session just wrote. What is wanted is a note of
-  the game and the moment, drained on reconnect, and an answer for the case
-  where RomM's copy moved on in the meantime.
-- **Downloads queued offline.** A transfer started with nothing to talk to
-  pauses, keeps its bytes and stays in the queue, which is right; it simply
-  waits for somebody to press Resume. `ConnectionWatch` already announces the
-  moment the server comes back, so the missing part is the decision about
-  whether draining the queue then is help or a surprise on a metered link.
-
-Neither is a matter of what is known — the index and the queue both survive a
-restart already. Both are questions about what RomMix should do without being
-asked.
-
 ## Integration tests that drive the real application
 
 `npm test` covers the main process a module at a time and deliberately leaves

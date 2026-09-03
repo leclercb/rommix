@@ -1,5 +1,5 @@
 import type { MessageKey } from '@shared/i18n'
-import type { DownloadItem, InstalledRom } from '@shared/types'
+import { isStopped, type DownloadItem, type InstalledRom } from '@shared/types'
 import {
   CoverArt,
   DownloadBadge,
@@ -62,7 +62,7 @@ function isActive(item: DownloadItem): boolean {
     item.state === 'queued' ||
     item.state === 'downloading' ||
     item.state === 'extracting' ||
-    item.state === 'paused'
+    isStopped(item.state)
   )
 }
 
@@ -131,10 +131,15 @@ export function DownloadsScreen(): JSX.Element {
   )
   const waiting = active.filter((item) => item.state === 'queued')
   const paused = active.filter((item) => item.state === 'paused')
-  /** The three, in the order they are drawn, each labelled with its own badge. */
+  const stalled = active.filter((item) => item.state === 'stalled')
+  /** The four, in the order they are drawn, each labelled with its own badge. */
   const sections: { key: MessageKey; items: DownloadItem[] }[] = [
     { key: 'downloads.state.downloading', items: running },
     { key: 'downloads.state.queued', items: waiting },
+    // Its own heading rather than folded in with the paused: these are not
+    // waiting on anybody, and a row under "Paused" that starts by itself a
+    // moment later is a heading that was wrong about both.
+    { key: 'downloads.state.stalled', items: stalled },
     { key: 'downloads.state.paused', items: paused }
   ]
   /**
@@ -161,7 +166,7 @@ export function DownloadsScreen(): JSX.Element {
    * right default and the wrong one for the game being waited on.
    */
   const promotable = (item: DownloadItem): boolean =>
-    (item.state === 'queued' || item.state === 'paused') &&
+    (item.state === 'queued' || isStopped(item.state)) &&
     (gives || (waiting.length > 0 && waiting[0].romId !== item.romId))
   const finished = downloads.filter(
     (item) => item.state === 'done' || item.state === 'error' || item.state === 'cancelled'
@@ -554,8 +559,8 @@ function ProgressRow({
   const { t, formatBytes } = useI18n()
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
   const percent = item.totalBytes > 0 ? Math.round((item.receivedBytes / item.totalBytes) * 100) : 0
-  const paused = item.state === 'paused'
-  const resumable = paused && onResume !== undefined
+  const stopped = isStopped(item.state)
+  const resumable = stopped && onResume !== undefined
   /**
    * Whether Pause is a thing this transfer can honestly offer.
    *

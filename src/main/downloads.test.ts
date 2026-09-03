@@ -18,8 +18,8 @@ import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
 import { OfflineCache } from './offline.ts'
-import { CorruptDownloadError, RommClient, RommError } from './romm.ts'
-import { rootPaths } from './root.ts'
+import { CorruptDownloadError, RommClient, RommError, UnreachableError } from './romm.ts'
+import { resolveRoot, rootPaths } from './root.ts'
 import { Store } from './store.ts'
 import { zipDirectory } from './zip.ts'
 
@@ -86,6 +86,10 @@ function fakeClient(
     contents?: string
     roms?: Record<number, RommRom>
     breakAfter?: number
+    /** How the break reads: an unreachable server, or something else. */
+    breakReason?: typeof RommError
+    /** How many attempts break before one is allowed through. Default one. */
+    breakTimes?: number
     /** What the server says about fetching this ROM in pieces. */
     ranges?: boolean
     /** Whether the server can serve the game's files one at a time. */
@@ -131,9 +135,9 @@ function fakeClient(
       }
       // The break happens on the first file only, for the same reason the whole
       // -ROM fake breaks once: what is under test is what RomMix does next.
-      if (options.breakAfter !== undefined && resumed.length === 1) {
+      if (options.breakAfter !== undefined && resumed.length <= (options.breakTimes ?? 1)) {
         await writeFile(`${destination}.part`, '0'.repeat(options.breakAfter))
-        throw new RommError('the transfer from RomM kept breaking off')
+        throw new (options.breakReason ?? RommError)('the transfer from RomM kept breaking off')
       }
       const contents = '0'.repeat(file.file_size_bytes)
       await rm(`${destination}.part`, { force: true })
@@ -166,9 +170,9 @@ function fakeClient(
       // The break happens once, on the first attempt: what is being tested is
       // what RomMix does next, and a transfer that never succeeds could never
       // reach it.
-      if (options.breakAfter !== undefined && resumed.length === 1) {
+      if (options.breakAfter !== undefined && resumed.length <= (options.breakTimes ?? 1)) {
         await writeFile(`${destination}.part`, contents.slice(0, options.breakAfter))
-        throw new RommError('the transfer from RomM kept breaking off')
+        throw new (options.breakReason ?? RommError)('the transfer from RomM kept breaking off')
       }
       // The real client renames the partial onto the ROM, so it is gone either
       // way once the transfer finishes.
@@ -212,6 +216,10 @@ function manager(
     corruptFile?: number
     zip?: Record<string, string>
     roms?: Record<number, RommRom>
+    breakReason?: typeof RommError
+    breakTimes?: number
+    /** An existing folder to open again, for the case of a restart. */
+    store?: Store
   } = {}
 ): {
   downloads: DownloadManager
@@ -221,9 +229,9 @@ function manager(
   client: RommClient
   resumed: boolean[]
 } {
-  const root = scratch()
+  const root = options.store ? resolveRoot() : scratch()
   process.env.ROMMIX_HOME = root
-  const store = new Store(join(root, 'config'))
+  const store = options.store ?? new Store(join(root, 'config'))
   store.updateSettings({ romStorage: options.shared === false ? 'emulator' : 'rommix' })
   const { client, resumed } = fakeClient(options)
   /**
@@ -756,6 +764,162 @@ describe('after a restart', () => {
     restarted.enqueue(rom())
     assert.equal((await settled(restarted, 1)).state, 'done')
     assert.deepEqual(resumed, [true])
+  })
+
+  test('what the network stopped is picked up again when the server is back', async () => {
+    const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
+    // Both transfers break, which is what one network going away looks like:
+    // the one on the wire and the one that starts the moment it stops.
+    const { downloads } = manager({
+      contents: '0123456789',
+      breakAfter: 4,
+      breakTimes: 2,
+      breakReason: UnreachableError,
+      roms: { 1: rom(), 2: second }
+    })
+
+    downloads.enqueue(rom())
+    downloads.enqueue(second)
+    await settled(downloads, 1)
+    await settled(downloads, 2)
+
+    assert.deepEqual(
+      downloads.items.map((item) => item.state),
+      ['stalled', 'stalled']
+    )
+
+    // The fake breaks twice and no more, so this is the server having come back.
+    assert.equal(await downloads.resumeAfterOutage(), 2)
+    assert.equal((await settled(downloads, 1)).state, 'done')
+    assert.equal((await settled(downloads, 2)).state, 'done')
+  })
+
+  test('an outage that outlived RomMix is still an outage on the next start', async () => {
+    // Out of range, and then closed: the row goes with the process, and all
+    // that is left is the record beside the bytes.
+    const stopped = manager({
+      contents: '0123456789',
+      breakAfter: 4,
+      breakReason: UnreachableError,
+      roms: { 1: rom() }
+    })
+    const { store } = stopped
+    stopped.downloads.enqueue(rom())
+    await settled(stopped.downloads, 1)
+    assert.equal(store.pending[0].stoppedAs, 'stalled')
+
+    // Opened again at home, where there is a server. Nothing was pressed.
+    const restarted = manager({ contents: '0123456789', roms: { 1: rom() }, store })
+    assert.equal(await restarted.downloads.resumeAfterOutage(), 1)
+    assert.equal((await settled(restarted.downloads, 1)).state, 'done')
+  })
+
+  test('a transfer the user paused is not picked up again', async () => {
+    const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
+    const { downloads } = manager({ contents: '0123456789', roms: { 1: rom(), 2: second } })
+
+    downloads.enqueue(rom())
+    downloads.enqueue(second)
+    downloads.pause(2)
+
+    // Stopping was the answer, not the problem. A queue that undid it the
+    // moment the network hiccupped would be a Pause button that does not.
+    const paused = downloads.items.find((item) => item.romId === 2)
+    assert.equal(paused?.state, 'paused')
+    assert.equal(await downloads.resumeAfterOutage(), 0)
+  })
+
+  test('a transfer that failed for a reason waiting cannot fix stays failed', async () => {
+    const { downloads } = manager({
+      contents: '0123456789',
+      breakAfter: 0,
+      breakReason: RommError,
+      roms: { 1: rom() }
+    })
+
+    downloads.enqueue(rom())
+    await settled(downloads, 1)
+
+    // An unsafe name and a refused hash are not the network, and coming back
+    // into range fixes neither.
+    assert.equal(downloads.items[0].state, 'error')
+    assert.equal(await downloads.resumeAfterOutage(), 0)
+  })
+
+  test('a ROM the server answers 404 for is a failure, not an outage', async () => {
+    const root = scratch()
+    process.env.ROMMIX_HOME = root
+    const store = new Store(join(root, 'config'))
+    const reachable: boolean[] = []
+
+    /**
+     * The real transfer path, against a server that answers.
+     *
+     * The point of going through `RommClient` rather than a fake `downloadRom`:
+     * every status RomM replies with lands in the same retry loop as a broken
+     * connection, and a non-resumable transfer is allowed one attempt — so a
+     * 404 arrives exactly where an outage would. Told apart wrongly, it would
+     * report a server that had just answered as unreachable, put the whole
+     * interface into offline mode, and come back for the same 404 on every
+     * reconnection.
+     */
+    const client = new RommClient(store)
+    client.observeReachability((up) => reachable.push(up))
+    Object.assign(client, {
+      supportsRange: async () => false,
+      fileTransfers: async () => ({ available: false, resumable: false }),
+      rom: async () => rom(),
+      asset: async () => new Response(null, { status: 404 })
+    })
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () => new Response('no such ROM', { status: 404 })
+    store.setServer({ baseUrl: 'https://romm.example', authMode: 'token' })
+
+    try {
+      const library = new Library(store, client, cache(client), () => null)
+      const downloads = new DownloadManager(store, client, library)
+      downloads.enqueue(rom())
+      const item = await settled(downloads, 1)
+
+      assert.equal(item.state, 'error')
+      assert.notEqual(item.error, null)
+      assert.equal(await downloads.resumeAfterOutage(), 0)
+      // The server answered, so nothing here said it was gone.
+      assert.equal(reachable.includes(false), false)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  test('a pause after a stall survives the next start', async () => {
+    const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
+    const stopped = manager({
+      contents: '0123456789',
+      breakAfter: 4,
+      breakTimes: 2,
+      breakReason: UnreachableError,
+      roms: { 1: rom(), 2: second }
+    })
+    stopped.downloads.enqueue(rom())
+    stopped.downloads.enqueue(second)
+    await settled(stopped.downloads, 1)
+    await settled(stopped.downloads, 2)
+
+    // Picked up when the server came back, and then stopped on purpose while
+    // it waited its turn behind the other one.
+    await stopped.downloads.resumeAfterOutage()
+    stopped.downloads.pause(2)
+    assert.equal(stopped.store.pending.find((row) => row.romId === 2)?.stoppedAs, 'paused')
+
+    const restarted = manager({
+      contents: '0123456789',
+      roms: { 1: rom(), 2: second },
+      store: stopped.store
+    })
+    await restarted.downloads.restorePending()
+
+    // Anything else is a Pause button that a restart undoes.
+    assert.equal(restarted.downloads.items.find((item) => item.romId === 2)?.state, 'paused')
   })
 
   test('a game that finished after all is forgotten rather than offered again', async () => {

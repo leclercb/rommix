@@ -10,14 +10,15 @@ import {
   type ReactNode
 } from 'react'
 import { createI18n, localeFor, type I18n } from '@shared/i18n'
-import type {
-  ConnectionStatus,
-  DownloadItem,
-  DownloadState,
-  InstalledRom,
-  SavesWaiting,
-  Settings,
-  UpdateStatus
+import {
+  isStopped,
+  type ConnectionStatus,
+  type DownloadItem,
+  type DownloadState,
+  type InstalledRom,
+  type SavesWaiting,
+  type Settings,
+  type UpdateStatus
 } from '@shared/types'
 import { setSoundEnabled } from './input/sound'
 import { fileNameOf } from '@shared/gamefiles'
@@ -525,7 +526,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           notify(item.error, 'error', subject)
         } else if (item.state === 'cancelled') {
           notify(i18n.t('toast.downloadCancelled'), 'warn', subject)
-        } else if (item.state === 'paused' && previous !== undefined) {
+        } else if (isStopped(item.state) && previous !== undefined) {
           /**
            * A transfer that stopped, however it stopped.
            *
@@ -545,6 +546,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
            * yesterday.
            */
           if (item.error) notify(item.error, 'error', subject)
+          else if (item.state === 'stalled')
+            notify(i18n.t('toast.downloadWaitingForServer'), 'warn', subject)
           else notify(i18n.t('toast.downloadPaused'), 'warn', subject)
         }
       }

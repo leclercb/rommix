@@ -284,6 +284,20 @@ describe('draining what a session left behind', () => {
     assert.deepEqual(uploaded, [])
   })
 
+  test('a save folder with nothing in it is not left waiting forever', async () => {
+    const { sync, target, stateDir } = setUp()
+    // What an emulator that made its folder and never wrote to it leaves. The
+    // upload passes over it without sending or failing, so counting it as
+    // still waiting would keep the record — and the warning on the game — for
+    // a game with nothing outstanding at all.
+    mkdirSync(join(stateDir, 'Sonic the Hedgehog (USA)'), { recursive: true })
+
+    const result = await sync.drain(target, 0, { sendUnasked: true })
+
+    assert.equal(result.ready, 0)
+    assert.equal(result.conflicts, 0)
+  })
+
   test('a session that wrote nothing leaves nothing waiting', async () => {
     const { sync, target } = setUp()
 

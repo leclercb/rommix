@@ -426,6 +426,24 @@ export class Store {
     writeJsonAtomic(this.pendingPath, { downloads: [...kept, entry] })
   }
 
+  /**
+   * Note how a transfer stopped, on the record that outlives this run.
+   *
+   * Patched onto the record rather than written with it: how a transfer stopped
+   * is only known when it stops, and the record is written before the first
+   * byte — see `setPending` — precisely so that a RomMix that never gets to
+   * write anything again has still left one behind.
+   *
+   * Both ways round, because it can change. A transfer the network stopped and
+   * the user then paused is paused; without writing that down, the pause would
+   * be undone by the next start, which is a Pause button that does not.
+   */
+  markPendingStopped(romId: number, stoppedAs: 'paused' | 'stalled'): void {
+    const held = this.pending.find((item) => item.romId === romId)
+    if (!held || held.stoppedAs === stoppedAs) return
+    this.setPending({ ...held, stoppedAs })
+  }
+
   /** Forget one — it finished, or the user cancelled it. */
   removePending(romId: number): void {
     const kept = this.pending.filter((item) => item.romId !== romId)

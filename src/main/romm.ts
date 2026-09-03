@@ -99,6 +99,23 @@ export class RommError extends Error {
 }
 
 /**
+ * The server could not be reached at all.
+ *
+ * Its own type because "nothing answered" is the one failure worth acting on
+ * rather than only reporting: it is what puts the interface into offline mode,
+ * and what marks a transfer as one to pick up by itself when the network comes
+ * back. Every other failure — a refusal, a name RomMix will not write, bytes
+ * that did not match their hash — is a thing the user has to know about, and no
+ * amount of waiting fixes any of them.
+ */
+export class UnreachableError extends RommError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnreachableError'
+  }
+}
+
+/**
  * What arrived is not what RomM holds. See `RommClient.verify`.
  *
  * Its own type because the queue answers for it differently from a transfer
@@ -345,7 +362,9 @@ export class RommClient {
       // below as an ordinary response. This is the only shape of failure that
       // says the server is not there.
       this.report(base, false, (cause as Error).message)
-      throw new RommError(t('error.cannotReach', { url: base, reason: (cause as Error).message }))
+      throw new UnreachableError(
+        t('error.cannotReach', { url: base, reason: (cause as Error).message })
+      )
     }
     // Any status at all: a 404 is the server, present and answering.
     this.report(base, true)
@@ -1054,8 +1073,27 @@ export class RommClient {
           // Sized the way the rest of the interface sizes things: this sentence
           // is read beside a progress bar counting in gigabytes, and a raw byte
           // count is a number nobody converts in their head.
+          /**
+           * Whether this was the network, which is not the only thing caught
+           * here.
+           *
+           * The loop also sees a status RomM answered with — a ROM deleted
+           * server-side is a 404 — and a non-resumable transfer is allowed one
+           * attempt, so that 404 arrives on the first pass. Treated as an
+           * outage it would report the server unreachable a moment after every
+           * attempt had reported it reachable, put the interface into offline
+           * mode, and leave the row to be tried again on every reconnection for
+           * a reason no amount of waiting fixes.
+           */
+          if (answered(cause)) throw cause
+
           const size = i18n().formatBytes
-          throw new RommError(
+          // A transfer that broke off and would not pick up again is the server
+          // being gone, which is worth telling the connection watch as loudly
+          // as a request that could not be sent — and worth marking the row
+          // with, so it can carry on by itself.
+          this.report(this.store.server?.baseUrl ?? '', false, (cause as Error).message)
+          throw new UnreachableError(
             t('error.downloadInterrupted', { received: size(received), total: size(total) })
           )
         }

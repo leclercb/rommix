@@ -1,6 +1,6 @@
 import { type JSX, useEffect, useState } from 'react'
 import { resolveSystem } from '@config/systems'
-import type { BiosPlatform, InstalledRom, RommRom } from '@shared/types'
+import { isStopped, type BiosPlatform, type InstalledRom, type RommRom } from '@shared/types'
 import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
 import { Icon } from '../../icons'
 import { useApp, useDownloads, useI18n } from '../../state'
@@ -282,7 +282,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
                 and whether that means starting or finishing a transfer is not
                 a second decision to make. How far it got is on the button, as
                 it is on the two that stopped it. */}
-            {download?.state === 'paused'
+            {isStopped(download?.state ?? 'downloading')
               ? t('game.resumeDownload', { percent: progress })
               : t('action.download')}
           </FocusButton>
@@ -292,7 +292,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             this was the one screen with no way to say so — Resume was the only
             thing on offer, and the queue was the only place to change one's
             mind. */}
-        {download?.state === 'paused' ? (
+        {isStopped(download?.state ?? 'downloading') ? (
           <FocusButton
             icon="cancel"
             variant="danger"
@@ -410,7 +410,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           The same panel the queue draws, minus the game — which game this is is
           the rest of this screen, and repeating it here would be the only thing
           on the page saying it twice. */}
-      {active || download?.state === 'paused' ? (
+      {active || isStopped(download?.state ?? 'downloading') ? (
         <div className="download download--bare">
           <span className="download__facts">
             {download?.state === 'downloading' && download.currentFile ? (

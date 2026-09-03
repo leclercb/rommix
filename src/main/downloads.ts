@@ -2,12 +2,18 @@ import { EventEmitter } from 'node:events'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { chooseLaunchFile } from '@shared/gamefiles'
-import type { DownloadItem, RommRom } from '@shared/types'
+import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
 import { unpack, type InstallResult } from './install.ts'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
 import { Library } from './library.ts'
-import { CorruptDownloadError, partialPathOf, RommClient, RommError } from './romm.ts'
+import {
+  CorruptDownloadError,
+  partialPathOf,
+  RommClient,
+  RommError,
+  UnreachableError
+} from './romm.ts'
 import { safeJoin } from './safepath.ts'
 import { isZip } from './zip.ts'
 import type { Store } from './store.ts'
@@ -100,8 +106,8 @@ export class DownloadManager extends EventEmitter {
   private running = false
   /** When the renderer was last told anything. See `throttledUpdate`. */
   private lastEmit = 0
-  /** Whether the interrupted transfers have been read back. See `restorePending`. */
-  private restored = false
+  /** The read-back of interrupted transfers, once asked for. See `restorePending`. */
+  private restored: Promise<void> | null = null
   /**
    * ROMs whose transfer is being stopped on purpose.
    *
@@ -151,7 +157,7 @@ export class DownloadManager extends EventEmitter {
      * business rather than a second control to find. `runOne` decides whether
      * the bytes can actually be appended to.
      */
-    const paused = this.queue.find((item) => item.romId === rom.id && item.state === 'paused')
+    const paused = this.queue.find((item) => item.romId === rom.id && isStopped(item.state))
     if (paused) {
       paused.state = 'queued'
       paused.error = null
@@ -202,6 +208,54 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * Start again everything the network stopped, in the order it stopped it.
+   *
+   * The transfer that was on the wire comes first, because it is first in the
+   * queue and because it is the one with bytes on the disk to carry on from;
+   * the rest go back to waiting their turn, which is where they were. Nothing
+   * else is touched: a transfer the user paused stays paused, and one that
+   * failed for a reason waiting cannot fix stays failed.
+   *
+   * Each needs the ROM again — the queue keeps a row, not the record it was
+   * built from — which is a request per stopped transfer, made at the one
+   * moment there is certainly a server to make it to.
+   *
+   * Runs on every start as well as on every reconnection, because an outage
+   * outlives a session: a handheld carried out of range, closed and opened
+   * again at home has a queue that stopped for a reason which is over.
+   */
+  async resumeAfterOutage(): Promise<number> {
+    // The queue may not have been read back yet: this runs at start-up, and
+    // nothing has asked for the list at that point. Idempotent, so the screen
+    // asking a moment later still gets the same rows.
+    await this.restorePending()
+
+    const stalled = this.queue.filter((item) => item.state === 'stalled')
+    if (stalled.length === 0) return 0
+
+    log.info('download', 'the server is back, picking up where the network left off', {
+      count: stalled.length,
+      romIds: stalled.map((item) => item.romId)
+    })
+
+    let resumed = 0
+    for (const item of stalled) {
+      try {
+        this.enqueue(await this.client.rom(item.romId))
+        resumed += 1
+      } catch (cause) {
+        // Left marked, so the next time the server answers takes it up again.
+        log.warn('download', 'could not pick a transfer up again', {
+          romId: item.romId,
+          name: item.name,
+          reason: (cause as Error).message
+        })
+      }
+    }
+    return resumed
+  }
+
+  /**
    * Stop a transfer for now, keeping what has arrived.
    *
    * The counterpart to cancelling, and what makes starting a download a
@@ -225,8 +279,11 @@ export class DownloadManager extends EventEmitter {
     })
 
     // A transfer that never started has nothing in flight to stop, and no
-    // `runOne` to record the pause on its behalf.
+    // `runOne` to record the pause on its behalf — including on the record it
+    // left behind, which may still say the network stopped it. Left saying so,
+    // the next start would take this pause for an outage and undo it.
     if (item.state === 'queued') {
+      this.store.markPendingStopped(romId, 'paused')
       item.state = 'paused'
       this.emitUpdate()
       return
@@ -296,7 +353,7 @@ export class DownloadManager extends EventEmitter {
    */
   promote(romId: number): void {
     const item = this.queue.find(
-      (entry) => entry.romId === romId && (entry.state === 'queued' || entry.state === 'paused')
+      (entry) => entry.romId === romId && (entry.state === 'queued' || isStopped(entry.state))
     )
     if (!item) return
 
@@ -306,7 +363,7 @@ export class DownloadManager extends EventEmitter {
     // and the wire is free.
     if (running === undefined && next === item) return
 
-    const resumed = item.state === 'paused'
+    const resumed = isStopped(item.state)
     item.state = 'queued'
     item.error = null
     this.moveToFront(item)
@@ -349,13 +406,13 @@ export class DownloadManager extends EventEmitter {
     this.controllers.get(romId)?.abort()
     const item = this.queue.find((i) => i.romId === romId)
     if (!item) return
-    if (item.state !== 'queued' && item.state !== 'downloading' && item.state !== 'paused') return
+    if (item.state !== 'queued' && item.state !== 'downloading' && !isStopped(item.state)) return
 
     this.pausing.delete(romId)
     log.info('download', 'cancelled', { romId, name: item.name, was: item.state })
     // Cancelling a paused download is what says the part-downloaded file is not
     // wanted; nothing else ever deletes it.
-    if (item.state === 'paused') {
+    if (isStopped(item.state)) {
       const recorded = this.store.pending.find((entry) => entry.romId === romId)
       if (recorded) await discardHeld(recorded)
       this.library.forgetListings()
@@ -625,15 +682,26 @@ export class DownloadManager extends EventEmitter {
       // after a restart saying it too, since the row is rebuilt from a record
       // that never knew about it.
       item.currentFile = undefined
+      /**
+       * Stopped by the network, which is not the same as stopped by anybody.
+       *
+       * Told apart by the error the transfer threw, since that is the only
+       * thing that knows: `UnreachableError` is raised where a request cannot
+       * be sent and where a transfer has broken off once too often, and nothing
+       * else raises it. See `resumeAfterOutage` for what the difference buys.
+       */
+      const outage = cause instanceof UnreachableError && !cancelled && !asked && !overtaken
       item.state = cancelled
         ? 'cancelled'
-        : // Back into the queue rather than into a paused row: it was not
+        : // Back into the queue rather than into a stopped row: it was not
           // stopped, it was overtaken, and it goes on when its turn returns.
           overtaken
           ? 'queued'
-          : asked || carried > 0
-            ? 'paused'
-            : 'error'
+          : outage
+            ? 'stalled'
+            : asked || carried > 0
+              ? 'paused'
+              : 'error'
       // A stop the user asked for has nothing to explain, and neither has a
       // connection that broke with bytes worth keeping: that row is waiting to
       // be finished rather than failing.
@@ -644,10 +712,15 @@ export class DownloadManager extends EventEmitter {
       // and the one thing that must not happen quietly is bytes being refused.
       const corrupt = cause instanceof CorruptDownloadError
       item.error =
-        cancelled || asked || overtaken || (carried > 0 && !corrupt)
+        cancelled || asked || overtaken || outage || (carried > 0 && !corrupt)
           ? null
           : (cause as Error).message
       item.receivedBytes = carried > 0 ? carried : item.receivedBytes
+      // On the record as well, so how this stopped outlives the run it stopped
+      // in. See `PendingDownload.stoppedAs`.
+      if (item.state === 'paused' || item.state === 'stalled') {
+        this.store.markPendingStopped(rom.id, item.state)
+      }
 
       if (overtaken)
         log.info('download', 'let another transfer past', { ...detail, received: carried })
@@ -863,9 +936,15 @@ export class DownloadManager extends EventEmitter {
    * resume that has nothing to resume from.
    */
   async restorePending(): Promise<void> {
-    if (this.restored) return
-    this.restored = true
+    // The promise rather than a flag, so a second caller waits for the first
+    // rather than being told it is done. `resumeAfterOutage` asks for this and
+    // then reads the queue, and a screen asking at the same moment would
+    // otherwise have it read an empty one.
+    this.restored ??= this.readBackPending()
+    return this.restored
+  }
 
+  private async readBackPending(): Promise<void> {
     let found = false
     for (const entry of this.store.pending) {
       // A game that is installed after all: the transfer finished and RomMix
@@ -875,6 +954,11 @@ export class DownloadManager extends EventEmitter {
         this.store.removePending(entry.romId)
         continue
       }
+
+      // A row for it already, which is a transfer this run has stopped rather
+      // than one a previous run left behind. Restoring it would put the same
+      // game in the queue twice, each half-believing it owns the same bytes.
+      if (this.queue.some((item) => item.romId === entry.romId)) continue
 
       // How far it got is measured, never remembered: the files are the truth,
       // and a record written before the transfer started knows nothing about
@@ -891,7 +975,7 @@ export class DownloadManager extends EventEmitter {
         coverPath: entry.coverPath,
         system: entry.system,
         platformName: entry.platformName,
-        state: 'paused',
+        state: entry.stoppedAs ?? 'paused',
         receivedBytes: onDisk,
         totalBytes: entry.totalBytes,
         error: null

@@ -131,6 +131,13 @@ export class RomMixApp {
       )
       await this.rememberServer()
       await this.sendUnsentSaves()
+      // Last, and after the saves: a queue of games is minutes of bandwidth,
+      // and the saves are the part that cannot be fetched again.
+      await this.downloads
+        .resumeAfterOutage()
+        .catch((cause: Error) =>
+          log.info('download', 'could not pick the queue up again', { reason: cause.message })
+        )
     })().finally(() => {
       this.catchingUp = null
     })
@@ -188,10 +195,22 @@ export class RomMixApp {
         const target = await saveContext(this, romId)
         const result = await this.saveSync.drain(target, since, { sendUnasked })
         if (result.sent > 0) sent.push(romId)
+
         // Nothing waiting means nothing to come back for, however the record
         // came to be written.
-        if (result.conflicts === 0 && result.ready === 0) this.store.clearUnsentSaves(romId)
-        else waiting.push({ romId, conflicts: result.conflicts, ready: result.ready })
+        if (result.conflicts === 0 && result.ready === 0) {
+          this.store.clearUnsentSaves(romId)
+          continue
+        }
+        // Only where the setting is what is holding them. With sending set to
+        // go ahead unasked, `ready` counts uploads the server refused — real,
+        // and not the setting's doing, so saying so would explain a file with
+        // the one reason that is certainly not why. The record stays either
+        // way, and the next reconnection tries again.
+        const held = sendUnasked ? 0 : result.ready
+        if (result.conflicts > 0 || held > 0) {
+          waiting.push({ romId, conflicts: result.conflicts, ready: held })
+        }
       } catch (cause) {
         // The game may have been uninstalled, its emulator changed, or the
         // server gone again mid-pass. The record stays and the next catch-up
@@ -265,18 +284,23 @@ export class RomMixApp {
       }
       try {
         const target = await saveContext(this, romId)
+        // Nothing is sent from here: this only reports. Which is why the record
+        // is cleared against what is *actually* outstanding and never against
+        // the adjusted figure below — a file nobody has sent is a file still on
+        // this disk, whatever the reason for it is called.
         const counted = await this.saveSync.drain(target, since, { sendUnasked: false })
-        // Only where the setting is what is holding them: with sending set to
-        // go ahead unasked, these are not waiting on anybody and the catch-up
-        // has either sent them or will.
-        const ready = sendUnasked ? 0 : counted.ready
-        // Tested after that adjustment, or a game with no reason to give would
-        // be listed as waiting and then explain itself with nothing.
-        if (counted.conflicts === 0 && ready === 0) {
+        if (counted.conflicts === 0 && counted.ready === 0) {
           this.store.clearUnsentSaves(romId)
           continue
         }
-        waiting.push({ romId, conflicts: counted.conflicts, ready })
+        // Only where the setting is what is holding them: with sending set to
+        // go ahead unasked, these are not waiting on anybody and the catch-up
+        // has either sent them or will. A game left with no reason to give is
+        // left out of the list rather than listed and unable to explain itself.
+        const ready = sendUnasked ? 0 : counted.ready
+        if (counted.conflicts > 0 || ready > 0) {
+          waiting.push({ romId, conflicts: counted.conflicts, ready })
+        }
       } catch {
         // Unanswerable right now — see `sendUnsentSaves`. The game is left out
         // rather than guessed at.
