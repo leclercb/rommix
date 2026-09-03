@@ -828,7 +828,18 @@ export class DownloadManager extends EventEmitter {
     const chosen = chooseLaunchFile(sized, where.system) ?? sized[0]?.name
     const launchPath = chosen ? join(where.dir, chosen) : where.dir
     return where.asDirectory
-      ? { path: where.dir, launchPath, sizeBytes: done, isDirectory: true }
+      ? {
+          path: where.dir,
+          launchPath,
+          sizeBytes: done,
+          isDirectory: true,
+          // What the game is made of, the same as the archive path records for
+          // a directory it unpacked. Left out, the index falls back to the
+          // folder's own name — so a disc set fetched file by file listed one
+          // file that does not exist, while the same game fetched as an archive
+          // listed both of its own.
+          files: sized.map((file) => file.name)
+        }
       : {
           path: launchPath,
           launchPath,

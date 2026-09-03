@@ -67,12 +67,15 @@ describe('what the fake answers', () => {
   test('the user, the platforms and a page of the library', async () => {
     const romm = client()
     assert.equal((await romm.me()).username, 'tester')
+    // Against what the fake holds rather than a list written out here: what is
+    // under test is that the client reads back what the server sent, and a
+    // second copy of the fixture only ever goes stale.
     assert.deepEqual(
       (await romm.platforms()).map((one) => one.slug),
-      ['genesis-slash-megadrive', 'gb', 'switch']
+      server.platforms.map((one) => one.slug)
     )
     const page = await romm.roms()
-    assert.equal(page.total, 3)
+    assert.equal(page.total, server.roms.length)
     assert.equal(page.items[0].fs_name, 'cavestory.md')
   })
 

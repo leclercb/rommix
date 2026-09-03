@@ -212,6 +212,62 @@ describe('launching a game', () => {
   })
 })
 
+describe('downloading a game of several files', () => {
+  test('every file arrives, in a folder of its own, and the set is launchable', async () => {
+    // Fetched one file at a time rather than as one archive: these are ordinary
+    // files on RomM's disk, so each can be resumed and the sum of them is
+    // smaller than a zip around bytes it does not compress. That the fake can
+    // serve this path faithfully is the reason it is worth a scenario — the
+    // other path, an archive built per request, it cannot. See TODO.md.
+    await app.goTo('library')
+    await app.choose('[data-rom="4"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    await app.choose('[data-action="download"]')
+    await app.waitFor(
+      `(await window.rommix.library.installed()).some((one) => one.romId === 4)`,
+      'the disc set to arrive'
+    )
+
+    const entry = await app.read<{
+      path: string
+      launchPath: string
+      files: string[]
+      isDirectory: boolean
+    }>(`(await window.rommix.library.installed()).find((one) => one.romId === 4)`)
+
+    // A folder of its own, because a disc set that lands loose among every
+    // other game on the platform is one nothing can keep together.
+    assert.equal(entry.isDirectory, true)
+    assert.deepEqual(entry.files.slice().sort(), [
+      'Disc Adventure (Track 1).bin',
+      'Disc Adventure.cue'
+    ])
+    for (const file of entry.files) {
+      assert.equal(
+        existsSync(join(entry.path, file)),
+        true,
+        `${file} is missing from ${entry.path}`
+      )
+    }
+
+    // The descriptor, not the largest file: handing an emulator the `.bin` of a
+    // disc set starts nothing, and which file to hand it is decided at install
+    // time and recorded here.
+    assert.ok(entry.launchPath.endsWith('.cue'), entry.launchPath)
+
+    // Asked for by file id, twice — one request per file, and never the game's
+    // own content endpoint, which is where the archive would have come from.
+    const perFile = server.asked.filter((one) => /\/files\/content\//.test(one.path))
+    assert.ok(perFile.length >= 2, `only asked for ${perFile.length} files`)
+    assert.equal(
+      server.asked.some((one) => one.path.startsWith('/api/roms/4/content/')),
+      false,
+      'it should not have fallen back to the archive'
+    )
+  })
+})
+
 /**
  * A session with saves on both sides of it.
  *

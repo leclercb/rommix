@@ -62,6 +62,8 @@ export interface FakeRomm {
   token: string
   /** The library it serves, for a test that wants to assert against it. */
   roms: RommRom[]
+  /** The platforms it serves, likewise. */
+  platforms: RommPlatform[]
   close: () => Promise<void>
 }
 
@@ -71,6 +73,11 @@ const TOKEN = 'rmm_fake_token_for_tests'
 /** The bytes of the one game that can be downloaded, and its digest. */
 const ROM_BYTES = Buffer.from('RomMix integration test ROM\n'.repeat(64))
 const ROM_MD5 = createHash('md5').update(ROM_BYTES).digest('hex')
+
+/** The bytes of one file of a game made of several. */
+function bytesFor(fileName: string): Buffer {
+  return Buffer.from(`RomMix integration test — ${fileName}\n`.repeat(16))
+}
 
 function platform(id: number, slug: string, name: string, folder = slug): RommPlatform {
   return {
@@ -162,6 +169,43 @@ function rom(id: number, name: string, host: RommPlatform, fsName: string): Romm
   }
 }
 
+/**
+ * A game RomM holds as several files.
+ *
+ * Faithful in the part that matters: RomMix asks for these one at a time,
+ * through the per-file endpoint, because they are ordinary files on the
+ * server's disk. What this fake cannot stand in for is the other path — a
+ * server too old for that endpoint builds an archive per request, which is not
+ * the same size twice and has nothing to seek into. See TODO.md.
+ */
+function discSet(id: number, name: string, host: RommPlatform, folder: string): RommRom {
+  const parts = [`${folder}.cue`, `${folder} (Track 1).bin`]
+  const whole = rom(id, name, host, `${folder}.cue`)
+  return {
+    ...whole,
+    fs_name_no_ext: folder,
+    has_simple_single_file: false,
+    has_multiple_files: true,
+    // No digest on the game itself: what the content endpoint would serve for
+    // one of these is an archive, and the hashes RomM holds describe neither
+    // that archive nor any one file in it. Each file carries its own below.
+    md5_hash: null,
+    fs_size_bytes: parts.reduce((sum, part) => sum + bytesFor(part).length, 0),
+    files: parts.map((fileName, at) => ({
+      id: id * 10 + at,
+      rom_id: id,
+      file_name: fileName,
+      file_path: `${host.fs_slug}/${folder}/`,
+      file_size_bytes: bytesFor(fileName).length,
+      full_path: `${host.fs_slug}/${folder}/${fileName}`,
+      category: null,
+      crc_hash: null,
+      md5_hash: createHash('md5').update(bytesFor(fileName)).digest('hex'),
+      sha1_hash: null
+    }))
+  }
+}
+
 const user: RommUser = {
   id: 1,
   username: 'tester',
@@ -212,10 +256,12 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   // one system, one way to run it, and no core to fetch off the internet
   // first — which is what running a libretro game through RetroArch would do.
   const nintendoSwitch = platform(3, 'switch', 'Nintendo Switch')
+  const segacd = platform(4, 'segacd', 'Sega CD')
   const roms = [
     rom(1, 'Cave Story MD', megadrive, 'cavestory.md'),
     rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb'),
-    rom(3, 'Test Chamber', nintendoSwitch, 'testchamber.nsp')
+    rom(3, 'Test Chamber', nintendoSwitch, 'testchamber.nsp'),
+    discSet(4, 'Disc Adventure', segacd, 'Disc Adventure')
   ]
 
   const server: Server = createServer((req, res) => {
@@ -248,7 +294,8 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       }
 
       if (url.pathname === '/api/users/me') return json(user)
-      if (url.pathname === '/api/platforms') return json([megadrive, gameboy, nintendoSwitch])
+      if (url.pathname === '/api/platforms')
+        return json([megadrive, gameboy, nintendoSwitch, segacd])
       if (url.pathname === '/api/collections') return json([] as RommCollection[])
       if (url.pathname === '/api/collections/virtual') {
         return json([] as RommVirtualCollection[])
@@ -318,8 +365,16 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         return serveBytes(req, res, ROM_BYTES)
       }
 
-      const fileContent = /^\/api\/roms\/(\d+)\/files\/content\//.exec(url.pathname)
-      if (fileContent) return serveBytes(req, res, ROM_BYTES)
+      const fileContent = /^\/api\/roms\/(\d+)\/files\/content\/(.+)$/.exec(url.pathname)
+      if (fileContent) {
+        const wanted = Number(fileContent[1])
+        const file = roms.flatMap((one) => one.files).find((one) => one.id === wanted)
+        if (!file) return json({ detail: 'No such file' }, 404)
+        // Its own bytes, keyed by the file's id rather than the game's — which
+        // is what the per-file endpoint is, and what makes each file's hash
+        // check mean something.
+        return serveBytes(req, res, file.rom_id === 4 ? bytesFor(file.file_name) : ROM_BYTES)
+      }
 
       const one = /^\/api\/roms\/(\d+)$/.exec(url.pathname)
       if (one) {
@@ -342,6 +397,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     asked,
+    platforms: [megadrive, gameboy, nintendoSwitch, segacd],
     uploaded,
     holdSave: ({ romId, fileName, emulator, content }) => {
       held.push({

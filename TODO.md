@@ -36,12 +36,15 @@ this an afternoon of CI wiring rather than a second suite.
 ## Scenarios not yet written
 
 `test/app/scenarios.test.ts` covers starting up, moving around, downloading a
-game, launching one, a save round trip either side of that session, and the
-server going away underneath all of it. What is not covered yet, in the order
+game, a game of several files, launching one, a save round trip either side of
+that session, and the server going away underneath all of it. What is not covered yet, in the order
 the risk sits:
 
-- **A game of several files.** The one shape the fake cannot honestly stand in
-  for, because what a real RomM serves is an archive built per request. See
-  above.
+- **A game of several files fetched as one archive.** The per-file path is
+  covered — those are ordinary files on RomM's disk and the fake serves them
+  faithfully. What is not is the fallback for a server too old to have that
+  endpoint, which builds an archive per request: it is not the same size twice
+  and has nothing to seek into, so no fake can stand in for it. That one needs
+  the real server above.
 - **BIOS.** The screen has good unit coverage and no end-to-end path; the
   firmware endpoints on the fake are stubs returning nothing.
