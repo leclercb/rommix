@@ -5,3 +5,4 @@ dist/
 *.tsbuildinfo
 *.local
 .DS_Store
+test/app/failures/

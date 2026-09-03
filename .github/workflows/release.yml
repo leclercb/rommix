@@ -124,6 +124,19 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run test:app
 
+      # The one suite whose failures cannot be read from a log: it drives a
+      # window, and the message says what was waited for rather than what was
+      # drawn. The driver leaves a screenshot behind wherever it gives up — see
+      # `capture` in test/app/driver.ts — and this is what carries it off a
+      # runner that is about to be deleted. Only on failure, because a passing
+      # run leaves nothing there.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: app-test-failures-${{ matrix.arch }}
+          path: test/app/failures/
+          if-no-files-found: ignore
+
       # Shipped beside the image, not inside it: it is what Steam's shortcut
       # points at, and the AppImage cannot set the variable that makes itself
       # launchable from Steam. See packaging/rommix-steam.sh.

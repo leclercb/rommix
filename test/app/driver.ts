@@ -28,6 +28,16 @@ const SETTLE_TIMEOUT_MS = 15_000
 const POLL_MS = 100
 
 /**
+ * Where a failure leaves its screenshot. See `capture`.
+ *
+ * Under the repository rather than in a temporary folder, because the reader is
+ * usually a CI runner that is about to be thrown away: a path in the checkout
+ * is one the workflow can upload, and one a developer can open without being
+ * told where to look.
+ */
+const SHOTS = join(process.cwd(), 'test', 'app', 'failures')
+
+/**
  * The Electron to run.
  *
  * `ELECTRON_EXEC_PATH` first, and for the same reason `.envrc` sets it: on
@@ -290,6 +300,11 @@ export async function startApp(options: StartOptions): Promise<App> {
   const home = mkdtempSync(join(tmpdir(), 'rommix-app-test-'))
   seed(home, options)
 
+  // Whatever is in there belongs to the run before this one, and a screenshot
+  // of a failure that has since been fixed is worse than no screenshot at all —
+  // it is read as evidence about the failure being looked at.
+  rmSync(SHOTS, { recursive: true, force: true })
+
   // Port 0 asks the operating system to choose, which is what lets several of
   // these run at once; the debugger prints the one it took on stderr.
   const child: ChildProcess = spawn(electronBinary(), ['.', '--remote-debugging-port=0'], {
@@ -360,6 +375,35 @@ export async function startApp(options: StartOptions): Promise<App> {
     return result.result?.value as T
   }
 
+  let shots = 0
+
+  /**
+   * Write what was on screen when the driver gave up, and name the file.
+   *
+   * A message can say what was waited for; it cannot say what was there
+   * instead. On a runner nobody watched that is the whole distance between a
+   * diagnosis and a re-run — a library that never filled and a library filled
+   * behind an overlay give up with the same sentence, and `focused` answers for
+   * one element when the question is about the screen.
+   *
+   * Best effort, and never an error in itself. The debugger having gone is why
+   * the test is failing, and something thrown from here would replace the
+   * failure worth reading with one about taking its picture.
+   */
+  const capture = async (what: string): Promise<string> => {
+    shots += 1
+    const name = `${String(shots).padStart(2, '0')}-${what.replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}.png`
+    try {
+      const shot = (await session.send('Page.captureScreenshot')) as { data?: string }
+      if (!shot.data) return ''
+      mkdirSync(SHOTS, { recursive: true })
+      writeFileSync(join(SHOTS, name), Buffer.from(shot.data, 'base64'))
+      return `\nthe screen at that moment: ${join(SHOTS, name)}`
+    } catch {
+      return ''
+    }
+  }
+
   const waitFor = async (
     expression: string,
     what: string,
@@ -370,7 +414,7 @@ export async function startApp(options: StartOptions): Promise<App> {
       if (await read<boolean>(`Boolean(${expression})`)) return
       await new Promise((resolve) => setTimeout(resolve, POLL_MS))
     }
-    throw new Error(`gave up waiting for ${what}`)
+    throw new Error(`gave up waiting for ${what}${await capture(what)}`)
   }
 
   /**
@@ -529,7 +573,8 @@ export async function startApp(options: StartOptions): Promise<App> {
     }
 
     throw new Error(
-      `the highlight never reached ${selector}; it is on ${await highlight()} ("${await focused()}")`
+      `the highlight never reached ${selector}; it is on ${await highlight()} ("${await focused()}")` +
+        (await capture(`reaching ${selector}`))
     )
   }
 
@@ -597,7 +642,10 @@ export async function startApp(options: StartOptions): Promise<App> {
       if (await arrived()) return press('Enter')
     }
 
-    throw new Error(`the menu never reached ${route}; the highlight is on "${await focused()}"`)
+    throw new Error(
+      `the menu never reached ${route}; the highlight is on "${await focused()}"` +
+        (await capture(`going to ${route}`))
+    )
   }
 
   return {
