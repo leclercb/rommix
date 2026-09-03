@@ -18,10 +18,3 @@ establishing once, by hand, against a server somebody already runs, and writing
 into the fake. Not worth standing a server up in CI for: that is one container
 set per version in `schema/`, a scan to wait on, and a nightly that goes red for
 reasons that are not RomMix.
-
-## The pad while an emulator owns the screen
-
-Every press but Start held down is dropped, which is what stops A in a game from
-quitting the game through the running overlay's autofocused Close button. It
-needs a game actually running to mean anything, and sequencing it inside a
-launch made the scenario about timing rather than about input.

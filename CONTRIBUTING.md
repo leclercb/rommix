@@ -66,8 +66,8 @@ which showed up as the focus scan giving up on a library that was still filling.
 A GUI under test is not a thing to parallelise.
 
 Four scenario files. Two of them are apart because they need an application the
-others cannot be: `connect.test.ts` starts signed out, and `stuck.test.ts` runs
-an emulator that ignores being asked to quit. The other two are split by whether
+others cannot be: `connect.test.ts` starts signed out, and `running.test.ts`
+runs an emulator that ignores being asked to quit. The other two are split by whether
 order matters. `games.test.ts` is one
 session read top to bottom — the game downloaded by one scenario is the game
 launched by the next, and the last takes the server away — because none of those
@@ -78,7 +78,7 @@ from `startScenario` in `harness.ts`, which is what stops the settings they
 share from drifting apart.
 
 Three applications to a file is the ceiling. A fourth in the same process
-reliably never brought its debugger up, which is why `stuck.test.ts` is a file
+reliably never brought its debugger up, which is why `running.test.ts` is a file
 rather than another `describe`.
 
 Where it gives up it leaves a screenshot behind, named after what it was waiting
@@ -110,10 +110,10 @@ polled and returns plain data, so `plugInPad` supplies some. That is what
 reaches the two things no key can describe: a held direction that repeats, and
 the button layout of a pad Chromium could not identify.
 
-Not covered there: what the pad does while an emulator owns the screen, where
-every press but Start held down is dropped. It needs a game running to mean
-anything, and sequencing it inside a launch made the scenario about timing
-rather than about input.
+What the pad does while an emulator owns the screen is `running.test.ts`, which
+is the only place a game holds the screen for long enough to ask: every press
+but Start held down is thrown away there, and a stand-in that quits when asked
+never stays up long enough to prove it.
 
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
