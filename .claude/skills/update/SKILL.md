@@ -31,11 +31,21 @@ Show the user:
 
 Message style — match `git log`:
 
-- a subject line: sentence case, imperative, no `type:` prefix, no trailers,
-  says what the change does for the user, under ~72 characters
-- examples: `Fix EmuDeck detection, its Run button, and re-pairing on every start`,
-  `Show a game's files as one list tagged by where each one is`,
-  `Offer only the EmuDeck launchers that are actually installed`
+- a subject line: `type(scope): ` then one lowercase clause, imperative, no
+  trailers, saying what the change does for the user, under ~72 characters
+- types: `feat`, `fix`, `refactor`, `test`, `ci`, `docs`, `chore`. A scope only
+  where it divides something real — `test(app)` for `test/app/`, `test(unit)`
+  for a `src/**/*.test.ts`, `test(schema)` for the conformance checks,
+  `refactor(test)` for restructuring the suites. No scope where there is nothing
+  to divide: `ci: `, `docs: `.
+- examples: `fix: offer only the EmuDeck launchers that are actually installed`,
+  `test(app): cover signing in by pairing`,
+  `ci: run the app suite before a release`
+- **one clause.** Never a trailing clause after a comma — not `, and`, not
+  `, which`, not `, from`. A comma is only for items of a list, as in
+  `test(app): cover the collections, settings and emulators screens`. If a
+  second clause feels needed, the subject is covering two things and the wrong
+  one is being named; the rest belongs in the body.
 - a body, wrapped at 72, whenever the subject alone would leave the next reader
   asking why. Say what was wrong before and why this is the answer — the same
   standard the comments are held to. A change that genuinely explains itself
