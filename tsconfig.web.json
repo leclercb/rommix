@@ -6,6 +6,10 @@
     "moduleResolution": "bundler",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    // The renderer itself has no Node available to it. This is for the tests
+    // below, which run under `node --test` like every other one: without it a
+    // renderer test cannot so much as import `node:assert`.
+    "types": ["node"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -29,6 +33,8 @@
     "src/config/**/*",
     "src/preload/index.d.ts"
   ],
-  // Tests are Node-side and are typechecked by tsconfig.node.json.
-  "exclude": ["src/**/*.test.ts"]
+  // The shared and config tests are typechecked by tsconfig.node.json, which
+  // includes those trees. It does not include the renderer, so a test beside a
+  // renderer module is checked here or nowhere.
+  "exclude": ["src/shared/**/*.test.ts", "src/config/**/*.test.ts"]
 }
