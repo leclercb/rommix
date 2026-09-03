@@ -370,6 +370,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           <>
             <FocusButton
               icon="pull"
+              action="pull-saves"
               onSelect={() => void syncSaves('pull')}
               disabled={working || running || offline === true}
             >
@@ -382,6 +383,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
                 one press on this screen that can lose somebody's progress. */}
             <FocusButton
               icon="push"
+              action="push-saves"
               onSelect={() => void beginPush(savesWaiting)}
               disabled={working || running || offline === true}
             >

@@ -60,8 +60,14 @@ export interface FakeRomm {
    * match is a pull that correctly does nothing.
    */
   holdSave: (save: { romId: number; fileName: string; emulator: string; content: string }) => void
-  /** Saves this server was sent, in order. */
-  uploaded: { romId: number; emulator: string | null; deviceId: string | null; body: string }[]
+  /** Saves and states this server was sent, in order. */
+  uploaded: {
+    kind: 'save' | 'state'
+    romId: number
+    emulator: string | null
+    deviceId: string | null
+    body: string
+  }[]
   /** Every request, in order. */
   asked: Asked[]
   /** The token a client must present. See `seedCredentials`. */
@@ -455,6 +461,8 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
 export async function startFakeRomm(): Promise<FakeRomm> {
   const asked: Asked[] = []
   const held: { save: RommSave; content: string }[] = []
+  /** States this server has been sent. Nothing seeds these; a push makes them. */
+  const heldStates: RommState[] = []
   const uploaded: FakeRomm['uploaded'] = []
   const megadrive = platform(1, 'genesis-slash-megadrive', 'Sega Mega Drive', 'genesis')
   const gameboy = platform(2, 'gb', 'Game Boy')
@@ -744,6 +752,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         // asserted rather than merely not crashing.
         if (req.method === 'POST') {
           uploaded.push({
+            kind: 'save',
             romId: Number(url.searchParams.get('rom_id') ?? 0),
             emulator: url.searchParams.get('emulator'),
             deviceId: url.searchParams.get('device_id'),
@@ -769,7 +778,40 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const romId = Number(url.searchParams.get('rom_id') ?? 0)
         return json(held.filter((one) => one.save.rom_id === romId).map((one) => one.save))
       }
-      if (url.pathname === '/api/states') return json([] as RommState[])
+      /**
+       * States, which are the other half of what a session leaves behind.
+       *
+       * Their own endpoint rather than a flag on a save — RomM keeps the two
+       * apart all the way down, and a push sends each to its own path. What
+       * arrives here is listed back, so a scenario that sends one can see the
+       * server holding it afterwards.
+       */
+      if (url.pathname === '/api/states') {
+        const romId = Number(url.searchParams.get('rom_id') ?? 0)
+        if (req.method !== 'POST') return json(heldStates.filter((one) => one.rom_id === romId))
+        uploaded.push({
+          kind: 'state',
+          romId,
+          emulator: url.searchParams.get('emulator'),
+          deviceId: url.searchParams.get('device_id'),
+          body: Buffer.concat(chunks).toString()
+        })
+        const kept: RommState = {
+          id: 950 + heldStates.length,
+          rom_id: romId,
+          user_id: user.id,
+          file_name: 'uploaded',
+          file_name_no_ext: 'uploaded',
+          file_extension: '',
+          file_size_bytes: 0,
+          download_path: 'uploaded',
+          emulator: url.searchParams.get('emulator'),
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z'
+        }
+        heldStates.push(kept)
+        return json(kept)
+      }
 
       /**
        * Saves and states taken off the server.
@@ -788,6 +830,8 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         for (const id of [...saves, ...states]) {
           const at = held.findIndex((one) => one.save.id === id)
           if (at >= 0) held.splice(at, 1)
+          const state = heldStates.findIndex((one) => one.id === id)
+          if (state >= 0) heldStates.splice(state, 1)
         }
         return json({})
       }
@@ -910,7 +954,11 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           // Another device's, which is what makes it worth bringing down.
           origin_device_id: 'some-other-device',
           created_at: '2026-01-01T00:00:00Z',
-          updated_at: new Date().toISOString()
+          // A minute ago rather than this instant. A pulled file is stamped
+          // with this, and two stamps within `SYNC_TOLERANCE_MS` are the same
+          // file — so a copy held at "now" is one a scenario cannot then get
+          // ahead of without waiting out the tolerance.
+          updated_at: new Date(Date.now() - 60_000).toISOString()
         }
       })
     },

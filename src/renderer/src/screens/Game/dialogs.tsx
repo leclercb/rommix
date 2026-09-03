@@ -189,7 +189,13 @@ export function PushConfirmDialog({
           overwritten says so on its own badge. Cancel sits last, where the
           answer that abandons the thing you asked for belongs. */}
       <div className="btn-row">
-        <FocusButton icon="push" variant="primary" onSelect={() => onSend(false)} autoFocus>
+        <FocusButton
+          icon="push"
+          action="push-send"
+          variant="primary"
+          onSelect={() => onSend(false)}
+          autoFocus
+        >
           {t('game.pushSend')}
         </FocusButton>
         {/* Sends as well as stops asking: turning the setting off and leaving

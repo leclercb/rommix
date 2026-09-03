@@ -271,16 +271,19 @@ export function Toggle({
   label,
   hint,
   on,
+  setting,
   onToggle
 }: {
   label: string
   hint?: string
   on: boolean
+  /** Which setting this is, for `npm run test:app`. See CONTRIBUTING. */
+  setting?: string
   onToggle: () => void
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <div className="setting">
+    <div className="setting" data-setting={setting}>
       <div className="setting__text">
         <div className="setting__label">{label}</div>
         {hint ? <div className="setting__hint">{hint}</div> : null}

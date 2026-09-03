@@ -69,6 +69,7 @@ export function GamesTab({ root }: { root: RootLocation | null }): JSX.Element {
       <Toggle
         label={t('settings.confirmPush')}
         hint={t('settings.confirmPushHint')}
+        setting="confirmSavePush"
         on={settings.confirmSavePush}
         onToggle={() => void saveSettings({ confirmSavePush: !settings.confirmSavePush })}
       />

@@ -889,6 +889,99 @@ describe('saves either side of a session', () => {
       'it should have asked RomM to delete the save'
     )
   })
+
+  test('a save the server holds is fetched by hand, without a launch', async () => {
+    // Both ends were emptied above, so there is one copy again and it is
+    // RomM's. Nothing here starts the game: the automatic sync happens around
+    // a launch, and a save made on another device is wanted before the game is
+    // started, not as a side effect of starting it.
+    server.holdSave({
+      romId: 1,
+      fileName: 'cavestory.srm',
+      emulator: 'retroarch',
+      content: 'brought down by hand'
+    })
+
+    await saved.goTo('library')
+    await saved.choose('[data-rom="1"]')
+    await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await saved.choose('[data-action="pull-saves"]')
+
+    await saved.waitFor(
+      `(await window.rommix.saves.list(1)).some(
+         (one) => one.fileName === 'cavestory.srm' && one.localPath
+       )`,
+      'the save to land on this disk'
+    )
+    assert.equal(readFileSync(join(saveDir, 'cavestory.srm'), 'utf8'), 'brought down by hand')
+  })
+
+  test('and the confirmation is turned on where it lives', async () => {
+    // Through the screen rather than through the settings file, because the
+    // question below is the one this toggle asks: a setting written from
+    // outside would prove the dialog works for a state nobody can reach.
+    await saved.goTo('settings')
+    await saved.waitFor(`document.querySelector('[data-tab="games"]')`, 'the settings tabs')
+    await saved.choose('[data-tab="games"]')
+    await saved.choose('[data-setting="confirmSavePush"] [data-option="on"]')
+
+    await saved.waitFor(
+      `(await window.rommix.system.settings()).confirmSavePush === true`,
+      'the setting to be kept'
+    )
+  })
+
+  test('so a push by hand says what would go before it goes', async () => {
+    // Written the way a session played outside RomMix leaves them: the save is
+    // ahead of the server's copy now, and the state is a file RomM has never
+    // had at all. Both are what the automatic sync never sees — it only looks
+    // at what a session it started wrote.
+    writeFileSync(join(saveDir, 'cavestory.srm'), 'played on the sofa')
+    const stateDir = join(configHome, 'retroarch', 'states')
+    mkdirSync(stateDir, { recursive: true })
+    writeFileSync(join(stateDir, 'cavestory.state1'), 'stopped mid-boss')
+
+    await saved.goTo('library')
+    await saved.choose('[data-rom="1"]')
+    await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await saved.choose('[data-action="push-saves"]')
+
+    // The list is the point of the question: a push that overwrites the
+    // server's copy is worth reading first, and each row says which end is
+    // ahead of which.
+    await saved.waitFor(`document.querySelector('.overlay .asset__kind')`, 'the preview')
+    const listed = await saved.read<string[]>(
+      `[...document.querySelectorAll('.overlay .asset__kind')].map((one) => one.dataset.kind)`
+    )
+    assert.deepEqual(listed.sort(), ['save', 'state'], `the dialog listed ${listed}`)
+  })
+
+  test('and sending it puts each kind at its own end of RomM', async () => {
+    const sentSoFar = server.uploaded.length
+    await saved.choose('[data-action="push-send"]')
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
+
+    // Waited for in Node, because what is being watched is what the server was
+    // sent rather than anything the page shows.
+    const until = Date.now() + 10_000
+    while (server.uploaded.length - sentSoFar < 2 && Date.now() < until) {
+      await new Promise((done) => setTimeout(done, 100))
+    }
+
+    // A save goes to /api/saves and a state to /api/states, which is RomM's
+    // own split and the one place RomMix could send a state where no state
+    // would ever be found again.
+    const sent = server.uploaded.slice(sentSoFar)
+    assert.deepEqual(
+      sent.map((one) => one.kind).sort(),
+      ['save', 'state'],
+      `it sent ${JSON.stringify(sent.map((one) => one.kind))}`
+    )
+    assert.ok(
+      sent.every((one) => one.romId === 1 && one.emulator === 'retroarch'),
+      'both should have been filed under the game and the emulator that wrote them'
+    )
+  })
 })
 
 /**
