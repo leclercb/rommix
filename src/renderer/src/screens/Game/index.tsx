@@ -389,6 +389,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         {entry ? (
           <FocusButton
             icon="uninstall"
+            action="uninstall"
             variant="danger"
             onSelect={() =>
               // Without the confirmation, one A press on a focused danger

@@ -268,6 +268,45 @@ describe('downloading a game of several files', () => {
   })
 })
 
+describe('uninstalling a game', () => {
+  test('it asks first, and then the whole folder goes', async () => {
+    // The disc set rather than the single file, because it is the shape with
+    // something to get wrong: the game is a folder, and a delete that removed
+    // the file it launches by would leave the rest behind — an empty-ish
+    // directory that `adopt` reads back as a game already on disk, installed
+    // and unplayable and refusing to download again.
+    const discSet = await app.read<{ path: string; files: string[] }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 4)`
+    )
+    assert.notEqual(discSet, undefined, 'the disc set should still be installed')
+
+    await app.goTo('library')
+    await app.choose('[data-rom="4"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    await app.choose('[data-action="uninstall"]')
+
+    // Asked rather than done: one press on a focused danger button would
+    // otherwise throw away a download of several gigabytes.
+    await app.waitFor(`document.querySelector('.overlay')`, 'the confirmation')
+    assert.equal(existsSync(discSet.path), true, 'nothing should be gone before it is confirmed')
+
+    await app.choose('[data-action="uninstall-confirm"]')
+
+    await app.waitFor(
+      `!(await window.rommix.library.installed()).some((one) => one.romId === 4)`,
+      'the game to leave the index'
+    )
+
+    // The folder and everything in it. An empty directory left behind is a
+    // game RomMix would believe in again on the next pass.
+    assert.equal(existsSync(discSet.path), false, `${discSet.path} is still there`)
+    for (const file of discSet.files) {
+      assert.equal(existsSync(join(discSet.path, file)), false, `${file} survived`)
+    }
+  })
+})
+
 /**
  * A session with saves on both sides of it.
  *

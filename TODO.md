@@ -36,9 +36,9 @@ this an afternoon of CI wiring rather than a second suite.
 ## Scenarios not yet written
 
 `test/app/scenarios.test.ts` covers starting up, moving around, downloading a
-game, a game of several files, launching one, a save round trip either side of
-that session, installing the BIOS a platform needs, and the server going away
-underneath all of it. What is left:
+game, a game of several files, uninstalling one, launching one, a save round
+trip either side of that session, installing the BIOS a platform needs, and the
+server going away underneath all of it. What is left:
 
 - **A game of several files fetched as one archive.** The per-file path is
   covered — those are ordinary files on RomM's disk and the fake serves them

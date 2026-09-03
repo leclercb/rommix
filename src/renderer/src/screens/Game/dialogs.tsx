@@ -131,7 +131,16 @@ export function UninstallDialog({
         <FocusButton icon="keep" onSelect={onKeep} autoFocus>
           {t('action.keep')}
         </FocusButton>
-        <FocusButton icon="uninstall" variant="danger" onSelect={onUninstall}>
+        <FocusButton
+          icon="uninstall"
+          // Its own name rather than the button's: what the dialog offers is
+          // the press that actually deletes, and a test that could not tell it
+          // from the one that opens the question would prove nothing about the
+          // question being asked at all.
+          action="uninstall-confirm"
+          variant="danger"
+          onSelect={onUninstall}
+        >
           {t('uninstall.freeing', { size: formatBytes(entry.sizeBytes) })}
         </FocusButton>
       </div>
