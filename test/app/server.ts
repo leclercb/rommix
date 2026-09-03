@@ -61,6 +61,8 @@ export interface FakeRomm {
    * match is a pull that correctly does nothing.
    */
   holdSave: (save: { romId: number; fileName: string; emulator: string; content: string }) => void
+  /** The same for a save state, which RomM keeps at its own endpoint. */
+  holdState: (state: { romId: number; fileName: string; emulator: string; content: string }) => void
   /** Saves and states this server was sent, in order. */
   uploaded: {
     kind: 'save' | 'state'
@@ -476,8 +478,8 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
 export async function startFakeRomm(): Promise<FakeRomm> {
   const asked: Asked[] = []
   const held: { save: RommSave; content: string }[] = []
-  /** States this server has been sent. Nothing seeds these; a push makes them. */
-  const heldStates: RommState[] = []
+  /** States this server holds, seeded by `holdState` or left by a push. */
+  const heldStates: { state: RommState; content: string }[] = []
   const uploaded: FakeRomm['uploaded'] = []
   const megadrive = platform(1, 'genesis-slash-megadrive', 'Sega Mega Drive', 'genesis')
   const gameboy = platform(2, 'gb', 'Game Boy')
@@ -786,6 +788,16 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         return serveBytes(req, res, Buffer.from(found.content))
       }
 
+      // The same for a state, on its own path: RomM keeps the two kinds apart
+      // all the way down, and a pull that asked for a state where saves live
+      // would come back with somebody else's file.
+      const stateContent = /^\/api\/states\/(\d+)\/content$/.exec(url.pathname)
+      if (stateContent) {
+        const found = heldStates.find((one) => one.state.id === Number(stateContent[1]))
+        if (!found) return json({ detail: 'No such state' }, 404)
+        return serveBytes(req, res, Buffer.from(found.content))
+      }
+
       if (url.pathname === '/api/saves') {
         // Uploaded rather than listed. A session that wrote something ends with
         // a multipart POST here, and answering it is what lets the push be
@@ -828,7 +840,11 @@ export async function startFakeRomm(): Promise<FakeRomm> {
        */
       if (url.pathname === '/api/states') {
         const romId = Number(url.searchParams.get('rom_id') ?? 0)
-        if (req.method !== 'POST') return json(heldStates.filter((one) => one.rom_id === romId))
+        if (req.method !== 'POST') {
+          return json(
+            heldStates.filter((one) => one.state.rom_id === romId).map((one) => one.state)
+          )
+        }
         uploaded.push({
           kind: 'state',
           romId,
@@ -849,7 +865,10 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           created_at: '2026-01-01T00:00:00Z',
           updated_at: '2026-01-01T00:00:00Z'
         }
-        heldStates.push(kept)
+        // Kept without its bytes: what a scenario asserts about an upload is
+        // in `uploaded`, and nothing pulls a state back down that this device
+        // has just sent up.
+        heldStates.push({ state: kept, content: '' })
         return json(kept)
       }
 
@@ -870,7 +889,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         for (const id of [...saves, ...states]) {
           const at = held.findIndex((one) => one.save.id === id)
           if (at >= 0) held.splice(at, 1)
-          const state = heldStates.findIndex((one) => one.id === id)
+          const state = heldStates.findIndex((one) => one.state.id === id)
           if (state >= 0) heldStates.splice(state, 1)
         }
         return json({})
@@ -998,6 +1017,25 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           // with this, and two stamps within `SYNC_TOLERANCE_MS` are the same
           // file — so a copy held at "now" is one a scenario cannot then get
           // ahead of without waiting out the tolerance.
+          updated_at: new Date(Date.now() - 60_000).toISOString()
+        }
+      })
+    },
+    holdState: ({ romId, fileName, emulator, content }) => {
+      heldStates.push({
+        content,
+        state: {
+          id: 800 + heldStates.length,
+          rom_id: romId,
+          user_id: user.id,
+          file_name: fileName,
+          file_name_no_ext: fileName.replace(/\.[^.]+$/, ''),
+          file_extension: fileName.split('.').pop() ?? '',
+          file_size_bytes: Buffer.byteLength(content),
+          download_path: fileName,
+          emulator,
+          created_at: '2026-01-01T00:00:00Z',
+          // Older than this instant, for the reason `holdSave` gives.
           updated_at: new Date(Date.now() - 60_000).toISOString()
         }
       })

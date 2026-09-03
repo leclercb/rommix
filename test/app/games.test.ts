@@ -933,6 +933,16 @@ describe('saves either side of a session', () => {
       emulator: 'retroarch',
       content: 'brought down by hand'
     })
+    // And a state with it, which RomM keeps at its own endpoint and RomMix
+    // writes into a different folder. Nothing had ever pulled one: a state that
+    // landed where saves live would be invisible to the emulator and look
+    // exactly like a sync that worked.
+    server.holdState({
+      romId: 1,
+      fileName: 'cavestory.state1',
+      emulator: 'retroarch',
+      content: 'stopped somewhere else'
+    })
 
     await saved.goTo('library')
     await saved.choose('[data-rom="1"]')
@@ -946,6 +956,14 @@ describe('saves either side of a session', () => {
       'the save to land on this disk'
     )
     assert.equal(readFileSync(join(saveDir, 'cavestory.srm'), 'utf8'), 'brought down by hand')
+
+    // Each kind in the folder its own emulator reads it from — the save beside
+    // the ROM, the state under `states` — which is the whole reason the two are
+    // pulled separately rather than as one list of files.
+    assert.equal(
+      readFileSync(join(configHome, 'retroarch', 'states', 'cavestory.state1'), 'utf8'),
+      'stopped somewhere else'
+    )
   })
 
   test('and the confirmation is turned on where it lives', async () => {
