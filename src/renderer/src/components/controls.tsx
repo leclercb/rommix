@@ -15,6 +15,7 @@ export function FocusButton({
   autoFocus = false,
   icon,
   on,
+  action,
   actionLabel
 }: {
   children?: ReactNode
@@ -40,6 +41,19 @@ export function FocusButton({
    * nothing to report and a screen reader with nothing to read.
    */
   actionLabel?: string
+  /**
+   * What this button is, in a word that does not change with the language.
+   *
+   * Only for the buttons an integration test presses. Everything on screen is
+   * drawn from the catalogue, so the only durable handle on a button is one it
+   * carries deliberately — matching on its text means a test that passes in
+   * English and fails in French, and matching on its position means a test that
+   * breaks the next time a button is added beside it.
+   *
+   * Opt-in, and meant to stay that way: a button with none is a button no test
+   * drives, which is most of them.
+   */
+  action?: string
 }): JSX.Element {
   const { ref, props } = useFocusable({
     onSelect: disabled ? undefined : onSelect,
@@ -56,6 +70,7 @@ export function FocusButton({
     <button
       ref={ref as Ref<HTMLButtonElement>}
       className={`btn ${variant === 'default' ? '' : `btn--${variant}`}`}
+      data-action={action}
       data-disabled={disabled}
       data-on={on}
       aria-label={actionLabel}

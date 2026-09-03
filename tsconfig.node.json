@@ -29,6 +29,7 @@
     "src/preload/**/*",
     "src/shared/**/*",
     "src/config/**/*",
+    "test/**/*",
     "electron.vite.config.ts",
     "vite.web.config.ts"
   ]

@@ -238,6 +238,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         {entry ? (
           <FocusButton
             icon="play"
+            action="play"
             variant="primary"
             onSelect={() => void startPlay()}
             disabled={working || running}
@@ -273,6 +274,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         ) : (
           <FocusButton
             icon="download"
+            action="download"
             variant="primary"
             onSelect={() => void startDownload()}
             disabled={working}

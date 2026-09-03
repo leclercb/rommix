@@ -45,6 +45,26 @@ seconds. `git commit --no-verify` skips it, which is the right answer for a
 work-in-progress commit on a branch and the wrong one for anything you are about
 to push.
 
+`npm run test:app` is the other suite: the built application, driven from
+outside against a fake RomM, covering what the unit tests deliberately leave
+out — the renderer, the IPC wiring and the preload bridge together. It needs a
+window, and one the size RomMix is drawn for — on a headless machine that is
+
+```bash
+xvfb-run --server-args="-screen 0 1920x1080x24" npm run test:app
+```
+
+The screen size is not incidental. The stylesheet is written for a 1080p
+television, and on Xvfb's default screen the library's games land below the fold
+of a window too small to hold them — where they are drawn, and unreachable,
+which reads as a focus engine that has stopped working. See
+[test/app/](test/app/).
+
+It runs one file at a time on purpose. There is a real window being driven, and
+a second suite competing for the machine changes how long a list takes to draw —
+which showed up as the focus scan giving up on a library that was still filling.
+A GUI under test is not a thing to parallelise.
+
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
 at: a module worth adding is worth testing, and the report says which lines of
@@ -171,6 +191,12 @@ way the rest of the codebase is.
 `src/renderer/src/components/` is the shared UI, imported as one module
 (`../components`); `input/` is the focus engine, split into the geometry, the
 scrolling and the two input sources it is built from.
+
+Three attributes exist for `npm run test:app` and nothing else: `data-screen` on
+the shell, `data-route` on a menu item, and `data-action` on a `FocusButton`
+that a scenario presses. They are there because every other handle on the
+interface changes — the text with the language, the position with the next
+button added beside it. Add one when a test needs it, not before.
 
 Every screen is a folder under `screens/`, named after the screen and holding
 `index.tsx` — the screen itself — with its own parts beside it: `Game/` keeps

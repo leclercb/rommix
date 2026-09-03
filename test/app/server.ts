@@ -1,0 +1,301 @@
+import { createHash } from 'node:crypto'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import type {
+  RommCollection,
+  RommDevice,
+  RommFirmware,
+  RommPlatform,
+  RommRom,
+  RommRomPage,
+  RommSave,
+  RommState,
+  RommUser,
+  RommVirtualCollection
+} from '@shared/types'
+
+/**
+ * A RomM that only exists for the duration of a test.
+ *
+ * Enough of the API to sign in, draw a library, download a game and report a
+ * session — which is the path everything else in RomMix hangs off. It is not a
+ * reimplementation of RomM and is not trying to be: what it is for is the
+ * wiring on RomMix's own side, where a channel renamed in `src/main/ipc/` and
+ * not in `src/preload/` lives, and none of that cares whether the answers came
+ * from a real server.
+ *
+ * The bodies are typed as the same `@shared/types` the app reads, so a field
+ * this file forgets is a compile error rather than an `undefined` three screens
+ * later — and a field RomM renames breaks the fake at the same moment it breaks
+ * the client. What it cannot check is whether those types describe RomM at all;
+ * that is `src/shared/types/romm.test.ts`, against the real schema.
+ *
+ * Ranges are answered properly, because a transfer that can be resumed is a
+ * different code path in `transfer.ts` from one that cannot, and the resumable
+ * one is what a real RomM offers for a single-file game.
+ */
+
+/** One request, as the test can ask about it afterwards. */
+export interface Asked {
+  method: string
+  /** Path with the query string, which is most of what RomMix says. */
+  path: string
+  authorization: string | null
+  body: string
+}
+
+export interface FakeRomm {
+  baseUrl: string
+  /** Every request, in order. */
+  asked: Asked[]
+  /** The token a client must present. See `seedCredentials`. */
+  token: string
+  /** The library it serves, for a test that wants to assert against it. */
+  roms: RommRom[]
+  close: () => Promise<void>
+}
+
+const VERSION = '5.1.0'
+const TOKEN = 'rmm_fake_token_for_tests'
+
+/** The bytes of the one game that can be downloaded, and its digest. */
+const ROM_BYTES = Buffer.from('RomMix integration test ROM\n'.repeat(64))
+const ROM_MD5 = createHash('md5').update(ROM_BYTES).digest('hex')
+
+function platform(id: number, slug: string, name: string): RommPlatform {
+  return {
+    id,
+    slug,
+    fs_slug: slug,
+    name,
+    display_name: name,
+    custom_name: null,
+    rom_count: 1,
+    fs_size_bytes: ROM_BYTES.length,
+    url_logo: null,
+    missing_from_fs: false
+  }
+}
+
+function rom(id: number, name: string, host: RommPlatform, fsName: string): RommRom {
+  return {
+    id,
+    name,
+    slug: name.toLowerCase().replace(/\W+/g, '-'),
+    summary: `${name}, served by the fake RomM.`,
+    platform_id: host.id,
+    platform_slug: host.slug,
+    platform_fs_slug: host.fs_slug,
+    platform_display_name: host.display_name,
+    fs_name: fsName,
+    fs_name_no_ext: fsName.replace(/\.[^.]+$/, ''),
+    fs_name_no_tags: fsName.replace(/\.[^.]+$/, ''),
+    fs_extension: fsName.split('.').pop() ?? '',
+    fs_path: `${host.fs_slug}/${fsName}`,
+    fs_size_bytes: ROM_BYTES.length,
+    path_cover_small: null,
+    path_cover_large: null,
+    url_cover: null,
+    path_video: null,
+    regions: ['USA'],
+    languages: ['en'],
+    tags: [],
+    revision: null,
+    crc_hash: null,
+    // The digest of what this server actually serves, so the check in
+    // `transfer.ts` passes for the right reason rather than being skipped.
+    md5_hash: ROM_MD5,
+    sha1_hash: null,
+    has_simple_single_file: true,
+    has_nested_single_file: false,
+    has_multiple_files: false,
+    missing_from_fs: false,
+    metadatum: {
+      genres: ['Platform'],
+      franchises: [],
+      companies: [],
+      game_modes: ['Single player'],
+      age_ratings: [],
+      player_count: '1',
+      first_release_date: Date.UTC(1991, 5, 23),
+      average_rating: null
+    },
+    rom_user: {
+      id: id * 100,
+      rom_id: id,
+      last_played: null,
+      now_playing: false,
+      backlogged: false,
+      hidden: false,
+      rating: 0,
+      difficulty: 0,
+      completion: 0,
+      status: null
+    },
+    files: [
+      {
+        id: id * 10,
+        rom_id: id,
+        file_name: fsName,
+        file_path: `${host.fs_slug}/`,
+        file_size_bytes: ROM_BYTES.length,
+        full_path: `${host.fs_slug}/${fsName}`,
+        category: null,
+        crc_hash: null,
+        md5_hash: ROM_MD5,
+        sha1_hash: null
+      }
+    ],
+    merged_screenshots: [],
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z'
+  }
+}
+
+const user: RommUser = {
+  id: 1,
+  username: 'tester',
+  email: null,
+  enabled: true,
+  role: 'admin',
+  oauth_scopes: [],
+  avatar_path: ''
+}
+
+/**
+ * Answer a content request, honouring a range if one was asked for.
+ *
+ * The 206 is the point: `RommClient.supportsRange` probes for it before every
+ * transfer, and what it answers decides whether the screen offers Pause at all.
+ * A fake that always sent 200 would quietly test only the path RomMix takes
+ * against an old server.
+ */
+function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): void {
+  const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '')
+  if (!range) {
+    res.writeHead(200, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': bytes.length
+    })
+    res.end(bytes)
+    return
+  }
+  const from = Number(range[1])
+  const to = range[2] ? Number(range[2]) : bytes.length - 1
+  const slice = bytes.subarray(from, to + 1)
+  res.writeHead(206, {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': slice.length,
+    'Content-Range': `bytes ${from}-${to}/${bytes.length}`
+  })
+  res.end(slice)
+}
+
+/** Start it on a port the operating system picks, so tests can run at once. */
+export async function startFakeRomm(): Promise<FakeRomm> {
+  const asked: Asked[] = []
+  const megadrive = platform(1, 'genesis', 'Sega Mega Drive')
+  const gameboy = platform(2, 'gb', 'Game Boy')
+  const roms = [
+    rom(1, 'Cave Story MD', megadrive, 'cavestory.md'),
+    rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb')
+  ]
+
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = []
+    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    req.on('end', () => {
+      const path = req.url ?? '/'
+      const url = new URL(path, 'http://fake')
+      asked.push({
+        method: req.method ?? 'GET',
+        path,
+        authorization: req.headers.authorization ?? null,
+        body: Buffer.concat(chunks).toString()
+      })
+
+      const json = (body: unknown, status = 200): void => {
+        res.writeHead(status, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(body))
+      }
+
+      // The one endpoint that answers before there are credentials: it is how
+      // the connect screen decides whether an address is a RomM at all.
+      if (url.pathname === '/api/heartbeat') return json({ SYSTEM: { VERSION: VERSION } })
+
+      // Everything else is behind the token, so a harness that seeds
+      // credentials wrongly fails here rather than three screens later with an
+      // empty library and no explanation.
+      if (req.headers.authorization !== `Bearer ${TOKEN}`) {
+        return json({ detail: 'Not authenticated' }, 401)
+      }
+
+      if (url.pathname === '/api/users/me') return json(user)
+      if (url.pathname === '/api/platforms') return json([megadrive, gameboy])
+      if (url.pathname === '/api/collections') return json([] as RommCollection[])
+      if (url.pathname === '/api/collections/virtual') {
+        return json([] as RommVirtualCollection[])
+      }
+      if (url.pathname === '/api/devices') return json([] as RommDevice[])
+      if (url.pathname === '/api/firmware') return json([] as RommFirmware[])
+      if (url.pathname === '/api/saves') return json([] as RommSave[])
+      if (url.pathname === '/api/states') return json([] as RommState[])
+
+      if (url.pathname === '/api/roms') {
+        const limit = Number(url.searchParams.get('limit') ?? 60)
+        const offset = Number(url.searchParams.get('offset') ?? 0)
+        const wanted = url.searchParams.getAll('platform_ids').map(Number)
+        const matching = wanted.length
+          ? roms.filter((one) => wanted.includes(one.platform_id))
+          : roms
+        const page: RommRomPage = {
+          items: matching.slice(offset, offset + limit),
+          total: matching.length,
+          limit,
+          offset
+        }
+        return json(page)
+      }
+
+      const content = /^\/api\/roms\/(\d+)\/content\//.exec(url.pathname)
+      if (content) {
+        const found = roms.find((one) => one.id === Number(content[1]))
+        if (!found) return json({ detail: 'No such ROM' }, 404)
+        return serveBytes(req, res, ROM_BYTES)
+      }
+
+      const fileContent = /^\/api\/roms\/(\d+)\/files\/content\//.exec(url.pathname)
+      if (fileContent) return serveBytes(req, res, ROM_BYTES)
+
+      const one = /^\/api\/roms\/(\d+)$/.exec(url.pathname)
+      if (one) {
+        const found = roms.find((entry) => entry.id === Number(one[1]))
+        return found ? json(found) : json({ detail: 'No such ROM' }, 404)
+      }
+
+      // Written to, and answered without keeping anything: what these are here
+      // for is that RomMix sends them at all, and with a body RomM would take.
+      if (/^\/api\/roms\/\d+\/props$/.test(url.pathname)) return json({})
+      if (url.pathname === '/api/play-sessions') return json({})
+
+      return json({ detail: `the fake RomM has no ${url.pathname}` }, 404)
+    })
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    asked,
+    token: TOKEN,
+    roms,
+    close: () =>
+      new Promise<void>((resolve, reject) =>
+        server.close((cause) => (cause ? reject(cause) : resolve()))
+      )
+  }
+}
+
+/** What a downloaded game should hash to, for a test that checks the file. */
+export const ROM_CONTENT = ROM_BYTES

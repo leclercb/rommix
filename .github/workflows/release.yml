@@ -92,6 +92,20 @@ jobs:
       - run: npm run build
       - run: npm run package -- --${{ matrix.arch }}
 
+      # The one check that runs the renderer, the IPC wiring and the preload
+      # bridge together — see test/app/. It needs somewhere to put a window,
+      # which a runner has not got; xvfb is the whole of what that takes.
+      #
+      # The screen is stated rather than left to xvfb's default, which is too
+      # small: RomMix is drawn for a 1080p television, and on a smaller one the
+      # library's games sit below the fold where nothing can reach them.
+      #
+      # After the package step rather than beside the other four: it drives the
+      # bundle in `out/`, so it is only worth running once there is one that
+      # built.
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run test:app
+
       # Shipped beside the image, not inside it: it is what Steam's shortcut
       # points at, and the AppImage cannot set the variable that makes itself
       # launchable from Steam. See packaging/rommix-steam.sh.

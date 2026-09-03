@@ -76,7 +76,7 @@ export function App(): JSX.Element {
 
   if (route.name === 'connect') {
     return (
-      <div className="app">
+      <div className="app" data-screen={route.name}>
         <ConnectScreen />
         {covered ? <RunningOverlay /> : null}
         <Toasts />
@@ -98,7 +98,7 @@ export function App(): JSX.Element {
       : undefined
 
   return (
-    <div className="app">
+    <div className="app" data-screen={route.name}>
       <FocusZone id="nav">
         {/* The mark on the left, the menu across the middle, who you are on the
             right: the same three slots RomM's own bar has. The brand and the
@@ -282,6 +282,7 @@ function NavItem({
       ref={ref as Ref<HTMLDivElement>}
       className="nav-item"
       data-active={active}
+      data-route={route.name}
       aria-label={label}
       title={label}
       {...props}
