@@ -9,9 +9,9 @@ import { join } from 'node:path'
  * No automation library. RomMix is already an Electron process, and started
  * with `--remote-debugging-port` it serves the DevTools protocol over a
  * WebSocket — which Node has had built in since 22, so this needs nothing
- * installed. Three messages do everything: `Runtime.evaluate` to read the page,
- * `Input.dispatchKeyEvent` to press something, and `Page.captureScreenshot`
- * where a failure is worth looking at.
+ * installed. Four messages do everything: `Runtime.evaluate` to read the page,
+ * `Input.dispatchKeyEvent` and `Input.dispatchMouseEvent` to drive it, and
+ * `Page.captureScreenshot` where a failure is worth looking at.
  *
  * What it drives is `out/`, the real build, so the preload bridge and every IPC
  * channel are the ones that ship. That is the whole point of it — a channel
@@ -133,6 +133,12 @@ export interface App {
   press: (key: Key) => Promise<void>
   /** Move the highlight onto the element matching a selector, then select it. */
   choose: (selector: string) => Promise<void>
+  /** Put the pointer on something, which is not the same as pressing it. */
+  hover: (selector: string) => Promise<void>
+  /** Point at something and press it, the way a mouse does. */
+  click: (selector: string) => Promise<void>
+  /** Turn the wheel over something. Positive is towards the end of the page. */
+  wheel: (selector: string, by: number) => Promise<void>
   /** Go to one of the sections in the navigation bar. */
   goTo: (route: string) => Promise<void>
   /** The label of whatever is highlighted, for a failure worth reading. */
@@ -456,6 +462,59 @@ export async function startApp(options: StartOptions): Promise<App> {
     await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
   }
 
+  /**
+   * Where to aim the pointer at something, in viewport coordinates.
+   *
+   * Read from the page rather than worked out here, because only the page knows
+   * where anything is: the layout depends on the window, and the window depends
+   * on the machine the suite is running on.
+   */
+  const centreOf = async (selector: string): Promise<{ x: number; y: number }> => {
+    await waitFor(
+      `document.querySelector(${JSON.stringify(selector)})`,
+      `${selector} to be in the page`
+    )
+    const at = await read<{ x: number; y: number } | null>(
+      `(() => {
+         const box = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect()
+         return box ? { x: box.left + box.width / 2, y: box.top + box.height / 2 } : null
+       })()`
+    )
+    if (!at)
+      throw new Error(`${selector} is not in the page${await capture(`pointing at ${selector}`)}`)
+    return at
+  }
+
+  /**
+   * The pointer, which RomMix supports and is not designed around.
+   *
+   * A television is driven with a pad, and everything above presses keys for
+   * that reason. But `useFocusable` binds `onMouseEnter` and `onClick` too — for
+   * the desk this is also run from — and those are a second way into every
+   * button in the application, taken by nothing else here.
+   *
+   * `mouseMoved` before pressing on purpose: hovering is what moves the
+   * highlight, and a press that arrived without one would be a click on
+   * something the interface does not consider current.
+   */
+  const mouse = async (selector: string, type: string, extra: Record<string, unknown> = {}) => {
+    const { x, y } = await centreOf(selector)
+    await session.send('Input.dispatchMouseEvent', { type, x, y, ...extra })
+    await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
+  }
+
+  const hover = (selector: string): Promise<void> => mouse(selector, 'mouseMoved')
+
+  const click = async (selector: string): Promise<void> => {
+    await hover(selector)
+    const button = { button: 'left', buttons: 1, clickCount: 1 }
+    await mouse(selector, 'mousePressed', button)
+    await mouse(selector, 'mouseReleased', { ...button, buttons: 0 })
+  }
+
+  const wheel = (selector: string, by: number): Promise<void> =>
+    mouse(selector, 'mouseWheel', { deltaX: 0, deltaY: by })
+
   /** What the highlight is on, read the way `useFocusable` marks it. */
   const focused = (): Promise<string> =>
     read<string>(
@@ -676,6 +735,9 @@ export async function startApp(options: StartOptions): Promise<App> {
     waitFor,
     press,
     choose,
+    hover,
+    click,
+    wheel,
     goTo,
     focused,
     home,

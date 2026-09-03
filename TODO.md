@@ -11,7 +11,8 @@ not a wish.
 game, a game of several files, pausing one and picking it up again,
 uninstalling one, launching one, a save round trip either side of that session,
 installing the BIOS a platform needs, the collections, settings and emulators
-screens, the tab strips and the two buttons that are not on the D-pad, and the
+screens, the tab strips and the two buttons that are not on the D-pad, driving
+it with a pointer instead, scrolling a page taller than the screen, and the
 server going away underneath all of it. What is left:
 
 - **A game of several files fetched as one archive.** The per-file path is

@@ -23,9 +23,10 @@ import { startFakeRomm, type FakeRomm } from './server.ts'
  * `xvfb-run`, and on NixOS it means the `electron` from the system profile,
  * which `.envrc` points `ELECTRON_EXEC_PATH` at.
  *
- * The screens are found by the handles they carry on purpose — `data-screen`,
- * `data-route`, `data-action` — never by their text, which changes with the
- * language, nor by position, which changes whenever a button is added.
+ * The screens are found by the handles they carry on purpose, never by their
+ * text, which changes with the language, nor by position, which changes
+ * whenever a button is added. CONTRIBUTING lists the handles; add one when a
+ * test needs it rather than reaching for a label.
  */
 
 let server: FakeRomm
@@ -811,6 +812,118 @@ describe('the tabs on a game', () => {
     await app.waitFor(
       `document.querySelector('[data-tab="files"]')?.dataset.active === 'true'`,
       'the files tab, one lap later'
+    )
+  })
+})
+
+describe('driving it with a mouse instead', () => {
+  test('the pointer moves the highlight without choosing anything', async () => {
+    // `useFocusable` binds `onMouseEnter` as well as `onClick`, so a pointer
+    // and a pad have to agree about what is current. They are two ways into
+    // every button in the application and only one of them was ever driven.
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the library grid')
+
+    await app.hover('[data-rom="2"]')
+    await app.waitFor(
+      `document.querySelector('[data-rom="2"]')?.dataset.focused === 'true'`,
+      'the highlight to follow the pointer'
+    )
+
+    // Hovering is not choosing. A card that opened on the way past would make
+    // the interface impossible to cross with a mouse.
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-screen="library"]'))`),
+      true
+    )
+  })
+
+  test('and a click opens what it is on', async () => {
+    await app.click('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    // The same game the pointer was over, rather than whatever the highlight
+    // happened to be on when the press arrived.
+    const title = await app.read<string>(`document.querySelector('.game-hero__title')?.textContent`)
+    assert.equal(
+      title,
+      server.roms.find((one) => one.id === 2)?.name,
+      `the screen that opened says ${JSON.stringify(title)}`
+    )
+  })
+})
+
+describe('a page taller than the screen', () => {
+  test('walking down brings what is below the fold into view', async () => {
+    // The failure this is about is one the stylesheet made real once already:
+    // on a screen too short for them, the games are drawn below the fold, where
+    // they are focusable and invisible — which reads as a focus engine that has
+    // stopped working rather than as a page that has not scrolled. Every focus
+    // move is supposed to scroll the page under it. See `revealElement`.
+    await app.goTo('emulators')
+    await app.waitFor(`document.querySelector('[data-emulator]')`, 'the emulator list')
+
+    const scroller = `document.querySelector('.content')`
+    await app.waitFor(
+      `${scroller}.scrollHeight > ${scroller}.clientHeight`,
+      'a page worth scrolling'
+    )
+    assert.equal(await app.read<number>(`${scroller}.scrollTop`), 0)
+
+    // Far enough down to leave the first screenful behind, one press at a time
+    // the way a player would.
+    for (let step = 0; step < 12; step += 1) await app.press('Down')
+
+    // Waited for rather than read: unless the desktop asks for reduced motion
+    // the page slides rather than jumps, so the press is over several frames
+    // before the scroll it caused is.
+    await app.waitFor(`${scroller}.scrollTop > 0`, 'the page to follow the highlight')
+
+    // And what it landed on is on the screen, which is the whole point: a
+    // scroll that moved the page without catching up with the highlight is the
+    // same bug wearing a different number.
+    await app.waitFor(
+      `(() => {
+         const box = document.querySelector('[data-focused="true"]')?.getBoundingClientRect()
+         return Boolean(box && box.top >= 0 && box.bottom <= window.innerHeight)
+       })()`,
+      'the highlighted element to be within the window'
+    )
+  })
+
+  test('and the last press goes to the end of the page rather than nowhere', async () => {
+    // Past the last focusable there is still page — a title, the paragraph
+    // saying what the screen is for, the note under the last row. `scrollToEnd`
+    // is what stops the press that means "further down" from being inert while
+    // there is plainly more to read.
+    const scroller = `document.querySelector('.content')`
+    for (let step = 0; step < 40; step += 1) await app.press('Down')
+
+    const atEnd = await app.read<boolean>(
+      `${scroller}.scrollTop + ${scroller}.clientHeight >= ${scroller}.scrollHeight - 2`
+    )
+    assert.equal(atEnd, true, 'holding Down should have reached the bottom of the page')
+  })
+
+  test('the wheel scrolls it too, and the next press brings focus back', async () => {
+    const scroller = `document.querySelector('.content')`
+    const wasAt = await app.read<number>(`${scroller}.scrollTop`)
+    // Backwards, because the scenario above left the page at its bottom. A turn
+    // of the wheel is a distance rather than a destination, so this asks how far
+    // it went rather than where it arrived.
+    await app.wheel('.content', -900)
+    await app.waitFor(`${scroller}.scrollTop < ${wasAt}`, 'the wheel to move the page')
+
+    // The highlight did not move, so it is now somewhere off the screen. The
+    // next press has to bring the page back to it rather than carrying on from
+    // wherever the wheel left the view.
+    await app.press('Down')
+    await app.waitFor(
+      `(() => {
+         const box = document.querySelector('[data-focused="true"]')?.getBoundingClientRect()
+         return Boolean(box && box.top >= 0 && box.bottom <= window.innerHeight)
+       })()`,
+      'the page to come back to the highlight'
     )
   })
 })

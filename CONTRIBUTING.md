@@ -76,6 +76,12 @@ Not in the pre-commit hook, which is budgeted in seconds — but `npm run releas
 runs it, because a tag is public the moment it is pushed. Releasing from a
 headless machine means running that under `xvfb-run` too.
 
+Keys and the pointer both, because the interface takes both: `useFocusable`
+binds `onMouseEnter` and `onClick` beside the focus engine, and a change that
+breaks one and not the other would otherwise go out. The pad is what RomMix is
+designed around, so a scenario reaches a button by walking to it unless the
+pointer is the subject.
+
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
 at: a module worth adding is worth testing, and the report says which lines of
