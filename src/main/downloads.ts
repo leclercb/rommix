@@ -252,6 +252,10 @@ export class DownloadManager extends EventEmitter {
         })
       }
     }
+    log.info('download', 'picked up what the network had stopped', {
+      resumed,
+      leftAlone: stalled.length - resumed
+    })
     return resumed
   }
 
@@ -726,6 +730,13 @@ export class DownloadManager extends EventEmitter {
         log.info('download', 'let another transfer past', { ...detail, received: carried })
       else if (cancelled) log.info('download', 'abandoned after cancellation', detail)
       else if (asked) log.info('download', 'stopped on request', { ...detail, received: carried })
+      // Its own line: nobody paused this, and it is going to start again by
+      // itself — neither of which "paused part-way" says. See `stalled`.
+      else if (item.state === 'stalled')
+        log.warn('download', 'stopped: the server stopped answering', {
+          ...detail,
+          received: carried
+        })
       else if (carried > 0)
         log.warn('download', 'paused part-way', { ...detail, received: carried })
       else log.error('download', 'failed', cause, detail)

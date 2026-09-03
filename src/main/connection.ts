@@ -185,6 +185,7 @@ export class ConnectionWatch {
    * check knows that.
    */
   observed(reachable: boolean, reason?: string): void {
+    log.debug('server', 'a request reported the server', { reachable, reason })
     if (reachable) {
       if (this.last?.connected !== true) this.probe()
       return
@@ -231,6 +232,25 @@ export class ConnectionWatch {
       this.last.configured !== next.configured
     this.last = next
     if (changed) {
+      /**
+       * The one line that explains everything after it.
+       *
+       * Every screen changes shape on this, and half of what RomMix does next
+       * — a game answered from the copy on the disk, a queue picking itself up,
+       * saves going over — reads as inexplicable in a log that never said the
+       * server had gone. So it is stated, both ways, with what it was told by.
+       */
+      log.info(
+        'server',
+        !next.configured
+          ? 'no server configured'
+          : next.connected
+            ? 'the server is answering again'
+            : next.offline
+              ? 'the server is not answering'
+              : 'the server turned us away',
+        { baseUrl: next.baseUrl, reason: next.error }
+      )
       this.announce(next)
       // The two states are watched at different rates, so a change is also a
       // change of schedule. Only on a change: re-timing on every answer would

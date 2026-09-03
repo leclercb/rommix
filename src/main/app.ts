@@ -119,6 +119,10 @@ export class RomMixApp {
    */
   catchUp(): Promise<void> {
     this.catchingUp ??= (async () => {
+      // Bracketed, because everything it does is logged by whatever does it and
+      // a reader otherwise has to guess which lines belong to the same pass.
+      const took = log.since()
+      log.info('app', 'catching up with the server')
       await runMigrations({ store: this.store, client: this.client, offline: this.offline })
       await rememberInstalledGames(
         this.store.installed,
@@ -138,6 +142,7 @@ export class RomMixApp {
         .catch((cause: Error) =>
           log.info('download', 'could not pick the queue up again', { reason: cause.message })
         )
+      log.info('app', 'caught up', { ms: took() })
     })().finally(() => {
       this.catchingUp = null
     })
@@ -161,8 +166,19 @@ export class RomMixApp {
    */
   private async rememberServer(): Promise<void> {
     try {
-      await this.offline.savePlatforms(await this.client.platforms())
-      if (!(await this.offline.firmware())) await this.bios.capture()
+      const platforms = await this.client.platforms()
+      await this.offline.savePlatforms(platforms)
+
+      // Whether the firmware has ever been captured is the difference between
+      // a BIOS screen that works away from the server and one that refuses to
+      // draw, and it is asked once and then never again — so the run that does
+      // it is the only place a log could ever say so.
+      const firstFirmware = (await this.offline.firmware()) === null
+      if (firstFirmware) await this.bios.capture()
+      log.info('offline', 'wrote down what the server holds', {
+        platforms: platforms.length,
+        firmware: firstFirmware ? 'captured' : 'already had it'
+      })
     } catch (cause) {
       log.info('offline', 'could not write down what the server holds', {
         reason: (cause as Error).message
@@ -184,7 +200,7 @@ export class RomMixApp {
    * to be confirmed on the game's own screen.
    */
   private async sendUnsentSaves(): Promise<void> {
-    if (!this.store.settings.syncSavesUp) return
+    if (!this.store.settings.syncSavesUp || this.store.unsentSaves.length === 0) return
     const sendUnasked = !this.store.settings.confirmSavePush
 
     const sent: number[] = []
@@ -199,7 +215,7 @@ export class RomMixApp {
         // Nothing waiting means nothing to come back for, however the record
         // came to be written.
         if (result.conflicts === 0 && result.ready === 0) {
-          this.store.clearUnsentSaves(romId)
+          this.settleUnsentSaves(romId, result.sent > 0 ? 'all of it went up' : 'nothing to send')
           continue
         }
         // Only where the setting is what is holding them. With sending set to
@@ -239,6 +255,27 @@ export class RomMixApp {
     // entry here cost a listing from the server a moment ago, and repeating
     // them all would double what a reconnection costs to say the same thing.
     this.send('saves:waiting', waiting)
+
+    // One line for the pass, since the per-game ones are scattered through the
+    // loop above and none of them says how it came out.
+    log.info('saves', 'handed over what a spell offline left behind', {
+      sent: sent.length,
+      waiting: waiting.length,
+      asked: !sendUnasked
+    })
+  }
+
+  /**
+   * Stop expecting this game's saves, and say so.
+   *
+   * The record going is the end of the whole business for that game — the
+   * notice on its page goes with it — and three different conclusions reach it:
+   * everything went up, the game was uninstalled, or there was nothing there
+   * after all. Logged in one place so the reason is always named.
+   */
+  private settleUnsentSaves(romId: number, because: string): void {
+    this.store.clearUnsentSaves(romId)
+    log.info('saves', 'nothing left to send for this game', { romId, because })
   }
 
   /**
@@ -279,7 +316,7 @@ export class RomMixApp {
 
     for (const { romId, since } of this.store.unsentSaves) {
       if (!this.store.getInstalled(romId)) {
-        this.store.clearUnsentSaves(romId)
+        this.settleUnsentSaves(romId, 'the game is no longer installed')
         continue
       }
       try {
@@ -290,7 +327,7 @@ export class RomMixApp {
         // this disk, whatever the reason for it is called.
         const counted = await this.saveSync.drain(target, since, { sendUnasked: false })
         if (counted.conflicts === 0 && counted.ready === 0) {
-          this.store.clearUnsentSaves(romId)
+          this.settleUnsentSaves(romId, 'nothing left outstanding')
           continue
         }
         // Only where the setting is what is holding them: with sending set to
@@ -301,9 +338,14 @@ export class RomMixApp {
         if (counted.conflicts > 0 || ready > 0) {
           waiting.push({ romId, conflicts: counted.conflicts, ready })
         }
-      } catch {
+      } catch (cause) {
         // Unanswerable right now — see `sendUnsentSaves`. The game is left out
-        // rather than guessed at.
+        // rather than guessed at, and said so: a notice that does not appear is
+        // otherwise a thing with no trace anywhere.
+        log.info('saves', 'could not work out what this game still owes', {
+          romId,
+          reason: (cause as Error).message
+        })
       }
     }
     return waiting
