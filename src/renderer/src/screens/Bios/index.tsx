@@ -189,6 +189,7 @@ export function BiosScreen(): JSX.Element {
       <div className="btn-row">
         <FocusButton
           icon="install"
+          action="install-all"
           variant="primary"
           onSelect={() => void syncAll()}
           disabled={busy !== null || fetchable === 0 || offline === true}

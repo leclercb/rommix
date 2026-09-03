@@ -373,6 +373,76 @@ describe('saves either side of a session', () => {
 })
 
 /**
+ * Firmware fetched from the server into the folder an emulator reads it from.
+ *
+ * Its own application again, and for the same reason as the saves above: this
+ * needs an emulator with a BIOS folder, and where that folder is has to be
+ * knowable from outside. RetroArch's is under `XDG_CONFIG_HOME`, so pinning
+ * that pins the answer.
+ *
+ * A missing BIOS is the most common reason an emulator refuses a game, and it
+ * refuses in its own words — a black screen, or a complaint about a core. The
+ * unit tests cover what the screen decides; nothing until now covered the
+ * bytes actually arriving where the emulator looks.
+ */
+describe('installing the BIOS a platform needs', () => {
+  let bios: App
+  let systemDir: string
+
+  before(async () => {
+    const configHome = mkdtempSync(join(tmpdir(), 'rommix-bios-xdg-'))
+    systemDir = join(configHome, 'retroarch', 'system')
+    bios = await startApp({
+      baseUrl: server.baseUrl,
+      token: server.token,
+      settings: {
+        systemEmulators: { segacd: 'retroarch' },
+        emulatorPaths: { retroarch: emulator.path }
+      },
+      env: { XDG_CONFIG_HOME: configHome }
+    })
+  })
+
+  after(async () => {
+    await bios?.stop()
+  })
+
+  test('what the server holds lands where the emulator reads firmware from', async () => {
+    await bios.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    await bios.goTo('bios')
+    await bios.waitFor(`document.querySelector('[data-screen="bios"]')`, 'the BIOS screen')
+
+    // Enabled only once the screen has worked out there is something to fetch,
+    // which is a request per platform — so the button is waited for rather than
+    // pressed the moment it is drawn.
+    await bios.waitFor(
+      `document.querySelector('[data-action="install-all"]')?.dataset.disabled === 'false'`,
+      'something to install'
+    )
+    await bios.choose('[data-action="install-all"]')
+
+    await bios.waitFor(`!document.querySelector('.overlay')`, 'the install to finish')
+
+    // Both files the fake holds for the Sega CD, under the names RomM gave
+    // them: a BIOS renamed on the way in is one the emulator will not find.
+    for (const fileName of ['bios_CD_U.bin', 'bios_CD_E.bin']) {
+      const path = join(systemDir, fileName)
+      assert.equal(existsSync(path), true, `${fileName} is missing from ${systemDir}`)
+      assert.equal(readFileSync(path, 'utf8'), `RomMix integration test firmware — ${fileName}\n`)
+    }
+
+    // The third file the Sega CD can take is one the server does not hold, so
+    // nothing was invented for it.
+    assert.equal(existsSync(join(systemDir, 'bios_CD_J.bin')), false)
+
+    assert.ok(
+      server.asked.some((one) => one.path.startsWith('/api/firmware/70/content/')),
+      'it should have fetched the firmware itself'
+    )
+  })
+})
+
+/**
  * Last on purpose: it takes the server away and does not put it back.
  */
 describe('when the server goes away', () => {

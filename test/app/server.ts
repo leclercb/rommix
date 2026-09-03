@@ -206,6 +206,29 @@ function discSet(id: number, name: string, host: RommPlatform, folder: string): 
   }
 }
 
+/** A BIOS file the server holds, with the digest of what it will serve. */
+function firmware(id: number, fileName: string): { item: RommFirmware; content: Buffer } {
+  const content = Buffer.from(`RomMix integration test firmware — ${fileName}\n`)
+  return {
+    content,
+    item: {
+      id,
+      file_name: fileName,
+      file_name_no_ext: fileName.replace(/\.[^.]+$/, ''),
+      file_extension: fileName.split('.').pop() ?? '',
+      file_size_bytes: content.length,
+      is_verified: true,
+      // Checked before the file is allowed to stand: a BIOS that is the wrong
+      // bytes is a console that hangs on a black screen, and nothing on the way
+      // to that names the file.
+      md5_hash: createHash('md5').update(content).digest('hex'),
+      missing_from_fs: false,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z'
+    }
+  }
+}
+
 const user: RommUser = {
   id: 1,
   username: 'tester',
@@ -257,6 +280,13 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   // first — which is what running a libretro game through RetroArch would do.
   const nintendoSwitch = platform(3, 'switch', 'Nintendo Switch')
   const segacd = platform(4, 'segacd', 'Sega CD')
+  // Held for the Sega CD alone, so a test can tell a platform that needs
+  // something from one that does not. The required file and one of the
+  // optional ones — the third stays missing, which is what makes the screen's
+  // count worth reading.
+  const held_firmware = new Map<number, { item: RommFirmware; content: Buffer }[]>([
+    [4, [firmware(70, 'bios_CD_U.bin'), firmware(71, 'bios_CD_E.bin')]]
+  ])
   const roms = [
     rom(1, 'Cave Story MD', megadrive, 'cavestory.md'),
     rom(2, 'Tobu Tobu Girl', gameboy, 'tobutobugirl.gb'),
@@ -301,7 +331,21 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         return json([] as RommVirtualCollection[])
       }
       if (url.pathname === '/api/devices') return json([] as RommDevice[])
-      if (url.pathname === '/api/firmware') return json([] as RommFirmware[])
+      if (url.pathname === '/api/firmware') {
+        const wanted = url.searchParams.get('platform_id')
+        const all = [...held_firmware.values()].flat()
+        const forPlatform = wanted ? (held_firmware.get(Number(wanted)) ?? []) : all
+        return json(forPlatform.map((one) => one.item))
+      }
+
+      const firmwareContent = /^\/api\/firmware\/(\d+)\/content\//.exec(url.pathname)
+      if (firmwareContent) {
+        const found = [...held_firmware.values()]
+          .flat()
+          .find((one) => one.item.id === Number(firmwareContent[1]))
+        if (!found) return json({ detail: 'No such firmware' }, 404)
+        return serveBytes(req, res, found.content)
+      }
       const saveContent = /^\/api\/saves\/(\d+)\/content$/.exec(url.pathname)
       if (saveContent) {
         const found = held.find((one) => one.save.id === Number(saveContent[1]))
