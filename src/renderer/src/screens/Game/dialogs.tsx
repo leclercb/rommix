@@ -97,7 +97,13 @@ export function DeleteAssetDialog({
       ) : null}
       <div className="btn-row">
         {scopes.map((scope) => (
-          <FocusButton key={scope} icon="delete" variant="danger" onSelect={() => onDelete(scope)}>
+          <FocusButton
+            key={scope}
+            icon="delete"
+            variant="danger"
+            action={`delete-${scope}`}
+            onSelect={() => onDelete(scope)}
+          >
             {t('game.deleteAt', { where: deleteScopeLabel(scope, t) })}
           </FocusButton>
         ))}
@@ -105,7 +111,7 @@ export function DeleteAssetDialog({
       <div className="btn-row">
         {/* Focused, and on its own row below the two deletes: the answer that
             changes nothing is the one a dialog should open on. */}
-        <FocusButton icon="keep" onSelect={onKeep} autoFocus>
+        <FocusButton icon="keep" action="keep-asset" onSelect={onKeep} autoFocus>
           {t('action.keep')}
         </FocusButton>
       </div>

@@ -482,6 +482,46 @@ describe('saves either side of a session', () => {
     // down as.
     assert.ok(sent[0].body.includes('cavestory.srm'), sent[0].body.slice(0, 200))
   })
+
+  test('and the save can be deleted from one end without touching the other', async () => {
+    // Both ends hold it now — pulled down before the session, pushed back up
+    // after — which is the only state where the dialog has a choice to offer.
+    // A file one end holds alone gets one button, so it can never offer a
+    // delete that would do nothing.
+    await saved.goTo('library')
+    await saved.choose('[data-rom="1"]')
+    await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await saved.choose('[data-tab="saves"]')
+    await saved.waitFor(`document.querySelector('[data-action="delete-asset"]')`, 'the save row')
+
+    await saved.choose('[data-action="delete-asset"]')
+    await saved.waitFor(`document.querySelector('.overlay')`, 'the delete question')
+
+    // Keep first, because that is the answer the dialog opens on and the one a
+    // stray press lands on. A confirmation that deleted anything on the way out
+    // would be worse than no confirmation at all.
+    await saved.choose('[data-action="keep-asset"]')
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+    assert.equal(existsSync(join(saveDir, 'cavestory.srm')), true, 'Keep should keep it')
+
+    await saved.choose('[data-action="delete-asset"]')
+    await saved.waitFor(`document.querySelector('.overlay')`, 'the delete question again')
+    const askedSoFar = server.asked.length
+    await saved.choose('[data-action="delete-local"]')
+
+    // Gone from this disk.
+    await saved.waitFor(`!document.querySelector('.overlay')`, 'the question to close again')
+    assert.equal(existsSync(join(saveDir, 'cavestory.srm')), false, 'the local copy should be gone')
+
+    // And still on the server, which is the whole point of asking which end:
+    // deleting the copy here and pulling RomM's back is a reason somebody
+    // deletes one at all.
+    assert.deepEqual(
+      server.asked.slice(askedSoFar).filter((one) => one.path === '/api/saves/delete'),
+      [],
+      'deleting the local copy should not have asked RomM to delete anything'
+    )
+  })
 })
 
 /**

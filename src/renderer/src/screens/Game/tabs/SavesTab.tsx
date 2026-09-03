@@ -106,6 +106,7 @@ export function SavesTab({
               <FocusButton
                 icon="delete"
                 variant="danger"
+                action="delete-asset"
                 actionLabel={t('action.delete')}
                 onSelect={() => onDelete(asset)}
               />
