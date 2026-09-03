@@ -3,6 +3,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net'
 import type {
   RommCollection,
+  RommDeviceAuthInit,
+  RommDeviceAuthToken,
   RommDevice,
   RommFirmware,
   RommPlatform,
@@ -72,6 +74,15 @@ export interface FakeRomm {
   virtualCollections: RommVirtualCollection[]
   /** The RomM version it reports, which is what a client shows as the server's. */
   version: string
+  /**
+   * Play the part of the person approving the code on their phone.
+   *
+   * Until this is called `/api/auth/device/token` answers as RomM does while
+   * nobody has said yes, which is what the screen polls against.
+   */
+  approvePairing: () => void
+  /** The code the screen should be showing, once pairing has been started. */
+  pairing: () => { userCode: string; deviceCode: string } | null
   close: () => Promise<void>
 }
 
@@ -421,6 +432,15 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     }
   ]
 
+  /**
+   * The pairing in progress, if a screen has asked for one.
+   *
+   * A single one rather than a table: there is one device here, and a fake that
+   * kept several would be modelling RomM's bookkeeping rather than answering
+   * the question a scenario asks it.
+   */
+  let pairing: { userCode: string; deviceCode: string; approved: boolean } | null = null
+
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -443,6 +463,45 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       // The one endpoint that answers before there are credentials: it is how
       // the connect screen decides whether an address is a RomM at all.
       if (url.pathname === '/api/heartbeat') return json({ SYSTEM: { VERSION: VERSION } })
+
+      // Pairing is how a client gets a token, so neither of these can be behind
+      // one. That is the whole point of the flow: nothing secret is typed on
+      // the television.
+      if (url.pathname === '/api/auth/device/init') {
+        pairing = { userCode: 'WXYZ-1234', deviceCode: 'device-code-for-tests', approved: false }
+        const answer: RommDeviceAuthInit = {
+          device_code: pairing.deviceCode,
+          user_code: pairing.userCode,
+          verification_path: '/devices/approve',
+          verification_path_complete: `/devices/approve?code=${pairing.userCode}`,
+          expires_in: 600,
+          // Seconds between polls. Small, because a scenario waiting out RomM's
+          // real interval would be a scenario about waiting.
+          interval: 1
+        }
+        return json(answer)
+      }
+
+      if (url.pathname === '/api/auth/device/token') {
+        const sent = Buffer.concat(chunks).toString()
+        // Checked rather than assumed: the code the screen polls with has to be
+        // the one this server issued, or the scenario would go green over a
+        // client that sent anything at all.
+        if (!pairing || !sent.includes(pairing.deviceCode)) {
+          return json({ detail: 'No such device code' }, 400)
+        }
+        // 428 is what RomM answers while the code is still waiting to be
+        // approved, and the client reads it as "not yet" rather than as a
+        // failure — see `pollDevicePairing`.
+        if (!pairing.approved) return json({ detail: 'Not approved yet' }, 428)
+        const answer: RommDeviceAuthToken = {
+          access_token: TOKEN,
+          device_id: 'paired-device',
+          scopes: ['roms.read'],
+          expires_at: null
+        }
+        return json(answer)
+      }
 
       // Everything else is behind the token, so a harness that seeds
       // credentials wrongly fails here rather than three screens later with an
@@ -613,6 +672,11 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     },
     token: TOKEN,
     version: VERSION,
+    approvePairing: () => {
+      if (pairing) pairing.approved = true
+    },
+    pairing: () =>
+      pairing ? { userCode: pairing.userCode, deviceCode: pairing.deviceCode } : null,
     roms,
     collections,
     virtualCollections,

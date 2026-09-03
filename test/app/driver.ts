@@ -221,6 +221,15 @@ export interface StartOptions {
   baseUrl: string
   /** The client token to seed, so no sign-in screen has to be driven. */
   token: string
+  /**
+   * Start with nothing signed in and no server configured.
+   *
+   * The connect screen is the only one that cannot be reached from a RomMix
+   * that is already working, and it is the first thing every new player sees.
+   * `setupComplete` still stands, so what comes up is the sign-in form rather
+   * than the questions about text size that precede it once.
+   */
+  signedOut?: boolean
   /** Settings to write before the first start — an emulator path, say. */
   settings?: Record<string, unknown>
   /**
@@ -330,6 +339,22 @@ export function standInEmulator(): {
 function seed(home: string, options: StartOptions): void {
   const config = join(home, 'config')
   mkdirSync(config, { recursive: true })
+
+  if (options.signedOut) {
+    writeFileSync(
+      join(config, 'settings.json'),
+      JSON.stringify({
+        settings: {
+          setupComplete: true,
+          updates: 'off',
+          navigationSounds: false,
+          ...options.settings
+        }
+      })
+    )
+    return
+  }
+
   writeFileSync(
     join(config, 'credentials.bin'),
     Buffer.concat([

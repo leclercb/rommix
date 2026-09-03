@@ -250,6 +250,7 @@ export function ConnectScreen(): JSX.Element {
             <FocusButton
               icon="connect"
               variant="primary"
+              action="start-pairing"
               onSelect={() => void startPairing()}
               disabled={busy || !baseUrl}
             >
