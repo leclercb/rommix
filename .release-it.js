@@ -39,7 +39,10 @@ export default {
 
   git: {
     requireBranch: 'main',
-    commitMessage: 'Release ${version}',
+    // `chore` because a release changes no behaviour: it bumps a number, writes
+    // the changelog section and tags. Anything filtering the log by type wants
+    // it out of the way, which is the same reason it is not `feat` or `fix`.
+    commitMessage: 'chore(release): ${version}',
     tagName: 'v${version}',
     tagAnnotation: 'RomMix ${version}'
   },
