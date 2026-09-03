@@ -66,6 +66,10 @@ export interface FakeRomm {
   roms: RommRom[]
   /** The platforms it serves, likewise. */
   platforms: RommPlatform[]
+  /** The shelves it serves, for a test that wants to assert against them. */
+  collections: RommCollection[]
+  /** The RomM version it reports, which is what a client shows as the server's. */
+  version: string
   close: () => Promise<void>
 }
 
@@ -350,6 +354,29 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     slow
   ]
 
+  /**
+   * One shelf somebody made, holding games from two different platforms.
+   *
+   * Across platforms on purpose: it is the one grouping RomM has that RomMix
+   * could not have worked out for itself, and a collection whose games all
+   * shared a platform would be indistinguishable from the platform.
+   */
+  const collections: RommCollection[] = [
+    {
+      id: 10,
+      name: 'Rainy Sunday',
+      description: 'Short ones.',
+      rom_ids: [1, 2],
+      rom_count: 2,
+      path_cover_small: null,
+      path_cover_large: null,
+      path_covers_small: [],
+      path_covers_large: [],
+      is_virtual: false,
+      is_favorite: false
+    }
+  ]
+
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -383,7 +410,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       if (url.pathname === '/api/users/me') return json(user)
       if (url.pathname === '/api/platforms')
         return json([megadrive, gameboy, nintendoSwitch, segacd])
-      if (url.pathname === '/api/collections') return json([] as RommCollection[])
+      if (url.pathname === '/api/collections') return json(collections)
       if (url.pathname === '/api/collections/virtual') {
         return json([] as RommVirtualCollection[])
       }
@@ -447,9 +474,15 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const limit = Number(url.searchParams.get('limit') ?? 60)
         const offset = Number(url.searchParams.get('offset') ?? 0)
         const wanted = url.searchParams.getAll('platform_ids').map(Number)
-        const matching = wanted.length
-          ? roms.filter((one) => wanted.includes(one.platform_id))
-          : roms
+        const shelf = url.searchParams.get('collection_id')
+        const onShelf = shelf
+          ? (collections.find((one) => one.id === Number(shelf))?.rom_ids ?? [])
+          : null
+        const matching = onShelf
+          ? roms.filter((one) => onShelf.includes(one.id))
+          : wanted.length
+            ? roms.filter((one) => wanted.includes(one.platform_id))
+            : roms
         const page: RommRomPage = {
           items: matching.slice(offset, offset + limit),
           total: matching.length,
@@ -527,7 +560,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       })
     },
     token: TOKEN,
+    version: VERSION,
     roms,
+    collections,
     close: () =>
       new Promise<void>((resolve, reject) =>
         server.close((cause) => (cause ? reject(cause) : resolve()))

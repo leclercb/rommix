@@ -331,7 +331,7 @@ export function EmulatorList({
           home || Boolean(state?.paths.roms || state?.paths.saves || state?.paths.bios)
 
         return (
-          <div className="emulator" key={descriptor.id}>
+          <div className="emulator" key={descriptor.id} data-emulator={descriptor.id}>
             <div className="emulator__body">
               <div className="emulator__name">
                 {descriptor.name}

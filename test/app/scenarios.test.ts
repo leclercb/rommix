@@ -572,6 +572,113 @@ describe('installing the BIOS a platform needs', () => {
 })
 
 /**
+ * The three sections nothing above passes through.
+ *
+ * Each is here for the same reason the rest of this file is: they are drawn by
+ * the renderer, filled over IPC and read through the preload bridge, and a
+ * channel renamed on one side only is invisible until something opens the
+ * screen. A section no test opens is a section where that rename ships.
+ */
+describe('the collections screen', () => {
+  test('the shelves it draws are the ones the server holds', async () => {
+    await app.goTo('collections')
+    await app.waitFor(
+      `document.querySelector('[data-screen="collections"]')`,
+      'the collections screen'
+    )
+
+    // Filled from its own request, so being on the screen is not yet having
+    // been answered — the same wait the home screen's shelves need.
+    await app.waitFor(`document.querySelector('.card__title')`, 'the shelves to fill')
+    const drawn = await app.read<string[]>(
+      `[...document.querySelectorAll('.card__title')].map((one) => one.textContent)`
+    )
+    assert.deepEqual(
+      drawn,
+      server.collections.map((one) => one.name),
+      `the screen drew ${JSON.stringify(drawn)}`
+    )
+  })
+
+  test('opening one asks for the games on it, and no others', async () => {
+    await app.choose('.card')
+    await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the games on the shelf')
+
+    // The filter is the point. A shelf that listed the whole library would look
+    // right on a fake this size and be wrong on a real one.
+    const asked = server.asked.filter((one) => one.path.includes('collection_id=10'))
+    assert.ok(asked.length > 0, 'it should have asked for the collection by id')
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-rom="3"]'))`),
+      false,
+      'a game that is not on the shelf should not be drawn on it'
+    )
+  })
+})
+
+describe('the settings screen', () => {
+  test('what the server said about itself is what it shows', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'the settings screen')
+
+    // The whole round trip for the heartbeat, which nothing else checks: the
+    // version RomM reports is stored by `connection.ts`, carried over IPC and
+    // drawn here. Everywhere else it is only ever logged.
+    const shown = await app.read<string[]>(
+      `[...document.querySelectorAll('.kv dd')].map((one) => one.textContent)`
+    )
+    assert.ok(
+      shown.some((one) => one?.includes(server.baseUrl)),
+      `the address was not among ${JSON.stringify(shown)}`
+    )
+    assert.ok(
+      shown.some((one) => one === server.version),
+      `the server version was not among ${JSON.stringify(shown)}`
+    )
+  })
+})
+
+describe('the emulators screen', () => {
+  test('the emulator the settings point at is the one it calls installed', async () => {
+    await app.goTo('emulators')
+    await app.waitFor(`document.querySelector('[data-screen="emulators"]')`, 'the emulators screen')
+
+    // Probed on the machine rather than listed from a table, so this is the one
+    // place the renderer draws a conclusion about the disk. Eden is the one the
+    // harness pointed at a stand-in — see `startApp` above.
+    //
+    // Waited for rather than read once, and the wait is the test: the row is
+    // drawn before the probe has answered, and until it does the badge says
+    // "not checked" — which is the same `off` the screen uses for an emulator
+    // that is genuinely absent. A read taken on arrival passes for whichever of
+    // the two happens to be true.
+    await app.waitFor(
+      `document.querySelector('[data-emulator="eden"] .status')?.dataset.state === 'ok'`,
+      'Eden to be probed and found'
+    )
+
+    // And the path it names is the one that was configured, not a guess at
+    // where Eden usually lives: a screen that reported the default while the
+    // launch used the override would agree with nothing.
+    const paths = await app.read<string[]>(
+      `[...document.querySelectorAll('[data-emulator="eden"] .emulator__line-text')].map((one) => one.textContent)`
+    )
+    assert.ok(
+      paths.some((one) => one?.includes(emulator.path)),
+      `the configured path was not among ${JSON.stringify(paths)}`
+    )
+  })
+
+  test('every emulator RomMix knows about is listed, installed or not', async () => {
+    // The list comes off the registry, and `src/config/emulators` is where an
+    // emulator is added. One that compiles, registers and then does not reach
+    // the screen is a whole feature missing with nothing red to say so.
+    const listed = await app.read<number>(`document.querySelectorAll('[data-emulator]').length`)
+    assert.ok(listed > 1, `only ${listed} emulators reached the screen`)
+  })
+})
+
+/**
  * Last on purpose: it takes the server away and does not put it back.
  */
 describe('when the server goes away', () => {
