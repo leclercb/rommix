@@ -318,6 +318,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             `actionLabel` is what the hint bar and a screen reader get. */}
         <FocusButton
           icon="favourite"
+          action="favourite"
           on={favourite === true}
           actionLabel={favourite ? t('game.removeFavourite') : t('game.addFavourite')}
           onSelect={() => void toggleFavourite()}

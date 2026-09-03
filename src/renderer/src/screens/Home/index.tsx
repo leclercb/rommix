@@ -225,6 +225,7 @@ export function HomeScreen(): JSX.Element {
 
       <GameRow
         title={t('home.continuePlaying')}
+        shelf="continue"
         tiles={continuePlaying.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
@@ -234,12 +235,14 @@ export function HomeScreen(): JSX.Element {
           here in full, rather than a query that pages. */}
       <GameRow
         title={t('home.readyToPlay')}
+        shelf="ready"
         tiles={readyToPlay}
         installedIds={installedIds}
         onSelect={open}
       />
       <GameRow
         title={t('home.favourites')}
+        shelf="favourites"
         tiles={favourites.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}
@@ -247,6 +250,7 @@ export function HomeScreen(): JSX.Element {
       />
       <GameRow
         title={t('home.recentlyAdded')}
+        shelf="recent"
         tiles={recentlyAdded.items.map(tileFromRom)}
         installedIds={installedIds}
         onSelect={open}

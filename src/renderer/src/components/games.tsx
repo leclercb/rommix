@@ -112,12 +112,15 @@ export function GameCard({
  */
 export function GameRow({
   title,
+  shelf,
   tiles,
   installedIds,
   onSelect,
   onEndReached
 }: {
   title: string
+  /** Which shelf this is, for `npm run test:app`. See CONTRIBUTING. */
+  shelf?: string
   tiles: GameTile[]
   installedIds: Set<number>
   onSelect: (tile: GameTile) => void
@@ -149,7 +152,7 @@ export function GameRow({
   if (tiles.length === 0) return null
 
   return (
-    <section>
+    <section data-shelf={shelf}>
       <h2 className="section-title">{title}</h2>
       <FocusGroup id={`shelf:${title}`}>
         <div className="row" ref={rowRef}>

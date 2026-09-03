@@ -928,3 +928,96 @@ describe('looking at the screenshots of a game', () => {
     )
   })
 })
+
+/**
+ * The heart, which is the one mark RomM has no field for.
+ *
+ * A favourite is a membership of an ordinary collection that RomM calls the
+ * favourites one by its name — so the first press of the heart *creates* a
+ * collection, on a multipart POST that nothing else in RomMix makes. The fake
+ * had no route for it, and the screen it is pressed on had never been asked.
+ */
+describe('marking a game a favourite', () => {
+  test('a library nobody has favourited anything in has no shelf for it', async () => {
+    assert.equal(
+      server.collections.some((one) => one.is_favorite),
+      false,
+      'the fixtures should start with no favourites shelf'
+    )
+
+    // And the home screen draws no row for one: an empty shelf is left out
+    // rather than drawn empty, which is what makes its arrival below the whole
+    // of the assertion.
+    await app.goTo('home')
+    await app.waitFor(`document.querySelector('[data-shelf="recent"]')`, 'the home shelves')
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-shelf="favourites"]'))`),
+      false
+    )
+  })
+
+  test('pressing it makes the shelf and puts the game on it', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    // Off to begin with, and it has to have been answered before it can be
+    // pressed: the button is disabled while RomMix does not yet know which way
+    // it is set.
+    await app.waitFor(
+      `document.querySelector('[data-action="favourite"]')?.dataset.disabled !== 'true'`,
+      'the heart to know which way it is set'
+    )
+    await app.choose('[data-action="favourite"]')
+
+    await app.waitFor(
+      `document.querySelector('[data-action="favourite"]')?.dataset.on === 'true'`,
+      'the heart to fill in'
+    )
+
+    // Made on the server rather than remembered here, which is the whole point
+    // of a mark that lives on RomM: the shelf did not exist a moment ago.
+    const shelf = server.collections.find((one) => one.is_favorite)
+    assert.ok(shelf, 'the press should have created the favourites shelf')
+    assert.deepEqual(shelf.rom_ids, [1])
+  })
+
+  test('and the home screen draws the shelf it just made', async () => {
+    await app.goTo('home')
+    await app.waitFor(
+      `document.querySelector('[data-shelf="favourites"] [data-rom="1"]')`,
+      'the game on the favourites shelf'
+    )
+
+    // The shelf, not the library: RomM answers `favorite=true` from that one
+    // collection, so a row drawn from any other query would hold every game
+    // here and say nothing.
+    const drawn = await app.read<string[]>(
+      `[...document.querySelectorAll('[data-shelf="favourites"] [data-rom]')].map(
+         (one) => one.dataset.rom
+       )`
+    )
+    assert.deepEqual(drawn, ['1'])
+  })
+
+  test('and pressing it again takes the game off, leaving the shelf behind', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(
+      `document.querySelector('[data-action="favourite"]')?.dataset.on === 'true'`,
+      'the heart, still filled in from last time'
+    )
+    await app.choose('[data-action="favourite"]')
+    await app.waitFor(
+      `document.querySelector('[data-action="favourite"]')?.dataset.on !== 'true'`,
+      'the heart to empty'
+    )
+
+    // The shelf stays, because RomM keeps it: what changed is the membership.
+    // A second collection here would mean the create call ran twice, which is
+    // the failure this is really watching for.
+    const shelves = server.collections.filter((one) => one.is_favorite)
+    assert.equal(shelves.length, 1, 'it should not have made a second shelf')
+    assert.deepEqual(shelves[0].rom_ids, [])
+  })
+})

@@ -655,7 +655,35 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       if (url.pathname === '/api/users/me') return json(user)
       if (url.pathname === '/api/platforms')
         return json([megadrive, gameboy, nintendoSwitch, segacd])
-      if (url.pathname === '/api/collections') return json(collections)
+      /**
+       * The shelves, and the one RomM makes on its own.
+       *
+       * A favourite is not a flag on a game — RomM keeps one ordinary
+       * collection and calls it favourites by its name, so the first press of
+       * the heart creates one. Multipart, because the create call takes artwork
+       * on the same request, and the name is the only field RomMix fills in.
+       */
+      if (url.pathname === '/api/collections') {
+        if (req.method !== 'POST') return json(collections)
+        const name = /name="name"\r\n\r\n([^\r]*)/.exec(Buffer.concat(chunks).toString())?.[1]
+        const made: RommCollection = {
+          id: 20 + collections.length,
+          name: name ?? 'Untitled',
+          description: '',
+          rom_ids: [],
+          rom_count: 0,
+          path_cover_small: null,
+          path_cover_large: null,
+          path_covers_small: [],
+          path_covers_large: [],
+          is_virtual: false,
+          // Derived from the name, the way RomM derives it: nothing on the
+          // create call could say so.
+          is_favorite: name === 'Favourites'
+        }
+        collections.push(made)
+        return json(made)
+      }
 
       /**
        * A game put on a shelf, or taken off it.
@@ -768,11 +796,17 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const wanted = url.searchParams.getAll('platform_ids').map(Number)
         const shelf = url.searchParams.get('collection_id')
         const derived = url.searchParams.get('virtual_collection_id')
+        // The favourites shelf under another name: RomM answers this by the
+        // collection it derives `is_favorite` from, so a library with no such
+        // collection answers with nothing rather than with everything.
+        const favourites = url.searchParams.get('favorite') === 'true'
         const onShelf = shelf
           ? (collections.find((one) => one.id === Number(shelf))?.rom_ids ?? [])
           : derived
             ? (virtualCollections.find((one) => one.id === derived)?.rom_ids ?? [])
-            : null
+            : favourites
+              ? (collections.find((one) => one.is_favorite)?.rom_ids ?? [])
+              : null
         const narrowed = onShelf
           ? roms.filter((one) => onShelf.includes(one.id))
           : wanted.length
