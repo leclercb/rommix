@@ -40,7 +40,13 @@ export function PlatformGroup({
 
   return (
     <section className="group">
-      <div ref={ref as Ref<HTMLDivElement>} className="group__header" data-open={open} {...props}>
+      <div
+        ref={ref as Ref<HTMLDivElement>}
+        className="group__header"
+        data-system={system}
+        data-open={open}
+        {...props}
+      >
         <span className="group__chevron">
           <Icon name={open ? 'collapse' : 'expand'} size={16} />
         </span>

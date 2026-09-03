@@ -359,6 +359,62 @@ describe('pausing a download and picking it up again', () => {
   })
 })
 
+describe('the downloads screen, grouped by system', () => {
+  test('it arrives grouped, with a header per system this disk holds', async () => {
+    await app.goTo('downloads')
+    await app.waitFor(`document.querySelector('.group__header')`, 'the groups')
+
+    // Off what is installed rather than off the platforms the server lists: a
+    // header over nothing is a press that opens an empty group, and RomM knows
+    // about four systems here while this disk holds fewer.
+    const installed = await app.read<string[]>(
+      `[...new Set((await window.rommix.library.installed()).map((one) => one.system))]`
+    )
+    const headers = await app.read<string[]>(
+      `[...document.querySelectorAll('.group__header')].map((one) => one.dataset.system)`
+    )
+    assert.deepEqual(headers.sort(), installed.sort(), `the screen grouped by ${headers}`)
+  })
+
+  test('and a group is shut until it is opened', async () => {
+    const [system] = await app.read<string[]>(
+      `[...document.querySelectorAll('.group__header')].map((one) => one.dataset.system)`
+    )
+
+    // Shut is not merely hidden here either: a library of any size is more rows
+    // than a television can show, and the lid is what makes the screen a list
+    // of systems rather than a list of everything.
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('.group .installed'))`),
+      false,
+      'a shut group should have drawn no rows'
+    )
+
+    await app.choose(`[data-system="${system}"]`)
+    await app.waitFor(
+      `document.querySelector('[data-system="${system}"]')?.dataset.open === 'true'`,
+      'the group to open'
+    )
+    await app.waitFor(`document.querySelector('.group .installed')`, 'its games')
+  })
+
+  test('turning grouping off puts every game in one list', async () => {
+    await app.choose('[data-action="group-by-system"]')
+    await app.waitFor(`!document.querySelector('.group__header')`, 'the headers to go')
+
+    // Every game, not only the ones whose group happened to be open — which is
+    // the reason to turn it off on a machine holding a handful of games.
+    const rows = await app.read<number>(`document.querySelectorAll('.installed').length`)
+    const held = await app.read<number>(`(await window.rommix.library.installed()).length`)
+    assert.equal(rows, held, 'the flat list should hold everything on the disk')
+  })
+
+  test('and back on restores the headers', async () => {
+    await app.choose('[data-action="group-by-system"]')
+    await app.waitFor(`document.querySelector('.group__header')`, 'the groups again')
+  })
+})
+
 /**
  * A session with saves on both sides of it.
  *

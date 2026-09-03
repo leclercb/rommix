@@ -357,6 +357,7 @@ export function DownloadsScreen(): JSX.Element {
             </FocusButton>
             <FocusButton
               icon="group"
+              action="group-by-system"
               onSelect={() => setGrouped((current) => !current)}
               disabled={installed.length === 0}
             >

@@ -38,6 +38,9 @@ const POLL_MS = 100
  */
 const SHOTS = join(process.cwd(), 'test', 'app', 'failures')
 
+/** Whether this run has already thrown away the last one's screenshots. */
+let shotsCleared = false
+
 /**
  * The Electron to run.
  *
@@ -393,7 +396,15 @@ export async function startApp(options: StartOptions): Promise<App> {
   // Whatever is in there belongs to the run before this one, and a screenshot
   // of a failure that has since been fixed is worse than no screenshot at all —
   // it is read as evidence about the failure being looked at.
-  rmSync(SHOTS, { recursive: true, force: true })
+  //
+  // Once per file, not once per application. Several scenarios start a second
+  // RomMix of their own, and clearing on each of those threw away the pictures
+  // of everything that had already failed — which is the run somebody is
+  // reading. A file is a process, so a flag here is exactly that scope.
+  if (!shotsCleared) {
+    rmSync(SHOTS, { recursive: true, force: true })
+    shotsCleared = true
+  }
 
   // Port 0 asks the operating system to choose, which is what lets several of
   // these run at once; the debugger prints the one it took on stderr.
