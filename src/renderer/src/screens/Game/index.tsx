@@ -354,6 +354,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         {entry && variants.length > 1 ? (
           <FocusButton
             icon="emulator"
+            action="run-with"
             onSelect={() => void openChooser()}
             disabled={working || running}
           >

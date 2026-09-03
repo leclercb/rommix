@@ -40,6 +40,7 @@ export function LaunchVariantDialog({
           <FocusButton
             key={option.id}
             icon="emulator"
+            action={`variant-${option.id}`}
             variant={option.id === choice.chosen ? 'primary' : 'default'}
             onSelect={() => onPick(option.id)}
             autoFocus={option.id === (choice.chosen ?? choice.options[0].id)}
