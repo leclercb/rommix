@@ -139,6 +139,8 @@ export interface App {
   click: (selector: string) => Promise<void>
   /** Turn the wheel over something. Positive is towards the end of the page. */
   wheel: (selector: string, by: number) => Promise<void>
+  /** Plug a controller in, which is the input RomMix is really built for. */
+  plugInPad: (mapping?: PadMapping) => Promise<Pad>
   /** Go to one of the sections in the navigation bar. */
   goTo: (route: string) => Promise<void>
   /** The label of whatever is highlighted, for a failure worth reading. */
@@ -158,6 +160,38 @@ export interface App {
  */
 export type Key =
   'Up' | 'Down' | 'Left' | 'Right' | 'Enter' | 'Escape' | 'TabNext' | 'TabBack' | 'Search' | 'Menu'
+
+/**
+ * Whether Chromium recognised the pad, which changes where its buttons are.
+ *
+ * `''` is not a broken controller — it is the ordinary state of an Xbox pad
+ * over Bluetooth, a clone, or anything the vendor table upstream has not seen,
+ * and its buttons then arrive in the order the Linux joystick driver reports
+ * them. See `UNMAPPED` in `input/gamepad.ts`.
+ */
+export type PadMapping = 'standard' | ''
+
+/** A controller Chromium can see, held by the test rather than by a hand. */
+export interface Pad {
+  /** Press a button and let it go, which is one press to the edge detector. */
+  tap: (button: number) => Promise<void>
+  /** Hold one down. Repeats start on their own from here. */
+  hold: (button: number) => Promise<void>
+  release: (button: number) => Promise<void>
+  /** Push a stick or a hat. Axes are numbered as the pad reports them. */
+  axis: (index: number, value: number) => Promise<void>
+  /** Take it away, so a later scenario is not driving one it never asked for. */
+  unplug: () => Promise<void>
+}
+
+/**
+ * How long to leave a button down for a tap.
+ *
+ * The pad is polled on the animation frame rather than delivered, so a press
+ * has to still be down when the next poll comes round. A couple of frames is
+ * the smallest thing that is reliably seen.
+ */
+const TAP_MS = 60
 
 /** Shift, as `Input.dispatchKeyEvent` counts modifiers. */
 const SHIFT = 8
@@ -469,15 +503,25 @@ export async function startApp(options: StartOptions): Promise<App> {
    * where anything is: the layout depends on the window, and the window depends
    * on the machine the suite is running on.
    */
-  const centreOf = async (selector: string): Promise<{ x: number; y: number }> => {
+  const centreOf = async (
+    selector: string
+  ): Promise<{ x: number; y: number; edgeX: number; edgeY: number }> => {
     await waitFor(
       `document.querySelector(${JSON.stringify(selector)})`,
       `${selector} to be in the page`
     )
-    const at = await read<{ x: number; y: number } | null>(
+    const at = await read<{ x: number; y: number; edgeX: number; edgeY: number } | null>(
       `(() => {
          const box = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect()
-         return box ? { x: box.left + box.width / 2, y: box.top + box.height / 2 } : null
+         return box
+           ? {
+               x: box.left + box.width / 2,
+               y: box.top + box.height / 2,
+               // Just outside it, for the approach below.
+               edgeX: Math.max(0, box.left - 2),
+               edgeY: Math.max(0, box.top - 2)
+             }
+           : null
        })()`
     )
     if (!at)
@@ -503,7 +547,20 @@ export async function startApp(options: StartOptions): Promise<App> {
     await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
   }
 
-  const hover = (selector: string): Promise<void> => mouse(selector, 'mouseMoved')
+  /**
+   * Bring the pointer onto something, arriving from outside it.
+   *
+   * A move straight to where the pointer already is is not an arrival: the page
+   * hears `mouseenter` when the pointer crosses an edge, so hovering what is
+   * already under it does nothing at all. Which is right for a mouse and wrong
+   * for a test, where this is the one way to put the highlight somewhere
+   * without also pressing it — so the approach is walked rather than assumed.
+   */
+  const hover = async (selector: string): Promise<void> => {
+    const { edgeX, edgeY } = await centreOf(selector)
+    await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: edgeX, y: edgeY })
+    await mouse(selector, 'mouseMoved')
+  }
 
   const click = async (selector: string): Promise<void> => {
     await hover(selector)
@@ -514,6 +571,75 @@ export async function startApp(options: StartOptions): Promise<App> {
 
   const wheel = (selector: string, by: number): Promise<void> =>
     mouse(selector, 'mouseWheel', { deltaX: 0, deltaY: by })
+
+  /**
+   * A controller, made of nothing but an object the page will believe.
+   *
+   * `navigator.getGamepads()` is polled every frame and returns plain data, so
+   * a pad is exactly that data — no protocol domain, no device, and nothing
+   * Chromium has to be persuaded to enumerate. Everything downstream reads it
+   * the way it reads a real one.
+   *
+   * Worth driving at all because the pad reaches parts of the interface the
+   * keyboard cannot describe: a held direction that repeats, and the button
+   * layout of a controller Chromium could not identify.
+   */
+  const plugInPad = async (mapping: PadMapping = 'standard'): Promise<Pad> => {
+    await read(`(() => {
+      window.__rommixPad = {
+        id: 'RomMix test pad (Vendor: 0000 Product: 0000)',
+        index: 0,
+        mapping: ${JSON.stringify(mapping)},
+        connected: true,
+        timestamp: performance.now(),
+        buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+        axes: [0, 0, 0, 0, 0, 0, 0, 0]
+      }
+      navigator.getGamepads = () => [window.__rommixPad]
+      return true
+    })()`)
+
+    // A frame, so the poll has seen the pad before anything is pressed on it.
+    const settle = (): Promise<boolean> =>
+      read('new Promise((done) => requestAnimationFrame(() => done(true)))')
+
+    const button = async (index: number, pressed: boolean): Promise<void> => {
+      await read(`(() => {
+        const pad = window.__rommixPad
+        pad.buttons[${index}] = { pressed: ${pressed}, touched: ${pressed}, value: ${pressed ? 1 : 0} }
+        pad.timestamp = performance.now()
+        return true
+      })()`)
+      await settle()
+    }
+
+    await settle()
+    return {
+      hold: (index) => button(index, true),
+      release: (index) => button(index, false),
+      tap: async (index) => {
+        await button(index, true)
+        await new Promise((done) => setTimeout(done, TAP_MS))
+        await button(index, false)
+      },
+      axis: async (index, value) => {
+        await read(`(() => {
+          window.__rommixPad.axes[${index}] = ${value}
+          window.__rommixPad.timestamp = performance.now()
+          return true
+        })()`)
+        await settle()
+      },
+      unplug: async () => {
+        await read(`(() => {
+          window.__rommixPad = null
+          navigator.getGamepads = () => []
+          return true
+        })()`)
+        await settle()
+      }
+    }
+  }
 
   /** What the highlight is on, read the way `useFocusable` marks it. */
   const focused = (): Promise<string> =>
@@ -738,6 +864,7 @@ export async function startApp(options: StartOptions): Promise<App> {
     hover,
     click,
     wheel,
+    plugInPad,
     goTo,
     focused,
     home,

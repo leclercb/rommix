@@ -989,6 +989,131 @@ describe('a page taller than the screen', () => {
 })
 
 /**
+ * The controller, which is the input RomMix is actually built for and the one
+ * nothing else here can produce.
+ *
+ * Chromium polls `navigator.getGamepads()` rather than delivering events, so a
+ * pad is an object the page reads sixty times a second — see `plugInPad`.
+ *
+ * Button numbers are written out rather than imported: `input/gamepad.ts` holds
+ * the same numbers, and a test that shared the table with the code would agree
+ * with it however either of them changed.
+ */
+describe('driving it with a controller', () => {
+  /** Standard mapping: A, the d-pad, and the shoulders. */
+  const A = 0
+  const DPAD_RIGHT = 15
+
+  test('the d-pad moves the highlight and A opens what it is on', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the library grid')
+
+    const pad = await app.plugInPad()
+    // The pointer puts the highlight somewhere known without choosing it, which
+    // no press can do.
+    await app.hover('[data-rom="1"]')
+
+    await pad.tap(DPAD_RIGHT)
+    await app.waitFor(
+      `document.querySelector('[data-rom="2"]')?.dataset.focused === 'true'`,
+      'the highlight to step right'
+    )
+
+    await pad.tap(A)
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game it was on')
+    await pad.unplug()
+  })
+
+  test('a held direction repeats, and a tap does not', async () => {
+    // The repeat is the pad's alone: a keyboard's comes from the operating
+    // system, and the driver sends one event per press. Without it, crossing a
+    // library of any size means pressing a hundred times.
+    await app.goTo('library')
+    const pad = await app.plugInPad()
+
+    await app.hover('[data-rom="1"]')
+    await pad.tap(DPAD_RIGHT)
+    const afterOne = await app.read<string>(
+      `document.querySelector('[data-focused="true"]')?.dataset.rom`
+    )
+    assert.equal(afterOne, '2', 'one press should be one step')
+
+    await app.hover('[data-rom="1"]')
+    await pad.hold(DPAD_RIGHT)
+    // Past the delay before repeating starts, and far enough into it for
+    // several. See REPEAT_DELAY_MS and REPEAT_INTERVAL_MS.
+    await app.waitFor(
+      `Number(document.querySelector('[data-focused="true"]')?.dataset.rom) > 2`,
+      'a held direction to carry on moving'
+    )
+    await pad.release(DPAD_RIGHT)
+    await pad.unplug()
+  })
+
+  test('a pad Chromium could not identify is still a working pad', async () => {
+    // The case `UNMAPPED` exists for: an Xbox pad over Bluetooth, a clone, or
+    // anything missing from the vendor table Chromium keeps. Its buttons are
+    // nearly in the standard places, and the two that are not are the two here —
+    // the d-pad arrives as a hat on axes 6 and 7 rather than as buttons, and
+    // Start is button 7.
+    //
+    // Nobody holding one can tell this from a controller RomMix ignores, and
+    // no keyboard test can reach it.
+    const HAT_X = 6
+    const UNMAPPED_START = 7
+
+    await app.goTo('library')
+    const pad = await app.plugInPad('')
+    await app.hover('[data-rom="1"]')
+
+    await pad.axis(HAT_X, 1)
+    await app.waitFor(
+      `document.querySelector('[data-rom="2"]')?.dataset.focused === 'true'`,
+      'the hat to move the highlight'
+    )
+    await pad.axis(HAT_X, 0)
+
+    await pad.tap(UNMAPPED_START)
+    await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'the settings screen')
+    await pad.unplug()
+  })
+
+  test('and the same button on a mapped pad is the right trigger, not Start', async () => {
+    // Button 7 is a trigger on a pad Chromium mapped, and reading it as Start
+    // would open the menu every time somebody held it — which is most of a
+    // racing game.
+    await app.goTo('library')
+    const pad = await app.plugInPad('standard')
+    await pad.tap(7)
+
+    // Still where it was. Asserted rather than waited for, because what is
+    // being claimed is that nothing happened.
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-screen="library"]'))`),
+      true,
+      'the right trigger should not have opened the menu'
+    )
+    await pad.unplug()
+  })
+
+  test('Settings names the pad it can see, which is the pre-flight answer', async () => {
+    // A controller that does not work looks the same from the sofa whichever
+    // end it failed at. A name here means the pad reached the page and the
+    // fault is further in; nothing means it never arrived.
+    const pad = await app.plugInPad()
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the settings tabs')
+    await app.choose('[data-tab="system"]')
+
+    await app.waitFor(
+      `document.body.textContent.includes('RomMix test pad')`,
+      'the pad to be named on the system tab'
+    )
+    await pad.unplug()
+  })
+})
+
+/**
  * Last on purpose: it takes the server away and does not put it back.
  */
 describe('when the server goes away', () => {

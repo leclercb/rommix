@@ -76,11 +76,21 @@ Not in the pre-commit hook, which is budgeted in seconds — but `npm run releas
 runs it, because a tag is public the moment it is pushed. Releasing from a
 headless machine means running that under `xvfb-run` too.
 
-Keys and the pointer both, because the interface takes both: `useFocusable`
-binds `onMouseEnter` and `onClick` beside the focus engine, and a change that
-breaks one and not the other would otherwise go out. The pad is what RomMix is
-designed around, so a scenario reaches a button by walking to it unless the
-pointer is the subject.
+Keys, the pointer and a controller, because the interface takes all three:
+`useFocusable` binds `onMouseEnter` and `onClick` beside the focus engine, and a
+change that breaks one and not the other would otherwise go out. The pad is what
+RomMix is designed around, so a scenario reaches a button by walking to it
+unless another input is the subject.
+
+The controller is an object rather than a device — `navigator.getGamepads()` is
+polled and returns plain data, so `plugInPad` supplies some. That is what
+reaches the two things no key can describe: a held direction that repeats, and
+the button layout of a pad Chromium could not identify.
+
+Not covered there: what the pad does while an emulator owns the screen, where
+every press but Start held down is dropped. It needs a game running to mean
+anything, and sequencing it inside a launch made the scenario about timing
+rather than about input.
 
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
