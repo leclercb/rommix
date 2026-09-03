@@ -891,6 +891,25 @@ describe('after a restart', () => {
     }
   })
 
+  test('a game the server will not describe is left marked for next time', async () => {
+    const { downloads } = manager({
+      contents: '0123456789',
+      breakAfter: 4,
+      breakReason: UnreachableError,
+      // No entry for it, so asking the server about it again fails.
+      roms: {}
+    })
+
+    downloads.enqueue(rom())
+    await settled(downloads, 1)
+    assert.equal(downloads.items[0].state, 'stalled')
+
+    assert.equal(await downloads.resumeAfterOutage(), 0)
+    // Still stalled, so the next time the server answers takes it up again
+    // rather than the row being quietly abandoned.
+    assert.equal(downloads.items[0].state, 'stalled')
+  })
+
   test('a pause after a stall survives the next start', async () => {
     const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
     const stopped = manager({

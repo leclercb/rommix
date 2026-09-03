@@ -232,6 +232,56 @@ describe('watching it', () => {
     assert.equal(announced[1].connected, true)
   })
 
+  test('it keeps asking while the server is away, and stops when told', async () => {
+    const asked: number[] = []
+    const watch = new ConnectionWatch(
+      () => {
+        asked.push(Date.now())
+        return Promise.resolve(answer({ offline: true }))
+      },
+      () => undefined,
+      { away: 2, connected: 10_000 }
+    )
+
+    watch.start()
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    const whileRunning = asked.length
+    watch.stop()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // Away from the server almost nothing is being asked, so there are no
+    // failures to learn from and this is the only way back.
+    assert.ok(whileRunning > 1, `expected several probes, got ${whileRunning}`)
+    assert.equal(asked.length, whileRunning)
+  })
+
+  test('it asks far less often once the server is answering', async () => {
+    let connected = false
+    const asked: number[] = []
+    const watch = new ConnectionWatch(
+      () => {
+        asked.push(Date.now())
+        return Promise.resolve(answer(connected ? { connected: true } : { offline: true }))
+      },
+      () => undefined,
+      { away: 2, connected: 10_000 }
+    )
+
+    watch.start()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.ok(asked.length > 1)
+
+    connected = true
+    await watch.refresh()
+    const afterConnecting = asked.length
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    watch.stop()
+
+    // With a server there, every screen is making requests against it and the
+    // first one to fail says so within the request. This is only a backstop.
+    assert.equal(asked.length, afterConnecting, 'kept probing at the away rate')
+  })
+
   test('an answer somebody else already has is not announced again', async () => {
     const { watch, announced } = watching([answer({ connected: true })])
 

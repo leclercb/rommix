@@ -374,3 +374,92 @@ describe('writing a state file', () => {
     assert.throws(() => store.addInstalled(installed({ romId: 1 })))
   })
 })
+
+describe('saves this device owes the server', () => {
+  test('nothing recorded is an empty list rather than a missing file', () => {
+    const store = new Store(scratch())
+    assert.deepEqual(store.unsentSaves, [])
+  })
+
+  test('a game is noted once, however many sessions it took', () => {
+    const store = new Store(scratch())
+
+    store.noteUnsentSaves({ romId: 7, since: 2_000 })
+    store.noteUnsentSaves({ romId: 7, since: 5_000 })
+
+    // The earliest moment wins: two sessions played out of range are one span
+    // of files to send, and the later one would leave the first session's
+    // saves outside what the drain looks at.
+    assert.deepEqual(store.unsentSaves, [{ romId: 7, since: 2_000 }])
+  })
+
+  test('a later session does not push the span forward', () => {
+    const store = new Store(scratch())
+
+    store.noteUnsentSaves({ romId: 7, since: 5_000 })
+    store.noteUnsentSaves({ romId: 7, since: 2_000 })
+
+    assert.deepEqual(store.unsentSaves, [{ romId: 7, since: 2_000 }])
+  })
+
+  test('games are kept apart, and cleared one at a time', () => {
+    const store = new Store(scratch())
+    store.noteUnsentSaves({ romId: 7, since: 1_000 })
+    store.noteUnsentSaves({ romId: 8, since: 1_000 })
+
+    store.clearUnsentSaves(7)
+
+    assert.deepEqual(
+      store.unsentSaves.map((row) => row.romId),
+      [8]
+    )
+  })
+
+  test('it survives being written and read again', () => {
+    const dir = scratch()
+    new Store(dir).noteUnsentSaves({ romId: 7, since: 1_000 })
+
+    // The whole point of the record: the outage that made it easily outlives
+    // the run of RomMix that wrote it.
+    assert.deepEqual(new Store(dir).unsentSaves, [{ romId: 7, since: 1_000 }])
+  })
+})
+
+describe('how an interrupted transfer stopped', () => {
+  const pending = {
+    romId: 7,
+    name: 'Sonic the Hedgehog',
+    coverPath: null,
+    system: 'genesis',
+    platformName: 'Sega Mega Drive',
+    targetPath: '/roms/genesis/sonic.md',
+    files: [],
+    ownsFolder: false,
+    fileName: 'sonic.md',
+    totalBytes: 1024
+  }
+
+  test('a record written before the first byte says nothing about how it ended', () => {
+    const store = new Store(scratch())
+    store.setPending(pending)
+    assert.equal(store.pending[0].stoppedAs, undefined)
+  })
+
+  test('the network stopping it, and then the user, is the user', () => {
+    const store = new Store(scratch())
+    store.setPending(pending)
+
+    store.markPendingStopped(7, 'stalled')
+    assert.equal(store.pending[0].stoppedAs, 'stalled')
+
+    // Anything else is a Pause button the next start undoes.
+    store.markPendingStopped(7, 'paused')
+    assert.equal(store.pending[0].stoppedAs, 'paused')
+  })
+
+  test('a transfer with no record is nothing to mark', () => {
+    const store = new Store(scratch())
+    store.markPendingStopped(7, 'stalled')
+    assert.deepEqual(store.pending, [])
+  })
+})

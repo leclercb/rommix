@@ -160,7 +160,17 @@ export class ConnectionWatch {
 
   constructor(
     private readonly read: () => Promise<ConnectionStatus>,
-    private readonly announce: (status: ConnectionStatus) => void
+    private readonly announce: (status: ConnectionStatus) => void,
+    /**
+     * How long to leave between probes in each state.
+     *
+     * A seam for the tests, which cannot afford to sit out the real waits;
+     * nothing in the application passes it. See `PROBE_WHILE_AWAY_MS`.
+     */
+    private readonly probeAfter: { away: number; connected: number } = {
+      away: PROBE_WHILE_AWAY_MS,
+      connected: PROBE_WHILE_CONNECTED_MS
+    }
   ) {}
 
   /** The current answer, announced if it differs from the last one. */
@@ -280,7 +290,7 @@ export class ConnectionWatch {
   /** Re-arm the timer at the rate the current state calls for. */
   private arm(): void {
     this.stop()
-    const delay = this.last?.connected ? PROBE_WHILE_CONNECTED_MS : PROBE_WHILE_AWAY_MS
+    const delay = this.last?.connected ? this.probeAfter.connected : this.probeAfter.away
     this.timer = setTimeout(() => {
       this.arm()
       this.probe()
