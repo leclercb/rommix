@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 /**
  * Driving the built application from outside it.
@@ -38,8 +38,45 @@ const POLL_MS = 100
  */
 const SHOTS = join(process.cwd(), 'test', 'app', 'failures')
 
-/** Whether this run has already thrown away the last one's screenshots. */
-let shotsCleared = false
+/**
+ * Which run the pictures in there belong to.
+ *
+ * A run is several processes — the test runner gives each scenario file its own
+ * — and they all descend from the one that was started, which is what this
+ * holds. Without it each file cleared the folder as it began and the last of
+ * them threw away the pictures of everything that had already failed, so a run
+ * that failed early uploaded nothing at all.
+ */
+const RUN_MARKER = join(SHOTS, '.run')
+
+/**
+ * Which scenario file a picture came from.
+ *
+ * In the name because the count that follows it is kept per process, and a run
+ * whose pictures all survive is a run where two files that gave up on the same
+ * thing would otherwise write the same file — the second silently replacing the
+ * first. It is also what says which scenario to open, before anything is.
+ */
+const SCENARIO = basename(process.argv[1] ?? '', '.ts') || String(process.pid)
+
+/**
+ * Throw away the pictures from the run before this one, once for the whole run.
+ *
+ * A screenshot of a failure that has since been fixed is worse than no
+ * screenshot at all — it is read as evidence about the failure being looked at
+ * — so they cannot simply accumulate.
+ */
+function clearLastRunsShots(): void {
+  const run = String(process.ppid)
+  try {
+    if (readFileSync(RUN_MARKER, 'utf8') === run) return
+  } catch {
+    // Nothing has been kept for this run yet, which is the ordinary first pass.
+  }
+  rmSync(SHOTS, { recursive: true, force: true })
+  mkdirSync(SHOTS, { recursive: true })
+  writeFileSync(RUN_MARKER, run)
+}
 
 /**
  * The Electron to run.
@@ -417,18 +454,11 @@ export async function startApp(options: StartOptions): Promise<App> {
   const home = mkdtempSync(join(tmpdir(), 'rommix-app-test-'))
   seed(home, options)
 
-  // Whatever is in there belongs to the run before this one, and a screenshot
-  // of a failure that has since been fixed is worse than no screenshot at all —
-  // it is read as evidence about the failure being looked at.
-  //
-  // Once per file, not once per application. Several scenarios start a second
-  // RomMix of their own, and clearing on each of those threw away the pictures
-  // of everything that had already failed — which is the run somebody is
-  // reading. A file is a process, so a flag here is exactly that scope.
-  if (!shotsCleared) {
-    rmSync(SHOTS, { recursive: true, force: true })
-    shotsCleared = true
-  }
+  // Once for the run rather than once per application: several scenarios start
+  // a second RomMix of their own, and clearing on each of those threw away the
+  // pictures of everything that had already failed — which is the run somebody
+  // is reading. See `clearLastRunsShots`.
+  clearLastRunsShots()
 
   // Port 0 asks the operating system to choose, which is what lets several of
   // these run at once; the debugger prints the one it took on stderr.
@@ -517,7 +547,7 @@ export async function startApp(options: StartOptions): Promise<App> {
    */
   const capture = async (what: string): Promise<string> => {
     shots += 1
-    const name = `${String(shots).padStart(2, '0')}-${what.replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}.png`
+    const name = `${SCENARIO}-${String(shots).padStart(2, '0')}-${what.replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}.png`
     try {
       const shot = (await session.send('Page.captureScreenshot')) as { data?: string }
       if (!shot.data) return ''
@@ -737,6 +767,13 @@ export async function startApp(options: StartOptions): Promise<App> {
   /**
    * What the highlight is on, as something two reads can be compared by.
    *
+   * The label is part of it, not decoration. A row of icon-only buttons — the
+   * heart and the progress mark on a game — are the same tag with the same
+   * class and no text between them, so a walk comparing tag, class and words
+   * alone reads a move from one to the next as a press that went nowhere, and
+   * turns aside to get round a wall that is not there. `aria-label` is what
+   * those buttons say about themselves, and it is what tells them apart.
+   *
    * Waited for rather than read once. A list that is still filling — the
    * library, as its first page arrives — re-renders with nothing focused for a
    * frame, and a scan that read that moment would see two identical empty
@@ -749,7 +786,13 @@ export async function startApp(options: StartOptions): Promise<App> {
       const on = await read<string>(
         `(() => {
            const one = document.querySelector('[data-focused="true"]')
-           return one ? one.tagName + '|' + one.className + '|' + one.textContent.slice(0, 40) : ''
+           if (!one) return ''
+           return [
+             one.tagName,
+             one.className,
+             one.getAttribute('aria-label') ?? '',
+             one.textContent.slice(0, 40)
+           ].join('|')
          })()`
       )
       if (on) return on
