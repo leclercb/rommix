@@ -831,3 +831,100 @@ describe('saying how far through a game you are', () => {
     await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close again')
   })
 })
+
+/**
+ * The screenshots tab and the viewer it opens into.
+ *
+ * The one tab whose contents are pictures rather than rows, and the only place
+ * in RomMix where a focus layer is raised over a screen that is not a dialog.
+ * Neither had ever been drawn: the fake served every game with an empty
+ * `merged_screenshots`, so the tab was the empty state and nothing else.
+ */
+describe('looking at the screenshots of a game', () => {
+  /** What RomM says this game's pictures are, in the order the tab draws them. */
+  const shots = (): string[] => server.roms.find((one) => one.id === 2)?.merged_screenshots ?? []
+
+  /** The viewer is showing this one. Its `src` is the only thing that says so. */
+  const showing = (path: string, what: string): Promise<void> =>
+    app.waitFor(
+      `document.querySelector('.viewer__image')?.src.includes(${JSON.stringify(
+        encodeURIComponent(path)
+      )})`,
+      what
+    )
+
+  test('the tab draws one thumbnail per shot, and they decode', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-tab="screenshots"]')
+
+    await app.waitFor(`document.querySelector('.shot')`, 'the thumbnails')
+    const drawn = await app.read<string[]>(
+      `[...document.querySelectorAll('.shot')].map((one) => one.dataset.shot)`
+    )
+    assert.deepEqual(drawn, shots(), `the tab drew ${JSON.stringify(drawn)}`)
+
+    // Arrived rather than merely asked for. These go through `rommix-img://`
+    // like a cover does, and a path the main process could not answer leaves a
+    // grid of buttons that look exactly like these with nothing in them.
+    await app.waitFor(
+      `[...document.querySelectorAll('.shot__image')].every((one) => one.naturalWidth > 0)`,
+      'every thumbnail to decode'
+    )
+  })
+
+  test('pressing one opens it as large as the screen will show it', async () => {
+    await app.choose(`[data-shot="${shots()[0]}"]`)
+    await showing(shots()[0], 'the shot that was pressed')
+    await app.waitFor(
+      `document.querySelector('.viewer__image').naturalWidth > 0`,
+      'the full picture'
+    )
+  })
+
+  test('and the walk through the set comes round at both ends', async () => {
+    // A run of presses on one button, which is how a set is looked through on a
+    // pad. Focus opens on next for that reason, so this is the button already
+    // under the thumb.
+    await app.choose('[data-action="shot-next"]')
+    await showing(shots()[1], 'the second shot')
+
+    for (let step = 1; step < shots().length; step += 1) {
+      await app.choose('[data-action="shot-next"]')
+    }
+    await showing(shots()[0], 'the first shot, one lap later')
+
+    // The other end, which the first half cannot show: a viewer that stopped
+    // here rather than wrapping reads as one that has stuck.
+    await app.choose('[data-action="shot-previous"]')
+    await showing(shots()[shots().length - 1], 'the last shot, backwards past the start')
+  })
+
+  test('Back closes the picture and leaves the game where it was', async () => {
+    // The viewer binds Back itself, on a layer of its own. Without that layer
+    // the same press would be the game screen's, and a look at a screenshot
+    // would end in the library.
+    await app.press('Escape')
+    await app.waitFor(`!document.querySelector('.viewer')`, 'the viewer to close')
+    await app.waitFor(
+      `document.querySelector('[data-screen="game"]')`,
+      'the game screen to still be there'
+    )
+  })
+
+  test('a game RomM holds no shots for says so', async () => {
+    await app.goTo('library')
+    // The game the fake serves without artwork, which is also the one without
+    // pictures — an empty tab has to say something rather than be a blank card.
+    await app.choose('[data-rom="3"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-tab="screenshots"]')
+    await app.waitFor(`document.querySelector('.panel__body .empty')`, 'the empty tab')
+    assert.equal(
+      await app.read<number>(`document.querySelectorAll('.shot').length`),
+      0,
+      'a game with no screenshots should draw no thumbnails'
+    )
+  })
+})

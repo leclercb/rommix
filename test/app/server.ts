@@ -231,6 +231,15 @@ function coverPath(romId: number, size: 'small' | 'big'): string {
   return `/assets/romm/resources/roms/${romId}/cover/${size}.png`
 }
 
+/** And its screenshots, which RomM keys by number under the same game. */
+function shotPath(romId: number, index: number): string {
+  return `/assets/romm/resources/roms/${romId}/screenshots/${index}.png`
+}
+
+/** How many screenshots a game with artwork gets. More than one, so the
+ * viewer's walk from one to the next has somewhere to go. */
+const SHOTS_PER_ROM = 3
+
 /** The bytes of one file of a game made of several. */
 function bytesFor(fileName: string): Buffer {
   return Buffer.from(`RomMix integration test — ${fileName}\n`.repeat(16))
@@ -334,7 +343,9 @@ function rom(
         sha1_hash: null
       }
     ],
-    merged_screenshots: [],
+    merged_screenshots: art
+      ? Array.from({ length: SHOTS_PER_ROM }, (_, at) => shotPath(id, at))
+      : [],
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z'
   }
@@ -624,6 +635,19 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       )
       if (cover) {
         const png = coverPng(Number(cover[1]))
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
+        return res.end(png)
+      }
+
+      // Keyed on the game and the shot together, so no two pictures in one
+      // set share a colour. Nothing asserts it, for the same reason a cover's
+      // colour is not asserted: it is what makes a failure's screenshot say
+      // which shot the viewer had reached.
+      const shot = /^\/assets\/romm\/resources\/roms\/(\d+)\/screenshots\/(\d+)\.png$/.exec(
+        url.pathname
+      )
+      if (shot) {
+        const png = coverPng(Number(shot[1]) * 100 + Number(shot[2]) + 1)
         res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
         return res.end(png)
       }

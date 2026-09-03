@@ -49,6 +49,7 @@ function Shot({ path, onSelect }: { path: string; onSelect: () => void }): JSX.E
     <button
       ref={ref as Ref<HTMLButtonElement>}
       className="shot"
+      data-shot={path}
       aria-label={t('shots.view')}
       {...props}
     >
@@ -122,6 +123,7 @@ function ViewerFrame({
           <FocusButton
             icon="previous"
             variant="ghost"
+            action="shot-previous"
             actionLabel={t('shots.previous')}
             onSelect={() => step(-1)}
           />
@@ -138,6 +140,7 @@ function ViewerFrame({
           <FocusButton
             icon="next"
             variant="ghost"
+            action="shot-next"
             actionLabel={t('shots.next')}
             onSelect={() => step(1)}
             autoFocus
