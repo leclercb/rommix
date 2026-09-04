@@ -4,6 +4,12 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.12.0 — 2026-09-04
+
+- feat: show the version RomMix is running in the footer (29df809)
+- test(unit): cover a Switch save folder being copied aside by a pull (965beef)
+- feat: keep the last three copies of a save a pull overwrites (5b78266)
+
 ## 0.11.0 — 2026-09-04
 
 - test(app): stop the walk to a button looping between two controls (6f02be6)
