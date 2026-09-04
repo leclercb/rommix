@@ -173,8 +173,18 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
   })
 }
 
-/** Where this EmuDeck launcher's emulator keeps the game's saves. */
-export function emuDeckSavePaths(ctx: SaveContext, script: string): SavePaths {
+/**
+ * Where this EmuDeck launcher's emulator keeps the game's saves.
+ *
+ * `core` is the libretro core the launcher loads, and null for a standalone —
+ * see `emuDeckCore`. It decides the tag and nothing else: every libretro entry
+ * shares one folder, because they share one RetroArch.
+ */
+export function emuDeckSavePaths(
+  ctx: SaveContext,
+  script: string,
+  core: string | null = null
+): SavePaths {
   if (!ctx.paths.saves) return { saves: null, states: null }
 
   const folder = emuDeckSaveFolder(script)
@@ -185,16 +195,22 @@ export function emuDeckSavePaths(ctx: SaveContext, script: string): SavePaths {
   // the folder is not: `Cemu` and `Vita3K` are spelled as EmuDeck spells them,
   // and a tag is compared against what the other ways of running that emulator
   // send.
-  const emulator = folder.toLowerCase()
+  //
+  // For a libretro entry the folder is `retroarch`, which names the shell
+  // rather than what wrote the file, so the core stands in — see `SavePaths`.
+  const emulator = core ?? folder.toLowerCase()
+  // MIGRATION(0.12): what this same file was uploaded as before the core became
+  // the tag.
+  const legacy = core ? { alsoAccepts: [folder.toLowerCase()] } : {}
 
   const switchName = SWITCH_FOLDERS[folder]
   // The Yuzu-lineage emulators keep a NAND rather than a save folder, and
   // EmuDeck links `<folder>/saves` straight at its `nand/user/save`.
   if (switchName) {
-    return { ...switchSavePaths(ctx, joinPath(root, 'saves'), switchName), emulator }
+    return { ...switchSavePaths(ctx, joinPath(root, 'saves'), switchName), emulator, ...legacy }
   }
 
   const known = FOLDERS[folder]
   const paths = known ? known(ctx, root) : standard(root)
-  return { ...paths, emulator }
+  return { ...paths, emulator, ...legacy }
 }

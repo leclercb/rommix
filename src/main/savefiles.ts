@@ -122,9 +122,19 @@ export function localTag(paths: SavePaths, emulatorId: string): string {
  * An untagged asset is not one RomMix wrote, because every upload carries a
  * tag. Nothing else on the asset says which program produced it, so there is no
  * answer to "could this emulator load it" and it is left where it is.
+ *
+ * `also` is what the same files used to be uploaded under — see `alsoAccepts`
+ * in `SavePaths`. Accepted here and never sent, so a tag RomMix has stopped
+ * writing stops appearing on the server by attrition rather than by a sweep.
  */
-export function acceptsTag(local: string, tag: string | null): boolean {
-  return tag ? tag.toLowerCase() === local.toLowerCase() : false
+export function acceptsTag(
+  local: string,
+  tag: string | null,
+  also: readonly string[] = []
+): boolean {
+  if (!tag) return false
+  const arriving = tag.toLowerCase()
+  return arriving === local.toLowerCase() || also.some((older) => arriving === older.toLowerCase())
 }
 
 /**

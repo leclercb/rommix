@@ -799,7 +799,7 @@ export class SaveSync {
 
     // Only what this emulator could load, and for states only the newest few.
     const tag = this.tagFor(paths, target)
-    const usable = remote.filter((item) => acceptsTag(tag, item.emulator))
+    const usable = remote.filter((item) => acceptsTag(tag, item.emulator, paths.alsoAccepts))
     const wanted =
       kind === 'state'
         ? [...usable]

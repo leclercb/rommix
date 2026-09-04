@@ -273,6 +273,24 @@ function locate(
  * the config's `libretro_path` is the fallback, left behind by a frontend that
  * chose the core itself.
  */
+/**
+ * What a libretro save used to be tagged with, and still is where the core is
+ * unknown.
+ *
+ * The frontend, which is the one thing about a libretro save that says nothing
+ * useful: RetroArch is a shell, and the file's format, its name and whether
+ * another program can read it are all the core's doing. RomM's own browser
+ * player already records the core — an N64 save it wrote is `mupen64plus_next`
+ * — so tagging with the frontend meant RomMix and RomM could not exchange a
+ * save for any system either of them ran through libretro.
+ *
+ * MIGRATION(0.12): every libretro save uploaded up to that version carries this
+ * instead of a core, so it stays acceptable on the way in through `alsoAccepts`
+ * — see `SavePaths`. Nothing writes it any more except the case below, where
+ * the core genuinely could not be resolved.
+ */
+export const LIBRETRO_TAG = 'retroarch'
+
 export function libretroSavePaths(
   ctx: SaveContext,
   config: LibretroConfig,
@@ -293,6 +311,11 @@ export function libretroSavePaths(
       byContent: config.sortSavestatesByContent,
       byCore: config.sortSavestatesByCore,
       core: chosen
-    })
+    }),
+    // `core` rather than `chosen`: the fallback above is the core RetroArch
+    // loaded last, which is a fair guess at a directory name and no answer at
+    // all to what wrote this game's save.
+    emulator: core ?? LIBRETRO_TAG,
+    alsoAccepts: [LIBRETRO_TAG]
   }
 }

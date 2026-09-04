@@ -67,6 +67,19 @@ function core(id: string, label: string, name: string): EmuDeckLauncher {
   ])
 }
 
+/**
+ * The libretro core a launcher loads, or null for a standalone.
+ *
+ * Read out of the arguments rather than from the id beside them. The two are
+ * the same string for every row above and the argument is the one that runs, so
+ * a row whose id is ever written as a label cannot quietly start tagging saves
+ * with something no core is called.
+ */
+export function emuDeckCore(chosen: EmuDeckLauncher): string | null {
+  const loaded = chosen.args.find((arg) => arg.endsWith('_libretro.so'))
+  return loaded ? loaded.replace(/_libretro\.so$/, '') : null
+}
+
 /** A standalone emulator, which EmuDeck gives its own launcher script. */
 function standalone(
   id: string,
@@ -360,7 +373,7 @@ export const emudeck: EmulatorDescriptor = {
     const options = emuDeckLaunchers(ctx.system)
     const chosen = ctx.variant ? options.find((option) => option.id === ctx.variant) : options[0]
     if (!chosen) return { saves: null, states: null }
-    return emuDeckSavePaths(ctx, chosen.script)
+    return emuDeckSavePaths(ctx, chosen.script, emuDeckCore(chosen))
   },
   // Its Emulation/bios folder takes any firmware file, at the root.
   bios: undefined,

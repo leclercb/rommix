@@ -152,6 +152,37 @@ test('RetroArch with no config falls back to its declared directories', () => {
   assert.equal(paths.saves?.match, 'rom-stem')
 })
 
+/**
+ * What a libretro save is tagged with on the way to RomM.
+ *
+ * The core rather than RetroArch, because the core is what wrote the file and
+ * what decides whether anything else can read it — and because RomM's own
+ * browser player records the core, so this is what makes a save written there
+ * and one written here the same save. RomMix names the core on the command line
+ * for both RetroArch and EmuDeck, so neither is a guess.
+ */
+test('a libretro save is tagged with the core, not with RetroArch', () => {
+  const paths = resolve(retroarch, {
+    romPath: '/roms/n64/game.z64',
+    system: 'n64',
+    paths: { saves: '/ra/saves', states: '/ra/states' }
+  })
+  assert.equal(paths.emulator, 'mupen64plus_next')
+})
+
+test('a save uploaded as retroarch by an older RomMix is still accepted', () => {
+  // MIGRATION(0.12): everything already on a server carries the frontend, and
+  // the point of this list is that those files do not go dark on the first
+  // launch after the update. Accepted, never sent.
+  const paths = resolve(retroarch, {
+    romPath: '/roms/n64/game.z64',
+    system: 'n64',
+    paths: { saves: '/ra/saves', states: '/ra/states' }
+  })
+  assert.ok(paths.alsoAccepts?.includes('retroarch'))
+  assert.equal(paths.emulator === 'retroarch', false)
+})
+
 test('RetroArch follows savefile_directory out of its own config', () => {
   const env = machine({
     files: {
@@ -358,6 +389,53 @@ test('a RetroDECK libretro system follows its own sort-by-content config', () =>
   assert.equal(paths.emulator, 'retroarch')
 })
 
+/**
+ * RetroDECK is handed the system and picks the core itself, so the tag has to
+ * be read out of its own `es_systems.xml` rather than assumed.
+ *
+ * The command names the core file — that is the string RetroArch is given — so
+ * there is no display-name table in between and nothing to revise when
+ * RetroDECK changes a default.
+ */
+test('a RetroDECK libretro save is tagged with the core its command names', () => {
+  const install = '/var/lib/flatpak/app/net.retrodeck.retrodeck/current/active'
+  const paths = resolve(retrodeck, {
+    romPath: '/home/deck/retrodeck/roms/n64/game.z64',
+    system: 'n64',
+    configDir: '/var/rd/config',
+    installDir: install,
+    paths: {
+      home: '/home/deck/retrodeck',
+      roms: '/home/deck/retrodeck/roms',
+      saves: '/home/deck/retrodeck/saves',
+      states: '/home/deck/retrodeck/states'
+    },
+    env: machine({
+      files: {
+        '/var/rd/config/retroarch/retroarch.cfg': RETRODECK_CFG,
+        [`${install}/files/retrodeck/components/es-de/share/es-de/resources/systems/linux/es_systems.xml`]:
+          '<systemList><system><name>n64</name>' +
+          '<command label="Mupen64Plus-Next">%EMULATOR_RETROARCH% -L ' +
+          '%CORE_RETROARCH%/mupen64plus_next_libretro.so %ROM%</command>' +
+          '</system></systemList>'
+      }
+    })
+  })
+  assert.equal(paths.emulator, 'mupen64plus_next')
+})
+
+test('a RetroDECK core that cannot be read is left as the frontend', () => {
+  // `coreForSystem` would answer here, and answering would be worse than not:
+  // it is the core RomMix would have loaded, which is a confident guess at
+  // RetroDECK's decision. A save tagged with the wrong core is worse than one
+  // tagged with no core.
+  const paths = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/n64/game.z64',
+    system: 'n64'
+  })
+  assert.equal(paths.emulator, 'retroarch')
+})
+
 test('RetroDECK standalone components each get their own arrangement', () => {
   // Verified against RetroDECK's `component_prepare.sh` and a live install.
   const ps2 = retroDeck({ romPath: '/home/deck/retrodeck/roms/ps2/game.chd', system: 'ps2' })
@@ -492,7 +570,9 @@ test('EmuDeck builds both saves and states out of its one saves root', () => {
 
 test('the chosen EmuDeck variant decides which emulator folder is used', () => {
   const core = emuDeck({ romPath: `${HOME}/Emulation/roms/nds/game.nds`, system: 'nds' })
-  assert.equal(core.emulator, 'retroarch')
+  // The folder every libretro entry shares is `retroarch`; the tag is the core
+  // RomMix passes `-L`, which is the program that writes the file.
+  assert.equal(core.emulator, 'melondsds')
 
   const standalone = emuDeck({
     romPath: `${HOME}/Emulation/roms/nds/game.nds`,

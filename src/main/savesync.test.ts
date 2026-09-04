@@ -347,8 +347,9 @@ describe('listing both ends', () => {
     assert.equal(asset.id, null)
     assert.equal(asset.sync, 'local-only')
     // The tag it would be uploaded under, so the column is not blank on the
-    // rows that have never been anywhere.
-    assert.equal(asset.emulator, 'retroarch')
+    // rows that have never been anywhere — the core RomMix loads for the
+    // system, not the frontend that loads it.
+    assert.equal(asset.emulator, 'genesis_plus_gx')
   })
 
   test('a server that cannot be asked leaves the local files uncompared', async () => {

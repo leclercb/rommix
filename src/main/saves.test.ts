@@ -165,6 +165,23 @@ test('a frontend takes back the save it wrote itself', () => {
   assert.equal(acceptsTag(tag, 'pcsx2'), true)
 })
 
+test('a libretro save uploaded before the core became the tag is still taken', () => {
+  // MIGRATION(0.12): every libretro save already on a server says `retroarch`,
+  // which no longer matches the core this device now uploads under. Without the
+  // second list they are all silently skipped on the first launch after the
+  // update — a year of saves, still on the server, that RomMix has quietly
+  // stopped recognising.
+  assert.equal(acceptsTag('mupen64plus_next', 'retroarch'), false)
+  assert.equal(acceptsTag('mupen64plus_next', 'retroarch', ['retroarch']), true)
+})
+
+test('the older tag opens nothing else', () => {
+  // It is one name being forgiven, not a rule that a frontend's saves are
+  // everyone's: a Yabause save is still refused whatever is being carried.
+  assert.equal(acceptsTag('mupen64plus_next', 'yabause', ['retroarch']), false)
+  assert.equal(acceptsTag('mupen64plus_next', 'snes9x', ['retroarch']), false)
+})
+
 test('an untagged asset is left where it is', () => {
   // Every RomMix upload carries a tag, so an untagged one was written by
   // something else and nothing says which emulator could read it.

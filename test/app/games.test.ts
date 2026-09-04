@@ -791,6 +791,13 @@ describe('driving the queue from the activity tab', () => {
  * through `xdgConfigHome`, not a seam added for testing.
  */
 describe('saves either side of a session', () => {
+  /**
+   * The core RomMix picks for this system, which is also the tag a save it
+   * pushes goes up under. Named once because the two have to agree: the file
+   * below is what makes the launch believe the core is installed, and the
+   * assertions are what say the tag names the core and not the frontend.
+   */
+  const core = 'genesis_plus_gx'
   let saved: App
   let configHome: string
   let saveDir: string
@@ -807,16 +814,18 @@ describe('saves either side of a session', () => {
     // it is never loaded, because the emulator is a shell script.
     const coreDir = join(configHome, 'retroarch', 'cores')
     mkdirSync(coreDir, { recursive: true })
-    writeFileSync(join(coreDir, 'genesis_plus_gx_libretro.so'), '')
+    writeFileSync(join(coreDir, `${core}_libretro.so`), '')
 
     // Left by another device, and newer than anything here — which is what
     // makes it a save worth bringing down before the game starts.
     server.holdSave({
       romId: 1,
       fileName: 'cavestory.srm',
-      // The tag RomMix files a RetroArch save under. A save tagged for another
-      // emulator is deliberately not pulled into this one's folder, so getting
-      // this wrong reads as a pull that quietly did nothing.
+      // The tag every libretro save carried before the core became the tag,
+      // which is what a server that has been synced with for a while is full
+      // of. It still has to come down: a save tagged for another emulator is
+      // deliberately not pulled into this one's folder, so a migration that
+      // stopped accepting it reads as a pull that quietly did nothing.
       emulator: 'retroarch',
       content: 'the save from another device'
     })
@@ -908,7 +917,10 @@ describe('saves either side of a session', () => {
 
     const sent = server.uploaded.filter((one) => one.romId === 1)
     assert.equal(sent.length, 1, `uploads: ${JSON.stringify(server.uploaded)}`)
-    assert.equal(sent[0].emulator, 'retroarch')
+    // The core rather than the frontend: what wrote the file decides its
+    // format and its name, and RomM's own player records the core too, so a
+    // save tagged with the shell is one neither end can place.
+    assert.equal(sent[0].emulator, core)
     // Under the name RomM files it by, which is what another device pulls it
     // down as.
     assert.ok(sent[0].body.includes('cavestory.srm'), sent[0].body.slice(0, 200))
@@ -1107,7 +1119,7 @@ describe('saves either side of a session', () => {
       `it sent ${JSON.stringify(sent.map((one) => one.kind))}`
     )
     assert.ok(
-      sent.every((one) => one.romId === 1 && one.emulator === 'retroarch'),
+      sent.every((one) => one.romId === 1 && one.emulator === core),
       'both should have been filed under the game and the emulator that wrote them'
     )
   })

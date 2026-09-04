@@ -74,8 +74,24 @@ export interface SavePaths {
    * dispatched to — a save written by RetroDECK's PCSX2 is a PCSX2 save, and
    * saying "retrodeck" would make it unreadable to anyone not using RetroDECK.
    * Absent for a standalone emulator, where the descriptor id is already right.
+   *
+   * A libretro core is the same argument one level down: the format, the file
+   * name and whether anything else can read it are the core's doing, so the
+   * answer is the core rather than whichever of the three frontends loaded it.
+   * That is also what RomM's own browser player records, which is what makes a
+   * save written there and a save written here the same save.
    */
   emulator?: string
+  /**
+   * Tags a save here may also arrive under, accepted but never sent.
+   *
+   * MIGRATION(0.12): libretro saves were tagged with the frontend up to that
+   * version, so everything already on a server carries `retroarch` where the
+   * core now goes. Without this every one of them turns unreadable on the first
+   * launch after the update — the files are still there, and RomMix stops
+   * recognising them as this emulator's.
+   */
+  alsoAccepts?: readonly string[]
   /**
    * Why nothing can be synced, phrased for the button that just failed.
    *

@@ -1,6 +1,6 @@
 import type { Text } from '@shared/i18n'
 import { coreForSystem } from '../../systems.ts'
-import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
+import { libretroSavePaths, readLibretroConfig, LIBRETRO_TAG } from '../libretro.ts'
 import { baseName, directory, joinPath, perRom, shared } from '../savepaths.ts'
 import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
 
@@ -174,13 +174,46 @@ function defaultCommandLabel(
   installDir: string,
   system: string
 ): string | null {
+  const block = systemBlock(env, installDir, system)
+  if (!block) return null
+  return /<command\s+label="([^"]*)"/.exec(block)?.[1] ?? null
+}
+
+/** The `<system>` ES-DE lists this system under, unparsed. */
+function systemBlock(env: SaveContext['env'], installDir: string, system: string): string | null {
   const xml = env.text(joinPath(installDir, ES_SYSTEMS))
   if (!xml) return null
 
   for (const [, block] of xml.matchAll(/<system>([\s\S]*?)<\/system>/g)) {
     const name = /<name>\s*([\s\S]*?)\s*<\/name>/.exec(block)?.[1]
-    if (name !== system) continue
-    return /<command\s+label="([^"]*)"/.exec(block)?.[1] ?? null
+    if (name === system) return block
+  }
+  return null
+}
+
+/**
+ * The libretro core the command ES-DE would run loads, read off the command
+ * itself.
+ *
+ * RetroDECK's commands name the core file — `%EMULATOR_RETROARCH% -L
+ * %CORE_RETROARCH%/mupen64plus_next_libretro.so %ROM%` — so the core is a
+ * capture from the very line that runs, with no table in between and nothing to
+ * keep up to date when RetroDECK changes a default. The label, which is what
+ * `retroDeckComponent` matches on, is a display name and cannot be turned into
+ * a core id: "Mupen64Plus-Next" is not `mupen64plus_next` by any rule that also
+ * survives "Beetle PSX HW".
+ *
+ * `label` is the `<altemulator>` the game or the system is set to; null means
+ * nothing overrides ES-DE's own first choice, which is the first command listed.
+ */
+function coreForCommand(ctx: ComponentContext, label: string | null): string | null {
+  if (!ctx.installDir) return null
+  const block = systemBlock(ctx.env, ctx.installDir, ctx.system)
+  if (!block) return null
+
+  for (const [, attributes, command] of block.matchAll(/<command([^>]*)>([\s\S]*?)<\/command>/g)) {
+    if (label !== null && /label="([^"]*)"/.exec(attributes)?.[1] !== label) continue
+    return /([A-Za-z0-9_-]+)_libretro\.(?:so|dll|dylib)/.exec(command)?.[1] ?? null
   }
   return null
 }
@@ -310,27 +343,36 @@ export interface ComponentContext {
  * looks.
  */
 export function retroDeckComponent(ctx: ComponentContext): string {
+  const label = commandLabel(ctx)
+  // A recognised label names a standalone; an unrecognised one still means "a
+  // core", which is what the RetroArch fallback is.
+  if (label) return componentForLabel(label) ?? 'retroarch'
+  return RETRODECK_DEFAULT_COMPONENT[ctx.system] ?? 'retroarch'
+}
+
+/**
+ * The `<altemulator>` in force for this game, or the label of the command ES-DE
+ * would otherwise run.
+ *
+ * Null means neither could be read, which is the only case the table of
+ * defaults is for. A game's own override wins outright: where the gamelist
+ * names one, ES-DE does not consult the system list at all, so neither does
+ * this.
+ */
+function commandLabel(ctx: ComponentContext): string | null {
   const gamelist = ctx.paths.home
     ? ctx.env.text(joinPath(ctx.paths.home, 'ES-DE', 'gamelists', ctx.system, 'gamelist.xml'))
     : null
 
   if (gamelist) {
     const label = altEmulatorFor(gamelist, ctx.romPath ? baseName(ctx.romPath) : null)
-    const component = label ? componentForLabel(label) : null
-    // A recognised label wins; an unrecognised one still means "a core", which
-    // is what the RetroArch fallback below already is.
-    if (component) return component
-    if (label) return 'retroarch'
+    if (label) return label
   }
 
   // Nothing overrides it, so ES-DE takes the first command it lists — read from
   // the very file RetroDECK reads rather than from a copy of its conclusions.
-  if (ctx.installDir) {
-    const label = defaultCommandLabel(ctx.env, ctx.installDir, ctx.system)
-    if (label) return componentForLabel(label) ?? 'retroarch'
-  }
-
-  return RETRODECK_DEFAULT_COMPONENT[ctx.system] ?? 'retroarch'
+  if (ctx.installDir) return defaultCommandLabel(ctx.env, ctx.installDir, ctx.system)
+  return null
 }
 
 /**
@@ -388,11 +430,26 @@ export function retroDeckSavePaths(ctx: SaveContext): SavePaths {
     ctx.configDir ? [joinPath(ctx.configDir, 'retroarch', 'retroarch.cfg')] : [],
     ctx.home
   )
+  /**
+   * The core RetroDECK's own command names, and only that.
+   *
+   * Which core runs is RetroDECK's to decide — it is handed the system, not a
+   * core — so unlike RetroArch there is nothing here RomMix chose and can
+   * simply report. Where the command cannot be read the tag stays the frontend:
+   * `coreForSystem` would answer with the core RomMix *would* have picked,
+   * which is a confident guess at somebody else's decision, and a save tagged
+   * with the wrong core is worse than one tagged with no core at all.
+   *
+   * It still stands in for the path, where a wrong core costs nothing: sorting
+   * by core is off in the config RetroDECK ships, so it only names a directory
+   * that is searched and never written.
+   */
+  const named = coreForCommand(ctx, commandLabel(ctx))
   return {
-    ...libretroSavePaths(ctx, config, coreForSystem(ctx.system), {
+    ...libretroSavePaths(ctx, config, named ?? coreForSystem(ctx.system), {
       saves: ctx.paths.saves,
       states: ctx.paths.states
     }),
-    emulator: 'retroarch'
+    emulator: named ?? LIBRETRO_TAG
   }
 }
