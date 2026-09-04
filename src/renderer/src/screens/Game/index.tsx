@@ -70,6 +70,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     download?.state === 'checking' ||
     download?.state === 'extracting' ||
     download?.state === 'installing'
+  /**
+   * Whether the queue would still act on this transfer.
+   *
+   * The three states after the last byte are not among them: the file is being
+   * hashed, unpacked or written into the index, and `DownloadManager.pause` and
+   * `cancel` both refuse a row in any of them. See `DownloadState`.
+   */
+  const interruptible = download?.state === 'queued' || download?.state === 'downloading'
   const running = runningRomId === romId
 
   /** How this game is named and pictured in a toast. */
@@ -247,6 +255,14 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             autoFocus
           >
             {running ? t('game.running') : t('game.play')}
+          </FocusButton>
+        ) : active && !interruptible ? (
+          /* The bytes are all here and the game is being put in place, which
+             is not something to be stopped half way: both buttons below were
+             refused by the queue, so what is left is to say what is happening.
+             Which part of it is happening is the badge under the banner. */
+          <FocusButton icon="install" variant="primary" disabled onSelect={() => {}}>
+            {t('action.installing')}
           </FocusButton>
         ) : active ? (
           <>

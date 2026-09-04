@@ -50,9 +50,20 @@ export function ProgressRow({
     onPause !== undefined &&
     item.resumable !== false &&
     (item.state === 'downloading' || item.state === 'queued')
+  /**
+   * Whether calling it off is still an answer.
+   *
+   * The three states after the last byte are past that point: the game is
+   * being hashed, unpacked or written into the index, and the queue refuses to
+   * cancel a row in any of them — so the button did nothing where it was drawn.
+   * A transfer that stopped is not past it: cancelling is how its bytes are
+   * thrown away.
+   */
+  const cancellable =
+    onCancel !== undefined && (item.state === 'downloading' || item.state === 'queued' || stopped)
   // The column the buttons need is added for the buttons there actually are,
   // not for one of them: a row that only offers Resume needs it just as much.
-  const acts = Boolean(onCancel) || resumable || stoppable || Boolean(onNext)
+  const acts = cancellable || resumable || stoppable || Boolean(onNext)
 
   return (
     <div
@@ -126,7 +137,7 @@ export function ProgressRow({
               {t('action.pause')}
             </FocusButton>
           ) : null}
-          {onCancel ? (
+          {cancellable ? (
             <FocusButton
               icon="cancel"
               variant="danger"
