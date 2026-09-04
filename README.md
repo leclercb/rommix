@@ -47,10 +47,13 @@ Demo: https://leclercb.github.io/rommix/demo/
 - 🏠 Shelves for what you played last, what is on this device and your favourites
 - 📚 Your RomM collections, and the ones RomM builds itself
 - ⬇️ Downloads into your emulator's own ROM folder, or one folder you point them all at
+- 📋 Downloads you can pause and resume, each one checked against RomM's hash
 - 💿 Multi-disc sets unpacked and launched as one game
 - ☁️ Saves and states synced both ways, plus a per-game tab to do it by hand
-- 🛫 Works with RomM out of reach: every screen narrows to what is downloaded,
-  covers, details and Play included
+- ❤️ Favourites, progress and play time saved to RomM
+- ✈️ Offline mode — play your downloaded games with no connection: covers,
+  details, screenshots and Play all still work
+- 🔁 Downloads and unsent saves resume when you are back online
 - 🧩 BIOS files installed from your own server
 - 🎛️ Emulators installed and assigned by RomMix, changeable per platform
 - 📱 Sign in by scanning a code with your phone
@@ -173,8 +176,9 @@ readable only by you where no keyring is reachable.
   from your own server only: upload them to RomM under a platform. Switch, PS3,
   Vita, 3DS and Wii U need a dump from a real console instead, and say so.
 - **Emulators** — what is installed, and which one runs each platform (below).
-- **A game's page** — download, play, uninstall, favourite it, put it in a
-  collection, and four tabs: **Details**, **Saves**, **Files**, **Screenshots**.
+- **A game's page** — download, play, uninstall, favourite it, say how far
+  through it you are, put it in a collection, and four tabs: **Details**,
+  **Saves**, **Files**, **Screenshots**.
   Where an emulator offers more than one way to run a platform, RomMix asks once
   and remembers; **Run with…** changes the answer.
 
@@ -183,7 +187,8 @@ disappearing: Home keeps **Ready to play**, the Library shows what is
 downloaded, BIOS still says what each console needs and what is in place, and a
 game keeps its cover, its details, its screenshots and its Play button. Only
 Collections goes, having no local half. Everything returns on its own once RomM
-answers again.
+answers again: the transfers the network stopped carry on, and any save that
+could not be sent is sent.
 
 ---
 
