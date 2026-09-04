@@ -481,41 +481,45 @@ describe('the downloads screen', () => {
     await app.waitFor(`document.querySelector('.group__header')`, 'the groups, as they were found')
   })
 
-  test('and a mouse left sitting on the list does not take the highlight off it', async () => {
-    // Two things a machine with no window manager does for nothing, and a desk
-    // does by accident: the page is drawn at the size RomMix asks for rather
-    // than filled to a monitor, and the pointer sits in the middle of it and is
-    // never touched again.
-    //
-    // Sorting then moves the rows under a pointer that has not gone anywhere,
-    // and the browser reports what has arrived there as an ordinary move. The
-    // highlight has to stay on the button being pressed: taken off it, the next
-    // press lands on a row instead — which is a game opened, or worse, by a
-    // press aimed at a button plainly under the highlight. See `pointer` in
-    // `input/focus`.
-    await app.drawAt(1280, 800)
-    try {
-      await app.pointAt(960, 540)
-      await app.waitFor(
-        `Boolean(document.elementFromPoint(960, 540)?.closest('.installed'))`,
-        'the pointer to be resting on a row'
-      )
+  test('and a list filling under a resting pointer leaves the highlight alone', async () => {
+    // Where the rows are, before there is any question of the pointer.
+    const [system] = await app.read<string[]>(
+      `[...document.querySelectorAll('.group__header')].map((one) => one.dataset.system)`
+    )
+    const under = await app.read<{ x: number; y: number }>(
+      `(() => {
+         const rows = [...document.querySelectorAll('.group .installed')]
+         const box = rows[rows.length - 1].getBoundingClientRect()
+         return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }
+       })()`
+    )
 
-      // The same three presses as above, which is what makes this the same
-      // button rather than a second way of asking.
-      for (let press = 0; press < 3; press += 1) {
-        await app.choose('[data-action="sort-by"]')
-        assert.equal(
-          await app.read<boolean>(
-            `document.querySelector('[data-action="sort-by"]')?.matches('[data-focused="true"]') ?? false`
-          ),
-          true,
-          `the highlight left the button for ${await app.focused()}`
-        )
-      }
-    } finally {
-      await app.drawAsGiven()
-    }
+    // The lid shut, which takes those rows away and leaves that spot empty. So
+    // the pointer arrives on nothing and the highlight stays where the presses
+    // put it, which is on the lid.
+    await app.choose(`[data-system="${system}"]`)
+    await app.waitFor(
+      `document.querySelector('[data-system="${system}"]')?.dataset.open === 'false'`,
+      'the group to shut'
+    )
+    await app.pointAt(under.x, under.y)
+
+    // Opening it again fills the list back in under a pointer that has gone
+    // nowhere, and the browser reports what has arrived there as an ordinary
+    // move. A mouse on a desk is that pointer, and a machine with no window
+    // manager leaves one in the middle of every window for nothing.
+    await app.press('Enter')
+    await app.waitFor(`document.querySelector('.group .installed')`, 'its games again')
+    assert.equal(
+      await app.read<boolean>(
+        `document.querySelector('[data-system="${system}"]')?.matches('[data-focused="true"]') ?? false`
+      ),
+      true,
+      // Taken off the lid, the next press lands on a row instead — a game
+      // opened, or a game deleted, by a press aimed at something plainly under
+      // the highlight. See `pointer` in `input/focus`.
+      `the highlight left the lid for ${await app.focused()}`
+    )
   })
 
   test('checking against the disk drops a game that was deleted behind its back', async () => {

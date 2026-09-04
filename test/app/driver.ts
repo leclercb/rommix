@@ -177,10 +177,6 @@ export interface App {
   hover: (selector: string) => Promise<void>
   /** Leave the pointer at a place rather than on a thing. See `pointAt`. */
   pointAt: (x: number, y: number) => Promise<void>
-  /** Draw the page at a stated size, whatever window it is in. See `drawAt`. */
-  drawAt: (width: number, height: number) => Promise<void>
-  /** Back to the size the window actually is. */
-  drawAsGiven: () => Promise<void>
   /** Point at something and press it, the way a mouse does. */
   click: (selector: string) => Promise<void>
   /** Turn the wheel over something. Positive is towards the end of the page. */
@@ -674,28 +670,6 @@ export async function startApp(options: StartOptions): Promise<App> {
     await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
   }
 
-  /**
-   * Draw the page at a stated size, whatever window it is in.
-   *
-   * The suite otherwise runs at whatever the machine gives it: a runner with no
-   * window manager draws RomMix at its own default, and a developer's desktop
-   * makes it fullscreen on a monitor of any size. Those are different layouts,
-   * and a scenario about what sits where has to name the one it is about rather
-   * than inherit whichever it was run on.
-   */
-  const drawAt = async (width: number, height: number): Promise<void> => {
-    await session.send('Emulation.setDeviceMetricsOverride', {
-      width,
-      height,
-      deviceScaleFactor: 1,
-      mobile: false
-    })
-  }
-
-  const drawAsGiven = async (): Promise<void> => {
-    await session.send('Emulation.clearDeviceMetricsOverride')
-  }
-
   const click = async (selector: string): Promise<void> => {
     await hover(selector)
     const button = { button: 'left', buttons: 1, clickCount: 1 }
@@ -874,50 +848,76 @@ export async function startApp(options: StartOptions): Promise<App> {
       )
 
     /**
-     * Which way the target lies from the highlight, or '' when it is reached.
+     * Which ways the target lies from the highlight, nearest axis first, and
+     * nothing at all when it is reached.
      *
      * Homing on where the thing actually is, rather than sweeping and hoping.
      * The interface is laid out for a person pointing a D-pad at what they can
      * see, so the direction that closes the larger gap is the direction they
      * would press — and it converges in a handful of presses where a search
-     * wanders for a hundred.
+     * wanders for a hundred. The other axis comes back with it, for the press
+     * that has to leave a pair of squares pointing at each other.
+     *
+     * Off the screen, only up or down. What lies that way is a thing nobody can
+     * see, so nobody would press towards it across: on a settings page a screen
+     * and a half tall, answering "left" to something a thousand pixels below
+     * spends every press swapping between the two controls of one row, which is
+     * a loop the walk cannot leave. Bring it into view, then close the gap
+     * across.
      */
-    const towards = (): Promise<string> =>
-      read<string>(
+    const towards = (): Promise<Key[]> =>
+      read<Key[]>(
         `(() => {
            const target = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect()
            const here = document.querySelector('[data-focused="true"]')?.getBoundingClientRect()
-           if (!target || !here) return ''
+           if (!target || !here) return []
            const across = target.left + target.width / 2 - (here.left + here.width / 2)
            const down = target.top + target.height / 2 - (here.top + here.height / 2)
-           if (Math.abs(across) < 4 && Math.abs(down) < 4) return ''
+           if (Math.abs(across) < 4 && Math.abs(down) < 4) return []
+           const vertical = down > 0 ? 'Down' : 'Up'
+           const sideways = across > 0 ? 'Right' : 'Left'
+           if (target.bottom <= 0 || target.top >= window.innerHeight) return [vertical]
            return Math.abs(down) >= Math.abs(across)
-             ? down > 0 ? 'Down' : 'Up'
-             : across > 0 ? 'Right' : 'Left'
+             ? [vertical, sideways]
+             : [sideways, vertical]
          })()`
       )
 
+    // Where the highlight stood before the press that has just been made.
+    // Homing works the direction out afresh every time and remembers nothing,
+    // so a pair of squares whose answers point at each other — down to the
+    // control on the next row, left to the one this row started with — is a
+    // loop it takes in turn until it runs out of steps.
+    let previous = ''
+
     for (let step = 0; step < 40; step += 1) {
       if (await there()) return press('Enter')
-      const key = (await towards()) as Key | ''
+      const [key, other] = await towards()
       if (!key) break
       const before = await highlight()
       await press(key)
+      const after = await highlight()
       // A wall in the direction it wanted. The other axis is the way round it —
       // a game two rows down and one column left is not reachable by pressing
       // Down alone once the column has run out.
-      if ((await highlight()) === before) {
+      if (after === before) {
         const sideways: Key =
           key === 'Up' || key === 'Down'
-            ? (await towards()) === 'Left'
+            ? (await towards())[0] === 'Left'
               ? 'Left'
               : 'Right'
-            : (await towards()) === 'Up'
+            : (await towards())[0] === 'Up'
               ? 'Up'
               : 'Down'
         await press(sideways)
         if ((await highlight()) === before) break
+      } else if (after === previous && other) {
+        // Straight back where it came from, which is the loop. One press along
+        // the other axis leaves the pair, and the homing carries on from
+        // wherever that lands.
+        await press(other)
       }
+      previous = before
     }
 
     /**
@@ -1035,8 +1035,6 @@ export async function startApp(options: StartOptions): Promise<App> {
     choose,
     hover,
     pointAt,
-    drawAt,
-    drawAsGiven,
     click,
     wheel,
     plugInPad,
