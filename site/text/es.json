@@ -12,7 +12,7 @@
   "page.description": "Explora tu biblioteca de RomM como el panel de una consola &mdash; ordenador, portátil o televisor. Descarga un juego, juégalo, y tus partidas vuelven a RomM.",
 
   "hero.title": "Tu biblioteca de RomM, juegues donde juegues.",
-  "hero.lede": "Una interfaz al estilo Big Picture para tu propio servidor <a href=\"https://romm.app\">RomM</a>. Explora, descarga, juega &mdash; las partidas se sincronizan con RomM.",
+  "hero.lede": "Una interfaz al estilo Big Picture para tu propio servidor <a href=\"https://romm.app\">RomM</a>.<br />Explora, descarga, juega &mdash; las partidas se sincronizan con RomM.",
 
   "where.desktop": "Ordenador",
   "where.handheld": "Portátil",
@@ -21,6 +21,7 @@
   "action.demo": "Abrir la demo",
   "action.download": "Descargar",
   "action.source": "Código en GitHub",
+  "action.otherDownloads": "Otras descargas",
   "demo.alt": "La pantalla de inicio de RomMix, con el último juego jugado arriba y los que están en este dispositivo debajo",
   "demo.shotGame": "Detalles del juego",
 

@@ -12,7 +12,7 @@
   "page.description": "Durchsuchen Sie Ihre RomM-Bibliothek wie ein Konsolen-Dashboard — am Rechner, am Handheld oder am Fernseher. Ein Spiel herunterladen, spielen, Spielstände gehen zurück an RomM.",
 
   "hero.title": "Ihre RomM-Bibliothek, wo immer Sie spielen.",
-  "hero.lede": "Eine Oberfläche im Big-Picture-Stil für Ihren eigenen <a href=\"https://romm.app\">RomM</a>-Server. Durchsuchen, herunterladen, spielen &mdash; die Spielstände werden mit RomM synchronisiert.",
+  "hero.lede": "Eine Oberfläche im Big-Picture-Stil für Ihren eigenen <a href=\"https://romm.app\">RomM</a>-Server.<br />Durchsuchen, herunterladen, spielen &mdash; die Spielstände werden mit RomM synchronisiert.",
 
   "where.desktop": "Rechner",
   "where.handheld": "Handheld",
@@ -21,6 +21,7 @@
   "action.demo": "Demo öffnen",
   "action.download": "Herunterladen",
   "action.source": "Quellcode auf GitHub",
+  "action.otherDownloads": "Weitere Downloads",
   "demo.alt": "Der RomMix-Startbildschirm: oben das zuletzt gespielte Spiel, darunter die Spiele auf diesem Gerät",
   "demo.shotGame": "Spieldetails",
 

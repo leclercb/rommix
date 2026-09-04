@@ -17,7 +17,7 @@
   "page.description": "Browse your RomM library like a console dashboard — desktop, handheld or television. Download a game, play it, and your saves go back to RomM.",
 
   "hero.title": "Your RomM library, wherever you play.",
-  "hero.lede": "A Big Picture&ndash;style front end for your own <a href=\"https://romm.app\">RomM</a> server. Browse, download, play &mdash; saves sync back to RomM.",
+  "hero.lede": "A Big Picture&ndash;style front end for your own <a href=\"https://romm.app\">RomM</a> server.<br />Browse, download, play &mdash; saves sync back to RomM.",
 
   "where.desktop": "Desktop",
   "where.handheld": "Handheld",
@@ -26,6 +26,7 @@
   "action.demo": "Open the demo",
   "action.download": "Download",
   "action.source": "Source on GitHub",
+  "action.otherDownloads": "Other downloads",
   "demo.alt": "The RomMix home screen, with the game you were last playing at the top and the ones on this device below it",
   "demo.shotGame": "Game details",
 

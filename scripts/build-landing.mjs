@@ -21,8 +21,11 @@
  * unused one is a translation of something that is no longer on the page.
  *
  * Run through `node --experimental-transform-types`, which is what lets it
- * import the catalogue's TypeScript directly. No bundler is involved and the
- * rendered pages still contain no script of their own.
+ * import the catalogue's TypeScript directly. No bundler is involved, and
+ * nothing here reaches the network: the two numbers on the page that come from
+ * GitHub — the star count and the newest version — are read by the page itself
+ * when it is opened, so a build is offline and a reader is never shown a figure
+ * that was true at the last deploy.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
@@ -34,35 +37,6 @@ const OUT = resolve(ROOT, 'out/site')
 /** Where the published site lives, for the `hreflang` links search engines want. */
 const SITE = 'https://leclercb.github.io/rommix'
 
-/** The repository the star count is read from, and the link that carries it. */
-const REPO = 'leclercb/rommix'
-
-/**
- * How many people have starred it, or null.
- *
- * Read once at build time and written into the page. The page runs no script,
- * so this is as fresh as the last deploy — which for a number that moves by
- * ones is close enough, and buys a header that costs the reader no request.
- *
- * Null on any failure, including no network at all: a missing count is a link
- * without a number beside it, and that must not be the difference between a
- * site that builds and one that does not.
- */
-async function stars() {
-  try {
-    const response = await fetch(`https://api.github.com/repos/${REPO}`, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'rommix-site' },
-      signal: AbortSignal.timeout(5000)
-    })
-    if (!response.ok) throw new Error(`GitHub responded ${response.status}`)
-    const repo = await response.json()
-    return typeof repo.stargazers_count === 'number' ? repo.stargazers_count : null
-  } catch (cause) {
-    console.log(`    (no star count: ${cause.message})`)
-    return null
-  }
-}
-
 /** The language the site is served from its root, and the one others fall back to. */
 const DEFAULT = 'en'
 
@@ -72,7 +46,7 @@ const pathOf = (locale) => (locale === DEFAULT ? '' : `${locale}/`)
 /** How deep a page sits, as the prefix that gets back to the site root. */
 const rootOf = (locale) => (locale === DEFAULT ? './' : '../')
 
-async function render(template, locale, starCount) {
+async function render(template, locale) {
   const page = JSON.parse(await readFile(resolve(ROOT, 'site/text', `${locale}.json`), 'utf8'))
   const { t } = createI18n(locale)
   const used = new Set()
@@ -103,14 +77,7 @@ async function render(template, locale, starCount) {
     root: rootOf(locale),
     languages,
     'languages.current': name(locale),
-    alternates,
-    // Compact, and in this page's own language: 1200 is `1.2k` in English and
-    // `1,2 k` in French.
-    'stars.count':
-      starCount === null
-        ? ''
-        : `<b>${new Intl.NumberFormat(locale, { notation: 'compact' }).format(starCount)}</b>`,
-    'stars.label': starCount === null ? REPO : `${REPO} — ${starCount}`
+    alternates
   }
 
   const rendered = template.replace(/\{\{(@?[\w.]+)\}\}/g, (whole, key) => {
@@ -154,9 +121,7 @@ const template = source.replace(
 )
 if (template === source) throw new Error('site/index.html has lost its header comment')
 
-const starCount = await stars()
-
 for (const locale of LOCALES) {
-  const target = await render(template, locale, starCount)
+  const target = await render(template, locale)
   console.log(`    ${locale} -> ${target.slice(ROOT.length + 1)}`)
 }

@@ -9,7 +9,8 @@
 # result, so what is published is what this produces here.
 #
 # The demo is built once and picks its language in the browser; the landing page
-# is four static documents, since a page with no script cannot choose.
+# is four static documents, so that each language is a URL a search engine can
+# index and offer — which is what the `hreflang` links between them are for.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -34,8 +35,8 @@ rm -rf "$OUT/img"
 cp -r site/img "$OUT/img"
 # `--experimental-transform-types` so it can read the application's own
 # catalogue: the picture on the page is a drawing of RomMix, and its labels come
-# from what RomMix actually says. Nothing is bundled and the pages carry no
-# script — see `scripts/build-landing.mjs`.
+# from what RomMix actually says. Nothing is bundled: the two short scripts the
+# page runs are inline in the template — see `scripts/build-landing.mjs`.
 node --experimental-transform-types --no-warnings scripts/build-landing.mjs
 
 cat <<EOF

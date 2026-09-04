@@ -12,7 +12,7 @@
   "page.description": "Parcourez votre bibliothèque RomM comme un tableau de bord de console &mdash; ordinateur, console portable ou téléviseur. Téléchargez un jeu, jouez-y, et vos sauvegardes repartent vers RomM.",
 
   "hero.title": "Votre bibliothèque RomM, où que vous jouiez.",
-  "hero.lede": "Une interface façon Big Picture pour votre propre serveur <a href=\"https://romm.app\">RomM</a>. Parcourez, téléchargez, jouez &mdash; les sauvegardes sont synchronisées avec RomM.",
+  "hero.lede": "Une interface façon Big Picture pour votre propre serveur <a href=\"https://romm.app\">RomM</a>.<br />Parcourez, téléchargez, jouez &mdash; les sauvegardes sont synchronisées avec RomM.",
 
   "where.desktop": "Ordinateur",
   "where.handheld": "Console portable",
@@ -21,6 +21,7 @@
   "action.demo": "Ouvrir la démo",
   "action.download": "Télécharger",
   "action.source": "Le code sur GitHub",
+  "action.otherDownloads": "Autres téléchargements",
   "demo.alt": "L'écran d'accueil de RomMix, avec le dernier jeu joué en haut et ceux présents sur l'appareil en dessous",
   "demo.shotGame": "Détails du jeu",
 

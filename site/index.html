@@ -8,8 +8,11 @@
   catalogue in `src/shared/i18n/`, so a word this page borrows from RomMix
   cannot drift from the one RomMix says.
 
-  No framework, and the only script is the handful of lines under the strip of
-  pictures that keep its arrows from scrolling the page — see `.shot__step`. The
+  No framework, and two short scripts at the foot of the page: one keeps the
+  arrows on the strip of pictures from scrolling the page — see `.shot__step` —
+  and one fills in the three things a document rendered at build time cannot
+  know, the star count, the newest version and the architecture the reader is
+  on. Both are improvements on markup that already works without them. The
   palette and the mark are the app's own, and the picture of the interface is a
   photograph of it — see `scripts/screenshots.mjs`. The demo it links to is
   built beside this page, so the page is only whole through
@@ -169,6 +172,13 @@
       .stars b {
         font-weight: 650;
         color: var(--text);
+      }
+
+      /* Until the count arrives — and for good, if GitHub cannot be reached —
+         the mark stands alone. An empty flex item would otherwise hold the
+         row's gap open beside it. */
+      .stars b:empty {
+        display: none;
       }
 
       /* A dropdown with no script: `details` is the only element that opens on its
@@ -351,6 +361,32 @@
 
       .button.primary:hover {
         background: var(--accent-strong);
+      }
+
+      /* What the button leading the row above will actually put on the disk, in
+         the same quiet register as `.where` — so the buttons sit between two
+         lines of the same kind rather than above a stray caption. It is led by
+         the file's own name, which is what lets it stand at the margin under a
+         row of three and still be about the one that downloads. A column, so the
+         way to the builds it does not name is a line of its own rather than a
+         fourth item in a list of three facts. */
+      .release {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+        margin: 18px 0 0;
+        color: var(--text-faint);
+        font-size: 0.82rem;
+      }
+
+      /* A separator in front of everything that follows something. The version
+         is empty until the script at the foot of the page answers, and a dot in
+         front of a gap is worse than no dot at all. */
+      .release__version:not(:empty)::before,
+      .release__arch::before {
+        content: '·';
+        margin: 0 8px;
       }
 
       .note {
@@ -920,18 +956,19 @@
     <header>
       <div class="wrap">
         <div class="topline">
-          <!-- The star count is written in at build time, so it is as fresh as the
-               last deploy — the price of a page that runs no script. -->
+          <!-- The count is filled in by the script at the foot of the page, which
+               also puts the exact figure in the label — what is rendered here is
+               the link, which is the part worth having either way. -->
           <a
             class="stars"
             href="https://github.com/leclercb/rommix"
             rel="noopener"
-            aria-label="{{stars.label}}"
+            aria-label="leclercb/rommix"
           >
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <use href="#mark-github" />
             </svg>
-            {{stars.count}}
+            <b></b>
           </a>
 
           <details class="langs">
@@ -1000,21 +1037,36 @@
         </p>
 
         <div class="actions">
-          <!-- A new tab: the demo takes over the window it opens in, and nothing
-               in it leads back to this page. -->
-          <a class="button primary" href="{{root}}demo/" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 3.5 20 12 6 20.5Z" />
-            </svg>
-            {{action.demo}}
-          </a>
-          <a class="button" href="https://github.com/leclercb/rommix/releases">
+          <!--
+            At the image rather than at the releases page. `releases/latest/
+            download/<name>` is GitHub's own redirect to whatever the newest
+            release calls that file, so this link is never a version behind and
+            never needs rebuilding — which is why the file name carries no
+            version and the line under the row does.
+
+            That line is the button's description as well as its caption, so
+            pressing this with a screen reader says which file, which version
+            and which architecture.
+          -->
+          <a
+            class="button primary download"
+            href="https://github.com/leclercb/rommix/releases/latest/download/RomMix-x86_64.AppImage"
+            aria-describedby="release-file"
+          >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3v12" />
               <path d="m7 10 5 5 5-5" />
               <path d="M4 21h16" />
             </svg>
             {{action.download}}
+          </a>
+          <!-- A new tab: the demo takes over the window it opens in, and nothing
+               in it leads back to this page. -->
+          <a class="button" href="{{root}}demo/" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5 20 12 6 20.5Z" />
+            </svg>
+            {{action.demo}}
           </a>
           <a class="button" href="https://github.com/leclercb/rommix">
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1023,6 +1075,26 @@
             {{action.source}}
           </a>
         </div>
+
+        <!--
+          AppImage is written out rather than translated, for the same reason
+          GitHub and RomM are: it is the name of the thing, and the reader will
+          meet it again as the file. It leads the line because it is what makes
+          the rest of it — a version and an architecture — obviously about the
+          download rather than about the page.
+
+          Both of the parts that move are written in as the safe answer and
+          corrected by the script at the foot of the page: the version empty,
+          because a document cannot ask which release is newest, and x86_64,
+          because it cannot ask which machine is reading it.
+        -->
+        <p class="release">
+          <span class="release__file" id="release-file"
+            >AppImage<span class="release__version"></span
+            ><span class="release__arch">x86_64</span></span
+          >
+          <a href="https://github.com/leclercb/rommix/releases">{{action.otherDownloads}}</a>
+        </p>
 
         <!--
           The interface, photographed from the demo published beside this page —
@@ -1641,6 +1713,85 @@
           shot.scrollIntoView({ block: 'nearest', inline: 'center' })
         })
       }
+    </script>
+
+    <!--
+      The three things this page cannot know when it is rendered.
+
+      All three are corrections to markup that is already right: the star count
+      is a slot that stays empty, the version is a label the button does without,
+      and x86_64 is the build most machines running Linux want. With the script
+      absent, broken, rate-limited or offline the header still links to the
+      repository and the button still downloads a real image.
+
+      That is why they are read here rather than baked in by
+      `scripts/build-landing.mjs`. A number written at build time is a number
+      that is wrong from the next release until the next deploy, and the two
+      have no reason to coincide — publishing a release changes none of the
+      files `.github/workflows/pages.yml` watches.
+    -->
+    <script>
+      const REPO = 'leclercb/rommix'
+
+      const github = (path) =>
+        fetch(`https://api.github.com/repos/${REPO}${path}`, {
+          headers: { Accept: 'application/vnd.github+json' }
+        }).then((response) =>
+          response.ok
+            ? response.json()
+            : Promise.reject(new Error(`GitHub said ${response.status}`))
+        )
+
+      // Compact, and in this page's own language: 1200 is `1.2k` in English and
+      // `1,2 k` in French. The exact figure goes in the label, which is read out
+      // rather than glanced at.
+      const stars = document.querySelector('.stars')
+      github('')
+        .then(({ stargazers_count: count }) => {
+          if (typeof count !== 'number') return
+          const compact = new Intl.NumberFormat(document.documentElement.lang, {
+            notation: 'compact'
+          })
+          stars.querySelector('b').textContent = compact.format(count)
+          stars.setAttribute('aria-label', `${REPO} — ${count}`)
+        })
+        .catch(() => {})
+
+      // `v0.10.0` is the tag; the line under the row shows the version. The
+      // button is aimed at GitHub's `latest` redirect either way, so this names
+      // what pressing it is about to fetch rather than deciding it.
+      const version = document.querySelector('.release__version')
+      github('/releases/latest')
+        .then((release) => {
+          if (typeof release.tag_name === 'string') {
+            version.textContent = release.tag_name.replace(/^v/, '')
+          }
+        })
+        .catch(() => {})
+
+      // Which architecture the button offers, asked two ways because neither
+      // answers everywhere: Firefox names the machine in its user agent, and
+      // Chromium, which froze that field, answers `getHighEntropyValues`
+      // instead — asynchronously, so this correction lands a tick after the
+      // page does. The token matched is the one RomMix matches release assets
+      // with, `ARCH_TOKENS` in src/main/releases.ts, so the page and the
+      // updater agree on what an ARM build is called.
+      const button = document.querySelector('.download')
+      const arch = document.querySelector('.release__arch')
+
+      const offerArm64 = () => {
+        button.href = button.href.replace('x86_64', 'arm64')
+        arch.textContent = 'arm64'
+      }
+
+      if (/aarch64|arm64/i.test(navigator.userAgent)) offerArm64()
+      else
+        navigator.userAgentData
+          ?.getHighEntropyValues(['architecture'])
+          .then((agent) => {
+            if (agent.architecture === 'arm') offerArm64()
+          })
+          .catch(() => {})
     </script>
   </body>
 </html>
