@@ -17,6 +17,7 @@ import type { EmulatorState } from '@config/emulators'
 import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
 import { RommError, type RommClient } from './romm/index.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
+import { zipDirectory } from './zip.ts'
 import { Store } from './store.ts'
 
 /**
@@ -87,6 +88,8 @@ function setUp(
     serverSays?: Error
     /** Whether the server refuses every upload, as an unreachable one does. */
     uploadFails?: boolean
+    /** What a download hands back as an archive, for a directory save. */
+    archive?: Record<string, string>
   } = {}
 ): {
   sync: SaveSync
@@ -107,6 +110,17 @@ function setUp(
 
   const uploaded: { fileName: string; from: string }[] = []
   const deleted: number[] = []
+
+  /** What the server hands over: a file's contents, or a zip of a folder. */
+  const download = async (to: string): Promise<void> => {
+    if (!options.archive) return writeFile(to, 'from the server')
+    const staging = scratch()
+    for (const [name, contents] of Object.entries(options.archive)) {
+      mkdirSync(join(staging, name, '..'), { recursive: true })
+      writeFileSync(join(staging, name), contents)
+    }
+    await zipDirectory(staging, to)
+  }
   const refuse = (): never => {
     throw options.serverSays as Error
   }
@@ -114,8 +128,8 @@ function setUp(
     saves: async () => (options.serverSays ? refuse() : (options.saves ?? [])),
     states: async () => (options.serverSays ? refuse() : (options.states ?? [])),
     devices: async () => (options.serverSays ? refuse() : (options.devices ?? [])),
-    downloadSave: async (_id: number, to: string) => writeFile(to, 'from the server'),
-    downloadState: async (_id: number, to: string) => writeFile(to, 'from the server'),
+    downloadSave: async (_id: number, to: string) => download(to),
+    downloadState: async (_id: number, to: string) => download(to),
     uploadSave: async (_romId: number, filePath: string, fileName: string) => {
       if (options.uploadFails) throw new Error('fetch failed')
       uploaded.push({ fileName, from: filePath })
@@ -762,8 +776,10 @@ describe('a save the emulator keeps as a folder', () => {
   const TITLE_ID = '0100000000010000'
   const PROFILE = 'a'.repeat(32)
 
-  function switchGame(): ReturnType<typeof setUp> & { gameDir: string } {
-    const made = setUp()
+  function switchGame(
+    options: Parameters<typeof setUp>[0] = {}
+  ): ReturnType<typeof setUp> & { gameDir: string } {
+    const made = setUp(options)
     const nand = join(made.saveDir, 'nand')
     const gameDir = join(nand, '0000000000000000', PROFILE, TITLE_ID)
     mkdirSync(gameDir, { recursive: true })
@@ -797,6 +813,38 @@ describe('a save the emulator keeps as a folder', () => {
     // files inside it have no names the server could file them under.
     assert.equal(uploaded.length, 1)
     assert.match(uploaded[0].fileName, /\.rommix-save\.zip$/)
+  })
+
+  test('the folder is copied aside whole before the archive is unpacked over it', async () => {
+    const { sync, target, gameDir, backups } = switchGame({
+      saves: [
+        save({
+          file_name: `Zelda [${TITLE_ID}].rommix-save.zip`,
+          emulator: 'eden',
+          updated_at: '2026-08-01T12:00:00.000Z'
+        })
+      ],
+      // Only one of the two files the folder holds, which is the case the copy
+      // is for: what the archive does not carry survives in the copy alone.
+      archive: { 'save.dat': 'from the server' }
+    })
+    for (const [name, contents] of Object.entries({
+      'save.dat': 'played here',
+      'profile/settings.dat': 'played here too'
+    })) {
+      mkdirSync(join(gameDir, name, '..'), { recursive: true })
+      writeFileSync(join(gameDir, name), contents)
+      const older = new Date('2026-01-01T00:00:00.000Z')
+      utimesSync(join(gameDir, name), older, older)
+    }
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    assert.equal(readFileSync(join(gameDir, 'save.dat'), 'utf8'), 'from the server')
+    const kept = join(backups, '7', `${TITLE_ID}.1`)
+    assert.equal(readFileSync(join(kept, 'save.dat'), 'utf8'), 'played here')
+    assert.equal(readFileSync(join(kept, 'profile/settings.dat'), 'utf8'), 'played here too')
   })
 
   test('an empty folder is not uploaded as if it were a save', async () => {
