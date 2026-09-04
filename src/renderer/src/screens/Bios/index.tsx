@@ -1,6 +1,15 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
+import type { BiosProgress } from '@shared/api'
 import type { BiosPlatform, BiosReport } from '@shared/types'
-import { FocusButton, Hints, Overlay, PageTitle, PlatformIcon, Spinner } from '../../components'
+import {
+  FocusButton,
+  Hints,
+  Overlay,
+  PageTitle,
+  PlatformIcon,
+  ProgressBar,
+  Spinner
+} from '../../components'
 import { useApp, useI18n, type ToastSubject } from '../../state'
 
 /**
@@ -23,7 +32,7 @@ export function BiosScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [progress, setProgress] = useState<BiosProgress | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -89,6 +98,7 @@ export function BiosScreen(): JSX.Element {
     platform: BiosPlatform
   ): Promise<void> => {
     setBusy(fileName)
+    setProgress(null)
     try {
       await window.rommix.bios.install(firmwareId)
       notify(t('bios.fileInstalled', { file: fileName }), 'ok', subject(platform))
@@ -98,6 +108,7 @@ export function BiosScreen(): JSX.Element {
       // "installed" notification from firing on a failure.
     } finally {
       setBusy(null)
+      setProgress(null)
     }
   }
 
@@ -223,14 +234,12 @@ export function BiosScreen(): JSX.Element {
         ))
       )}
 
-      {busy === 'all' || busy?.startsWith('platform:') ? (
+      {/* Over a single file as much as over a run of them: what makes an
+          install long is the size of the file, not how many there are, and a
+          console's firmware is the longest thing this screen ever fetches. */}
+      {busy ? (
         <Overlay title={t('bios.installingTitle')} icon="bios">
-          <p className="muted">
-            {progress
-              ? t('bios.progress', { done: progress.done, total: progress.total })
-              : t('bios.workingOut')}
-          </p>
-          <Spinner />
+          <InstallProgress progress={progress} />
         </Overlay>
       ) : null}
 
@@ -240,6 +249,85 @@ export function BiosScreen(): JSX.Element {
           { key: 'B', label: t('action.back') }
         ]}
       />
+    </div>
+  )
+}
+
+/**
+ * What is arriving, while it arrives.
+ *
+ * A count of files and a spinner was enough while a BIOS was a few kilobytes.
+ * A Switch firmware dump is hundreds of megabytes over a home connection, and
+ * for the several minutes that takes, "1 of 3" says nothing about whether
+ * anything is happening at all — which is what a stuck install looks like.
+ *
+ * So the file being fetched names itself and carries its own bar, and the run
+ * it belongs to gets a second one under it wherever there is more than one file
+ * in it. The bars are what can be read from a sofa; the byte counts underneath
+ * are for anyone who walks over to look.
+ */
+function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.Element {
+  const { t, formatBytes } = useI18n()
+
+  // Before the first byte of the first file: the scan that works out what is
+  // missing runs before anything is fetched, and on a large library it is not
+  // instant.
+  if (!progress || progress.fileName === null) {
+    return (
+      <>
+        <p className="muted">{t('bios.workingOut')}</p>
+        <Spinner />
+      </>
+    )
+  }
+
+  const share = progress.totalBytes > 0 ? progress.receivedBytes / progress.totalBytes : 0
+
+  return (
+    <div className="bios-progress">
+      {progress.platform ? (
+        <div className="bios-progress__platform">
+          <PlatformIcon
+            slug={progress.platform.slug}
+            system={progress.platform.system}
+            size={22}
+            label={progress.platform.name}
+          />
+          {progress.platform.name}
+        </div>
+      ) : null}
+      <div className="bios-progress__file">{progress.fileName}</div>
+      {progress.totalBytes > 0 ? (
+        <>
+          <ProgressBar percent={share * 100} />
+          <div className="bios-progress__meta">
+            {t('bios.progressBytes', {
+              received: formatBytes(progress.receivedBytes),
+              total: formatBytes(progress.totalBytes)
+            })}
+          </div>
+        </>
+      ) : (
+        /* Nothing to divide by, so what has arrived is the whole of what can
+           honestly be said — and it is enough to show that it is still
+           arriving. */
+        <div className="bios-progress__meta">{formatBytes(progress.receivedBytes)}</div>
+      )}
+
+      {progress.total > 1 ? (
+        <>
+          <div className="bios-progress__run">
+            {/* The file in flight, not the count of those finished — and the
+                last one of a run stays the last one, rather than becoming a
+                file after the end of it. */}
+            {t('bios.progressFiles', {
+              done: Math.min(progress.done + 1, progress.total),
+              total: progress.total
+            })}
+          </div>
+          <ProgressBar percent={((progress.done + share) / progress.total) * 100} />
+        </>
+      ) : null}
     </div>
   )
 }

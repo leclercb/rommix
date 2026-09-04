@@ -58,6 +58,32 @@ export function DownloadBadge({ state }: { state: DownloadState }): JSX.Element 
 }
 
 /**
+ * How far something has got.
+ *
+ * The bar itself, without an opinion about what is filling it: the queue and
+ * the game screen come through `DownloadBar` below, and the install dialogs —
+ * a BIOS file, an emulator build — draw it directly. One bar in the app rather
+ * than one per screen, because a transfer that looks different depending on
+ * where it is watched from reads as a different kind of thing.
+ */
+export function ProgressBar({
+  percent,
+  colour
+}: {
+  percent: number
+  colour?: string
+}): JSX.Element {
+  return (
+    <div className="download__bar">
+      <div
+        className="download__fill"
+        style={{ width: `${Math.max(0, Math.min(100, percent))}%`, background: colour }}
+      />
+    </div>
+  )
+}
+
+/**
  * How far a transfer has got, in the colour of what it is doing.
  *
  * One component for the queue and the game screen, because a bar that is amber
@@ -75,12 +101,5 @@ export function DownloadBar({
   const colour =
     state === 'error' ? 'var(--danger)' : isStopped(state) ? 'var(--warning)' : undefined
 
-  return (
-    <div className="download__bar">
-      <div
-        className="download__fill"
-        style={{ width: `${state === 'done' ? 100 : percent}%`, background: colour }}
-      />
-    </div>
-  )
+  return <ProgressBar percent={state === 'done' ? 100 : percent} colour={colour} />
 }

@@ -819,7 +819,11 @@ export class RommClient {
     return this.json<RommFirmware[]>(`/api/firmware${query}`)
   }
 
-  async downloadFirmware(item: RommFirmware, destination: string): Promise<void> {
+  async downloadFirmware(
+    item: RommFirmware,
+    destination: string,
+    onProgress?: (progress: DownloadProgress) => void
+  ): Promise<void> {
     /**
      * Written beside whatever BIOS is already there, never on top of it.
      *
@@ -834,7 +838,8 @@ export class RommClient {
       await streamToFile(
         this.transport,
         `/api/firmware/${item.id}/content/${encodeURIComponent(item.file_name)}`,
-        partial
+        partial,
+        onProgress
       )
       // Checked here rather than left to the emulator, which has no way to say
       // so: a BIOS that is the wrong bytes is a console that hangs on a black

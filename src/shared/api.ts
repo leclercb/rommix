@@ -94,8 +94,28 @@ export interface SyncProgress {
 
 /** Emitted while BIOS files are being fetched. */
 export interface BiosProgress {
+  /** Files finished so far, and how many this run is fetching. */
   done: number
   total: number
+  /** The file arriving now. */
+  fileName: string | null
+  /**
+   * The console it belongs to.
+   *
+   * A BIOS file name says nothing on its own — `bios7.bin` and `prod.keys` are
+   * equally opaque unless you already know them — so the dialog names the
+   * console the same way the rest of this screen does, mark and all.
+   */
+  platform: { name: string; slug: string; system: string | null } | null
+  /**
+   * How much of that file is here.
+   *
+   * `totalBytes` is zero where neither the response nor RomM's own record says
+   * how big it is, which is the screen's cue to report what has arrived rather
+   * than draw a bar that cannot move.
+   */
+  receivedBytes: number
+  totalBytes: number
 }
 
 /**

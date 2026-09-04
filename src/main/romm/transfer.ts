@@ -334,21 +334,48 @@ export async function verify(
 }
 
 /**
- * Fetch something small straight to a path, in one go.
+ * Fetch one thing straight to a path, in one go.
  *
- * Saves, states and the BIOS: files of a few kilobytes that either arrive or
- * do not. None of the machinery above applies to them — there is nothing to
- * resume onto and nothing worth timing — and the partial file, where one is
- * wanted, is the caller's own choice of destination.
+ * Saves, states and the BIOS: files that either arrive or do not. None of the
+ * machinery above applies to them — there is nothing to resume onto and nothing
+ * worth timing — and the partial file, where one is wanted, is the caller's own
+ * choice of destination.
+ *
+ * Small, most of them. A console's firmware is not: a Switch dump is hundreds
+ * of megabytes over the same route, which is why there is something to report
+ * on the way past.
  */
 export async function streamToFile(
   transport: Transport,
   path: string,
-  destination: string
+  destination: string,
+  onProgress?: (progress: DownloadProgress) => void
 ): Promise<void> {
   const res = await transport.request(path)
   if (!res.ok) throw await transport.toError(res)
   if (!res.body) throw new RommError(t('error.emptyAssetBody'))
   const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
-  await pipeline(source, createWriteStream(destination))
+  if (!onProgress) {
+    await pipeline(source, createWriteStream(destination))
+    return
+  }
+
+  // Zero where the server did not say, which is the caller's cue to fall back
+  // to whatever size it knows the file to be.
+  const total = Number(res.headers.get('content-length') ?? 0)
+  let received = 0
+  await pipeline(
+    source,
+    // Counted as the bytes pass through rather than from a `data` listener,
+    // which would put the stream in flowing mode and race the pipeline for
+    // them.
+    async function* (chunks: AsyncIterable<Buffer>) {
+      for await (const chunk of chunks) {
+        received += chunk.length
+        onProgress({ received, total })
+        yield chunk
+      }
+    },
+    createWriteStream(destination)
+  )
 }

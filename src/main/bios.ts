@@ -20,9 +20,21 @@ import type {
   RommPlatform,
   SaveEnvironment
 } from '@shared/types'
+import type { BiosProgress } from '@shared/api'
 import type { OfflineCache } from './offline.ts'
 import { refusedUs, RommClient, RommError } from './romm/index.ts'
 import type { Store } from './store.ts'
+
+/**
+ * What an install reports while it runs: which file, how far into it, and how
+ * far into the run it is. See `BiosProgress`.
+ */
+type BiosListener = (progress: BiosProgress) => void
+
+/** The console a file belongs to, as the dialog installing it names it. */
+function subjectOf(platform: BiosPlatform): NonNullable<BiosProgress['platform']> {
+  return { name: platform.platformName, slug: platform.platformSlug, system: platform.system }
+}
 
 /**
  * BIOS files: what each platform needs, what the RomM server holds, and what is
@@ -458,10 +470,28 @@ export class BiosManager {
     return join(rootPaths().root, 'bios', system)
   }
 
-  /** Copy one firmware file from RomM into the emulator that needs it. */
-  async install(firmwareId: number): Promise<string> {
+  /**
+   * Copy one firmware file from RomM into the emulator that needs it.
+   *
+   * Reported as a run of one, so the screen has the same thing to draw whether
+   * a file was asked for on its own or as part of everything outstanding.
+   */
+  async install(firmwareId: number, onProgress?: BiosListener): Promise<string> {
     const { report, firmwareById, dirFor } = await this.scan()
-    return this.place(firmwareId, firmwareById, dirFor, report)
+    const fileName = firmwareById.get(firmwareId)?.file_name ?? null
+    const platform = report.platforms.find((row) =>
+      row.items.some((item) => item.firmwareId === firmwareId)
+    )
+    return this.place(firmwareId, firmwareById, dirFor, report, (received, total) =>
+      onProgress?.({
+        done: 0,
+        total: 1,
+        fileName,
+        platform: platform ? subjectOf(platform) : null,
+        receivedBytes: received,
+        totalBytes: total
+      })
+    )
   }
 
   /**
@@ -472,10 +502,7 @@ export class BiosManager {
    * missing should not stop the other thirty from being set up, and the count
    * is what the screen reports.
    */
-  async syncAll(
-    platformId?: number | null,
-    onProgress?: (done: number, total: number) => void
-  ): Promise<BiosSyncResult> {
+  async syncAll(platformId?: number | null, onProgress?: BiosListener): Promise<BiosSyncResult> {
     const { report, firmwareById, dirFor } = await this.scan()
 
     // Scoped by platform id rather than by the caller handing over a row: the
@@ -486,8 +513,13 @@ export class BiosManager {
         ? report.platforms
         : report.platforms.filter((row) => row.platformId === platformId)
 
-    const pending = rows.flatMap((row) => row.items.filter((item) => !item.installed))
-    const fetchable = pending.filter((item) => item.firmwareId != null)
+    // The console each file belongs to is carried along with it: flattened to
+    // items alone, the one thing that makes a BIOS file name mean anything is
+    // gone by the time there is a dialog to name it in.
+    const pending = rows.flatMap((row) =>
+      row.items.filter((item) => !item.installed).map((item) => ({ row, item }))
+    )
+    const fetchable = pending.filter((entry) => entry.item.firmwareId != null)
 
     let installed = 0
     let failed = 0
@@ -499,9 +531,23 @@ export class BiosManager {
       fetchable: fetchable.length
     })
 
-    for (const item of fetchable) {
+    for (const { row, item } of fetchable) {
       try {
-        await this.place(item.firmwareId as number, firmwareById, dirFor, report)
+        await this.place(
+          item.firmwareId as number,
+          firmwareById,
+          dirFor,
+          report,
+          (received, total) =>
+            onProgress?.({
+              done,
+              total: fetchable.length,
+              fileName: item.fileName,
+              platform: subjectOf(row),
+              receivedBytes: received,
+              totalBytes: total
+            })
+        )
         installed += 1
       } catch (cause) {
         failed += 1
@@ -514,7 +560,17 @@ export class BiosManager {
         })
       }
       done += 1
-      onProgress?.(done, fetchable.length)
+      // The file that has just gone by, whether it arrived or failed: without
+      // this the count only moves when the next file's first bytes turn up, and
+      // the last one of a run never moves it at all.
+      onProgress?.({
+        done,
+        total: fetchable.length,
+        fileName: item.fileName,
+        platform: subjectOf(row),
+        receivedBytes: 0,
+        totalBytes: 0
+      })
     }
 
     log.info('bios', 'finished installing', {
@@ -536,7 +592,8 @@ export class BiosManager {
     firmwareId: number,
     firmwareById: Map<number, RommFirmware>,
     dirFor: Map<number, string>,
-    report: BiosReport
+    report: BiosReport,
+    onProgress?: (received: number, total: number) => void
   ): Promise<string> {
     const firmware = firmwareById.get(firmwareId)
     if (!firmware) throw new RommError(t('error.biosGone'))
@@ -573,7 +630,11 @@ export class BiosManager {
     // Copied exactly as the server holds it, archive or not: Eden's firmware
     // installer takes a zip as readily as a folder, and unpacking one here
     // would only turn a file RomMix can account for into several it cannot.
-    await this.client.downloadFirmware(firmware, destination)
+    await this.client.downloadFirmware(firmware, destination, (progress) =>
+      // What RomM recorded when it scanned the file, where the response did not
+      // carry a length: a bar with nothing to divide by cannot move at all.
+      onProgress?.(progress.received, progress.total || firmware.file_size_bytes)
+    )
     return destination
   }
 }
