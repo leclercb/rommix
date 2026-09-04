@@ -90,6 +90,7 @@ export const en = {
   'app.loading': 'Loading',
   'app.qrCode': 'QR code',
   'app.credit': 'Developed with {heart} by leclercb',
+  'app.version': 'v{version}',
   'app.quitTitle': 'Quit RomMix?',
   'app.stay': 'Stay',
   'app.quit': 'Quit',

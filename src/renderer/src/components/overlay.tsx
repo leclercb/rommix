@@ -1,6 +1,6 @@
 import { type JSX, type ReactNode } from 'react'
 import { FocusLayer, useAction, useFocusContext, useKeyLabel } from '../input/focus'
-import { useI18n } from '../state'
+import { useApp, useI18n } from '../state'
 import { Icon, type IconName } from '../icons'
 import { FocusButton } from './controls'
 import { Filled } from './text'
@@ -125,10 +125,15 @@ function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
  * The signature lives here because every screen draws this bar, which makes it
  * the only strip in the app that is genuinely always on screen — and because
  * the far end of it is the one place a line nobody needs to read can sit
- * without being in the way of something that must be.
+ * without being in the way of something that must be. The version keeps it
+ * company for the same reason, and because the answer to "which one is this
+ * machine running" should not be four presses into Settings — it is the first
+ * thing a bug report needs and the one thing a photograph of the screen can
+ * carry.
  */
 export function Hints({ items }: { items: { key: string; label: string }[] }): JSX.Element {
   const { t } = useI18n()
+  const { update } = useApp()
   const keyLabel = useKeyLabel()
   const { focusedAction } = useFocusContext()
 
@@ -138,9 +143,16 @@ export function Hints({ items }: { items: { key: string; label: string }[] }): J
         {/* One sentence with the heart inside it, rather than two fragments
             around it: where the mark falls is the sentence's business, and in
             another language it does not fall in the same place. */}
-        <Filled text={t('app.credit')} name="heart">
-          <span className="hints__heart">♥</span>
-        </Filled>
+        <span className="hints__signature">
+          <Filled text={t('app.credit')} name="heart">
+            <span className="hints__heart">♥</span>
+          </Filled>
+        </span>
+        {/* Absent for the moment before the main process has answered, rather
+            than a placeholder that would be read as the version itself. */}
+        {update && (
+          <span className="hints__version">{t('app.version', { version: update.current })}</span>
+        )}
       </span>
       {items.map((item) => (
         <span key={item.key + item.label}>

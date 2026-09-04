@@ -81,6 +81,7 @@ export const es: Catalog = {
   'app.loading': 'Cargando',
   'app.qrCode': 'Código QR',
   'app.credit': 'Desarrollado con {heart} por leclercb',
+  'app.version': 'v{version}',
   'app.quitTitle': '¿Salir de RomMix?',
   'app.stay': 'Quedarse',
   'app.quit': 'Salir',

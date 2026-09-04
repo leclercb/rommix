@@ -81,6 +81,7 @@ export const de: Catalog = {
   'app.loading': 'Wird geladen',
   'app.qrCode': 'QR-Code',
   'app.credit': 'Mit {heart} entwickelt von leclercb',
+  'app.version': 'v{version}',
   'app.quitTitle': 'RomMix beenden?',
   'app.stay': 'Bleiben',
   'app.quit': 'Beenden',

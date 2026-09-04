@@ -159,9 +159,33 @@
   margin: 0 4px;
 }
 
+/*
+ * The version, quieter still than the signature it follows.
+ *
+ * The dot is drawn rather than written, the two sides of it being one phrase
+ * from the catalogue and one number — see `Hints`.
+ */
+.hints__version {
+  font-variant-numeric: tabular-nums;
+}
+
+.hints__version::before {
+  content: '·';
+  margin: 0 6px;
+}
+
+/*
+ * Too narrow for both the signature and the buttons: the signature goes and the
+ * version stays, that being the half of the line anybody ever needs. Its
+ * separator goes with the sentence it was separating from.
+ */
 @media (max-width: 900px) {
-  .hints__credit {
+  .hints__signature {
     display: none;
+  }
+
+  .hints__version::before {
+    content: none;
   }
 }
 

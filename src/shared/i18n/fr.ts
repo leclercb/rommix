@@ -78,6 +78,7 @@ export const fr: Catalog = {
   'app.loading': 'Chargement',
   'app.qrCode': 'QR code',
   'app.credit': 'Développé avec {heart} par leclercb',
+  'app.version': 'v{version}',
   'app.quitTitle': 'Quitter RomMix ?',
   'app.stay': 'Rester',
   'app.quit': 'Quitter',
