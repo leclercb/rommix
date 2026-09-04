@@ -5,7 +5,23 @@
 export type DownloadState =
   | 'queued'
   | 'downloading'
+  /**
+   * The three states after the last byte, in the order they happen.
+   *
+   * What follows a transfer is not nothing: the file is read back off the disk
+   * and hashed against the digest RomM holds, an archive is unpacked, and what
+   * came out of it is walked and written into the index. On a large game each
+   * of those is minutes under a bar that is already full, and one word over all
+   * of them says no more than "Downloading" at 100% did — which is a transfer
+   * that reads as stuck.
+   *
+   * A word each, then, and none of them repeats: the hash of what came out of
+   * an archive stays part of `extracting`, so the row never goes back to a
+   * state it has already left.
+   */
+  | 'checking'
   | 'extracting'
+  | 'installing'
   /**
    * Interrupted, with what has arrived so far still on disk.
    *

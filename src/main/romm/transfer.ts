@@ -109,6 +109,13 @@ export interface TransferOptions {
    * connection.
    */
   resumable?: boolean
+  /**
+   * Called when the last byte is in and the digest check begins.
+   *
+   * Hashing a game is minutes of a full progress bar, and without this the row
+   * driving that bar still says the transfer is running. See `verify`.
+   */
+  onChecking?: () => void
 }
 
 /** Where a transfer in progress is written. The file itself appears only once
@@ -289,7 +296,10 @@ export async function fetchToFile(
     }
   }
 
-  if (options.verify) await verify(partial, options.verify, subject)
+  if (options.verify) {
+    options.onChecking?.()
+    await verify(partial, options.verify, subject)
+  }
 
   await rename(partial, destination)
   log.info('romm', 'content downloaded', { ...subject, bytes: received, ms: took(), destination })

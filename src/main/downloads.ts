@@ -627,6 +627,13 @@ export class DownloadManager extends EventEmitter {
       // The bytes are in the game now, and nothing is left to pick up.
       this.store.removePending(rom.id)
 
+      // What is left is the index: the tree is walked for what came out of the
+      // transfer and RomM's own account of the game is written down beside it.
+      // Seconds on a disc set, and the row has said "Downloading" at 100% for
+      // every one of them.
+      item.state = 'installing'
+      this.emitUpdate()
+
       // The library records it and announces it: the index and the folder
       // readings are its, and so is the event every screen listens on.
       this.library.record(await this.library.entryFor(rom, system, emulatorId, installed))
@@ -886,7 +893,16 @@ export class DownloadManager extends EventEmitter {
         this.throttledUpdate()
       },
       transfer.controller.signal,
-      { resume: transfer.resume, resumable: transfer.resumable }
+      {
+        resume: transfer.resume,
+        resumable: transfer.resumable,
+        // The check reads the whole game back off the disk, which on a large
+        // one is minutes under a bar that is already full.
+        onChecking: () => {
+          item.state = 'checking'
+          this.emitUpdate()
+        }
+      }
     )
     // The last chunk is almost never on a throttle boundary, so the final byte
     // count has to be sent explicitly — otherwise a finished transfer can sit

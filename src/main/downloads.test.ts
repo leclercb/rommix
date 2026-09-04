@@ -159,11 +159,11 @@ function fakeClient(
       return { items, total: items.length, limit: 200, offset: 0 }
     },
     async downloadRom(
-      _rom: RommRom,
+      game: RommRom,
       destination: string,
       onProgress: (progress: { received: number; total: number }) => void,
       _signal: AbortSignal,
-      opts: { resume?: boolean } = {}
+      opts: { resume?: boolean; onChecking?: () => void } = {}
     ) {
       resumed.push(opts.resume === true)
       const contents = options.contents ?? 'rom bytes'
@@ -177,6 +177,9 @@ function fakeClient(
       // The real client renames the partial onto the ROM, so it is gone either
       // way once the transfer finishes.
       await rm(`${destination}.part`, { force: true })
+      // Said where the real transfer would say it: a game RomM holds a digest
+      // for is read back off the disk before it is allowed to stand.
+      if (game.md5_hash) opts.onChecking?.()
       if (options.zip) {
         const inside = scratch()
         for (const [name, body] of Object.entries(options.zip)) {
@@ -252,13 +255,16 @@ function manager(
 async function settled(downloads: DownloadManager, romId: number): Promise<DownloadItem> {
   for (let tick = 0; tick < 200; tick += 1) {
     const item = downloads.items.find((row) => row.romId === romId)
-    // Extracting is still moving: an archived game is not settled until what
-    // came out of it has been unpacked and checked.
+    // Checking, extracting and installing are still moving: a game is not
+    // settled until what came out of the transfer has been checked, unpacked
+    // and indexed.
     if (
       item &&
       item.state !== 'queued' &&
       item.state !== 'downloading' &&
-      item.state !== 'extracting'
+      item.state !== 'checking' &&
+      item.state !== 'extracting' &&
+      item.state !== 'installing'
     )
       return item
     await new Promise((resolve) => setTimeout(resolve, 5))
@@ -537,6 +543,32 @@ describe('a game RomM holds zipped', () => {
 
     assert.equal(item.state, 'done')
     assert.equal(existsSync(store.getInstalled(1)?.path ?? ''), true)
+  })
+
+  test('the row says what it is doing after the last byte', async () => {
+    const { downloads } = manager({
+      zip: { 'Advance Wars (Europe).gba': '0123456789' }
+    })
+    const seen: string[] = []
+    downloads.on('update', (items: DownloadItem[]) => {
+      const row = items.find((item) => item.romId === 1)
+      if (row && seen.at(-1) !== row.state) seen.push(row.state)
+    })
+
+    downloads.enqueue(zipped())
+    await settled(downloads, 1)
+
+    // A full bar and the word "Downloading" over a game being checked, unpacked
+    // and indexed is a transfer that reads as stuck. Each of those says so, in
+    // the order they happen, and none of them comes round twice.
+    assert.deepEqual(seen, [
+      'queued',
+      'downloading',
+      'checking',
+      'extracting',
+      'installing',
+      'done'
+    ])
   })
 
   test('one that unpacks to bytes RomM does not hold is refused, and goes', async () => {

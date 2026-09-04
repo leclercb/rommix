@@ -36,7 +36,9 @@ type Tone = 'ok' | 'warn' | 'off' | 'info' | 'bad'
 const BADGES = {
   queued: { label: 'downloads.state.queued', tone: 'off', icon: 'time' },
   downloading: { label: 'downloads.state.downloading', tone: 'info', icon: 'download' },
+  checking: { label: 'downloads.state.checking', tone: 'info', icon: 'search' },
   extracting: { label: 'downloads.state.extracting', tone: 'info', icon: 'package' },
+  installing: { label: 'downloads.state.installing', tone: 'info', icon: 'install' },
   paused: { label: 'downloads.state.paused', tone: 'warn', icon: 'pause' },
   // Amber like a pause, because it is one to look at and one to finish. Not
   // the pause icon: nobody pressed anything.

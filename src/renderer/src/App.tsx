@@ -294,7 +294,12 @@ function DownloadsNavItem({ active }: { active: boolean }): JSX.Element {
   const { t } = useI18n()
   const downloads = useDownloads()
   const busy = downloads.filter(
-    (item) => item.state === 'downloading' || item.state === 'queued' || item.state === 'extracting'
+    (item) =>
+      item.state === 'downloading' ||
+      item.state === 'queued' ||
+      item.state === 'checking' ||
+      item.state === 'extracting' ||
+      item.state === 'installing'
   ).length
 
   return (

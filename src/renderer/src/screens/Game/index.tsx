@@ -67,7 +67,9 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
   const active =
     download?.state === 'downloading' ||
     download?.state === 'queued' ||
-    download?.state === 'extracting'
+    download?.state === 'checking' ||
+    download?.state === 'extracting' ||
+    download?.state === 'installing'
   const running = runningRomId === romId
 
   /** How this game is named and pictured in a toast. */

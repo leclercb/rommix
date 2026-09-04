@@ -52,7 +52,9 @@ function isActive(item: DownloadItem): boolean {
   return (
     item.state === 'queued' ||
     item.state === 'downloading' ||
+    item.state === 'checking' ||
     item.state === 'extracting' ||
+    item.state === 'installing' ||
     isStopped(item.state)
   )
 }
@@ -118,7 +120,11 @@ export function DownloadsScreen(): JSX.Element {
    * paused is a pile, and its order means nothing.
    */
   const running = active.filter(
-    (item) => item.state === 'downloading' || item.state === 'extracting'
+    (item) =>
+      item.state === 'downloading' ||
+      item.state === 'checking' ||
+      item.state === 'extracting' ||
+      item.state === 'installing'
   )
   const waiting = active.filter((item) => item.state === 'queued')
   const paused = active.filter((item) => item.state === 'paused')
