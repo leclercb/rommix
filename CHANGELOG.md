@@ -4,6 +4,27 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.11.0 — 2026-09-04
+
+- test(app): stop the walk to a button looping between two controls (6f02be6)
+- fix: stop a resting pointer taking the highlight when the page moves (95a4b5f)
+- fix: hide the buttons that cannot stop a download any more (eef8b81)
+- fix: say what a download is doing after the last byte (c87bf06)
+- feat: draw a progress bar while an emulator build downloads (6838dbe)
+- feat: create the ROM folder when Eden or shadPS4 is installed (9bb947f)
+- feat: show progress while BIOS files download (6ceda45)
+- fix: stop SteamOS doubling every character typed into a field (2fbdc1c)
+- fix: stop the menu running over the brand and the server line (be02b9d)
+- fix: keep focus out of the page behind a modal that has no buttons (c23ad0e)
+- fix: update the platform counts when a filter changes (259acea)
+- docs: update the feature list (8499c21)
+- refactor(i18n): draw the language flags instead of typing them (e651b2f)
+- feat(site): download the newest AppImage from the home page (2778d8b)
+- test(app): uninstall a game from the list it is in (039f7b1)
+- test(app): refuse a push, then tell it to stop asking (2dd21ff)
+- test(app): bring a state down as well as a save (e79eaf6)
+- test(app): clear the transfers that have finished (142c302)
+
 ## 0.10.0 — 2026-09-04
 
 - test(app): read the interface in another language (2ace921)
