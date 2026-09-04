@@ -49,7 +49,7 @@ function quantize(scale: number): number {
 export class RomMixApp {
   readonly store = new Store(rootPaths().config)
   readonly client = new RommClient(this.store)
-  readonly saveSync = new SaveSync(this.store, this.client)
+  readonly saveSync = new SaveSync(this.store, this.client, rootPaths().saves)
   readonly launcher = new Launcher(this.store, this.client, this.saveSync)
   /** What RomM said about each installed game, for when it cannot be asked. */
   readonly offline = new OfflineCache(rootPaths().offline, this.client)

@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm, stat } from 'node:fs/promises'
+import { mkdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { localize } from '@shared/i18n'
@@ -26,7 +26,7 @@ import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import {
   acceptsTag,
-  cpDirectory,
+  keepBackup,
   localTag,
   romStemOf,
   sizeOf,
@@ -69,7 +69,8 @@ import { extractZip, zipDirectory } from './zip.ts'
  *
  * Conflict policy is deliberately conservative: a remote asset only overwrites
  * a local one when it is strictly newer, and the local file is copied aside
- * first. Losing a save file is far worse than an extra sync round-trip.
+ * first — into the RomMix folder, a few deep, see `keepBackup`. Losing a save
+ * file is far worse than an extra sync round-trip.
  */
 
 const SAVE_EXTENSIONS = new Set(SAVE_CONVENTIONS.saveExtensions)
@@ -147,8 +148,21 @@ export class SaveSync {
 
   constructor(
     private readonly store: Store,
-    private readonly client: RommClient
+    private readonly client: RommClient,
+    /** Where the saves a pull displaces are kept, one folder per game. */
+    private readonly backups: string
   ) {}
+
+  /**
+   * The folder holding the copies of one game's saves.
+   *
+   * Keyed by the RomM id rather than the game's name, which is what identifies
+   * a game everywhere else RomMix writes something down — see `OfflineCache` —
+   * and is the only key two systems cannot collide on.
+   */
+  private backupDir(romId: number): string {
+    return join(this.backups, String(romId))
+  }
 
   /**
    * Ask the emulator's descriptor where this game's saves live.
@@ -446,8 +460,8 @@ export class SaveSync {
    * The `syncSavesDown` preference is deliberately ignored: it governs what
    * happens automatically around a launch, and someone who has just pressed
    * "Pull saves" has said what they want more plainly than a setting can. The
-   * newer-wins rule and the `.rommix-bak` copy still apply, so this can never
-   * lose a local save.
+   * newer-wins rule and the copy `keepBackup` puts aside still apply, so this
+   * can never lose a local save.
    */
   async pullNow(target: SaveTarget): Promise<SaveSyncResult> {
     const paths = this.locate(target)
@@ -810,10 +824,18 @@ export class SaveSync {
           : (to: string): Promise<void> => this.client.downloadState(item.id, to)
 
       try {
+        const backups = this.backupDir(target.rom.id)
         if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {
-          await this.restoreArchive(location.dir, download, remoteTime)
+          await this.restoreArchive(location.dir, backups, download, remoteTime)
         } else {
-          await this.restoreFile(location, item.file_name, match?.path, download, remoteTime)
+          await this.restoreFile(
+            location,
+            item.file_name,
+            match?.path,
+            backups,
+            download,
+            remoteTime
+          )
         }
         written += 1
         log.info('saves', `${kind} pulled`, {
@@ -853,6 +875,7 @@ export class SaveSync {
     location: SaveLocation,
     fileName: string,
     existing: string | undefined,
+    backups: string,
     download: (to: string) => Promise<void>,
     remoteTime: number
   ): Promise<void> {
@@ -860,9 +883,7 @@ export class SaveSync {
     await mkdir(join(destination, '..'), { recursive: true })
 
     // Never clobber a local save without keeping a copy.
-    if (existing) {
-      await copyFile(existing, `${existing}.rommix-bak`).catch(() => undefined)
-    }
+    if (existing) await keepBackup(existing, backups)
     await download(destination)
     await stampMtime(destination, remoteTime)
   }
@@ -870,13 +891,14 @@ export class SaveSync {
   /**
    * Unpack a directory save over the folder the emulator reads.
    *
-   * The existing folder is copied aside as a sibling rather than deleted: a
-   * Switch save is a handful of small files, and the archive may not contain
-   * every one of them, so overwriting in place and keeping a backup is safer
-   * than replacing the directory wholesale.
+   * The existing folder is copied aside rather than deleted: a Switch save is a
+   * handful of small files, and the archive may not contain every one of them,
+   * so overwriting in place and keeping a backup is safer than replacing the
+   * directory wholesale.
    */
   private async restoreArchive(
     dir: string,
+    backups: string,
     download: (to: string) => Promise<void>,
     remoteTime: number
   ): Promise<void> {
@@ -884,9 +906,7 @@ export class SaveSync {
     try {
       await download(staging)
       await mkdir(dir, { recursive: true })
-      const backup = `${dir}.rommix-bak`
-      await rm(backup, { recursive: true, force: true })
-      await cpDirectory(dir, backup)
+      await keepBackup(dir, backups, true)
       await extractZip(staging, dir)
       // Every file, not just the extracted ones: `findLocal` reads a directory
       // save's age as the newest mtime anywhere under it, so one file the

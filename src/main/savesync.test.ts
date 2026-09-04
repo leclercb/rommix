@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   utimesSync,
@@ -92,6 +93,8 @@ function setUp(
   target: SaveTarget
   saveDir: string
   stateDir: string
+  /** Where the copies a pull displaces are kept, one folder per game. */
+  backups: string
   uploaded: { fileName: string; from: string }[]
   deleted: number[]
   store: Store
@@ -127,6 +130,7 @@ function setUp(
     deleteStates: async (ids: number[]) => void deleted.push(...ids)
   } as unknown as RommClient
 
+  const backups = join(home, 'save-copies')
   const store = new Store(join(home, 'config'))
   const emulator = {
     id: 'retroarch',
@@ -142,7 +146,7 @@ function setUp(
   } as EmulatorState
 
   return {
-    sync: new SaveSync(store, client),
+    sync: new SaveSync(store, client, backups),
     target: {
       rom,
       emulator,
@@ -151,6 +155,7 @@ function setUp(
     },
     saveDir,
     stateDir,
+    backups,
     uploaded,
     deleted,
     store
@@ -496,7 +501,7 @@ describe('pulling', () => {
   })
 
   test('a local save that is overwritten is copied aside first', async () => {
-    const { sync, target, saveDir } = setUp({ saves: [save()] })
+    const { sync, target, saveDir, backups } = setUp({ saves: [save()] })
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'the local one')
     const older = new Date('2026-01-01T00:00:00.000Z')
@@ -505,7 +510,20 @@ describe('pulling', () => {
     await sync.pullNow(target)
 
     assert.equal(readFileSync(path, 'utf8'), 'from the server')
-    assert.equal(readFileSync(`${path}.rommix-bak`, 'utf8'), 'the local one')
+    const kept = join(backups, '7', 'Sonic the Hedgehog (USA).srm.1')
+    assert.equal(readFileSync(kept, 'utf8'), 'the local one')
+  })
+
+  test('the copy is kept in the RomMix folder, not in the emulator tree', async () => {
+    const { sync, target, saveDir } = setUp({ saves: [save()] })
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'the local one')
+    const older = new Date('2026-01-01T00:00:00.000Z')
+    utimesSync(path, older, older)
+
+    await sync.pullNow(target)
+
+    assert.deepEqual(readdirSync(saveDir), ['Sonic the Hedgehog (USA).srm'])
   })
 
   test('a copy already in sync is not fetched again', async () => {

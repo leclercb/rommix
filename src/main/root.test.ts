@@ -93,7 +93,8 @@ describe('the layout inside it', () => {
       config: '/somewhere/config',
       emulators: '/somewhere/emulators',
       roms: '/somewhere/roms',
-      offline: '/somewhere/offline'
+      offline: '/somewhere/offline',
+      saves: '/somewhere/saves'
     })
   })
 

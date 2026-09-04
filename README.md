@@ -233,7 +233,8 @@ one RomMix folder you point every emulator at.
 **Games → Save sync.**
 
 - **Download newer saves before playing** — only ever replaces an _older_ local
-  save, keeping it as `*.rommix-bak` first.
+  save, keeping the last few copies of it under `saves/` in the RomMix folder
+  first.
 - **Upload saves after playing** — sends only what the session wrote.
 - **Ask before sending saves to RomM** — on by default. Lists the files and
   sends only what you approve.

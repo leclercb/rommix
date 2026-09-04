@@ -676,7 +676,8 @@ export const en = {
     'folder stay there and are offered for download again; switch back and they reappear.',
   'settings.saveSync': 'Save sync',
   'settings.syncDown': 'Download newer saves before playing',
-  'settings.syncDownHint': 'Only when strictly newer. The local file is kept as *.rommix-bak.',
+  'settings.syncDownHint':
+    'Only when strictly newer. The last few local copies are kept in the RomMix folder.',
   'settings.syncUp': 'Upload saves after playing',
   'settings.syncUpHint': 'Only what the session wrote is sent.',
   'settings.confirmPush': 'Ask before sending saves to RomM',

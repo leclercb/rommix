@@ -310,6 +310,30 @@ comments are worse than none, because they cannot be found to be wrong.
 Keep user-facing copy short and concrete. A control says what happens, an error
 says what went wrong and what to do about it.
 
+Taking in something an older RomMix wrote comes in two shapes, and both are
+migrations. One can be done at a known moment and recorded as done: that is a
+named step in `src/main/migrations.ts`. The other cannot, because nothing knows
+when every installation has been through it — a file under a name nothing
+writes any more is found by whichever pull happens to touch that save — so it
+lives on the path that finds it, and opens its comment with a
+`MIGRATION(<version>)` token naming the last version that wrote the old shape:
+
+```ts
+/**
+ * MIGRATION(0.11): take in the copy left beside the save by a version that
+ * kept one there.
+ */
+```
+
+One word for both on purpose. `grep -rn MIGRATION src/` is then the whole
+answer to what is still being carried for old installations and how far back,
+which is the question to ask before deciding a version is old enough to stop
+supporting. It also marks the code as temporary, which a check sitting on a
+read path does not otherwise admit to.
+
+A shim that goes on reading an old shape without ever converting it is not this
+and should not borrow the word: nothing about it says when it can go.
+
 ## Reporting a bug
 
 Settings → **Pre-flight check** names the log file. Everything RomMix does is in

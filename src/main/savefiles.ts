@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, stat, utimes } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rename, rm, stat, utimes } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { SavePaths } from '@config/emulators'
@@ -192,6 +192,105 @@ export async function sizeOf(path: string, isDirectory: boolean): Promise<number
 export async function stampMtime(path: string, mtimeMs: number): Promise<void> {
   const when = new Date(mtimeMs)
   await utimes(path, when, when).catch(() => undefined)
+}
+
+/**
+ * How many copies of a save displaced by a pull are kept.
+ *
+ * More than one because the copy that matters is rarely the last: a pull that
+ * lands the wrong save is noticed after the next launch has already pulled
+ * again, and with a single copy the good one is gone by then.
+ */
+export const BACKUP_COPIES = 3
+
+/**
+ * Where one kept copy lives, slot 1 being the one taken most recently.
+ *
+ * In a folder of RomMix's rather than beside the save. The emulator's save tree
+ * is the emulator's: Eden reads its own by walking a directory of title ids,
+ * and a stray sibling of one is a folder RomMix has no business asking it to
+ * ignore. It also puts every copy in one place a person can be sent to.
+ */
+export function backupPath(into: string, path: string, slot: number): string {
+  return join(into, `${basename(path)}.${slot}`)
+}
+
+/**
+ * Put a copy of a save aside before a pull writes over it.
+ *
+ * Numbered rather than dated: the oldest slot is dropped, every other shifts
+ * down one, and what is on disk now is copied into the first. A slot is
+ * arithmetic, and every path it touches is derived from the save's own —
+ * nothing is deleted for having a name that looked like a backup's. Dated names
+ * would mean pruning by what a listing sorts to, and the clock is not something
+ * to prune by: a handheld that boots before its time is set dates a backup
+ * years out, and the copy dropped as oldest is then the one worth keeping.
+ *
+ * Each copy keeps the mtime of the save it was taken from, so the date beside
+ * it in a file manager is the session it belongs to rather than the pull that
+ * displaced it. The slot number is then only recency.
+ *
+ * Nothing ever reads these back — restoring one is the person's own job, with a
+ * file manager — so a failure anywhere is swallowed. A save that could not be
+ * copied aside is a worse pull, not a failed one.
+ */
+export async function keepBackup(path: string, into: string, isDirectory = false): Promise<void> {
+  await mkdir(into, { recursive: true }).catch(() => undefined)
+  await absorbSingleBackup(path, into, isDirectory)
+  await rotate(path, into)
+  await copyAside(path, backupPath(into, path, 1), isDirectory)
+}
+
+/** Drop the oldest copy and move every other one slot further back. */
+async function rotate(path: string, into: string): Promise<void> {
+  await rm(backupPath(into, path, BACKUP_COPIES), { recursive: true, force: true }).catch(
+    () => undefined
+  )
+  for (let slot = BACKUP_COPIES - 1; slot >= 1; slot -= 1) {
+    await rename(backupPath(into, path, slot), backupPath(into, path, slot + 1)).catch(
+      () => undefined
+    )
+  }
+}
+
+/** Copy a save, file or folder, dating what lands as what it was taken from. */
+async function copyAside(from: string, to: string, isDirectory: boolean): Promise<void> {
+  if (isDirectory) {
+    await cpDirectory(from, to)
+    for (const file of await walk(to)) {
+      await stampAsSource(file, join(from, file.slice(to.length + 1)))
+    }
+  } else {
+    await copyFile(from, to).catch(() => undefined)
+  }
+  await stampAsSource(to, from)
+}
+
+/** Date a copy as the file it was taken from, `copyFile` having dated it now. */
+async function stampAsSource(copy: string, source: string): Promise<void> {
+  const when = (await stat(source).catch(() => null))?.mtimeMs
+  if (when !== undefined) await stampMtime(copy, when)
+}
+
+/**
+ * MIGRATION(0.11): take in the copy left beside the save by a version that
+ * kept one there.
+ *
+ * It goes onto the chain first, so the pull that follows pushes it back a slot
+ * like any other: it is the most recent copy that existed before this one. Then
+ * it is gone from the emulator's tree, which is the point — nothing writes that
+ * name any more, and a file no rotation can reach would sit there for good.
+ *
+ * Copied rather than renamed. The RomMix folder and an emulator's saves are
+ * routinely on different disks — a handheld keeps one on the card — and a
+ * rename across them fails.
+ */
+async function absorbSingleBackup(path: string, into: string, isDirectory: boolean): Promise<void> {
+  const single = `${path}.rommix-bak`
+  if (!(await stat(single).catch(() => null))) return
+  await rotate(path, into)
+  await copyAside(single, backupPath(into, path, 1), isDirectory)
+  await rm(single, { recursive: true, force: true }).catch(() => undefined)
 }
 
 /** Recursive copy, for the backup taken before a directory save is overwritten. */

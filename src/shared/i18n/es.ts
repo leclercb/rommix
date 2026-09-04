@@ -670,7 +670,8 @@ export const es: Catalog = {
   'settings.saveSync': 'Sincronización de partidas',
   'settings.syncDown': 'Descargar las partidas más recientes antes de jugar',
   'settings.syncDownHint':
-    'Solo cuando sean estrictamente más recientes. El archivo local se conserva como *.rommix-bak.',
+    'Solo cuando sean estrictamente más recientes. Las últimas copias locales se conservan en ' +
+    'la carpeta RomMix.',
   'settings.syncUp': 'Subir las partidas después de jugar',
   'settings.syncUpHint': 'Solo se envía lo que la sesión haya escrito.',
   'settings.confirmPush': 'Preguntar antes de enviar partidas a RomM',

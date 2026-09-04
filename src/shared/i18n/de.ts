@@ -688,7 +688,8 @@ export const de: Catalog = {
   'settings.saveSync': 'Spielstand-Abgleich',
   'settings.syncDown': 'Neuere Spielstände vor dem Spielen herunterladen',
   'settings.syncDownHint':
-    'Nur wenn sie echt neuer sind. Die lokale Datei bleibt als *.rommix-bak erhalten.',
+    'Nur wenn sie echt neuer sind. Die letzten lokalen Kopien bleiben im RomMix-Ordner ' +
+    'erhalten.',
   'settings.syncUp': 'Spielstände nach dem Spielen hochladen',
   'settings.syncUpHint': 'Gesendet wird nur, was die Sitzung geschrieben hat.',
   'settings.confirmPush': 'Vor dem Senden von Spielständen an RomM fragen',

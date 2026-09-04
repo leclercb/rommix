@@ -60,13 +60,15 @@ export function rootPaths(root = resolveRoot()): {
   emulators: string
   roms: string
   offline: string
+  saves: string
 } {
   return {
     root,
     config: join(root, 'config'),
     emulators: join(root, 'emulators'),
     roms: join(root, 'roms'),
-    offline: join(root, 'offline')
+    offline: join(root, 'offline'),
+    saves: join(root, 'saves')
   }
 }
 
@@ -83,6 +85,11 @@ export function ensureRoot(root = resolveRoot()): string {
   // disk can still be looked at and started with nothing to ask. See
   // `OfflineCache`.
   mkdirSync(paths.offline, { recursive: true })
+  // Created up front like the ROM folder, and for the same reason: the settings
+  // screen tells the user their displaced saves are kept here, and a folder
+  // that only appears once something has gone wrong is one nobody finds at the
+  // moment they need it. See `keepBackup`.
+  mkdirSync(paths.saves, { recursive: true })
   return root
 }
 
@@ -95,6 +102,9 @@ export function ensureRoot(root = resolveRoot()): string {
  * silently moving tens of gigabytes because a text field changed is not a
  * decision this function should be making. Takes effect on restart, because
  * Electron's userData path is fixed before the app starts.
+ *
+ * The saves displaced by a pull come along, on the other side of that trade:
+ * they are the one thing here that cannot be fetched again, and they are small.
  *
  * What was written down for playing offline comes along with the config rather
  * than staying with the ROMs, because it is only useful beside the configuration
@@ -113,10 +123,12 @@ export function relocateRoot(next: string): void {
   mkdirSync(target.emulators, { recursive: true })
   mkdirSync(target.roms, { recursive: true })
   mkdirSync(target.offline, { recursive: true })
+  mkdirSync(target.saves, { recursive: true })
 
   for (const [from, to] of [
     [current.config, target.config],
-    [current.offline, target.offline]
+    [current.offline, target.offline],
+    [current.saves, target.saves]
   ]) {
     if (existsSync(from) && from !== to) {
       cpSync(from, to, { recursive: true, errorOnExist: false, force: true })

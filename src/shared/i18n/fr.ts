@@ -677,8 +677,8 @@ export const fr: Catalog = {
   'settings.saveSync': 'Synchronisation des sauvegardes',
   'settings.syncDown': 'Télécharger les sauvegardes plus récentes avant de jouer',
   'settings.syncDownHint':
-    'Seulement si elles sont strictement plus récentes. Le fichier local est conservé en ' +
-    '*.rommix-bak.',
+    'Seulement si elles sont strictement plus récentes. Les dernières copies locales sont ' +
+    'conservées dans le dossier RomMix.',
   'settings.syncUp': 'Envoyer les sauvegardes après avoir joué',
   'settings.syncUpHint': 'Seul ce que la session a écrit est envoyé.',
   'settings.confirmPush': 'Demander avant d’envoyer des sauvegardes à RomM',
