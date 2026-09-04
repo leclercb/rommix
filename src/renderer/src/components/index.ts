@@ -10,6 +10,7 @@ export {
   ArtBackdrop,
   CoverArt,
   CoverMosaic,
+  Flag,
   Logo,
   PlatformBadge,
   PlatformIcon,
@@ -25,6 +26,7 @@ export {
   Toggle,
   uiScaleChoice,
   uiScaleOptions,
+  type SegmentedOptions,
   type UiScaleChoice
 } from './controls'
 export { DownloadBadge, DownloadBar } from './downloads'

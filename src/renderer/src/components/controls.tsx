@@ -146,7 +146,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange
 }: {
-  options: { value: T; label: string }[]
+  options: SegmentedOptions<T>
   value: T
   onChange: (value: T) => void
 }): JSX.Element {
@@ -157,6 +157,7 @@ export function SegmentedControl<T extends string>({
           key={option.value}
           id={option.value}
           label={option.label}
+          mark={option.mark}
           active={option.value === value}
           onSelect={() => onChange(option.value)}
         />
@@ -165,14 +166,30 @@ export function SegmentedControl<T extends string>({
   )
 }
 
+/**
+ * The answers a segmented control offers.
+ *
+ * `mark` is a drawing that goes in front of the label — the flag on a language,
+ * and nothing on most of them. It stays separate from `label` rather than
+ * widening that to a node, because a label is a phrase out of the catalogue
+ * everywhere else in here and that is worth keeping true.
+ */
+export type SegmentedOptions<T extends string> = {
+  value: T
+  label: string
+  mark?: ReactNode
+}[]
+
 function SegmentedOption({
   id,
   label,
+  mark,
   active,
   onSelect
 }: {
   id: string
   label: string
+  mark?: ReactNode
   active: boolean
   onSelect: () => void
 }): JSX.Element {
@@ -185,6 +202,7 @@ function SegmentedOption({
       data-active={active}
       {...props}
     >
+      {mark}
       {label}
     </button>
   )
@@ -317,7 +335,7 @@ export function Choice<T extends string>({
   label: string
   hint?: string
   value: T
-  options: { value: T; label: string }[]
+  options: SegmentedOptions<T>
   onChange: (value: T) => void
 }): JSX.Element {
   return (

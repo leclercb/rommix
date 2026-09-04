@@ -29,10 +29,40 @@
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { createI18n, LANGUAGE_FLAGS, LANGUAGE_NAMES, LOCALES } from '../src/shared/i18n/index.ts'
+import {
+  createI18n,
+  FLAG_VIEWBOX,
+  LANGUAGE_FLAGS,
+  LANGUAGE_NAMES,
+  LOCALES
+} from '../src/shared/i18n/index.ts'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const OUT = resolve(ROOT, 'out/site')
+
+/**
+ * The flags, as one `<symbol>` each for the sprite at the top of the page.
+ *
+ * Drawn from RomMix's own table — see `LANGUAGE_FLAGS`, which says why they are
+ * shapes rather than the emoji they used to be. Into the sprite rather than
+ * inline at each of the five places the menu names a language, for the same
+ * reason the GitHub mark is a symbol: one drawing, five `<use>`s.
+ */
+const flags = LOCALES.map(
+  (locale) =>
+    `<symbol id="flag-${locale}" viewBox="${FLAG_VIEWBOX}">\n` +
+    LANGUAGE_FLAGS[locale]
+      .map(
+        (shape) =>
+          `        <path fill="${shape.fill ?? 'none'}"` +
+          (shape.stroke ? ` stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}"` : '') +
+          ` d="${shape.d}" />`
+      )
+      .join('\n') +
+    `\n      </symbol>`
+  // The placeholder supplies the indent for the first; every one after it
+  // starts a line of its own and has to carry its own.
+).join('\n      ')
 
 /** Where the published site lives, for the `hreflang` links search engines want. */
 const SITE = 'https://leclercb.github.io/rommix'
@@ -56,9 +86,13 @@ async function render(template, locale) {
   // one being read is in the list too, marked, so the menu is the whole set
   // rather than the set minus the obvious.
   //
+  // No space after the flag: the row is a flex line and its gap is what
+  // separates them.
+  //
   // Indented here rather than in the template, which prettier keeps on one line
   // because a placeholder is, as far as it knows, a word.
-  const name = (other) => `${LANGUAGE_FLAGS[other]} ${LANGUAGE_NAMES[other]}`
+  const name = (other) =>
+    `<svg class="flag" aria-hidden="true"><use href="#flag-${other}" /></svg>${LANGUAGE_NAMES[other]}`
   const languages = LOCALES.map((other) =>
     other === locale
       ? `              <li><span aria-current="page">${name(other)}</span></li>`
@@ -77,7 +111,8 @@ async function render(template, locale) {
     root: rootOf(locale),
     languages,
     'languages.current': name(locale),
-    alternates
+    alternates,
+    flags
   }
 
   const rendered = template.replace(/\{\{(@?[\w.]+)\}\}/g, (whole, key) => {

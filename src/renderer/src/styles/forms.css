@@ -161,6 +161,9 @@
 }
 
 .segmented__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   padding: 10px 20px;
   border-radius: var(--radius);
   background: var(--bg-raised);
@@ -168,6 +171,17 @@
   font-weight: 620;
   color: var(--text-dim);
   transition: var(--transition);
+}
+
+/* The flag on a language, sized to sit with the text rather than with the
+   lucide marks beside it: those are square and these are four thirds. Scales
+   with the interface because it is set in `em` — a television runs this at
+   200%. */
+.segmented__option .flag {
+  width: 1.35em;
+  height: 1.0125em;
+  flex: none;
+  border-radius: 2px;
 }
 
 .segmented__option[data-active='true'] {

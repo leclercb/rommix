@@ -2,7 +2,6 @@ import { type JSX, useState } from 'react'
 import {
   DATE_FORMATS,
   DEFAULT_DATE_FORMAT,
-  LANGUAGE_FLAGS,
   LANGUAGE_NAMES,
   LOCALES,
   dateFormatSample,
@@ -11,14 +10,17 @@ import {
 } from '@shared/i18n'
 import {
   Choice,
+  Flag,
   FocusButton,
   Overlay,
   ScanToOpen,
   Toggle,
   uiScaleChoice,
   uiScaleOptions,
+  type SegmentedOptions,
   type UiScaleChoice
 } from '../../../components'
+import { Icon } from '../../../icons'
 import { useApp, useI18n } from '../../../state'
 
 /**
@@ -62,12 +64,16 @@ export function GeneralTab(): JSX.Element {
    * recognisable from across a room in a way that "German" translated into
    * Spanish is not. The flag is quicker still — see `LANGUAGE_FLAGS`, which
    * says what it is and is not claiming.
+   *
+   * Auto is the globe rather than a fifth flag, because it is the one answer
+   * that is not a country: it is whatever the desktop asks for.
    */
-  const languages: { value: LanguageChoice; label: string }[] = [
-    { value: 'auto', label: `🌐 ${t('value.auto')}` },
+  const languages: SegmentedOptions<LanguageChoice> = [
+    { value: 'auto', label: t('value.auto'), mark: <Icon name="languages" size={16} /> },
     ...LOCALES.map((code) => ({
       value: code,
-      label: `${LANGUAGE_FLAGS[code]} ${LANGUAGE_NAMES[code]}`
+      label: LANGUAGE_NAMES[code],
+      mark: <Flag locale={code} />
     }))
   ]
 

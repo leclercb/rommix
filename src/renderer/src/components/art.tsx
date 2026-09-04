@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useMemo, useState } from 'react'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
+import { FLAG_VIEWBOX, LANGUAGE_FLAGS, type Locale } from '@shared/i18n'
 
 /** Artwork: what RomM serves, and what stands in for it when it cannot. */
 
@@ -179,6 +180,34 @@ export function Logo({ className }: { className?: string }): JSX.Element {
       <circle cx="78" cy="51" r="2.5" style={accent} />
 
       <rect x="36" y="76" width="56" height="4" rx="2" style={ground} opacity="0.5" />
+    </svg>
+  )
+}
+
+/**
+ * The flag marking a language, drawn from `LANGUAGE_FLAGS`.
+ *
+ * Decorative, and hidden from a screen reader for it: every place this is used
+ * puts the language's own name beside it, so there is nothing here that the
+ * label does not already say — and "flag of the United Kingdom" read out before
+ * "English" is noise.
+ */
+export function Flag({ locale }: { locale: Locale }): JSX.Element {
+  return (
+    <svg className="flag" viewBox={FLAG_VIEWBOX} aria-hidden="true" focusable="false">
+      {LANGUAGE_FLAGS[locale].map((shape, index) => (
+        <path
+          key={index}
+          d={shape.d}
+          // Stated rather than left out. A path with no `fill` is filled black
+          // by default, and inherits a `fill` set on the parent `<svg>` before
+          // that — which the site does, filling the marks in its header row
+          // with `currentColor`.
+          fill={shape.fill ?? 'none'}
+          stroke={shape.stroke}
+          strokeWidth={shape.strokeWidth}
+        />
+      ))}
     </svg>
   )
 }

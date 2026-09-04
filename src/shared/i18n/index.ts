@@ -28,11 +28,13 @@ export { DATE_FORMATS, DEFAULT_DATE_FORMAT, dateFormatSample, type DateFormat } 
 
 export {
   DEFAULT_LOCALE,
+  FLAG_VIEWBOX,
   LANGUAGE_FLAGS,
   LANGUAGE_NAMES,
   LOCALES,
   localeFor,
   resolveLocale,
+  type FlagShape,
   type LanguageChoice,
   type Locale
 } from './locales.ts'
