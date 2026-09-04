@@ -1172,6 +1172,34 @@ describe('the queries a listing is built from', () => {
     assert.equal(url.searchParams.has('search_term'), false)
   })
 
+  test('a platform count is a page of one, asked for each platform', async () => {
+    const { store } = fakeStore()
+    // Whatever platform the query named, so the answers can be told apart.
+    const sent = serve((one) => {
+      const asked = new URL(one.url).searchParams.get('platform_ids')
+      return json({ items: [], total: Number(asked) * 2, limit: 1, offset: 0 })
+    })
+
+    const counts = await new RommClient(store).romCounts([3, 4], 'sonic')
+
+    assert.deepEqual(counts, { 3: 6, 4: 8 })
+    for (const one of sent) {
+      const url = new URL(one.url)
+      assert.equal(url.searchParams.get('search_term'), 'sonic')
+      // A row is what a count costs; the covers are the expensive half.
+      assert.equal(url.searchParams.get('limit'), '1')
+    }
+  })
+
+  test('and a platform the server did not count is left without one', async () => {
+    const { store } = fakeStore()
+    // RomM stopped promising a total — see `RommRomPage.total`. A chip is
+    // better off with the number the platform carries than with a nought.
+    serve(() => json({ items: [], total: null, limit: 1, offset: 0 }))
+
+    assert.deepEqual(await new RommClient(store).romCounts([3], 'sonic'), {})
+  })
+
   test('one game, and an asset path that is answered whether or not it is rooted', async () => {
     const { store } = fakeStore()
     const sent = serve(() => json({ id: 5 }))

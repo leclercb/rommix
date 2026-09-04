@@ -35,6 +35,16 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
       return held
     }
   })
+  /**
+   * How many games each platform holds for a search term.
+   *
+   * A platform's own `rom_count` is the whole of it, which stops being the
+   * answer the moment anything narrows the library — so the chips that carry
+   * that number ask for it again. See `romCounts`.
+   */
+  handle('library:platformCounts', (platformIds: number[], search: string) =>
+    client.romCounts(platformIds, search)
+  )
   handle('library:collections', () => client.collections())
   handle('library:virtualCollections', () => client.virtualCollections())
   /**

@@ -124,6 +124,11 @@ export interface RomMixBridge {
     collections(): Promise<RommCollection[]>
     /** The shelves RomM derives from metadata. Empty where the server has none. */
     virtualCollections(): Promise<RommVirtualCollection[]>
+    /**
+     * How many games each of these platforms holds under a search term, keyed
+     * by platform id. A platform the server did not count is absent.
+     */
+    platformCounts(platformIds: number[], search: string): Promise<Record<number, number>>
     roms(query: RomQuery): Promise<RommRomPage>
     rom(id: number): Promise<RommRom>
     /** Whether this game is in the user's favourites on RomM. */

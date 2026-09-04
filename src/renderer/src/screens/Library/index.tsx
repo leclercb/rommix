@@ -19,6 +19,9 @@ import { fileNameOf } from '@shared/gamefiles'
 
 const PAGE_SIZE = 60
 
+/** What a downloaded game is listed, sorted and searched under. */
+const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.path)
+
 /**
  * Which games the grid is drawn from.
  *
@@ -58,6 +61,14 @@ export function LibraryScreen(): JSX.Element {
   const [chosenScope, setScope] = useState<Scope>('all')
   const scope: Scope = offline ? 'downloaded' : chosenScope
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
+  /**
+   * What the search term leaves on each platform, as the server counted it.
+   *
+   * Null until there is a term to count, and a platform is absent from it
+   * while its count is on the wire — see `countFor`, which is where a chip
+   * with no number to show decides what to draw instead.
+   */
+  const [searchCounts, setSearchCounts] = useState<Record<number, number> | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -107,6 +118,37 @@ export function LibraryScreen(): JSX.Element {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 350)
     return () => window.clearTimeout(timer)
   }, [search])
+
+  /**
+   * Count the search term against each platform on offer.
+   *
+   * `rom_count` is the platform entire, so a search left every chip promising
+   * games the grid it opens does not hold. Only the server can say otherwise —
+   * see `romCounts` — and it is asked for the debounced term, alongside the
+   * grid's own request rather than once per keystroke.
+   */
+  useEffect(() => {
+    if (offline !== false || scope !== 'all' || !debouncedSearch || platforms.length === 0) {
+      setSearchCounts(null)
+      return
+    }
+    let listening = true
+    void window.rommix.library
+      .platformCounts(
+        platforms.map((platform) => platform.id),
+        debouncedSearch
+      )
+      .then((counts) => {
+        if (listening) setSearchCounts(counts)
+      })
+      // Nothing worth saying that the grid's own failure does not already say.
+      .catch(() => {
+        if (listening) setSearchCounts(null)
+      })
+    return () => {
+      listening = false
+    }
+  }, [offline, scope, debouncedSearch, platforms])
 
   const load = useCallback(
     async (offset: number): Promise<void> => {
@@ -202,12 +244,47 @@ export function LibraryScreen(): JSX.Element {
     // the honest answer for it is none rather than every game on the device.
     if (chosen && !system) return []
     const term = search.trim().toLowerCase()
-    const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.path)
     return installed
       .filter((entry) => (system ? entry.system === system : true))
       .filter((entry) => (term ? titleOf(entry).toLowerCase().includes(term) : true))
       .sort((a, b) => titleOf(a).localeCompare(titleOf(b)))
   }, [scope, installed, chosen, search, settings?.systemOverrides])
+
+  /**
+   * How many downloaded games each ES-DE system holds under the search term.
+   * Keyed by system for the reason `downloaded` matches on one.
+   */
+  const downloadedCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    if (scope !== 'downloaded') return counts
+    const term = search.trim().toLowerCase()
+    for (const entry of installed) {
+      if (term && !titleOf(entry).toLowerCase().includes(term)) continue
+      counts.set(entry.system, (counts.get(entry.system) ?? 0) + 1)
+    }
+    return counts
+  }, [scope, installed, search])
+
+  /**
+   * The number on a platform's chip: how many games pressing it would draw.
+   *
+   * Undefined where the filters in force have no count to give yet, which is a
+   * chip drawn without one rather than a chip claiming a number it no longer
+   * stands for.
+   */
+  const countFor = useCallback(
+    (platform: RommPlatform): number | undefined => {
+      if (scope === 'downloaded') {
+        const system = resolveSystem(platform.slug, platform.fs_slug, settings?.systemOverrides)
+        // A platform RomMix cannot place has no folder to have downloaded
+        // into — the same answer `downloaded` gives for it.
+        return system ? (downloadedCounts.get(system) ?? 0) : 0
+      }
+      if (!debouncedSearch) return platform.rom_count
+      return searchCounts?.[platform.id]
+    },
+    [scope, downloadedCounts, settings?.systemOverrides, debouncedSearch, searchCounts]
+  )
 
   const tiles = useMemo(
     () => (scope === 'downloaded' ? downloaded.map(tileFromInstalled) : roms.map(tileFromRom)),
@@ -275,19 +352,32 @@ export function LibraryScreen(): JSX.Element {
               active={selectedPlatform === undefined}
               onSelect={() => setSelectedPlatform(undefined)}
             />
-            {platforms.map((platform) => (
-              <PlatformChip
-                key={platform.id}
-                id={String(platform.id)}
-                label={t('library.platformChip', {
-                  name: platform.display_name,
-                  count: platform.rom_count
-                })}
-                icon={<PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />}
-                active={platform.id === selectedPlatform}
-                onSelect={() => setSelectedPlatform(platform.id)}
-              />
-            ))}
+            {platforms.map((platform) => {
+              const matching = countFor(platform)
+              // A platform the other filters have emptied is not a filter worth
+              // offering — the rule the list itself is built with. The chosen
+              // one stays whatever it holds, or there is no way back out of it.
+              if (matching === 0 && platform.id !== selectedPlatform) return null
+              return (
+                <PlatformChip
+                  key={platform.id}
+                  id={String(platform.id)}
+                  label={
+                    matching === undefined
+                      ? platform.display_name
+                      : t('library.platformChip', {
+                          name: platform.display_name,
+                          count: matching
+                        })
+                  }
+                  icon={
+                    <PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />
+                  }
+                  active={platform.id === selectedPlatform}
+                  onSelect={() => setSelectedPlatform(platform.id)}
+                />
+              )
+            })}
           </div>
         </div>
       </div>

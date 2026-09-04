@@ -664,8 +664,24 @@ describe('searching the library', () => {
 
     const sent = server.asked
       .slice(askedSoFar)
-      .filter((one) => one.path.includes('search_term=Tobu'))
+      // The grid's own query rather than the counts that go out on the same
+      // term: the platform chips are counted one query apiece, and what is
+      // being weighed here is how long the box waited before asking at all.
+      .filter((one) => one.path.includes('search_term=Tobu') && !one.path.includes('platform_ids'))
     assert.equal(sent.length, 1, `four letters should be one query, not ${sent.length}`)
+
+    // The chips narrow with the grid. A platform's own count is the whole
+    // platform, and a chip left carrying it under a search promises games the
+    // grid it opens does not hold.
+    const gameboy = server.platforms[1]
+    await app.waitFor(
+      `document.querySelector('[data-platform="${gameboy.id}"]')?.textContent?.includes('(1)')`,
+      'the Game Boy chip to count what matches'
+    )
+    await app.waitFor(
+      `!document.querySelector('[data-platform="${server.platforms[0].id}"]')`,
+      'the platforms with nothing matching to go'
+    )
 
     // Out of the field before anything else is driven. While it holds the caret
     // the keyboard handler stands down, so a scenario that walked away leaving

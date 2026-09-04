@@ -74,6 +74,16 @@ export const REQUIRED_SCOPES = [
   'firmware.read'
 ]
 
+/**
+ * How many of the platform counts are asked for at once.
+ *
+ * The library's platform chips are one count query each — see `romCounts` — so
+ * a library with a shelf full of consoles is that many round trips, and end to
+ * end they are a screen the user watches settle. Enough at once to hide the
+ * latency, few enough not to fall on a home server as a burst.
+ */
+const COUNTS_AT_ONCE = 6
+
 /** Strip trailing slashes so we can concatenate paths safely. */
 export function normaliseBaseUrl(input: string): string {
   let url = input.trim()
@@ -569,6 +579,28 @@ export class RommClient {
     // library is reconciled.
     params.set('with_files', 'true')
     return this.json<RommRomPage>(`/api/roms?${params.toString()}`)
+  }
+
+  /**
+   * How many games each of these platforms holds, for one search term.
+   *
+   * A count query apiece: RomM filters by platform and by term together, but
+   * has nothing that groups a search by platform, so a chip's number is the
+   * `total` of a page asked for a single row. A platform the server did not
+   * count — see `RommRomPage.total` — is left out rather than reported as
+   * none, and the chip falls back to the count the platform carries itself.
+   */
+  async romCounts(platformIds: number[], searchTerm: string): Promise<Record<number, number>> {
+    const queue = [...platformIds]
+    const counts: Record<number, number> = {}
+    const ask = async (): Promise<void> => {
+      for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+        const page = await this.roms({ search_term: searchTerm, platform_ids: [id], limit: 1 })
+        if (page.total !== null) counts[id] = page.total
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(COUNTS_AT_ONCE, queue.length) }, ask))
+    return counts
   }
 
   rom(id: number): Promise<RommRom> {

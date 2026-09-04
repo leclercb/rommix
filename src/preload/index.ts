@@ -49,6 +49,8 @@ const bridge: RomMixBridge = {
     platforms: () => ipcRenderer.invoke('library:platforms'),
     collections: () => ipcRenderer.invoke('library:collections'),
     virtualCollections: () => ipcRenderer.invoke('library:virtualCollections'),
+    platformCounts: (platformIds: number[], search: string) =>
+      ipcRenderer.invoke('library:platformCounts', platformIds, search),
     roms: (query: RomQuery) => ipcRenderer.invoke('library:roms', query),
     rom: (id: number) => ipcRenderer.invoke('library:rom', id),
     favourite: (romId: number) => ipcRenderer.invoke('library:favourite', romId),

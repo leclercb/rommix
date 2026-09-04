@@ -615,6 +615,16 @@ const bridge: RomMixBridge = {
     platforms: () => later(PLATFORMS),
     collections: () => later(collectionList()),
     virtualCollections: () => later(virtualList()),
+    platformCounts: (platformIds: number[], search: string) => {
+      const term = search.toLowerCase()
+      const counts: Record<number, number> = {}
+      for (const id of platformIds) {
+        counts[id] = ROMS.filter(
+          (rom) => rom.platform_id === id && (rom.name ?? '').toLowerCase().includes(term)
+        ).length
+      }
+      return later(counts)
+    },
     roms: (query: RomQuery) => {
       const term = query.search_term?.toLowerCase() ?? ''
       const matched = ROMS.filter((rom) => {
