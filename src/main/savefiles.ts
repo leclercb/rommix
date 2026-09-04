@@ -3,6 +3,7 @@ import { basename, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { SavePaths } from '@config/emulators'
 import type { RommRom, SaveSyncState } from '@shared/types'
+import { log } from './log.ts'
 
 /**
  * The judgements save sync makes about files, without any of the moving.
@@ -232,23 +233,69 @@ export function backupPath(into: string, path: string, slot: number): string {
  *
  * Nothing ever reads these back — restoring one is the person's own job, with a
  * file manager — so a failure anywhere is swallowed. A save that could not be
- * copied aside is a worse pull, not a failed one.
+ * copied aside is a worse pull, not a failed one. Swallowed, but said: whether
+ * a copy was kept is the first thing somebody looking for a save that is not
+ * there needs to know, and the log is the only place they can be told.
  */
 export async function keepBackup(path: string, into: string, isDirectory = false): Promise<void> {
-  await mkdir(into, { recursive: true }).catch(() => undefined)
+  await step('create the folder displaced saves are kept in', { into }, () =>
+    mkdir(into, { recursive: true })
+  )
   await absorbSingleBackup(path, into, isDirectory)
   await rotate(path, into)
-  await copyAside(path, backupPath(into, path, 1), isDirectory)
+
+  const copy = backupPath(into, path, 1)
+  await copyAside(path, copy, isDirectory)
+  // Asked rather than assumed. Every step above swallows its own failure, so
+  // the only honest thing to report is whether the copy is actually there.
+  if (await stat(copy).catch(() => null)) {
+    log.info('saves', 'kept a copy of the save about to be overwritten', {
+      path,
+      copy,
+      keeping: BACKUP_COPIES
+    })
+  } else {
+    log.warn('saves', 'the save about to be overwritten could not be copied aside', { path, copy })
+  }
+}
+
+/**
+ * One best-effort step of the backup chain, with what went wrong written down.
+ *
+ * Each of these swallows its failure — see `keepBackup` — and a chain that half
+ * happened used to leave exactly what a chain that went through leaves: nothing.
+ *
+ * A missing file is not worth a line. Rotation renames slots nothing has
+ * written yet on every save backed up fewer times than there are slots, and a
+ * warning apiece would bury the one that means something.
+ */
+async function step(
+  what: string,
+  detail: Record<string, unknown>,
+  run: () => Promise<unknown>
+): Promise<void> {
+  try {
+    await run()
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return
+    log.warn('saves', `could not ${what}`, { ...detail, reason: (cause as Error).message })
+  }
 }
 
 /** Drop the oldest copy and move every other one slot further back. */
 async function rotate(path: string, into: string): Promise<void> {
-  await rm(backupPath(into, path, BACKUP_COPIES), { recursive: true, force: true }).catch(
-    () => undefined
+  const oldest = backupPath(into, path, BACKUP_COPIES)
+  // Named before it goes, since a deletion nothing recorded is indistinguishable
+  // afterwards from a copy that was never taken.
+  if (await stat(oldest).catch(() => null)) {
+    log.info('saves', 'dropping the oldest kept copy of a save', { copy: oldest })
+  }
+  await step('drop the oldest kept copy of a save', { copy: oldest }, () =>
+    rm(oldest, { recursive: true, force: true })
   )
   for (let slot = BACKUP_COPIES - 1; slot >= 1; slot -= 1) {
-    await rename(backupPath(into, path, slot), backupPath(into, path, slot + 1)).catch(
-      () => undefined
+    await step('move a kept copy one slot back', { path, slot }, () =>
+      rename(backupPath(into, path, slot), backupPath(into, path, slot + 1))
     )
   }
 }
@@ -261,7 +308,7 @@ async function copyAside(from: string, to: string, isDirectory: boolean): Promis
       await stampAsSource(file, join(from, file.slice(to.length + 1)))
     }
   } else {
-    await copyFile(from, to).catch(() => undefined)
+    await step('copy a save aside', { from, to }, () => copyFile(from, to))
   }
   await stampAsSource(to, from)
 }
@@ -288,9 +335,15 @@ async function stampAsSource(copy: string, source: string): Promise<void> {
 async function absorbSingleBackup(path: string, into: string, isDirectory: boolean): Promise<void> {
   const single = `${path}.rommix-bak`
   if (!(await stat(single).catch(() => null))) return
+  log.info('saves', 'taking in the copy an older RomMix kept beside the save', {
+    copy: single,
+    into
+  })
   await rotate(path, into)
   await copyAside(single, backupPath(into, path, 1), isDirectory)
-  await rm(single, { recursive: true, force: true }).catch(() => undefined)
+  await step('remove the copy an older RomMix kept beside the save', { copy: single }, () =>
+    rm(single, { recursive: true, force: true })
+  )
 }
 
 /** Recursive copy, for the backup taken before a directory save is overwritten. */
@@ -298,7 +351,11 @@ export async function cpDirectory(from: string, to: string): Promise<void> {
   let entries
   try {
     entries = await readdir(from, { withFileTypes: true })
-  } catch {
+  } catch (cause) {
+    log.debug('saves', 'nothing to copy aside: the folder could not be read', {
+      from,
+      reason: (cause as Error).message
+    })
     return
   }
   await mkdir(to, { recursive: true })
@@ -306,6 +363,9 @@ export async function cpDirectory(from: string, to: string): Promise<void> {
     const source = join(from, entry.name)
     const target = join(to, entry.name)
     if (entry.isDirectory()) await cpDirectory(source, target)
-    else await copyFile(source, target).catch(() => undefined)
+    else
+      await step('copy a file of a save folder aside', { source, target }, () =>
+        copyFile(source, target)
+      )
   }
 }

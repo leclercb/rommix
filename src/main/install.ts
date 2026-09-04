@@ -5,6 +5,7 @@ import { chooseLaunchFile } from '@shared/gamefiles'
 import type { RommRom } from '@shared/types'
 import { safeJoin } from './safepath.ts'
 import { extractZip } from './zip.ts'
+import { log } from './log.ts'
 import { t } from './i18n.ts'
 
 /**
@@ -124,7 +125,14 @@ export async function unpack(
   // that leaves the system folder; the staging name is derived here and gets
   // the same check.
   const staged = safeJoin(systemDir, rom.fs_name_no_ext)
-  if (!staged) throw new Error(t('error.unsafeName', { name: rom.fs_name }))
+  if (!staged) {
+    log.error('install', 'refused a name that leaves the system folder', undefined, {
+      romId: rom.id,
+      name: rom.fs_name,
+      dir: systemDir
+    })
+    throw new Error(t('error.unsafeName', { name: rom.fs_name }))
+  }
   const dirTarget = asDirectory ? targetPath : staged
   /**
    * A lone ROM is staged aside first, because where it ends up depends on what
@@ -137,6 +145,11 @@ export async function unpack(
    */
   const staging = asDirectory ? dirTarget : join(dirname(staged), `.${basename(staged)}.rommix-tmp`)
 
+  log.debug('install', 'unpacking the archive', {
+    romId: rom.id,
+    archive: archivePath,
+    into: staging
+  })
   await extractZip(archivePath, staging)
   await rm(archivePath, { force: true })
 
@@ -147,6 +160,14 @@ export async function unpack(
       await rm(finalPath, { force: true })
       await rename(single, finalPath)
       await rm(staging, { recursive: true, force: true })
+      // Which of the three shapes below an archive turned out to be is the
+      // decision the rest of the install follows from, and the only record of
+      // it is here: what lands on disk afterwards no longer says which way it
+      // was reached.
+      log.info('install', 'the archive held one ROM, lifted out of its folder', {
+        romId: rom.id,
+        path: finalPath
+      })
       return {
         path: finalPath,
         launchPath: finalPath,
@@ -178,6 +199,12 @@ export async function unpack(
       )
       const chosen = chooseLaunchFile(sized, system) ?? moved[0]
       const launchPath = join(systemDir, chosen)
+      log.info('install', 'the archive was unpacked loose into the system folder', {
+        romId: rom.id,
+        dir: systemDir,
+        files: moved.length,
+        launchPath
+      })
       return {
         path: launchPath,
         launchPath,
@@ -192,6 +219,11 @@ export async function unpack(
     await rm(dirTarget, { recursive: true, force: true })
     await rename(staging, dirTarget)
   }
+
+  log.info('install', 'the archive was unpacked into a folder for the game', {
+    romId: rom.id,
+    dir: dirTarget
+  })
 
   return {
     path: dirTarget,

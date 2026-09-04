@@ -64,6 +64,18 @@ let logFile: string | null = null
 /** Set after a failed write, so an unwritable disk is complained about once. */
 let fileDisabled = false
 
+/**
+ * Lines the log has to say about itself, held until there is a file for them.
+ *
+ * Rolling a file over and sweeping the old ones are the two things in here that
+ * delete something of the user's, and both did it without a word — so "where
+ * did last week's log go" had no answer anywhere, least of all in the log. They
+ * cannot call `write`, which is what calls them; they leave the line here and
+ * the write that provoked it carries it into the fresh file, which is where
+ * somebody looking for the old one will be.
+ */
+const pending: string[] = []
+
 function filePath(): string | null {
   if (fileDisabled) return null
   if (logFile) return logFile
@@ -122,7 +134,13 @@ function rotate(path: string): void {
     const info = statSync(path)
     const wrote = new Date(info.mtimeMs)
     if (info.size < MAX_BYTES && dayOf(wrote) === dayOf(new Date())) return
-    renameSync(path, rolledName(path, wrote))
+    const rolled = rolledName(path, wrote)
+    renameSync(path, rolled)
+    if (enabled('info')) {
+      pending.push(
+        format('info', 'log', 'rolled the previous file over', { into: rolled, bytes: info.size })
+      )
+    }
     sweep(join(path, '..'))
   } catch {
     // No file yet, or a rename that lost a race with another rotation. Either
@@ -137,6 +155,10 @@ function rotate(path: string): void {
  * has been asked for a log has often copied one aside in it, and a directory
  * sweep that took those as well would delete the very thing they were keeping.
  * The live file is never a candidate, whatever its date.
+ *
+ * What went is named. A log that is gone is a bug report that cannot be made,
+ * and the difference between RomMix having deleted one and it never having
+ * existed is the difference between an answer and a shrug.
  */
 function sweep(dir: string): void {
   const cutoff = Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000
@@ -147,17 +169,30 @@ function sweep(dir: string): void {
     return
   }
 
+  const swept: string[] = []
   for (const name of entries) {
     // The stamped names above, and the `.1` written by the version that kept
     // one generation — which is still on the disk of anyone who used it.
     if (!/^rommix-[\d-]+\.log$/.test(name) && !/^rommix\.log\.\d+$/.test(name)) continue
     const path = join(dir, name)
     try {
-      if (statSync(path).mtimeMs < cutoff) unlinkSync(path)
+      if (statSync(path).mtimeMs < cutoff) {
+        unlinkSync(path)
+        swept.push(name)
+      }
     } catch {
       // Gone already, or not ours to delete. Neither is worth a line in the
       // log this is making room for.
     }
+  }
+
+  if (swept.length > 0 && enabled('info')) {
+    pending.push(
+      format('info', 'log', 'swept the rolled-over logs past their keeping', {
+        swept,
+        keepDays: KEEP_DAYS
+      })
+    )
   }
 }
 
@@ -200,26 +235,49 @@ function encode(data: Record<string, unknown>): string {
   }
 }
 
+/** Is this level being recorded at all? */
+function enabled(level: LogLevel): boolean {
+  return LEVEL !== 'off' && ORDER[level] >= ORDER[LEVEL]
+}
+
+/** One line, exactly as it goes to the file and to the console. */
+function format(
+  level: LogLevel,
+  area: string,
+  message: string,
+  data?: Record<string, unknown>
+): string {
+  const detail = data && Object.keys(data).length > 0 ? ` ${encode(data)}` : ''
+  return `${new Date().toISOString()} ${level.toUpperCase().padEnd(5)} ${area.padEnd(10)} ${scrubText(message)}${detail}\n`
+}
+
 function write(
   level: LogLevel,
   area: string,
   message: string,
   data?: Record<string, unknown>
 ): void {
-  if (LEVEL === 'off' || ORDER[level] < ORDER[LEVEL]) return
+  if (!enabled(level)) return
 
-  const detail = data && Object.keys(data).length > 0 ? ` ${encode(data)}` : ''
-  const line = `${new Date().toISOString()} ${level.toUpperCase().padEnd(5)} ${area.padEnd(10)} ${scrubText(message)}${detail}\n`
+  // The file is settled before the line is composed. Opening the folder sweeps
+  // it and appending may roll it over, and each of those has a line of its own
+  // to go above this one — composed first, or it would carry the later stamp of
+  // the two. Neither can throw; both keep their own failures.
+  const path = filePath()
+  if (path) rotate(path)
+
+  const line = format(level, area, message, data)
 
   // Still on the console as well: `npm run dev` has one, and a packaged run
   // started from a terminal is exactly the case someone is watching it live.
   if (level === 'error' || level === 'warn') process.stderr.write(line)
   else process.stdout.write(line)
 
-  const path = filePath()
   if (!path) return
   try {
-    rotate(path)
+    // What rolling over or sweeping had to say, in the file only: the question
+    // it answers is asked of the folder these files are in.
+    if (pending.length > 0) appendFileSync(path, pending.splice(0).join(''))
     appendFileSync(path, line)
   } catch (cause) {
     fileDisabled = true

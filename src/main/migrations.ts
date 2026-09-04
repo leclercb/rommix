@@ -67,6 +67,10 @@ export async function runMigrations(
   for (const migration of migrations) {
     if (done.has(migration.id)) continue
     const took = log.since()
+    // Before it runs, not only after. A step that takes the process down with
+    // it — or is still going when somebody pulls the power — is otherwise a
+    // start-up that stopped with nothing to say which step it was in.
+    log.info('migrate', 'running', { id: migration.id })
     try {
       await migration.run(context)
       context.store.recordMigration(migration.id)

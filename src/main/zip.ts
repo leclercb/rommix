@@ -72,6 +72,8 @@ export async function isZip(path: string): Promise<boolean> {
 export async function extractZip(zipPath: string, destDir: string): Promise<void> {
   const root = resolve(destDir)
   await mkdir(root, { recursive: true })
+  const took = log.since()
+  let written = 0
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
     yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (err, zipfile) => {
@@ -108,12 +110,17 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
             return rejectPromise(streamErr ?? new Error(t('error.badZipEntry')))
           mkdir(dirname(target), { recursive: true })
             .then(() => pipeline(stream, createWriteStream(target)))
-            .then(() => zipfile.readEntry())
+            .then(() => {
+              written += 1
+              zipfile.readEntry()
+            })
             .catch(rejectPromise)
         })
       })
     })
   })
+
+  log.debug('zip', 'extracted', { archive: zipPath, into: root, files: written, ms: took() })
 }
 
 // ---------------------------------------------------------------------------
@@ -207,9 +214,16 @@ export async function zipDirectory(dir: string, zipPath: string): Promise<number
     let data: Buffer
     try {
       data = await readFile(join(dir, name))
-    } catch {
+    } catch (cause) {
       // A file that vanished mid-archive is left out rather than aborting the
       // whole upload; a save is many small files and losing one beats losing all.
+      // Said out loud, because what is left out here is what the server ends up
+      // not holding, and nothing downstream can tell the difference.
+      log.warn('zip', 'a file went missing while the archive was being written', {
+        archive: zipPath,
+        entry: name,
+        reason: (cause as Error).message
+      })
       continue
     }
     const compressed = Buffer.from(await deflate(data))
@@ -274,6 +288,13 @@ export async function zipDirectory(dir: string, zipPath: string): Promise<number
   chunks.push(end)
 
   await mkdir(dirname(zipPath), { recursive: true })
-  await writeFile(zipPath, Buffer.concat(chunks))
+  const archive = Buffer.concat(chunks)
+  await writeFile(zipPath, archive)
+  log.debug('zip', 'archived', {
+    dir,
+    archive: zipPath,
+    files: entries.length,
+    bytes: archive.length
+  })
   return entries.length
 }
