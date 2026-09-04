@@ -242,6 +242,54 @@
   align-items: baseline;
 }
 
+/*
+ * An install dialog: what is arriving, how far in it is, and where the run it
+ * belongs to has got to.
+ *
+ * Two bars at most and a line of words with each, in the order they are asked
+ * about from a sofa — what is arriving, then how far, then how much of it is
+ * left to go. Drawn by the BIOS screen over a firmware file and by the emulator
+ * picker over a release build. See `InstallProgress`.
+ */
+.install-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 4px;
+}
+
+/* Above the name rather than beside it: which console this is for is the thing
+   read first from a sofa, and a file name long enough to wrap would push it off
+   the end of the line it shared. */
+.install-progress__platform {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+/* The name is the whole subject of the dialog, and a BIOS file or a release
+   build is long and unbreakable — so it wraps rather than being cut short. */
+.install-progress__file {
+  font-weight: 650;
+  word-break: break-all;
+}
+
+.install-progress__meta {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The run's own line, set apart from the file's: the gap is what says the bar
+   under it is measuring something else. */
+.install-progress__run {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
 /* ---------------------------------------------------------------------------
  * The launch curtain
  * ------------------------------------------------------------------------- */

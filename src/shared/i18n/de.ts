@@ -770,6 +770,7 @@ export const de: Catalog = {
   // -- einen Build zum Installieren wählen ----------------------------------
 
   'install.installing': '{name} wird installiert',
+  'install.progressBytes': '{received} von {total}',
   'install.title': '{name} installieren',
   'install.noBuilds': 'Für diesen Rechner wurden keine Builds veröffentlicht.',
   'install.whichVersion': 'Welche Version?',

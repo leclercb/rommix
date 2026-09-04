@@ -6,7 +6,7 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease
 } from '@shared/types'
-import { FocusButton, Overlay, Spinner } from '../../components'
+import { FocusButton, Overlay, ProgressBar, Spinner } from '../../components'
 import { Icon } from '../../icons'
 import { useAction, useFocusable } from '../../input/focus'
 import { useI18n } from '../../state'
@@ -56,7 +56,15 @@ export function InstallPicker({
       .catch((cause: Error) => setError(cause.message))
   }, [emulatorId])
 
-  useEffect(() => window.rommix.system.onInstallProgress(setProgress), [])
+  // Only this emulator's: the same channel carries the flatpak installer's own
+  // output, which another dialog is reading at the same time.
+  useEffect(
+    () =>
+      window.rommix.system.onInstallProgress((next) => {
+        if (next.emulatorId === emulatorId) setProgress(next)
+      }),
+    [emulatorId]
+  )
 
   const install = async (asset: EmulatorAsset): Promise<void> => {
     setBusy(asset.name)
@@ -71,21 +79,35 @@ export function InstallPicker({
   }
 
   if (busy) {
-    const pct =
-      progress && progress.totalBytes > 0
-        ? Math.round((progress.receivedBytes / progress.totalBytes) * 100)
-        : null
+    const received = progress?.receivedBytes ?? 0
+    const total = progress?.totalBytes ?? 0
     return (
       <Overlay
         title={t('install.installing', { name: descriptor?.name ?? emulatorId })}
         icon="install"
       >
-        <p className="muted">{busy}</p>
-        <p className="muted">
-          {formatBytes(progress?.receivedBytes ?? 0)}
-          {pct != null ? ` · ${pct}%` : ''}
-        </p>
-        <Spinner />
+        <div className="install-progress">
+          <div className="install-progress__file">{busy}</div>
+          {total > 0 ? (
+            <>
+              <ProgressBar percent={(received / total) * 100} />
+              <div className="install-progress__meta">
+                {t('install.progressBytes', {
+                  received: formatBytes(received),
+                  total: formatBytes(total)
+                })}
+              </div>
+            </>
+          ) : (
+            /* Nothing to divide by until the first bytes arrive, and Eden's
+               release API reports no size for its assets at all — so what has
+               arrived is the whole of what can honestly be said. */
+            <>
+              <div className="install-progress__meta">{formatBytes(received)}</div>
+              <Spinner />
+            </>
+          )}
+        </div>
       </Overlay>
     )
   }

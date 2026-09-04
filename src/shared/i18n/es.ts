@@ -748,6 +748,7 @@ export const es: Catalog = {
   // -- elegir una compilación que instalar ----------------------------------
 
   'install.installing': 'Instalando {name}',
+  'install.progressBytes': '{received} de {total}',
   'install.title': 'Instalar {name}',
   'install.noBuilds': 'No se ha publicado ninguna compilación para esta máquina.',
   'install.whichVersion': '¿Qué versión?',

@@ -79,53 +79,6 @@
   gap: 10px;
 }
 
-/*
- * The install dialog: what is arriving, how far in it is, and where the run has
- * got to.
- *
- * Two bars at most and a line of words with each, in the order they are asked
- * about from a sofa — which file, then how far, then how much of it is left to
- * go. See `InstallProgress`.
- */
-.bios-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 6px 0 4px;
-}
-
-/* Above the file rather than beside it: which console this is for is the thing
-   read first from a sofa, and a file name long enough to wrap would push it off
-   the end of the line it shared. */
-.bios-progress__platform {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-dim);
-  font-size: 15px;
-}
-
-/* The name is the whole subject of the dialog, and BIOS file names are long
-   and unbreakable — so it wraps rather than being cut short. */
-.bios-progress__file {
-  font-weight: 650;
-  word-break: break-all;
-}
-
-.bios-progress__meta {
-  font-size: 14px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The run's own line, set apart from the file's: the gap is what says the bar
-   under it is measuring something else. */
-.bios-progress__run {
-  margin-top: 10px;
-  font-size: 14px;
-  color: var(--text-faint);
-}
-
 /* Contexts where the icon sits inline with its platform's name. `.installed__meta`
    is already a flex row and needs nothing. */
 .download__state,

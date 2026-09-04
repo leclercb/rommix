@@ -752,6 +752,7 @@ export const en = {
   // -- picking a build to install -------------------------------------------
 
   'install.installing': 'Installing {name}',
+  'install.progressBytes': '{received} of {total}',
   'install.title': 'Install {name}',
   'install.noBuilds': 'No builds were published for this machine.',
   'install.whichVersion': 'Which version?',

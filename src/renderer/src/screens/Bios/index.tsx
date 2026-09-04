@@ -284,9 +284,9 @@ function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.E
   const share = progress.totalBytes > 0 ? progress.receivedBytes / progress.totalBytes : 0
 
   return (
-    <div className="bios-progress">
+    <div className="install-progress">
       {progress.platform ? (
-        <div className="bios-progress__platform">
+        <div className="install-progress__platform">
           <PlatformIcon
             slug={progress.platform.slug}
             system={progress.platform.system}
@@ -296,11 +296,11 @@ function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.E
           {progress.platform.name}
         </div>
       ) : null}
-      <div className="bios-progress__file">{progress.fileName}</div>
+      <div className="install-progress__file">{progress.fileName}</div>
       {progress.totalBytes > 0 ? (
         <>
           <ProgressBar percent={share * 100} />
-          <div className="bios-progress__meta">
+          <div className="install-progress__meta">
             {t('bios.progressBytes', {
               received: formatBytes(progress.receivedBytes),
               total: formatBytes(progress.totalBytes)
@@ -311,12 +311,12 @@ function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.E
         /* Nothing to divide by, so what has arrived is the whole of what can
            honestly be said — and it is enough to show that it is still
            arriving. */
-        <div className="bios-progress__meta">{formatBytes(progress.receivedBytes)}</div>
+        <div className="install-progress__meta">{formatBytes(progress.receivedBytes)}</div>
       )}
 
       {progress.total > 1 ? (
         <>
-          <div className="bios-progress__run">
+          <div className="install-progress__run">
             {/* The file in flight, not the count of those finished — and the
                 last one of a run stays the last one, rather than becoming a
                 file after the end of it. */}

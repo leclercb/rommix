@@ -759,6 +759,7 @@ export const fr: Catalog = {
   // -- choisir une version à installer --------------------------------------
 
   'install.installing': 'Installation de {name}',
+  'install.progressBytes': '{received} sur {total}',
   'install.title': 'Installer {name}',
   'install.noBuilds': 'Aucune version n’a été publiée pour cette machine.',
   'install.whichVersion': 'Quelle version ?',
