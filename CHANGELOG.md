@@ -4,6 +4,11 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.13.0-rc.0 — 2026-09-04
+
+- feat: tag a libretro save with the core that wrote it (d6903a3)
+- feat: add log entries for every file RomMix copies, moves or deletes (2586c36)
+
 ## 0.12.0 — 2026-09-04
 
 - feat: show the version RomMix is running in the footer (29df809)
