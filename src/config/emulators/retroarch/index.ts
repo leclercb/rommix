@@ -58,6 +58,10 @@ export const retroarch: EmulatorDescriptor = {
   // It reads its ROM folders recursively, so a multi-file game may keep a
   // folder of its own.
   flatLibrary: false,
+  // RetroArch loads a game from wherever it is pointed at, and it runs a
+  // hundred systems: a folder made for each of them would be a hundred empty
+  // directories against one game.
+  needsRomFolders: false,
   /**
    * Straight from `retroarch.cfg`, because every part of the answer lives
    * there: the two roots, whether saves are sorted into a folder per core or

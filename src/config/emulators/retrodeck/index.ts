@@ -130,6 +130,8 @@ export const retrodeck: EmulatorDescriptor = {
   // ES-DE scans recursively, and a multi-file game in a folder of its own is
   // what it expects.
   flatLibrary: false,
+  // Its own retrodeck tree has a folder per system already.
+  needsRomFolders: false,
   /**
    * Resolved per game, because RetroDECK's answer is "wherever the component I
    * chose puts them" — and which component that is comes out of the user's own

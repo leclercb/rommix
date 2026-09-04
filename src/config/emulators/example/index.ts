@@ -209,6 +209,17 @@ export const example: EmulatorDescriptor = {
    * emulator gets every file loose in the system folder instead.
    */
   flatLibrary: false,
+  /**
+   * True where the emulator sees games only in folders it has been given, so
+   * that RomMix makes the system folders under `dirs.roms` as soon as it
+   * installs one — Eden and shadPS4 both open on an empty list and a prompt to
+   * add a directory, and a folder that is not there yet cannot be added.
+   *
+   * False for an emulator that brings its own library, and for one that opens
+   * a game from anywhere: a folder for every system it might run is a tree of
+   * empty directories nobody asked for.
+   */
+  needsRomFolders: false,
 
   // -- saves ---------------------------------------------------------------------
 

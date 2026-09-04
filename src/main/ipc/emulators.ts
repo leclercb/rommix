@@ -1,12 +1,27 @@
 import { emulatorById, isInstallableAsset, releaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorRelease } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
+import { prepareRomFolders } from '../emulators.ts'
 import { installFlatpak } from '../host.ts'
 import { log } from '../log.ts'
 import { builtForThisMachine, fetchReleases, installAsset } from '../releases.ts'
 import { RommError } from '../romm/index.ts'
 import { t } from '../i18n.ts'
 import type { Handle } from './handler.ts'
+
+/**
+ * Re-probe, then make the folders the emulator that has just arrived will look
+ * for games in.
+ *
+ * In that order and not the other: where its folders are is part of what the
+ * probe works out, and before it has run there is nothing to make them under.
+ * See `prepareRomFolders`.
+ */
+async function settleRomFolders(rommix: RomMixApp, id: string): Promise<void> {
+  const states = await rommix.refreshEmulators()
+  const state = states.find((emulator) => emulator.id === id)
+  if (state) await prepareRomFolders(state)
+}
 
 /** Putting an emulator on the machine, and running one on its own. */
 export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
@@ -82,7 +97,7 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     store.updateSettings({
       emulatorPaths: { ...store.settings.emulatorPaths, [id]: path }
     })
-    await rommix.refreshEmulators()
+    await settleRomFolders(rommix, id)
     log.info('emulator', 'installed', { emulator: id, path })
     return path
   })
@@ -113,7 +128,7 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
         message: line
       })
     )
-    await rommix.refreshEmulators()
+    await settleRomFolders(rommix, id)
     log.info('emulator', 'flatpak installed', { emulator: id, appId: spec.appId })
   })
 }

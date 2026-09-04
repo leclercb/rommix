@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { emulatorById } from '@config/emulators'
 import type { EmulatorDescriptor, EmulatorState, ResolvedInstall } from '@config/emulators'
 import type { Settings } from '@shared/types'
-import { detectEmulators, expandShell, usableVariants } from './emulators.ts'
+import { detectEmulators, expandShell, prepareRomFolders, usableVariants } from './emulators.ts'
 
 /**
  * Probing the machine for the emulators in the registry.
@@ -543,5 +543,43 @@ describe('probing the whole registry', () => {
 
     assert.equal(found.configDir, null)
     assert.equal(found.dataDir, null)
+  })
+})
+
+describe('the game folders an emulator is pointed at', () => {
+  test('installing one that reads only the folders it is given makes them', async () => {
+    const dir = home()
+    const appimage = join(dir, 'Downloads', 'Eden.AppImage')
+    write(appimage, '')
+
+    const found = await probeOne('eden', settings({ emulatorPaths: { eden: appimage } }))
+    const made = await prepareRomFolders(found)
+
+    // Eden opens on an empty game list and a prompt to add a directory, and
+    // the folder the setup note names has to exist to be chosen there.
+    assert.deepEqual(made, [join(dir, '.rommix', 'roms', 'switch')])
+    assert.ok(existsSync(made[0]))
+  })
+
+  test('an emulator that opens a game from anywhere gets no folders', async () => {
+    const dir = home()
+    const appimage = join(dir, 'Downloads', 'RetroArch.AppImage')
+    write(appimage, '')
+
+    const found = await probeOne('retroarch', settings({ emulatorPaths: { retroarch: appimage } }))
+
+    // It runs a hundred systems, and a folder for each of them is a hundred
+    // empty directories against one game.
+    assert.deepEqual(await prepareRomFolders(found), [])
+    assert.equal(existsSync(join(dir, '.rommix', 'roms', 'snes')), false)
+  })
+
+  test('nothing is made for an emulator that was never found', async () => {
+    home()
+    const found = await probeOne('shadps4', settings())
+
+    // No install means no folders were resolved, so there is nowhere to make
+    // anything under.
+    assert.deepEqual(await prepareRomFolders(found), [])
   })
 })

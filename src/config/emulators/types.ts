@@ -419,6 +419,21 @@ export interface EmulatorDescriptor {
    * Such an emulator gets every file loose in the system folder instead.
    */
   readonly flatLibrary: boolean
+  /**
+   * True when this emulator sees games only in folders it has been given.
+   *
+   * Eden's Game Directories, shadPS4's install folders: the emulator ships
+   * with no library, so the first thing a fresh install asks for is a folder,
+   * and the setup notes say which one. A folder that does not exist yet cannot
+   * be chosen in a file dialog — so RomMix makes the system folders under
+   * `dirs.roms` when it installs one of these, and the answer is there to be
+   * given.
+   *
+   * False where the emulator brings its own tree, and false for one that opens
+   * a game from anywhere it is pointed at: a folder for every system RetroArch
+   * *might* run is dozens of empty directories nobody asked for.
+   */
+  readonly needsRomFolders: boolean
 
   // -- saves ---------------------------------------------------------------------
 

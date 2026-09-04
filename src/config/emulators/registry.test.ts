@@ -41,6 +41,7 @@ const FIELD_ORDER = [
   'dirs',
   'layout',
   'flatLibrary',
+  'needsRomFolders',
   'saves',
   'bios',
   'biosStagingNote',

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { launchVariants, orderedEmulators } from '@config/emulators'
+import { emulatorById, launchVariants, orderedEmulators } from '@config/emulators'
 import type {
   DirBase,
   DirSpec,
@@ -430,6 +431,41 @@ async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promis
     dataDir: bases?.data ?? null,
     unavailableReason
   }
+}
+
+/**
+ * Make the folders this emulator will look for games in.
+ *
+ * For the emulators that see games only in folders they have been given: they
+ * open on an empty list and a prompt to add a directory, and the folder the
+ * setup note names cannot be chosen in that dialog until something has made
+ * it. Run when RomMix installs one, which is the moment before the user is
+ * asked. See `needsRomFolders`.
+ *
+ * A failure is logged rather than thrown. The emulator is installed either way,
+ * and an install reported as failed over a folder would be the wrong answer to
+ * a full disk.
+ */
+export async function prepareRomFolders(state: EmulatorState): Promise<string[]> {
+  const descriptor = emulatorById(state.id)
+  const root = state.paths.roms
+  if (!descriptor?.needsRomFolders || !root) return []
+
+  const made: string[] = []
+  for (const system of descriptor.systems) {
+    const dir = join(root, system)
+    try {
+      await mkdir(dir, { recursive: true })
+      made.push(dir)
+    } catch (cause) {
+      log.error('emulator', 'could not make a game folder', cause, {
+        emulator: state.id,
+        dir
+      })
+    }
+  }
+  if (made.length > 0) log.info('emulator', 'game folders ready', { emulator: state.id, made })
+  return made
 }
 
 /** Probe every registered emulator and report what is usable right now. */

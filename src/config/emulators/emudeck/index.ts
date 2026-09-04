@@ -342,6 +342,8 @@ export const emudeck: EmulatorDescriptor = {
   },
   // ES-DE scans recursively, so a multi-file game keeps its own folder.
   flatLibrary: false,
+  // Its own Emulation tree has a folder per system already.
+  needsRomFolders: false,
   /**
    * EmuDeck files saves per emulator under `Emulation/saves`, symlinking each
    * emulator's own directory into it — so what is there depends on which

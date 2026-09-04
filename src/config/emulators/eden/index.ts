@@ -76,6 +76,9 @@ export const eden: EmulatorDescriptor = {
    * from the game directories rather than needing it installed to the NAND.
    */
   flatLibrary: true,
+  // Eden opens with an empty game list and a prompt to add a directory, and
+  // the setup note below says to add this one.
+  needsRomFolders: true,
   /**
    * `nand/user/save/<space>/<profile>/<title id>/`, resolved per game.
    *

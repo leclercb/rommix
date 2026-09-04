@@ -66,6 +66,9 @@ export const shadps4: EmulatorDescriptor = {
    * data — so it keeps one, as ES-DE and every dump expect.
    */
   flatLibrary: false,
+  // Nothing is listed until a folder has been added to it, and the setup note
+  // below says to add this one.
+  needsRomFolders: true,
   saves: shadPs4SavePaths,
   bios: undefined,
   biosStagingNote: undefined,
