@@ -51,6 +51,11 @@ interface FocusableEntry {
 
 interface FocusContextValue {
   register(entry: FocusableEntry): () => void
+  /**
+   * Hold a layer as the top one for as long as a modal is mounted, whether or
+   * not anything on it can be focused. Returns a release function.
+   */
+  claimLayer(layer: number): () => void
   focusedId: string | null
   setFocus(id: string): void
   move(direction: Direction): void
@@ -202,6 +207,15 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const focusedRef = useRef<string | null>(null)
   // Highest layer with anything on it: whatever is topmost owns the input.
   const layerRef = useRef(0)
+  /**
+   * Layers a mounted modal is holding, counted because two can be up at once.
+   *
+   * A dialog that is only reporting progress has nothing to focus, and without
+   * this the layer under it would be the highest one with anything on it — so
+   * the press meant for a modal that is plainly on screen would land on the
+   * page behind it. See `FocusLayer`.
+   */
+  const claimed = useRef(new Map<number, number>())
   // Where focus was on each layer, so closing an overlay puts it back rather
   // than dropping the user at the top of the page behind it.
   const restorePoints = useRef(new Map<number, string>())
@@ -288,6 +302,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const settleLayer = useCallback((): void => {
     let top = 0
     for (const entry of entries.current.values()) top = Math.max(top, entry.layer)
+    for (const layer of claimed.current.keys()) top = Math.max(top, layer)
 
     const previous = layerRef.current
     if (top !== previous) {
@@ -323,6 +338,20 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     }
     setFocusedId(first?.id ?? null)
   }, [setFocus, visibleEntries])
+
+  const claimLayer = useCallback(
+    (layer: number): (() => void) => {
+      claimed.current.set(layer, (claimed.current.get(layer) ?? 0) + 1)
+      settleLayer()
+      return () => {
+        const held = (claimed.current.get(layer) ?? 1) - 1
+        if (held > 0) claimed.current.set(layer, held)
+        else claimed.current.delete(layer)
+        settleLayer()
+      }
+    },
+    [settleLayer]
+  )
 
   const register = useCallback(
     (entry: FocusableEntry): (() => void) => {
@@ -584,6 +613,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const value = useMemo<FocusContextValue>(
     () => ({
       register,
+      claimLayer,
       focusedId,
       setFocus,
       move,
@@ -597,6 +627,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     }),
     [
       register,
+      claimLayer,
       focusedId,
       setFocus,
       move,
@@ -640,10 +671,17 @@ export function useKeyLabel(): (key: string) => string {
 /**
  * Put everything inside into its own focus layer, so nothing behind it can be
  * reached until it unmounts. Wrapped around a modal's contents.
+ *
+ * The layer is claimed as well as provided, which is what makes that true of a
+ * modal with nothing to press: an install reporting its progress has a spinner
+ * and no buttons, and the layer is otherwise empty for as long as the download
+ * lasts. See `claimLayer`.
  */
 export function FocusLayer({ children }: { children: ReactNode }): JSX.Element {
-  const layer = useContext(LayerContext)
-  return <LayerContext.Provider value={layer + 1}>{children}</LayerContext.Provider>
+  const layer = useContext(LayerContext) + 1
+  const { claimLayer } = useFocusContext()
+  useEffect(() => claimLayer(layer), [claimLayer, layer])
+  return <LayerContext.Provider value={layer}>{children}</LayerContext.Provider>
 }
 
 let nextId = 0
