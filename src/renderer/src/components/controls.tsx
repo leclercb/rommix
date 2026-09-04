@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, type Ref } from 'react'
+import { useEffect, useRef, type JSX, type ReactNode, type Ref } from 'react'
 import type { I18n } from '@shared/i18n'
 import type { RomStorage } from '@shared/types'
 import { useAction, useFocusable } from '../input/focus'
@@ -87,11 +87,26 @@ export function FocusButton({
 }
 
 /**
+ * How close together two insertions of the same character have to be to be one
+ * press arriving twice.
+ *
+ * Well inside the gap a person can press one key twice in: the fastest a held
+ * key repeats is an order of magnitude slower than this, so "aa" typed by hand
+ * is never a pair. See `TextField`.
+ */
+const DOUBLED_PRESS_MS = 30
+
+/**
  * A text field that a controller can reach.
  *
  * Pressing A moves real DOM focus into the input, at which point Steam's Big
  * Picture on-screen keyboard (or a real keyboard) takes over. Escape hands
  * control back to the spatial navigator.
+ *
+ * That keyboard delivers one press as two identical insertions a millisecond or
+ * two apart on SteamOS, so everything typed on a Deck arrived doubled — "a"
+ * for "aa". The second of a pair that close together is dropped before it
+ * reaches the field. See `DOUBLED_PRESS_MS`.
  */
 export function TextField({
   label,
@@ -119,6 +134,34 @@ export function TextField({
     autoFocus,
     actionLabel: t('action.type')
   })
+
+  /** The last character inserted, and when — see the note on this component. */
+  const previous = useRef<{ data: string; at: number } | null>(null)
+
+  useEffect(() => {
+    const input = ref.current
+    if (!input) return
+
+    // `beforeinput` rather than `onChange`: the duplicate is refused here
+    // instead of being taken out of a value that has already been set, so
+    // nothing downstream ever sees the doubled string.
+    const onBeforeInput = (event: InputEvent): void => {
+      if (event.inputType !== 'insertText' || !event.data) return
+
+      const at = performance.now()
+      const last = previous.current
+      previous.current = { data: event.data, at }
+      if (!last || last.data !== event.data || at - last.at >= DOUBLED_PRESS_MS) return
+
+      event.preventDefault()
+      // Forgotten rather than kept, so three of a character in a row are two
+      // presses and not one: a pair is matched once.
+      previous.current = null
+    }
+
+    input.addEventListener('beforeinput', onBeforeInput)
+    return () => input.removeEventListener('beforeinput', onBeforeInput)
+  }, [ref])
 
   return (
     <div className="field">
