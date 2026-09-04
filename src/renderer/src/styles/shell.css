@@ -38,6 +38,11 @@
   align-items: center;
   gap: 11px;
   min-width: 0;
+  /* Held to its contents rather than stretched across the track, so that what
+     it measures is the width of the mark and the wordmark. Stretched, it is as
+     wide as whatever is left over — and a bar measured against that is a bar
+     that never fits, however wide the screen. See `useBarFit`. */
+  justify-self: start;
 }
 
 .topbar__logo {
@@ -158,26 +163,29 @@
 }
 
 /*
- * Too narrow for five labels: the menu keeps its place in the middle and drops
- * to marks alone, and the server line goes, being the one thing here that is
- * never acted on.
+ * What is given up when the window is too narrow to hold all of it, in order:
+ * the menu drops to marks alone, then the server line goes — being the one
+ * thing here that is never acted on — and then the wordmark, the mark alone
+ * standing for the app.
+ *
+ * Which of these applies is measured by the shell rather than set at a width
+ * here, seven labels being a different length in every language. See
+ * `useBarFit`.
  */
-@media (max-width: 1100px) {
-  .nav-item__label,
-  .topbar__status {
-    display: none;
-  }
-
-  .nav-item {
-    padding: 10px 14px;
-  }
+.topbar:is([data-fit='compact'], [data-fit='tight'], [data-fit='bare']) .nav-item__label {
+  display: none;
 }
 
-/* Narrower still, the wordmark goes too and the mark stands for the app. */
-@media (max-width: 720px) {
-  .topbar__wordmark {
-    display: none;
-  }
+.topbar:is([data-fit='compact'], [data-fit='tight'], [data-fit='bare']) .nav-item {
+  padding: 10px 14px;
+}
+
+.topbar:is([data-fit='tight'], [data-fit='bare']) .topbar__status {
+  display: none;
+}
+
+.topbar[data-fit='bare'] .topbar__wordmark {
+  display: none;
 }
 
 .content {

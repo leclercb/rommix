@@ -1,4 +1,4 @@
-import { useCallback, useState, type JSX, type Ref } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type JSX, type Ref } from 'react'
 import { Logo, QuitOverlay } from './components'
 import {
   FocusZone,
@@ -22,6 +22,78 @@ import { SettingsScreen } from './screens/Settings'
 import { RunningOverlay } from './RunningOverlay'
 import { Toasts } from './Toasts'
 
+/**
+ * How much of the bar is drawn, in the order its parts are given up: the menu's
+ * labels first, then the server line, then the wordmark beside the mark.
+ *
+ * Measured rather than declared at a width, because the menu's seven labels are
+ * a different length in every language — French runs to half again English's.
+ * One media query would have to serve all four catalogues, and there is no
+ * width that both keeps the labels wherever they fit and drops them before they
+ * run over the brand and the server line. See `useBarFit`.
+ */
+const BAR_FITS = ['full', 'compact', 'tight', 'bare'] as const
+
+/**
+ * Whether the bar's three blocks stand side by side without running into one
+ * another.
+ *
+ * The brand and the status flank the menu as equal tracks, so what each costs is
+ * the wider of the two. The status is measured a row at a time: it is a column
+ * of right-aligned rows, and a row too wide for its track spills to the left,
+ * where `scrollWidth` on the column sees nothing.
+ */
+function barFits(header: HTMLElement): boolean {
+  const style = getComputedStyle(header)
+  const room = header.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+  const widthOf = (selector: string): number => header.querySelector(selector)?.scrollWidth ?? 0
+  const side = Math.max(
+    widthOf('.topbar__brand'),
+    widthOf('.topbar__user'),
+    widthOf('.topbar__host')
+  )
+  return widthOf('.topbar__nav') + 2 * (side + parseFloat(style.columnGap)) <= room
+}
+
+/**
+ * Give up as little of the bar as the window makes necessary.
+ *
+ * Re-measured on a resize and on any change to what the bar holds — the
+ * language, the count on Downloads, the section that goes when the server does
+ * — since each of those changes the answer and only the first is a resize.
+ */
+function useBarFit(drawn: boolean): Ref<HTMLElement | null> {
+  const ref = useRef<HTMLElement | null>(null)
+
+  // `drawn` is what brings the bar into reach: the connect screen has none, so
+  // on the pass that ran while it was up there was nothing to measure.
+  useLayoutEffect(() => {
+    const header = ref.current
+    if (!header) return
+
+    const fit = (): void => {
+      for (const level of BAR_FITS) {
+        header.dataset.fit = level
+        if (barFits(header)) return
+      }
+    }
+
+    fit()
+    const resized = new ResizeObserver(fit)
+    resized.observe(header)
+    // Attributes are deliberately not watched: focus moves along this bar with
+    // every press, and none of that changes how wide anything is.
+    const changed = new MutationObserver(fit)
+    changed.observe(header, { childList: true, subtree: true, characterData: true })
+    return () => {
+      resized.disconnect()
+      changed.disconnect()
+    }
+  }, [drawn])
+
+  return ref
+}
+
 /** App shell: navigation bar, the current screen, and global overlays. */
 export function App(): JSX.Element {
   const { t } = useI18n()
@@ -38,6 +110,7 @@ export function App(): JSX.Element {
   } = useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
+  const barRef = useBarFit(route.name !== 'connect')
 
   /**
    * B / Escape, and what it means once there is nothing above.
@@ -104,7 +177,7 @@ export function App(): JSX.Element {
             right: the same three slots RomM's own bar has. The brand and the
             status flank the menu as equal tracks so the menu is centred on the
             screen rather than on whatever is left over beside them. */}
-        <header className="topbar">
+        <header className="topbar" ref={barRef}>
           <div className="topbar__brand">
             <Logo className="topbar__logo" />
             <div className="topbar__wordmark">
@@ -288,8 +361,8 @@ function NavItem({
       {...props}
     >
       <Icon name={icon} size={20} />
-      {/* Hidden on a narrow window, where five labels would wrap the bar onto a
-          second line. The title on the row is what is left to name it there. */}
+      {/* Hidden where the bar has no room for seven of them — see `useBarFit`.
+          The title on the row is what is left to name it there. */}
       <span className="nav-item__label">{label}</span>
       {badge ? <span className="nav-item__badge">{badge}</span> : null}
     </div>
