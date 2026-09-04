@@ -481,6 +481,43 @@ describe('the downloads screen', () => {
     await app.waitFor(`document.querySelector('.group__header')`, 'the groups, as they were found')
   })
 
+  test('and a mouse left sitting on the list does not take the highlight off it', async () => {
+    // Two things a machine with no window manager does for nothing, and a desk
+    // does by accident: the page is drawn at the size RomMix asks for rather
+    // than filled to a monitor, and the pointer sits in the middle of it and is
+    // never touched again.
+    //
+    // Sorting then moves the rows under a pointer that has not gone anywhere,
+    // and the browser reports what has arrived there as an ordinary move. The
+    // highlight has to stay on the button being pressed: taken off it, the next
+    // press lands on a row instead — which is a game opened, or worse, by a
+    // press aimed at a button plainly under the highlight. See `pointer` in
+    // `input/focus`.
+    await app.drawAt(1280, 800)
+    try {
+      await app.pointAt(960, 540)
+      await app.waitFor(
+        `Boolean(document.elementFromPoint(960, 540)?.closest('.installed'))`,
+        'the pointer to be resting on a row'
+      )
+
+      // The same three presses as above, which is what makes this the same
+      // button rather than a second way of asking.
+      for (let press = 0; press < 3; press += 1) {
+        await app.choose('[data-action="sort-by"]')
+        assert.equal(
+          await app.read<boolean>(
+            `document.querySelector('[data-action="sort-by"]')?.matches('[data-focused="true"]') ?? false`
+          ),
+          true,
+          `the highlight left the button for ${await app.focused()}`
+        )
+      }
+    } finally {
+      await app.drawAsGiven()
+    }
+  })
+
   test('checking against the disk drops a game that was deleted behind its back', async () => {
     const entry = await app.read<{ path: string }>(
       `(await window.rommix.library.installed()).find((one) => one.romId === 5)`

@@ -101,7 +101,7 @@ runs it, because a tag is public the moment it is pushed. Releasing from a
 headless machine means running that under `xvfb-run` too.
 
 Keys, the pointer and a controller, because the interface takes all three:
-`useFocusable` binds `onMouseEnter` and `onClick` beside the focus engine, and a
+`useFocusable` binds `onMouseMove` and `onClick` beside the focus engine, and a
 change that breaks one and not the other would otherwise go out. The pad is what
 RomMix is designed around, so a scenario reaches a button by walking to it
 unless another input is the subject.

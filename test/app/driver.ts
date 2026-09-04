@@ -175,6 +175,12 @@ export interface App {
   choose: (selector: string) => Promise<void>
   /** Put the pointer on something, which is not the same as pressing it. */
   hover: (selector: string) => Promise<void>
+  /** Leave the pointer at a place rather than on a thing. See `pointAt`. */
+  pointAt: (x: number, y: number) => Promise<void>
+  /** Draw the page at a stated size, whatever window it is in. See `drawAt`. */
+  drawAt: (width: number, height: number) => Promise<void>
+  /** Back to the size the window actually is. */
+  drawAsGiven: () => Promise<void>
   /** Point at something and press it, the way a mouse does. */
   click: (selector: string) => Promise<void>
   /** Turn the wheel over something. Positive is towards the end of the page. */
@@ -625,7 +631,7 @@ export async function startApp(options: StartOptions): Promise<App> {
    * The pointer, which RomMix supports and is not designed around.
    *
    * A television is driven with a pad, and everything above presses keys for
-   * that reason. But `useFocusable` binds `onMouseEnter` and `onClick` too — for
+   * that reason. But `useFocusable` binds `onMouseMove` and `onClick` too — for
    * the desk this is also run from — and those are a second way into every
    * button in the application, taken by nothing else here.
    *
@@ -642,16 +648,52 @@ export async function startApp(options: StartOptions): Promise<App> {
   /**
    * Bring the pointer onto something, arriving from outside it.
    *
-   * A move straight to where the pointer already is is not an arrival: the page
-   * hears `mouseenter` when the pointer crosses an edge, so hovering what is
-   * already under it does nothing at all. Which is right for a mouse and wrong
-   * for a test, where this is the one way to put the highlight somewhere
-   * without also pressing it — so the approach is walked rather than assumed.
+   * A move straight to where the pointer already is is not an arrival: what the
+   * page reads is the pointer having travelled, so reporting it where it stands
+   * does nothing at all. Which is right for a mouse and wrong for a test, where
+   * this is the one way to put the highlight somewhere without also pressing it
+   * — so the approach is walked rather than assumed.
    */
   const hover = async (selector: string): Promise<void> => {
     const { edgeX, edgeY } = await centreOf(selector)
     await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: edgeX, y: edgeY })
     await mouse(selector, 'mouseMoved')
+  }
+
+  /**
+   * Leave the pointer at a place rather than on a thing.
+   *
+   * What a machine with no window manager does for nothing: the X server puts
+   * the pointer in the middle of the screen, the application opens under it,
+   * and nobody ever moves either again. A mouse on a desk is the same thing.
+   * The place is the point — what is under it is whatever the page has put
+   * there, and what arrives there later is the whole question.
+   */
+  const pointAt = async (x: number, y: number): Promise<void> => {
+    await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+    await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
+  }
+
+  /**
+   * Draw the page at a stated size, whatever window it is in.
+   *
+   * The suite otherwise runs at whatever the machine gives it: a runner with no
+   * window manager draws RomMix at its own default, and a developer's desktop
+   * makes it fullscreen on a monitor of any size. Those are different layouts,
+   * and a scenario about what sits where has to name the one it is about rather
+   * than inherit whichever it was run on.
+   */
+  const drawAt = async (width: number, height: number): Promise<void> => {
+    await session.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: 1,
+      mobile: false
+    })
+  }
+
+  const drawAsGiven = async (): Promise<void> => {
+    await session.send('Emulation.clearDeviceMetricsOverride')
   }
 
   const click = async (selector: string): Promise<void> => {
@@ -992,6 +1034,9 @@ export async function startApp(options: StartOptions): Promise<App> {
     press,
     choose,
     hover,
+    pointAt,
+    drawAt,
+    drawAsGiven,
     click,
     wheel,
     plugInPad,

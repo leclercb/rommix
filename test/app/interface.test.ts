@@ -338,7 +338,7 @@ describe('the tabs on a game', () => {
 
 describe('driving it with a mouse instead', () => {
   test('the pointer moves the highlight without choosing anything', async () => {
-    // `useFocusable` binds `onMouseEnter` as well as `onClick`, so a pointer
+    // `useFocusable` binds `onMouseMove` as well as `onClick`, so a pointer
     // and a pad have to agree about what is current. They are two ways into
     // every button in the application and only one of them was ever driven.
     await app.goTo('library')

@@ -114,6 +114,24 @@ const LayerContext = createContext(0)
 const NEARBY_MARGIN = '100%'
 
 /**
+ * Where the pointer was when it last actually moved.
+ *
+ * The browser re-runs hover whenever the page changes shape, and reports what
+ * has arrived under a pointer that never went anywhere as an ordinary
+ * `mousemove` at the coordinates it was already at. Those are the only thing
+ * that tells the two apart. Without the comparison, a mouse left sitting on
+ * the desk takes the highlight off whatever the pad just moved it to — every
+ * time a list fills, a row is sorted or a screen scrolls — and a keyboard walk
+ * across a page that is still settling never arrives.
+ *
+ * One position for the whole application, because there is one pointer. Kept
+ * from every move rather than only the ones over something focusable: a pointer
+ * that crossed a gap on the way and came back to where it had been is a pointer
+ * that moved, and a record that never saw the gap would call it still.
+ */
+const pointer = { x: -1, y: -1 }
+
+/**
  * The region of the screen a subtree belongs to.
  *
  * Zones are what stop the navigation bar and the page from competing. Purely
@@ -201,6 +219,19 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       )
   )
   useEffect(() => () => nearby.disconnect(), [nearby])
+
+  // Read here rather than in the handler that acts on it, because the two have
+  // to see different moments: `onMouseMove` compares against where the pointer
+  // was *before* this event, and a listener on the window runs after the one on
+  // the element it started at. See `pointer`.
+  useEffect(() => {
+    const moved = (event: MouseEvent): void => {
+      pointer.x = event.clientX
+      pointer.y = event.clientY
+    }
+    window.addEventListener('mousemove', moved)
+    return () => window.removeEventListener('mousemove', moved)
+  }, [])
 
   const actionHandlers = useRef(new Map<Action, { handler: () => void; layer: number }[]>())
   const [focusedId, setFocusedId] = useState<string | null>(null)
@@ -692,7 +723,7 @@ interface UseFocusableResult {
   /** Spread onto the element so a mouse click behaves like a controller press. */
   props: {
     'data-focused': boolean
-    onMouseEnter: () => void
+    onMouseMove: (event: ReactMouseEvent) => void
     onClick: (event: ReactMouseEvent) => void
     tabIndex: -1
   }
@@ -754,7 +785,15 @@ export function useFocusable(options: {
     focused: focusedId === id,
     props: {
       'data-focused': focusedId === id,
-      onMouseEnter: () => enabled && setFocus(id),
+      /**
+       * The pointer moving over something is what puts the highlight on it —
+       * the pointer *arriving* under one is not, which is why this is a move
+       * rather than an enter. See `pointer`.
+       */
+      onMouseMove: (event: ReactMouseEvent) => {
+        if (event.clientX === pointer.x && event.clientY === pointer.y) return
+        if (enabled && focusedId !== id) setFocus(id)
+      },
       /**
        * The innermost focusable takes the click, and nothing above it does.
        *
