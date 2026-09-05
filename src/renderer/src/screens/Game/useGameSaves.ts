@@ -96,6 +96,18 @@ export function useGameSaves(
 
       if (result.skippedReason) {
         notify(result.skippedReason, 'warn', to)
+      } else if (result.failed > 0) {
+        /**
+         * Files that are here and that the server would not take.
+         *
+         * Said before the counts below, because those cannot say it: a push
+         * where every file was refused sends nothing, and "nothing was sent"
+         * reads as "there was nothing here" — the opposite of what happened,
+         * and reported until now as though it had gone well. The file names and
+         * the server's reason are in the log; the count is what fits in a
+         * notification. See `SaveSyncResult.failed`.
+         */
+        notify(t('error.savesNotSent', { count: result.failed }), 'warn', to)
       } else {
         const moved = result.saves + result.states
         notify(
@@ -178,10 +190,14 @@ export function useGameSaves(
         preview.files.map((file) => file.path)
       )
       const moved = result.saves + result.states
-      notify(
+      // The same order as above: a refusal outranks the count, which cannot
+      // describe it.
+      const wrong =
         result.skippedReason ??
-          (moved === 0 ? t('saves.nothingSent') : t('saves.pushed', { count: moved })),
-        result.skippedReason || moved === 0 ? 'warn' : 'ok',
+        (result.failed > 0 ? t('error.savesNotSent', { count: result.failed }) : null)
+      notify(
+        wrong ?? (moved === 0 ? t('saves.nothingSent') : t('saves.pushed', { count: moved })),
+        wrong || moved === 0 ? 'warn' : 'ok',
         subject()
       )
       await reload()
