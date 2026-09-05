@@ -617,11 +617,37 @@ describe('pulling', () => {
     assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state1')), false)
   })
 
+  test('a pull says what the server had, so a zero says which zero it is', async () => {
+    // Three situations end in nothing being written — the server holds none,
+    // it holds some this emulator cannot use, it holds some already here — and
+    // a count on its own tells them apart for none of them. This is the number
+    // that does.
+    const { sync, target } = setUp({
+      states: [
+        save({
+          file_name: 'Sonic the Hedgehog (USA).state1',
+          emulator: 'picodrive'
+        }) as unknown as RommState
+      ]
+    })
+
+    const states = await sync.pull(target)
+
+    assert.equal(states.written, 0)
+    assert.equal(states.offered, 1)
+  })
+
+  test('a pull offered nothing at all reports the zero as a zero', async () => {
+    const { sync, target } = setUp()
+
+    assert.deepEqual(await sync.pull(target), { written: 0, offered: 0 })
+  })
+
   test('an automatic pull respects the setting; the button does not', async () => {
     const { sync, target, store } = setUp({ saves: [save()] })
     store.updateSettings({ syncSavesDown: false })
 
-    assert.equal(await sync.pull(target), 0)
+    assert.equal((await sync.pull(target)).written, 0)
     // The same target, through the button the user just pressed.
     assert.equal((await sync.pullNow(target)).saves, 1)
   })

@@ -105,6 +105,19 @@ export interface SaveTarget {
   variant?: string
 }
 
+/**
+ * What a pull did, and what it had to choose from.
+ *
+ * `offered` is every asset the server holds for this game of that kind, before
+ * any of the reasons one might be left: the wrong emulator wrote it, or the
+ * copy here is already the same file. A count of what was written is otherwise
+ * a zero with three possible meanings and no way to tell which.
+ */
+interface PullCount {
+  written: number
+  offered: number
+}
+
 interface LocalAsset {
   path: string
   fileName: string
@@ -294,19 +307,25 @@ export class SaveSync {
 
   /**
    * Pull newer saves and states from RomM before the game starts.
-   * Returns how many assets were written locally.
+   *
+   * Reports what the server had as well as what was taken, because a pull that
+   * writes nothing is three different situations — the server holds none, it
+   * holds some and none could be used, it holds some and none were newer — and
+   * whoever is reading the log is trying to tell them apart.
    */
-  async pull(target: SaveTarget): Promise<number> {
+  async pull(target: SaveTarget): Promise<PullCount> {
     if (!this.store.settings.syncSavesDown) {
       log.debug('saves', 'automatic pull is switched off', { romId: target.rom.id })
-      return 0
+      return { written: 0, offered: 0 }
     }
     const paths = this.locate(target)
 
-    let written = 0
-    written += await this.pullKind(target, paths, 'save')
-    written += await this.pullKind(target, paths, 'state')
-    return written
+    const saves = await this.pullKind(target, paths, 'save')
+    const states = await this.pullKind(target, paths, 'state')
+    return {
+      written: saves.written + states.written,
+      offered: saves.offered + states.offered
+    }
   }
 
   /**
@@ -468,12 +487,19 @@ export class SaveSync {
     const saves = await this.pullKind(target, paths, 'save')
     const states = await this.pullKind(target, paths, 'state')
     const result = {
-      saves,
-      states,
+      saves: saves.written,
+      states: states.written,
       failed: 0,
-      skippedReason: this.reasonFor(paths, saves + states)
+      skippedReason: this.reasonFor(paths, saves.written + states.written)
     }
-    log.info('saves', 'pulled on request', { romId: target.rom.id, ...result })
+    // `offered` here and not in the result: what the server held explains the
+    // counts above to whoever is reading the log, and says nothing to the
+    // screen, which is showing both ends of the list anyway.
+    log.info('saves', 'pulled on request', {
+      romId: target.rom.id,
+      ...result,
+      offered: saves.offered + states.offered
+    })
     return result
   }
 
@@ -787,15 +813,15 @@ export class SaveSync {
     target: SaveTarget,
     paths: SavePaths,
     kind: 'save' | 'state'
-  ): Promise<number> {
+  ): Promise<PullCount> {
     const location = this.locationFor(paths, kind)
-    if (!location) return 0
+    if (!location) return { written: 0, offered: 0 }
 
     const remote =
       kind === 'save'
         ? await this.client.saves(target.rom.id)
         : await this.client.states(target.rom.id)
-    if (remote.length === 0) return 0
+    if (remote.length === 0) return { written: 0, offered: 0 }
 
     /**
      * Whether the tag on the server decides what may come down.
@@ -850,7 +876,7 @@ export class SaveSync {
             .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
             .slice(0, STATE_PULL_LIMIT)
         : usable
-    if (wanted.length === 0) return 0
+    if (wanted.length === 0) return { written: 0, offered: remote.length }
 
     const local = await this.findLocal(location, target.rom, target.romPath, kind)
     let written = 0
@@ -902,7 +928,7 @@ export class SaveSync {
         })
       }
     }
-    return written
+    return { written, offered: remote.length }
   }
 
   /**

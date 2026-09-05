@@ -271,7 +271,7 @@ export class Launcher {
       let pullError: string | null = null
       try {
         const pulled = await this.saveSync.pull(target)
-        log.info('launch', 'saves pulled before start', { romId: rom.id, written: pulled })
+        log.info('launch', 'saves pulled before start', { romId: rom.id, ...pulled })
       } catch (cause) {
         pullError = (cause as Error).message
         log.error('launch', 'save pull failed, starting anyway', cause, { romId: rom.id })
