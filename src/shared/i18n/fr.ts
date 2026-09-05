@@ -531,6 +531,9 @@ export const fr: Catalog = {
     'RomM a une copie plus récente. Récupérer les sauvegardes la rapatriera.',
   'saves.remoteOnly': 'Absent de cet appareil',
   'saves.remoteOnlyHint': 'Uniquement sur RomM. Récupérer les sauvegardes la rapatriera.',
+  'saves.otherEmulator': 'Incompatible',
+  'saves.otherEmulatorHint':
+    'Écrite par un autre émulateur. Récupérer les sauvegardes ne la rapatriera pas.',
   'saves.fromDevice': 'depuis {device}',
   'saves.scopeLocal': 'de cet appareil',
   'saves.scopeRemote': 'de RomM',

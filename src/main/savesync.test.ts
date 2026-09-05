@@ -338,6 +338,37 @@ describe('listing both ends', () => {
     assert.ok(assets[0].localPath)
   })
 
+  test('a state another core wrote is marked as one the pull will leave', async () => {
+    // The row and the pull have to agree. The tab draws a badge saying no
+    // button will act on this file, and `pullKind` is what makes that true —
+    // both ask `tagDecides`, so a screen cannot come to promise a fetch that
+    // will not happen.
+    const { sync, target } = setUp({
+      states: [
+        save({
+          file_name: 'Sonic the Hedgehog (USA).state1',
+          emulator: 'picodrive'
+        }) as unknown as RommState
+      ]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.kind, 'state')
+    assert.equal(asset.forAnotherEmulator, true)
+    // And the pull agrees, which is the whole point of the mark.
+    assert.equal((await sync.pullNow(target)).states, 0)
+  })
+
+  test('a battery save another core wrote is not marked, being one that comes down', async () => {
+    const { sync, target } = setUp({ saves: [save({ emulator: 'pcsx_rearmed' })] })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.forAnotherEmulator, false)
+    assert.equal((await sync.pullNow(target)).saves, 1)
+  })
+
   test('a save the server has never been given is still a row', async () => {
     const { sync, target, saveDir } = setUp()
     writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')

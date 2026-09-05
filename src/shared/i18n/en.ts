@@ -531,6 +531,8 @@ export const en = {
   'saves.remoteNewerHint': 'RomM has a more recent copy. Pull saves fetches it.',
   'saves.remoteOnly': 'Not on this device',
   'saves.remoteOnlyHint': 'Only on RomM. Pull saves fetches it.',
+  'saves.otherEmulator': 'Incompatible',
+  'saves.otherEmulatorHint': 'Written by another emulator. Pull saves will leave it.',
   'saves.fromDevice': 'from {device}',
   'saves.scopeLocal': 'from this device',
   'saves.scopeRemote': 'from RomM',

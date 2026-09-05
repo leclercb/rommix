@@ -311,7 +311,8 @@ const SAVES: SaveAsset[] = [
     fromThisDevice: true,
     originName: 'RomMix @ steamdeck',
     updatedAt: '2026-08-19T21:59:00Z',
-    sync: 'synced'
+    sync: 'synced',
+    forAnotherEmulator: false
   },
   {
     id: null,
@@ -324,7 +325,8 @@ const SAVES: SaveAsset[] = [
     fromThisDevice: null,
     originName: null,
     updatedAt: null,
-    sync: 'local-only'
+    sync: 'local-only',
+    forAnotherEmulator: false
   },
   {
     id: 13,
@@ -337,7 +339,29 @@ const SAVES: SaveAsset[] = [
     fromThisDevice: false,
     originName: 'RomMix @ rg35xx',
     updatedAt: '2026-08-21T08:30:00Z',
-    sync: 'remote-only'
+    sync: 'remote-only',
+    forAnotherEmulator: false
+  },
+  {
+    /**
+     * A state another core wrote, which the pull will leave where it is.
+     *
+     * Here because it is the one row whose badge is not about which side is
+     * ahead, and a preview that never draws it is a preview of a tab that
+     * cannot go wrong.
+     */
+    id: 14,
+    kind: 'state',
+    fileName: 'cavestory.state2',
+    sizeBytes: 401_408,
+    emulator: 'picodrive',
+    localPath: null,
+    localModifiedAt: null,
+    fromThisDevice: false,
+    originName: 'RomMix @ rg35xx',
+    updatedAt: '2026-08-21T09:15:00Z',
+    sync: 'remote-only',
+    forAnotherEmulator: true
   }
 ]
 

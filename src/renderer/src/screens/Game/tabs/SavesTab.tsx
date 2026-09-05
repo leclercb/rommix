@@ -78,19 +78,28 @@ export function SavesTab({
               : null
 
         return (
-          <li key={`${asset.kind}-${asset.id ?? asset.localPath}`}>
+          <li
+            key={`${asset.kind}-${asset.id ?? asset.localPath}`}
+            className={asset.forAnotherEmulator ? 'asset--inert' : undefined}
+          >
             <span className="asset__kind" data-kind={asset.kind}>
               {asset.kind === 'save' ? t('asset.save') : t('asset.state')}
             </span>
             {/* Which side has it and whether they agree — and so which button,
                 if any, would do something about this row. */}
-            <SyncBadge sync={asset.sync} />
+            <SyncBadge sync={asset.sync} forAnotherEmulator={asset.forAnotherEmulator} />
             {/* The emulator as a chip rather than a word in the line below: a
                 save is only loadable by the emulator that wrote it, which makes
                 the tag a property of the file rather than another of its
                 measurements — and the push confirmation has always drawn it
                 this way. */}
-            {asset.emulator ? <span className="status">{asset.emulator}</span> : null}
+            {asset.emulator ? (
+              // Marked where it is the reason the row is inert, so the eye
+              // lands on the name that explains the badge beside it.
+              <span className="status" data-state={asset.forAnotherEmulator ? 'warn' : undefined}>
+                {asset.emulator}
+              </span>
+            ) : null}
             <span className="asset__name">{asset.fileName}</span>
             <span className="asset__meta">
               {formatBytes(asset.sizeBytes)}

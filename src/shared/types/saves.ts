@@ -66,6 +66,22 @@ export interface SaveAsset {
    * only this device has — the tag it would be uploaded under.
    */
   emulator: string | null
+  /**
+   * RomM's tag names an emulator this game would not run under, so a pull will
+   * leave this row where it is.
+   *
+   * Only ever true of a state or a directory save: a battery save comes down
+   * whatever wrote it — `pullKind` draws that line and `tagDecides` is the one
+   * place either side asks about it. Decided in the main process because the
+   * renderer knows neither what this device uploads under nor what a pull still
+   * accepts, and two answers is how a screen promises a fetch that will not
+   * happen.
+   *
+   * Not a permanent verdict. The tag is compared against the emulator this game
+   * is *set* to run under, so changing that changes the answer — which is why
+   * the row says "another emulator" rather than anything about being unusable.
+   */
+  forAnotherEmulator: boolean
   /** The file in the emulator's save tree, when this device has one. */
   localPath: string | null
   /** Its modification time on this device, ISO. Null when only RomM has it. */

@@ -238,6 +238,20 @@ export class SaveSync {
     return location && location.match !== 'shared' ? location : null
   }
 
+  /**
+   * Does the emulator tag decide whether this location's assets may be pulled?
+   *
+   * The only place that answers it, because two answers is exactly how a screen
+   * comes to promise a fetch that `pullKind` will not perform — the Saves tab
+   * marks a row by asking this, and the pull leaves that row by asking it too.
+   *
+   * False for a battery save, which is taken whatever wrote it. True for a
+   * state and for a directory save carried as an archive; `pullKind` says why.
+   */
+  private tagDecides(kind: 'save' | 'state', location: SaveLocation): boolean {
+    return !(kind === 'save' && location.match === 'rom-stem')
+  }
+
   /** The tag this device uploads under — see `localTag` in `savefiles.ts`. */
   private tagFor(paths: SavePaths, target: SaveTarget): string {
     return localTag(paths, target.emulator.id)
@@ -355,12 +369,24 @@ export class SaveSync {
      */
     const localAssets = new Map<string, LocalAsset>()
     let tag: string | null = null
+    let alsoAccepts: readonly string[] = []
+    /**
+     * The kinds a pull judges by the tag — see `tagDecides`.
+     *
+     * Both false where the game is not downloaded, there being no emulator to
+     * judge against, and false again for a kind with no location at all: a row
+     * nothing can be done with for a reason of its own, which
+     * `unsyncableReason` is already giving.
+     */
+    const byTag = { save: false, state: false }
     if (local) {
       const paths = this.locate(local)
       tag = this.tagFor(paths, local)
+      alsoAccepts = paths.alsoAccepts ?? []
       for (const kind of ['save', 'state'] as const) {
         const location = this.locationFor(paths, kind)
         if (!location) continue
+        byTag[kind] = this.tagDecides(kind, location)
         const found = await this.findLocal(location, local.rom, local.romPath, kind)
         for (const file of found) {
           localAssets.set(`${kind}:${file.fileName.toLowerCase()}`, file)
@@ -391,6 +417,8 @@ export class SaveSync {
           fileName: item.file_name,
           sizeBytes: item.file_size_bytes,
           emulator: item.emulator,
+          forAnotherEmulator:
+            byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts),
           localPath: localFile?.path ?? null,
           localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
           fromThisDevice,
@@ -414,6 +442,8 @@ export class SaveSync {
         // emulator column would otherwise be blank on exactly the rows that
         // have not been anywhere yet.
         emulator: tag,
+        // This device's own file, so there is no other emulator's claim on it.
+        forAnotherEmulator: false,
         localPath: file.path,
         localModifiedAt: new Date(file.mtimeMs).toISOString(),
         fromThisDevice: null,
@@ -852,11 +882,10 @@ export class SaveSync {
      * and never beside `rom-stem`. A shape added later is filtered until
      * somebody decides otherwise here, which is the right way round.
      */
-    const anyEmulator = kind === 'save' && location.match === 'rom-stem'
     const tag = this.tagFor(paths, target)
-    const usable = anyEmulator
-      ? remote
-      : remote.filter((item) => acceptsTag(tag, item.emulator, paths.alsoAccepts))
+    const usable = this.tagDecides(kind, location)
+      ? remote.filter((item) => acceptsTag(tag, item.emulator, paths.alsoAccepts))
+      : remote
     // What was left, and why. A pull that brings nothing down is otherwise a
     // count of zero against a screen that is still listing the file — which is
     // the shape this arrived as a bug report in.

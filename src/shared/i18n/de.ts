@@ -540,6 +540,9 @@ export const de: Catalog = {
   'saves.remoteNewerHint': 'RomM hat eine neuere Kopie. Spielstände holen lädt sie herunter.',
   'saves.remoteOnly': 'Nicht auf diesem Gerät',
   'saves.remoteOnlyHint': 'Nur auf RomM. Spielstände holen lädt sie herunter.',
+  'saves.otherEmulator': 'Inkompatibel',
+  'saves.otherEmulatorHint':
+    'Von einem anderen Emulator geschrieben. Spielstände holen lädt ihn nicht herunter.',
   'saves.fromDevice': 'von {device}',
   'saves.scopeLocal': 'von diesem Gerät',
   'saves.scopeRemote': 'von RomM',

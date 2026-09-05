@@ -20,6 +20,27 @@
   margin-bottom: 8px;
 }
 
+/* A row the pull will step over, the file being another emulator's.
+
+   What the row *is* recedes; what explains it does not. The badge and the
+   emulator chip keep their weight, since they are the answer to "why is this
+   one grey" — and so does Delete, which still works here: dropping another
+   core's state off the server is a thing somebody may well want. Dimming the
+   whole row would say it is disabled, and it is not. */
+.asset-list li.asset--inert {
+  /* No panel behind it, where every actionable row has one. Dimming the panel
+     instead does nothing worth seeing: `--surface` is 4% white to begin with,
+     so a fraction of it differs from the page by about two values. */
+  background: none;
+  border-color: rgb(255 255 255 / 5%);
+}
+
+.asset-list li.asset--inert .asset__kind,
+.asset-list li.asset--inert .asset__name,
+.asset-list li.asset--inert .asset__meta {
+  opacity: 0.45;
+}
+
 /* Pushed to the end of the row, away from what the file is and when it was
    written — the same place every other destructive button on a row sits. */
 .asset__actions {

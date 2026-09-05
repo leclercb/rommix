@@ -525,6 +525,8 @@ export const es: Catalog = {
   'saves.remoteNewerHint': 'RomM tiene una copia más reciente. Traer las partidas la bajará.',
   'saves.remoteOnly': 'No está en este dispositivo',
   'saves.remoteOnlyHint': 'Solo en RomM. Traer las partidas la bajará.',
+  'saves.otherEmulator': 'Incompatible',
+  'saves.otherEmulatorHint': 'Escrita por otro emulador. Traer las partidas no la bajará.',
   'saves.fromDevice': 'desde {device}',
   'saves.scopeLocal': 'de este dispositivo',
   'saves.scopeRemote': 'de RomM',
