@@ -1,6 +1,6 @@
 {
   "name": "rommix",
-  "version": "0.13.0-rc.0",
+  "version": "0.13.0-rc.1",
   "description": "Big Picture style RomM launcher for Linux desktop, gamescope and Steam, with RetroDECK, EmuDeck, RetroArch, Eden and shadPS4 integration",
   "license": "MIT",
   "author": "Benjamin Leclerc",

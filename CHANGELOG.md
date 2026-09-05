@@ -4,6 +4,14 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.13.0-rc.1 — 2026-09-05
+
+- refactor: rework the colours of the saves rows (52497be)
+- feat: mark incompatible saves in the saves list (dc14a2d)
+- fix: say when RomM refused a save instead of reporting nothing to send (5c59f4e)
+- feat: log how many saves RomM offered when a pull takes none (fb9de92)
+- fix: pull the saves that were listed but never fetched (52a6e9e)
+
 ## 0.13.0-rc.0 — 2026-09-04
 
 - feat: tag a libretro save with the core that wrote it (d6903a3)
