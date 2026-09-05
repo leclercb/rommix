@@ -326,6 +326,12 @@ suitable fusermount binary found`.** Steam launches games in a way that stops an
 AppImage mounting itself; no `PATH` or `FUSERMOUNT_PROG` value changes that. Use
 `rommix-steam.sh` from the release — see [From Steam](#from-steam).
 
+**`Failed to connect to Wayland display`, and RomMix exits before a window
+appears.** The session says it is a Wayland one and has no Wayland socket to
+show for it, which is how a gamescope session looks from the outside — Chromium
+believes the first half and quits. `rommix-steam.sh` handles it; started any
+other way, add `--ozone-platform=x11`.
+
 **`error while loading shared libraries: libnspr4.so`** (or `libglib-2.0.so.0`).
 The distribution does not ship the libraries an unpatched binary expects. On
 NixOS it needs answering twice, since Steam runs games in its own FHS

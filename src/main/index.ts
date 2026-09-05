@@ -39,25 +39,23 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 /**
- * Steam Big Picture and gamescope hand us a bare fullscreen surface. Hinting
- * Ozone at the native platform keeps us on Wayland under gamescope — where the
- * X11 fallback causes scaling and controller-focus quirks — while still working
- * in a normal desktop session.
+ * The switches Chromium has to be given rather than told about later.
  *
- * Chromium chooses its backend during early start-up, so how reliably this line
- * lands depends on how RomMix was started. A desktop launch gets the switch on
- * the real command line — electron-builder puts `linux.executableArgs` into the
- * .desktop Exec — and that is read before anything here runs. Started directly,
- * as a Steam shortcut does, this line is what is left.
+ * These two land because Electron rebuilds the feature list once this file has
+ * run. The display backend does not: Ozone is chosen in the browser process's
+ * pre-sandbox start-up, before any of RomMix is loaded, and from
+ * `XDG_SESSION_TYPE` alone — Wayland where it says so, X11 otherwise, with no
+ * check that there is a compositor of that kind to connect to. Nothing
+ * appended here can move it.
  *
- * It is enough for the sessions RomMix is actually used in: a gamescope session
- * is X11 (gamescope's own Xwayland), and an ordinary Wayland desktop has
- * Xwayland to fall back to. The case it cannot save is Wayland with no Xwayland
- * at all, where Chromium takes X11 and exits — set
- * `ELECTRON_OZONE_PLATFORM_HINT=auto` in the launcher there.
+ * That check is what a gamescope session needs, because it says Wayland and
+ * then keeps its compositor on a socket name no generic application looks for,
+ * leaving Chromium to connect to nothing and exit before it draws. The only
+ * thing that answers it is `--ozone-platform` on the real command line, which
+ * is why that decision belongs to whatever starts RomMix — see
+ * packaging/rommix-steam.sh.
  */
 function applyDisplayFlags(): void {
-  app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
   app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
   app.commandLine.appendSwitch('enable-smooth-scrolling')
 }
