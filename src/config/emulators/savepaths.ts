@@ -83,13 +83,16 @@ export interface SavePaths {
    */
   emulator?: string
   /**
-   * Tags a save here may also arrive under, accepted but never sent.
+   * Tags an asset here may also arrive under, accepted but never sent.
    *
-   * MIGRATION(0.12): libretro saves were tagged with the frontend up to that
+   * MIGRATION(0.12): libretro assets were tagged with the frontend up to that
    * version, so everything already on a server carries `retroarch` where the
-   * core now goes. Without this every one of them turns unreadable on the first
-   * launch after the update — the files are still there, and RomMix stops
-   * recognising them as this emulator's.
+   * core now goes.
+   *
+   * This carries the save *states*, and only them. A battery save is taken
+   * whatever wrote it — see `pullKind` — so its tag stopped deciding anything;
+   * a state is still matched on the tag, and without this every state uploaded
+   * by an older RomMix goes dark on the first launch after the update.
    */
   alsoAccepts?: readonly string[]
   /**

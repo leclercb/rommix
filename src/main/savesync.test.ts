@@ -554,13 +554,67 @@ describe('pulling', () => {
     assert.equal(readFileSync(path, 'utf8'), 'the local one')
   })
 
-  test('a save written by another emulator is never dropped into this one folder', async () => {
-    const { sync, target, saveDir } = setUp({ saves: [save({ emulator: 'duckstation' })] })
+  test('a battery save is taken whichever emulator wrote it', async () => {
+    // The case this got wrong for every save RomM's own browser player made:
+    // it runs a different core, the file is the one memory card the server
+    // holds for the game, and refusing it left the user with no save at all.
+    // A `.srm` is in its system's format, not its core's.
+    const { sync, target, saveDir } = setUp({ saves: [save({ emulator: 'pcsx_rearmed' })] })
 
     const result = await sync.pullNow(target)
 
-    assert.equal(result.saves, 0)
-    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA).srm')), false)
+    assert.equal(result.saves, 1)
+    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA).srm')), true)
+  })
+
+  test('an untagged save is taken rather than left where it can only be looked at', async () => {
+    // What an upload through RomM's own interface looks like. It was listed on
+    // the game screen and declined by the button beside it, which is the shape
+    // this arrived as a bug report in.
+    const { sync, target, saveDir } = setUp({ saves: [save({ emulator: null })] })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA).srm')), true)
+  })
+
+  test('a state another core wrote is never dropped into this one folder', async () => {
+    // Where the tag still decides, and the one case that is worse than useless
+    // to get wrong: a state is a snapshot of one core's memory under a name
+    // every core uses, so the wrong one is not ignored on load, it is loaded.
+    const { sync, target, stateDir } = setUp({
+      states: [
+        save({
+          file_name: 'Sonic the Hedgehog (USA).state1',
+          emulator: 'picodrive'
+        }) as unknown as RommState
+      ]
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.states, 0)
+    assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state1')), false)
+  })
+
+  test('an untagged state is left too, a state needing a positive match', async () => {
+    // Stricter than the untagged save above, and deliberately: nothing says
+    // which core wrote this snapshot, and one that does not belong to the core
+    // loading it is not a file that gets ignored.
+    const { sync, target, stateDir } = setUp({
+      states: [
+        save({
+          file_name: 'Sonic the Hedgehog (USA).state1',
+          emulator: null
+        }) as unknown as RommState
+      ]
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.states, 0)
+    assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state1')), false)
   })
 
   test('an automatic pull respects the setting; the button does not', async () => {
@@ -814,6 +868,28 @@ describe('a save the emulator keeps as a folder', () => {
     // files inside it have no names the server could file them under.
     assert.equal(uploaded.length, 1)
     assert.match(uploaded[0].fileName, /\.rommix-save\.zip$/)
+  })
+
+  test('a folder another emulator wrote is left, unlike a save file', async () => {
+    // The third shape, and the one the pull rule covers by saying nothing about
+    // it: only a save named after the ROM is taken whatever wrote it, so this
+    // keeps the tag filter without a test of its own in `pullKind`. A Switch
+    // save is one emulator's own tree, and Ryujinx's unpacked over Eden's is a
+    // state loaded into the wrong core by another name.
+    const { sync, target, gameDir } = switchGame({
+      saves: [
+        save({
+          file_name: `Zelda [${TITLE_ID}].rommix-save.zip`,
+          emulator: 'ryujinx'
+        })
+      ],
+      archive: { 'save.dat': 'from the server' }
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 0)
+    assert.equal(existsSync(join(gameDir, 'save.dat')), false)
   })
 
   test('the folder is copied aside whole before the archive is unpacked over it', async () => {

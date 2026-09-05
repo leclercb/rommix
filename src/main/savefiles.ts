@@ -107,10 +107,14 @@ export function localTag(paths: SavePaths, emulatorId: string): string {
 /**
  * Is a remote asset one this emulator could load?
  *
- * A save is only meaningful to the program that wrote it — a RetroArch `.srm`
- * dropped into Eden's folder is at best ignored and at worst loaded as garbage
- * — so the `emulator` tag RomM records is the filter, matched against the tag
- * this device would upload under.
+ * Asked of a save state and of a directory save carried as an archive, and not
+ * of a battery save: a file named after the ROM is in its system's own format
+ * and every emulator for that system reads it, so there is nothing for the tag
+ * to decide. `pullKind` draws that line and says why. What is left here is the
+ * data that really is one program's — a snapshot of a core's memory, an
+ * emulator's own save tree — dropped into another's at best ignored and at
+ * worst loaded as garbage, so the `emulator` tag RomM records is the filter,
+ * matched against the tag this device would upload under.
  *
  * Against `localTag` rather than the descriptor id because for a frontend the
  * two differ: RetroDECK uploads `pcsx2` and its id is `retrodeck`, so comparing
@@ -119,9 +123,12 @@ export function localTag(paths: SavePaths, emulatorId: string): string {
  * id comparison, once widened far enough to let frontends through at all, took
  * a Yabause save into mednafen's folder.
  *
- * An untagged asset is not one RomMix wrote, because every upload carries a
- * tag. Nothing else on the asset says which program produced it, so there is no
- * answer to "could this emulator load it" and it is left where it is.
+ * An untagged asset is refused, and that is the strict reading on purpose. What
+ * is asked about here is a state or an emulator's own save tree, where being
+ * wrong means loading another core's snapshot rather than ignoring a file, so
+ * nothing short of a positive match is enough — silence is not a match. A
+ * battery save, where the tag decides nothing and an untagged file is simply
+ * taken, never reaches this function at all.
  *
  * `also` is what the same files used to be uploaded under — see `alsoAccepts`
  * in `SavePaths`. Accepted here and never sent, so a tag RomMix has stopped

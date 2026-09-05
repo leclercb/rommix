@@ -797,9 +797,53 @@ export class SaveSync {
         : await this.client.states(target.rom.id)
     if (remote.length === 0) return 0
 
-    // Only what this emulator could load, and for states only the newest few.
+    /**
+     * Whether the tag on the server decides what may come down.
+     *
+     * For a battery save it does not. The file is named after the ROM and holds
+     * whatever format the *system* settled on — a raw memory card, a raw SRAM
+     * dump — which every emulator for that system reads, so the tag says who
+     * wrote it and not who can load it. RomM keeps one file per name per game
+     * and records the emulator beside it rather than filing under it, so
+     * refusing the only copy there is means sitting down to a game with no save
+     * at all. That is the worse of the two mistakes, and it is the one this made
+     * on every save RomM's own browser player wrote. The newer-wins rule still
+     * applies and `keepBackup` still keeps what was displaced, so the other
+     * mistake is recoverable.
+     *
+     * A state is the opposite, and takes the strictest reading there is: only a
+     * tag that matches. It is a snapshot of one core's memory under a name every
+     * core uses — `game.state1` — so the wrong one is not ignored on load, it is
+     * loaded, and the emulator crashes or corrupts the session. An untagged one
+     * is refused with the rest, silence being no evidence that this core wrote
+     * it.
+     *
+     * Only the permissive case is named below, so everything else keeps the
+     * filter by default — which is what covers the third shape, a directory
+     * save carried as one archive. That is an emulator's own tree and unpacks
+     * over another's exactly as a state loads over one, and it is `directory()`
+     * in `savepaths.ts` that sets `archive`, always beside `match: 'directory'`
+     * and never beside `rom-stem`. A shape added later is filtered until
+     * somebody decides otherwise here, which is the right way round.
+     */
+    const anyEmulator = kind === 'save' && location.match === 'rom-stem'
     const tag = this.tagFor(paths, target)
-    const usable = remote.filter((item) => acceptsTag(tag, item.emulator, paths.alsoAccepts))
+    const usable = anyEmulator
+      ? remote
+      : remote.filter((item) => acceptsTag(tag, item.emulator, paths.alsoAccepts))
+    // What was left, and why. A pull that brings nothing down is otherwise a
+    // count of zero against a screen that is still listing the file — which is
+    // the shape this arrived as a bug report in.
+    if (usable.length < remote.length) {
+      log.info('saves', `left ${kind}s that another emulator wrote`, {
+        romId: target.rom.id,
+        loads: tag,
+        left: remote
+          .filter((item) => !usable.includes(item))
+          .map((item) => ({ fileName: item.file_name, emulator: item.emulator }))
+      })
+    }
+
     const wanted =
       kind === 'state'
         ? [...usable]

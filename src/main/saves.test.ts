@@ -182,9 +182,17 @@ test('the older tag opens nothing else', () => {
   assert.equal(acceptsTag('mupen64plus_next', 'snes9x', ['retroarch']), false)
 })
 
-test('an untagged asset is left where it is', () => {
-  // Every RomMix upload carries a tag, so an untagged one was written by
-  // something else and nothing says which emulator could read it.
+test('an untagged asset is refused, silence being no match', () => {
+  // Only states and directory saves are asked about here, and for those a
+  // positive match is the whole point: loading another core's snapshot is not
+  // a file being ignored. A battery save never asks — an untagged one is taken
+  // without consulting this at all, which is where the tag decides nothing.
   assert.equal(acceptsTag('retroarch', null), false)
   assert.equal(acceptsTag('retroarch', ''), false)
+})
+
+test('a tag naming another emulator is still refused', () => {
+  // The distinction the untagged case turns on: no tag is the absence of a
+  // claim, and a tag is a claim that this was written by something else.
+  assert.equal(acceptsTag('mupen64plus_next', 'parallel_n64'), false)
 })
