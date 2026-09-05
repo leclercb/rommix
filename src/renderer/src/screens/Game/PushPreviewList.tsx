@@ -49,7 +49,7 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
                   holds something newer — which used to be a phrase at the end
                   of the row, after everything that did not decide anything. */}
               <SyncBadge sync={pushSyncState(file)} />
-              <span className="status">{file.emulator}</span>
+              <span className="status status--emulator">{file.emulator}</span>
               <span className="asset__name">{file.fileName}</span>
               <span className="asset__meta">
                 {formatBytes(file.sizeBytes)}

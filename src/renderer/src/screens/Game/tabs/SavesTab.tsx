@@ -96,7 +96,10 @@ export function SavesTab({
             {asset.emulator ? (
               // Marked where it is the reason the row is inert, so the eye
               // lands on the name that explains the badge beside it.
-              <span className="status" data-state={asset.forAnotherEmulator ? 'warn' : undefined}>
+              <span
+                className="status status--emulator"
+                data-state={asset.forAnotherEmulator ? 'bad' : undefined}
+              >
                 {asset.emulator}
               </span>
             ) : null}

@@ -20,6 +20,17 @@
   margin-bottom: 8px;
 }
 
+/* The emulator that wrote a file, which is a name rather than a state.
+ 
+   At `--text-dim` it read as something faded out, and it is not: it is the one
+   fact on the row that says whose file this is. The plain `.status` colour is
+   still what an actual state uses, and `data-state` overrides this wherever the
+   chip is carrying one — which on these rows is the incompatible case, in the
+   same red as its badge. */
+.status--emulator {
+  color: var(--text);
+}
+
 /* A row the pull will step over, the file being another emulator's.
 
    What the row *is* recedes; what explains it does not. The badge and the
@@ -59,6 +70,10 @@
   color: var(--text-faint);
 }
 
+/* A tint of the kind's own colour behind it and the word solid, mixed from the
+   token rather than written out as rgba — the same treatment `.chip--status`
+   uses, and for the same reason: two literals per colour is two things to keep
+   in step with one. */
 .asset__kind {
   flex: 0 0 auto;
   font-size: 11px;
@@ -67,13 +82,13 @@
   text-transform: uppercase;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgb(90 200 250 / 14%);
-  color: var(--accent);
+  --chip-tone: var(--kind-save);
+  background: color-mix(in srgb, var(--chip-tone) 14%, transparent);
+  color: var(--chip-tone);
 }
 
 .asset__kind[data-kind='state'] {
-  background: rgb(255 200 87 / 14%);
-  color: var(--warning);
+  --chip-tone: var(--kind-state);
 }
 
 .asset__name {

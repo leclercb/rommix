@@ -10,10 +10,20 @@ import { useI18n } from '../../state'
  * The label says which side is ahead, not what to press: the buttons that move
  * saves move everything at once, so a per-row instruction would be promising an
  * action that does not exist. `hint` is the same thing at length, on hover.
+ *
+ * The colour says which way the file would move, and only that: amber for the
+ * ones this device holds and the server may not, the accent for the ones RomM
+ * has and this device does not, green where the two agree and red where they
+ * never will. Two rows to a colour is the point — the colour carries the
+ * direction across a room and the label supplies the degree, where the amber
+ * that used to cover both directions could be read only by reading it.
+ *
+ * Nothing is grey. `off` said "there is nothing here" about a file the server is
+ * holding, which is the one thing it is not.
  */
 const SYNC_BADGES: Record<
   SaveSyncState,
-  { label: MessageKey; tone: 'ok' | 'warn' | 'off'; icon: IconName; hint: MessageKey }
+  { label: MessageKey; tone: 'ok' | 'warn' | 'info' | 'bad'; icon: IconName; hint: MessageKey }
 > = {
   synced: { label: 'saves.synced', tone: 'ok', icon: 'confirm', hint: 'saves.syncedHint' },
   'local-newer': {
@@ -30,19 +40,21 @@ const SYNC_BADGES: Record<
   },
   'remote-newer': {
     label: 'saves.remoteNewer',
-    tone: 'warn',
+    tone: 'info',
     icon: 'pull',
     hint: 'saves.remoteNewerHint'
   },
   'remote-only': {
     label: 'saves.remoteOnly',
-    tone: 'off',
+    tone: 'info',
     icon: 'pull',
     hint: 'saves.remoteOnlyHint'
   },
   // No arrow on this one: every other badge points at the end that is ahead,
   // and the whole of what this one says is that nobody knows which that is.
-  unchecked: { label: 'saves.unchecked', tone: 'off', icon: 'saves', hint: 'saves.uncheckedHint' }
+  // Amber all the same — the file is here, its server copy is unaccounted for,
+  // and that is the same unfinished business as the two above it.
+  unchecked: { label: 'saves.unchecked', tone: 'warn', icon: 'saves', hint: 'saves.uncheckedHint' }
 }
 
 /**
@@ -64,7 +76,11 @@ const SYNC_BADGES: Record<
  */
 const OTHER_EMULATOR: (typeof SYNC_BADGES)[SaveSyncState] = {
   label: 'saves.otherEmulator',
-  tone: 'off',
+  // The strongest colour on the row, and the only one that earns it: every
+  // other badge is a file on its way somewhere, and this is the one that is
+  // going nowhere. `bad` reads as "this will not happen" rather than "this
+  // failed" — the stopped download it was written for is the same shape.
+  tone: 'bad',
   icon: 'saves',
   hint: 'saves.otherEmulatorHint'
 }

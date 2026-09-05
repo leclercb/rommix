@@ -11,6 +11,18 @@
   --text-dim: #9aa4b8;
   --text-faint: #626c80;
 
+  /*
+   * What kind of file a row holds, which is not a verdict about it.
+   *
+   * Deliberately outside the four above: a category drawn in a status colour is
+   * read as a status, which is what an amber STATE tag did on every row whether
+   * anything was wrong or not. Violet and orchid are adjacent, so the two read
+   * as one family — "which kind" — and neither can be mistaken for green, amber,
+   * blue or red across a room.
+   */
+  --kind-save: #a78bfa;
+  --kind-state: #e879c8;
+
   --accent: #5ac8fa;
   --accent-strong: #2aa9e0;
   --accent-contrast: #04121b;
