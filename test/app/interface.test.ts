@@ -947,6 +947,28 @@ describe('looking at the screenshots of a game', () => {
   })
 })
 
+/** How long `settles` keeps asking, and how long it waits between asks. */
+const SETTLE_TIMEOUT_MS = 15_000
+const SETTLE_POLL_MS = 50
+
+/**
+ * Wait for RomM to have caught up with a press.
+ *
+ * The heart is filled in the moment it is pressed, before the server has been
+ * asked — deliberately, see `useGameMarks` — so what is drawn says nothing
+ * about the shelf. And a first favourite is two calls, so a scenario that read
+ * the collections between them found the shelf made and empty: a real
+ * intermediate state, and not a fault on either side. It is what a runner slow
+ * enough to lose the race actually saw.
+ */
+const settles = async (what: string, done: () => boolean): Promise<void> => {
+  const until = Date.now() + SETTLE_TIMEOUT_MS
+  while (!done() && Date.now() < until) {
+    await new Promise((wait) => setTimeout(wait, SETTLE_POLL_MS))
+  }
+  assert.ok(done(), `timed out waiting for ${what}`)
+}
+
 /**
  * The heart, which is the one mark RomM has no field for.
  *
@@ -995,6 +1017,9 @@ describe('marking a game a favourite', () => {
 
     // Made on the server rather than remembered here, which is the whole point
     // of a mark that lives on RomM: the shelf did not exist a moment ago.
+    await settles('the game to reach the shelf on RomM', () =>
+      Boolean(server.collections.find((one) => one.is_favorite)?.rom_ids.length)
+    )
     const shelf = server.collections.find((one) => one.is_favorite)
     assert.ok(shelf, 'the press should have created the favourites shelf')
     assert.deepEqual(shelf.rom_ids, [1])
@@ -1034,6 +1059,9 @@ describe('marking a game a favourite', () => {
     // The shelf stays, because RomM keeps it: what changed is the membership.
     // A second collection here would mean the create call ran twice, which is
     // the failure this is really watching for.
+    await settles('the game to come off the shelf on RomM', () =>
+      server.collections.some((one) => one.is_favorite && one.rom_ids.length === 0)
+    )
     const shelves = server.collections.filter((one) => one.is_favorite)
     assert.equal(shelves.length, 1, 'it should not have made a second shelf')
     assert.deepEqual(shelves[0].rom_ids, [])
