@@ -35,7 +35,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "lucide-react": "^1.38.0",
+    "lucide-react": "^1.40.0",
     "qrcode-generator": "^2.0.4",
     "yauzl": "^3.4.0"
   },
