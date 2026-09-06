@@ -35,21 +35,21 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "lucide-react": "^1.38.0",
+    "lucide-react": "^1.41.0",
     "qrcode-generator": "^2.0.4",
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "@types/yauzl": "^3.4.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^44.0.0",
+    "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "husky": "^9.1.7",
-    "oxlint": "^1.80.0",
+    "oxlint": "^1.81.0",
     "prettier": "^3.9.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
