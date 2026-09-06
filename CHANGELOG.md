@@ -4,6 +4,13 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.13.0-rc.3 — 2026-09-06
+
+- chore: update electron, lucide-react and the dev tooling (f8ea62f)
+- fix: decide the display backend inside the image (e89e6d8)
+- fix: register RomMix as a device so a token can push saves (68827a4)
+- fix: match a save to its game by name rather than by prefix (574e9e9)
+
 ## 0.13.0-rc.2 — 2026-09-06
 
 - fix: start in a gamescope session that has no Wayland socket (a02fcc2)
