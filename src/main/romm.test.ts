@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { afterEach, describe, test } from 'node:test'
+import { after, afterEach, before, describe, test } from 'node:test'
 import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RommFirmware, RommRom, RommRomFile } from '@shared/types'
+import { app } from 'electron'
+import type { RommDevice, RommFirmware, RommRom, RommRomFile } from '@shared/types'
 import { RommClient, RommError } from './romm/index.ts'
 import type { Store } from './store.ts'
 
@@ -1321,7 +1322,7 @@ describe('firmware, saves and states', () => {
   })
 
   test('a save from no particular emulator says so by leaving it out', async () => {
-    const { store } = fakeStore()
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')
     writeFileSync(file, 'save bytes')
     const sent = serve(() => json({ id: 21 }))
@@ -1329,6 +1330,226 @@ describe('firmware, saves and states', () => {
     await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
 
     assert.equal(new URL(sent[0].url).searchParams.has('emulator'), false)
+  })
+
+  /**
+   * The device a save is uploaded under has to be one RomM issued.
+   *
+   * RomM resolves `device_id` against its own devices table, so the identifier
+   * RomMix generates for itself is a 404 on every push until the server has
+   * been asked for one. Pairing asks; a client token typed into the sign-in
+   * form does not, which is why the asking cannot live there.
+   */
+  describe('the device a save says it came from', () => {
+    // A registration names the version it is registering, and the Electron
+    // stub refuses that question — see `scripts/test-resolve.mjs`. Answered
+    // here rather than left to throw, because the body is what these assert;
+    // it is the only thing about a registration Electron is asked for.
+    const refuses = app.getVersion
+    before(() => {
+      app.getVersion = () => '0.13.0-test'
+    })
+    after(() => {
+      app.getVersion = refuses
+    })
+
+    /** A server holding `devices`, that registers `created` and takes uploads. */
+    function serveDevices(devices: RommDevice[], created: unknown): Sent[] {
+      return serve((request) => {
+        if (!request.url.includes('/api/devices')) return json({ id: 21 })
+        return json(request.method === 'POST' ? created : devices)
+      })
+    }
+
+    test('a machine RomM has never seen is registered before the save goes up', async () => {
+      const { store, credentials } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      const sent = serveDevices([], { device_id: 'romm-device-7' })
+
+      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+
+      const registration = sent.find((one) => one.method === 'POST' && one.url.endsWith('/devices'))
+      assert.equal(
+        registration?.body,
+        JSON.stringify({
+          name: 'RomMix on the sofa',
+          hostname: hostname(),
+          client: 'rommix',
+          platform: 'linux',
+          client_version: app.getVersion(),
+          allow_existing: true
+        })
+      )
+      const upload = sent[sent.length - 1]
+      assert.equal(new URL(upload.url).searchParams.get('device_id'), 'romm-device-7')
+      // Kept, so the next push is one request rather than three.
+      assert.equal(credentials.deviceId, 'romm-device-7')
+    })
+
+    test('a machine that paired before is not registered a second time', async () => {
+      const { store, credentials } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      const sent = serveDevices(
+        [
+          {
+            id: 'romm-device-4',
+            name: null,
+            hostname: null,
+            client_device_identifier: 'this-device'
+          }
+        ],
+        { device_id: 'a-second-row' }
+      )
+
+      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+
+      assert.equal(
+        sent.some((one) => one.method === 'POST' && one.url.endsWith('/devices')),
+        false
+      )
+      assert.equal(credentials.deviceId, 'romm-device-4')
+    })
+
+    test('a server that will not register the machine still takes the save', async () => {
+      // An old RomM, or a token issued before `devices.write` was asked for.
+      // The save matters more than the label saying where it came from.
+      const { store, credentials } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      const sent = serve((request) =>
+        request.url.includes('/api/devices') ? json({ detail: 'no' }, 403) : json({ id: 21 })
+      )
+
+      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+
+      const upload = sent[sent.length - 1]
+      assert.equal(new URL(upload.url).searchParams.has('device_id'), false)
+      assert.equal(credentials.deviceId, null)
+    })
+
+    test('a device list that failed earlier does not become a second row', async () => {
+      // `devices` caches an empty list after any failure, for the run. Deciding
+      // from that alone that this machine has never been registered is how a
+      // second device appears beside the one that is already there.
+      const { store, credentials } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      let refuse = true
+      const sent = serve((request) => {
+        if (!request.url.includes('/api/devices')) return json({ id: 21 })
+        if (refuse) return json({ detail: 'no' }, 403)
+        return json(
+          request.method === 'POST'
+            ? { device_id: 'a-second-row' }
+            : [
+                {
+                  id: 'romm-device-4',
+                  name: null,
+                  hostname: null,
+                  client_device_identifier: 'this-device'
+                }
+              ]
+        )
+      })
+      const client = new RommClient(store)
+
+      await client.devices()
+      refuse = false
+      await client.uploadSave(5, file, 'sonic.srm', null)
+
+      assert.equal(
+        sent.some((one) => one.method === 'POST' && one.url.endsWith('/devices')),
+        false
+      )
+      assert.equal(credentials.deviceId, 'romm-device-4')
+    })
+
+    test('an id this run resolved is written down even if the sign-in repeats', async () => {
+      const { store, credentials } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      serveDevices([], { device_id: 'romm-device-7' })
+      const client = new RommClient(store)
+
+      await client.uploadSave(5, file, 'sonic.srm', null)
+      // The same token against the same server: nothing the cache is keyed on
+      // has changed, so it answers without registering — and what it answers
+      // still has to reach the disk, or the next launch registers again.
+      client.setClientToken('rmm_typed_in')
+      assert.equal(credentials.deviceId, null)
+
+      await client.uploadSave(5, file, 'sonic.srm', null)
+
+      assert.equal(credentials.deviceId, 'romm-device-7')
+    })
+
+    test('a sign-in does not inherit the device the last one registered', async () => {
+      // Nothing in a token says whose it is, so a stored id cannot be assumed
+      // to still be this user's — and a device belonging to another account is
+      // refused exactly like one that does not exist.
+      const { store, credentials } = fakeStore({
+        clientToken: 'rmm_first',
+        deviceId: 'romm-device-1'
+      })
+
+      new RommClient(store).setClientToken('rmm_second')
+
+      assert.equal(credentials.deviceId, null)
+    })
+
+    test('a server that could not be reached is asked again, not settled', async () => {
+      const { store } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      let down = true
+      const sent = serve((request) => {
+        if (down) throw new Error('ECONNREFUSED')
+        if (!request.url.includes('/api/devices')) return json({ id: 21 })
+        return json(request.method === 'POST' ? { device_id: 'romm-device-7' } : [])
+      })
+      const asked = (): number => sent.filter((one) => one.url.includes('/api/devices')).length
+      const client = new RommClient(store)
+
+      await assert.rejects(() => client.uploadSave(5, file, 'sonic.srm', null))
+      const whileAway = asked()
+      await assert.rejects(() => client.uploadSave(5, file, 'sonic.srm', null))
+
+      // A server that is away is not asked again per save: a queue draining
+      // into one would cost three connection attempts a file instead of one.
+      assert.equal(asked(), whileAway)
+
+      down = false
+      // The save that re-establishes contact goes up without a device — what
+      // it proves is that the server is back, which nothing knew beforehand.
+      await client.uploadSave(5, file, 'sonic.srm', null)
+      await client.uploadSave(5, file, 'sonic.srm', null)
+
+      // The outage settled nothing: with the server answering again the
+      // question is asked, rather than the run being stuck without a device.
+      const upload = sent[sent.length - 1]
+      assert.equal(new URL(upload.url).searchParams.get('device_id'), 'romm-device-7')
+    })
+
+    test('the machine is registered once, not behind every save', async () => {
+      const { store } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      const sent = serveDevices([], { device_id: 'romm-device-7' })
+
+      const client = new RommClient(store)
+      await Promise.all([
+        client.uploadSave(5, file, 'sonic.srm', null),
+        client.uploadSave(6, file, 'sonic.srm', null)
+      ])
+      await client.uploadSave(7, file, 'sonic.srm', null)
+
+      assert.equal(
+        sent.filter((one) => one.method === 'POST' && one.url.endsWith('/devices')).length,
+        1
+      )
+    })
   })
 
   test('a refused upload is an error, not a save quietly not sent', async () => {

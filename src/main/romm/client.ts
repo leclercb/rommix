@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { Blob } from 'node:buffer'
 import { readFile, rename, rm } from 'node:fs/promises'
+import { hostname } from 'node:os'
 import type {
   RommCollection,
   RommCollectionRomsPayload,
@@ -10,6 +11,8 @@ import type {
   RommDevice,
   RommDeviceAuthToken,
   RommDeviceAuthTokenPayload,
+  RommDeviceCreatePayload,
+  RommDeviceCreated,
   RommFirmware,
   RommPlaySessionPayload,
   RommRomUserPayload,
@@ -104,6 +107,19 @@ export class RommClient {
   private cachedDevices: { baseUrl: string; devices: RommDevice[] } | null = null
 
   /**
+   * See `deviceId`. Carries what it was resolved against, so nothing else
+   * inherits it: a device belongs to one account on one server, and both can
+   * change without this object being rebuilt.
+   */
+  private registration: {
+    baseUrl: string
+    token: string | null
+    deviceId: Promise<string | null>
+    /** Set where nothing answered, so `report` can let it be asked again. */
+    afterOutage?: boolean
+  } | null = null
+
+  /**
    * Told after every request whether the server was there at all.
    *
    * Set once, by whatever is watching the connection. Every call RomMix makes
@@ -131,6 +147,13 @@ export class RommClient {
    */
   private report(base: string, reachable: boolean, reason?: string): void {
     if (this.store.server?.baseUrl !== base) return
+    // A registration that failed because nothing answered is asked again once
+    // something does, rather than in front of every save while the server is
+    // away — which is three connection attempts each on the one path that
+    // already has a queue waiting to drain. See `deviceId`.
+    if (reachable && this.registration?.afterOutage && this.registration.baseUrl === base) {
+      this.registration = null
+    }
     this.reachability?.(reachable, reason)
   }
 
@@ -271,7 +294,7 @@ export class RommClient {
     }
     const token = (await res.json()) as RommTokenResponse
     log.info('romm', 'signed in with a password', { username, expiresIn: token.expires })
-    this.storeToken(token)
+    this.storeToken(token, { sameSession: false })
   }
 
   /** Store a long-lived `rmm_...` client token typed in by the user. */
@@ -281,7 +304,9 @@ export class RommClient {
       clientToken: token.trim(),
       accessToken: null,
       refreshToken: null,
-      expiresAt: null
+      expiresAt: null,
+      // Whose token this is, is not knowable from here — see `storeToken`.
+      deviceId: null
     })
   }
 
@@ -352,12 +377,23 @@ export class RommClient {
     return true
   }
 
-  private storeToken(token: RommTokenResponse): void {
+  /**
+   * Hold a token pair, and say whether it continues the session or begins one.
+   *
+   * A device id is issued to an account — see `deviceId` — and nothing in a
+   * token says which account it is for, so a sign-in cannot tell whether the
+   * id already stored is still this user's and drops it rather than uploading
+   * saves under somebody else's device. A refresh is the same user by
+   * definition and keeps it, which is what stops every refresh registering
+   * this machine again.
+   */
+  private storeToken(token: RommTokenResponse, { sameSession }: { sameSession: boolean }): void {
     this.store.setCredentials({
       accessToken: token.access_token,
       refreshToken: token.refresh_token ?? null,
       expiresAt: Date.now() + token.expires * 1000,
-      clientToken: null
+      clientToken: null,
+      deviceId: sameSession ? this.store.credentials.deviceId : null
     })
   }
 
@@ -382,7 +418,7 @@ export class RommClient {
         throw new RommError(t('error.sessionExpired'), 401)
       }
       log.info('romm', 'access token refreshed')
-      this.storeToken((await res.json()) as RommTokenResponse)
+      this.storeToken((await res.json()) as RommTokenResponse, { sameSession: true })
     })()
 
     try {
@@ -915,6 +951,136 @@ export class RommClient {
     }
   }
 
+  /**
+   * The id RomM knows this machine by, or null where it has none.
+   *
+   * RomM resolves `device_id` against its own devices table and refuses an
+   * upload naming one that is not in it. Pairing hands that id back with the
+   * token; a client token typed in or a password does not, and the identifier
+   * RomMix generated for itself is not a device on the server until something
+   * asks for one. So the ask happens here, once, the first time a save has a
+   * device to name.
+   *
+   * Null is an answer rather than a failure. A save uploaded without a device
+   * is one RomM keeps — it only loses the label saying which machine wrote it,
+   * and `syncStateOf` falls back to treating the server's copy as somebody
+   * else's — which is a smaller loss than a save that never leaves the
+   * handheld. Registering is therefore attempted once per server and session,
+   * and a refusal remembered for as long as that session's token lasts rather
+   * than retried behind every push.
+   */
+  async deviceId(): Promise<string | null> {
+    const known = this.store.credentials.deviceId
+    if (known) return known
+
+    const baseUrl = this.store.server?.baseUrl
+    if (!baseUrl) return null
+    const { clientToken, accessToken } = this.store.credentials
+    const token = clientToken ?? accessToken
+    if (this.registration?.baseUrl !== baseUrl || this.registration.token !== token) {
+      this.registration = { baseUrl, token, deviceId: this.registerDevice(baseUrl, token) }
+    }
+
+    const id = await this.registration.deviceId
+    // Written down here rather than where it was obtained, so an answer this
+    // run already has still reaches the disk — and only while it is still the
+    // answer for the server and session that asked for it.
+    if (id && this.current(baseUrl, token) && this.store.credentials.deviceId !== id) {
+      this.store.setCredentials({ deviceId: id })
+    }
+    return id
+  }
+
+  /** Is the registration in hand still the one this server and session want? */
+  private current(baseUrl: string, token: string | null): boolean {
+    return this.registration?.baseUrl === baseUrl && this.registration.token === token
+  }
+
+  /**
+   * POST /api/devices — ask RomM to record this machine, and remember the id.
+   *
+   * Kept with the credentials rather than the settings: it is the account's
+   * device, so signing out or moving to another server has to lose it, and
+   * that is what `clearCredentials` already does.
+   *
+   * Never throws — see `deviceId`. An old server, a token issued before
+   * `devices.write` joined `REQUIRED_SCOPES`, or a server that answers
+   * something other than a device all come out as "this machine has no id".
+   */
+  private async registerDevice(baseUrl: string, token: string | null): Promise<string | null> {
+    const { deviceId, deviceName } = this.store.settings
+    try {
+      // Paired once and signed in again since with a token: RomM already holds
+      // this machine under the identifier RomMix chose for it, and registering
+      // would stand a second device beside the one that is already there.
+      const paired = (await this.pairedAs(deviceId))?.id
+      const id = paired ?? (await this.createDevice(deviceName))
+      if (id) {
+        // The list was read before the device was on it.
+        this.cachedDevices = null
+        log.info('romm', 'this machine is registered with RomM', { deviceId: id })
+        return id
+      }
+      log.warn('romm', 'RomM took the registration but named no id; saves will name no device')
+    } catch (cause) {
+      // A server that was not there has refused nothing, so it is not an answer
+      // to keep: `report` lets it be asked again once the server answers
+      // something. Marked rather than dropped, or every save would ask again
+      // for as long as the server stays away. A refusal is kept — see
+      // `deviceId`.
+      if (this.registration && cause instanceof UnreachableError && this.current(baseUrl, token)) {
+        this.registration.afterOutage = true
+      }
+      log.warn('romm', 'this machine could not be registered; saves will name no device', {
+        reason: (cause as Error).message
+      })
+    }
+    return null
+  }
+
+  /**
+   * The device RomM holds under this machine's own identifier, if any.
+   *
+   * Read fresh rather than off `devices`, which caches `[]` for the run after
+   * any failure: taking that for "this machine never paired" is how a second
+   * row appears beside the one already there. Only a paired device is ever
+   * found this way, `DeviceCreatePayload` having no field for the identifier —
+   * what keeps a registered one from doubling is the server's `allow_existing`.
+   * A failure is silence, since it is not an answer either and what follows is
+   * a registration, which is the right move when the list cannot be read.
+   */
+  private async pairedAs(identifier: string): Promise<RommDevice | null> {
+    try {
+      const devices = await this.json<RommDevice[]>('/api/devices')
+      return devices.find((device) => device.client_device_identifier === identifier) ?? null
+    } catch (cause) {
+      log.debug('romm', 'the device list could not be read before registering', {
+        reason: (cause as Error).message
+      })
+      return null
+    }
+  }
+
+  /** The registration itself, so `registerDevice` is the policy around it. */
+  private async createDevice(name: string): Promise<string | null> {
+    const created = await this.json<RommDeviceCreated>('/api/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        hostname: hostname(),
+        client: 'rommix',
+        platform: 'linux',
+        // From the packaged app, for the reason `startDevicePairing` gives.
+        client_version: app.getVersion(),
+        allow_existing: true
+      } satisfies RommDeviceCreatePayload)
+    })
+    // Asked because the id is the whole point of the call, and a reply without
+    // one would otherwise be sent as the string "undefined" on every upload.
+    return created.device_id || null
+  }
+
   saves(romId: number): Promise<RommSave[]> {
     return this.json<RommSave[]>(`/api/saves?rom_id=${romId}`)
   }
@@ -969,7 +1135,7 @@ export class RommClient {
   ): Promise<RommSave> {
     const params = new URLSearchParams({ rom_id: String(romId), overwrite: 'true' })
     if (emulator) params.set('emulator', emulator)
-    const deviceId = this.store.credentials.deviceId ?? this.store.settings.deviceId
+    const deviceId = await this.deviceId()
     if (deviceId) params.set('device_id', deviceId)
 
     const payload = await readFile(filePath)
@@ -1038,7 +1204,7 @@ export class RommClient {
       log.debug('romm', 'play session too short to report', { romId, seconds })
       return
     }
-    const deviceId = this.store.credentials.deviceId ?? this.store.settings.deviceId
+    const deviceId = await this.deviceId()
     log.info('romm', 'reporting a play session', {
       romId,
       deviceId,

@@ -7,6 +7,7 @@ import type {
   RommDeviceAuthInit,
   RommDeviceAuthToken,
   RommDevice,
+  RommDeviceCreated,
   RommFirmware,
   RommPlatform,
   RommRom,
@@ -765,7 +766,15 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         return json(shelf)
       }
       if (url.pathname === '/api/collections/virtual') return json(virtualCollections)
-      if (url.pathname === '/api/devices') return json([] as RommDevice[])
+      if (url.pathname === '/api/devices') {
+        // A client that paired arrives holding an id; one signed in with a
+        // token registers for one before its first push. Both end up naming a
+        // device on an upload, and a list is not an answer to the second.
+        if (req.method === 'POST') {
+          return json({ device_id: 'a-registered-device' } satisfies RommDeviceCreated)
+        }
+        return json([] as RommDevice[])
+      }
       if (url.pathname === '/api/firmware') {
         const wanted = url.searchParams.get('platform_id')
         const all = [...held_firmware.values()].flat()

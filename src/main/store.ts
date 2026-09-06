@@ -46,7 +46,13 @@ interface StoredCredentials {
   expiresAt: number | null
   /** Long-lived `rmm_...` client token, used instead of the OAuth pair. */
   clientToken: string | null
-  /** Device id RomM assigned us through the device-pairing flow. */
+  /**
+   * The id RomM knows this machine by — see `RommClient.deviceId`.
+   *
+   * From pairing, which hands one back with the token, or from registering,
+   * which is how a client token gets one. Beside the credentials because it
+   * belongs to the account those credentials are for.
+   */
   deviceId: string | null
 }
 
@@ -211,9 +217,21 @@ export class Store {
     return this.serverCache
   }
 
+  /**
+   * Point RomMix at a server, leaving behind what belonged to the last one.
+   *
+   * A device id names a row on one server, and RomM refuses an upload naming a
+   * device it never issued — so an address that changes drops it, or every save
+   * pushed to the new server would be refused. The other half of the same
+   * question, whether it is still the right *account's* device, is answered
+   * where a session begins: see `RommClient.storeToken`. The tokens are not
+   * touched here, for the same reason — a sign-in follows and replaces them.
+   */
   setServer(server: ServerConfig | null): void {
+    const moved = server?.baseUrl !== this.serverCache?.baseUrl
     this.serverCache = server
     this.persistSettings()
+    if (moved && this.credentials.deviceId) this.setCredentials({ deviceId: null })
   }
 
   private persistSettings(): void {

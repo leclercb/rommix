@@ -39,6 +39,16 @@ export interface RommDeviceAuthToken {
 }
 
 /**
+ * POST /api/devices response (`DeviceCreateResponse`).
+ *
+ * The id is the point: it is what RomM resolves `device_id` against on every
+ * upload, and the only way to hold one without pairing.
+ */
+export interface RommDeviceCreated {
+  device_id: string
+}
+
+/**
  * GET /api/devices (`DeviceSchema`), pared to the fields RomMix reads.
  *
  * Two identifiers, and a save's `origin_device_id` can be either: `id` is what
@@ -355,6 +365,22 @@ export interface RommDeviceAuthInitPayload {
 /** POST /api/auth/device/token body (`DeviceAuthTokenPayload`). */
 export interface RommDeviceAuthTokenPayload {
   device_code: string
+}
+
+/**
+ * POST /api/devices body (`DeviceCreatePayload`).
+ *
+ * No identifier of RomMix's own goes in it — the payload has no field for one —
+ * so the machine is described instead, and `allow_existing` is what stops a
+ * second row appearing beside the one that describes it already.
+ */
+export interface RommDeviceCreatePayload {
+  name: string
+  hostname: string
+  client: string
+  platform: string
+  client_version: string
+  allow_existing: boolean
 }
 
 /**

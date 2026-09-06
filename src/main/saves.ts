@@ -258,6 +258,29 @@ export class SaveSync {
   }
 
   /**
+   * The ids a save uploaded from here can carry, so a row can say it came
+   * from this machine.
+   *
+   * Two of them. RomM's own id is what an upload names now — see
+   * `RommClient.deviceId` — and the identifier RomMix chose for itself is what
+   * sits on saves a server took under that name instead, which is a row that
+   * would otherwise read as another device's for good.
+   *
+   * Read off the store rather than asked for, which is both cheaper and more
+   * correct here. A row can only carry the registered id if this machine
+   * uploaded it, and uploading is what put that id in the store, so nothing is
+   * missed by not registering one now — while asking would put a request on a
+   * path whose whole job is to list what is on the disk when the server cannot
+   * be reached.
+   */
+  private thisDevice(): Set<string> {
+    const ids = new Set([this.store.settings.deviceId])
+    const registered = this.store.credentials.deviceId
+    if (registered) ids.add(registered)
+    return ids
+  }
+
+  /**
    * Find local save/state data belonging to a ROM.
    *
    * `since` restricts the result to data modified after a timestamp, which is
@@ -394,10 +417,7 @@ export class SaveSync {
       }
     }
 
-    // What this device calls itself on the server, so a save can say where it
-    // came from. RomM's own id where the device was paired, the local one
-    // otherwise — the same pair `uploadSave` sends.
-    const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
+    const thisDevice = this.thisDevice()
 
     const assets: SaveAsset[] = []
     const matched = new Set<string>()
@@ -409,7 +429,7 @@ export class SaveSync {
         if (localFile) matched.add(key)
 
         const originId = originIdOf(item)
-        const fromThisDevice = originId ? originId === thisDevice : null
+        const fromThisDevice = originId ? thisDevice.has(originId) : null
 
         assets.push({
           id: item.id,
@@ -599,13 +619,13 @@ export class SaveSync {
         kind === 'save'
           ? await this.client.saves(target.rom.id)
           : await this.client.states(target.rom.id)
-      const thisDevice = this.store.credentials.deviceId ?? this.store.settings.deviceId
+      const thisDevice = this.thisDevice()
       const nameOf = deviceNamer(await this.client.devices())
 
       for (const asset of local) {
         const existing = remote.find((item) => item.file_name === asset.fileName)
         const originId = existing ? originIdOf(existing) : null
-        const fromThisDevice = originId ? originId === thisDevice : null
+        const fromThisDevice = originId ? thisDevice.has(originId) : null
         const state = existing
           ? syncStateOf(asset.mtimeMs, existing.updated_at, fromThisDevice)
           : null

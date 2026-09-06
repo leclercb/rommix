@@ -274,6 +274,7 @@ describe('the transcription', () => {
       [
         'RommDeviceAuthInitPayload',
         'RommDeviceAuthTokenPayload',
+        'RommDeviceCreatePayload',
         'RommRomUserPayload',
         'RommCollectionRomsPayload',
         'RommSaveDeletePayload',
