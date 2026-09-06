@@ -302,7 +302,7 @@ export class SaveSync {
 
         // Emulators name the save after the ROM file, sometimes with a suffix.
         const fileStem = name.replace(STATE_PATTERN, '').replace(/\.[^.]+$/, '')
-        if (!stemMatches(fileStem, stem)) continue
+        if (!stemMatches(fileStem, stem, ext)) continue
 
         let info
         try {
@@ -913,9 +913,17 @@ export class SaveSync {
     for (const item of wanted) {
       const remoteTime = Date.parse(item.updated_at)
       const match = local.find((entry) => entry.fileName === item.file_name)
+      // Where the download would land, matched or not. A name the server holds
+      // under this game that this game's own rule does not read as its is
+      // still one path and still one file.
+      const destination = match?.path ?? join(location.dir, item.file_name)
       // The same tolerance the badge uses, so a copy the screen calls "in sync"
-      // is never one this loop downloads again.
-      if (match && match.mtimeMs >= remoteTime - SYNC_TOLERANCE_MS) continue
+      // is never one this loop downloads again. Asked of the file that is
+      // there rather than of the match, since an unmatched one would otherwise
+      // be fetched afresh every launch — and each fetch keeps a copy, which
+      // rotates away the very save the copies are kept for.
+      const landed = match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs
+      if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
 
       const download =
         kind === 'save'
@@ -927,14 +935,7 @@ export class SaveSync {
         if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {
           await this.restoreArchive(location.dir, backups, download, remoteTime)
         } else {
-          await this.restoreFile(
-            location,
-            item.file_name,
-            match?.path,
-            backups,
-            download,
-            remoteTime
-          )
+          await this.restoreFile(destination, backups, download, remoteTime)
         }
         written += 1
         log.info('saves', `${kind} pulled`, {
@@ -963,26 +964,28 @@ export class SaveSync {
   /**
    * Write one pulled file into the location the emulator reads.
    *
-   * There is no subdirectory to work out: `location.dir` is already the exact
-   * folder the emulator opens, which is the whole point of asking the
-   * descriptor rather than guessing from a tag. An asset that matched a file
-   * already on disk goes back over that file, wherever it was found — including
-   * one of the `search` directories, which is how a save sorted into a folder
-   * named after the core is updated in place rather than duplicated.
+   * The path is decided by the caller, which is where the file that is already
+   * there is weighed — see `pullKind`. An asset that matched a file on disk
+   * goes back over that file wherever it was found, including one of the
+   * `search` directories, which is how a save sorted into a folder named after
+   * the core is updated in place rather than duplicated; anything else lands in
+   * the one folder the emulator opens.
    */
   private async restoreFile(
-    location: SaveLocation,
-    fileName: string,
-    existing: string | undefined,
+    destination: string,
     backups: string,
     download: (to: string) => Promise<void>,
     remoteTime: number
   ): Promise<void> {
-    const destination = existing ?? join(location.dir, fileName)
     await mkdir(join(destination, '..'), { recursive: true })
 
-    // Never clobber a local save without keeping a copy.
-    if (existing) await keepBackup(existing, backups)
+    // Never clobber a local save without keeping a copy. Asked of the path
+    // rather than of the match, because a file can be sitting there without
+    // this game having claimed it: the server holds names under a game that
+    // `stemMatches` reads as another game's — a save uploaded by a version
+    // that matched on a prefix, or by a client that names its ROMs otherwise —
+    // and the download lands on that file whether or not anything matched it.
+    if (await stat(destination).catch(() => null)) await keepBackup(destination, backups)
     await download(destination)
     await stampMtime(destination, remoteTime)
   }

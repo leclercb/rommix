@@ -25,6 +25,10 @@ export const SAVE_CONVENTIONS: SaveFileConventions = {
   // libretro numbers its states `.state1`, `.state2`, …, and writes the
   // most recent one as `.auto`.
   statePattern: /\.(state|auto)\d*$/i,
+  // The PlayStation cards, which are the memory cards emulators write per
+  // game rather than as one file for the whole library: DuckStation numbers
+  // the slot behind an underscore, mednafen behind a dot.
+  slotExtensions: ['.mcd', '.mcr', '.gme'],
   // Three levels covers `<system>/<emulator>/<file>` and stops a large library
   // turning every launch into a full-tree walk.
   maxDepth: 3

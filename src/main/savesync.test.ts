@@ -560,6 +560,45 @@ describe('pulling', () => {
     assert.equal(readFileSync(kept, 'utf8'), 'the local one')
   })
 
+  test('a file the pull lands on is copied aside even when nothing matched it', async () => {
+    // The server holds names under a game that this game's own rule does not
+    // read as its: a save uploaded by a client whose ROM is named otherwise,
+    // or by a version of RomMix that matched on a prefix. The download still
+    // lands on whatever is at that path, so the copy cannot be conditional on
+    // the file having been recognised as this game's.
+    const { sync, target, saveDir, backups } = setUp({
+      saves: [save({ file_name: 'Another Game (USA).srm' })]
+    })
+    const path = join(saveDir, 'Another Game (USA).srm')
+    writeFileSync(path, 'the local one')
+    const older = new Date('2026-01-01T00:00:00.000Z')
+    utimesSync(path, older, older)
+
+    await sync.pullNow(target)
+
+    assert.equal(readFileSync(path, 'utf8'), 'from the server')
+    const kept = join(backups, '7', 'Another Game (USA).srm.1')
+    assert.equal(readFileSync(kept, 'utf8'), 'the local one')
+  })
+
+  test('a file the pull lands on that is already the newer one is left alone', async () => {
+    // The other half of the same rule: what is on disk is weighed by its date
+    // whether or not this game claimed it, so a name the server holds and this
+    // game does not recognise is not re-fetched on every launch — which would
+    // rotate the kept copies until the save they were kept for is gone.
+    const { sync, target, saveDir, backups } = setUp({
+      saves: [save({ file_name: 'Another Game (USA).srm' })]
+    })
+    const path = join(saveDir, 'Another Game (USA).srm')
+    writeFileSync(path, 'the local one')
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 0)
+    assert.equal(readFileSync(path, 'utf8'), 'the local one')
+    assert.equal(existsSync(join(backups, '7')), false)
+  })
+
   test('the copy is kept in the RomMix folder, not in the emulator tree', async () => {
     const { sync, target, saveDir } = setUp({ saves: [save()] })
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')

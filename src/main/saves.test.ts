@@ -32,21 +32,63 @@ test('punctuation and case are ignored, as emulators vary on both', () => {
   assert.equal(stemMatches('Sonic-The-Hedgehog', 'Sonic The Hedgehog'), true)
 })
 
-test('a suffix the emulator added still matches', () => {
-  // DuckStation writes `Suikoden II_1.mcd`; the ROM is `Suikoden II`.
-  assert.equal(stemMatches('Suikoden II_1', 'Suikoden II'), true)
+test('the slot number on a memory card still matches', () => {
+  // DuckStation writes `Suikoden II_1.mcd`; the ROM is `Suikoden II`. Mednafen
+  // writes the same card as `Suikoden II.1.mcr`.
+  assert.equal(stemMatches('Suikoden II_1', 'Suikoden II', '.mcd'), true)
+  assert.equal(stemMatches('Suikoden II.1', 'Suikoden II', '.mcr'), true)
+})
+
+test('a name that writes its spaces the way a slot is written keeps the number', () => {
+  // On a card the number is ambiguous: the separator that would make it a slot
+  // is the one this library uses between words, so the sequel reading is the
+  // one that cannot upload a save under another game's id.
+  assert.equal(stemMatches('Sonic_Advance_2', 'Sonic Advance', '.mcd'), false)
+  assert.equal(stemMatches('Sonic.Advance.2', 'Sonic Advance', '.mcr'), false)
+  // Nothing else in the name uses it, so this one is a slot.
+  assert.equal(stemMatches('Sonic Advance_2', 'Sonic Advance', '.mcd'), true)
+  // And where the name is one word there is nothing to read the convention
+  // from: the card of a sequel to a single-word title is taken for slot two of
+  // the title. Nothing in a file name settles that, and the reading that keeps
+  // a card working is the one kept.
+  assert.equal(stemMatches('Suikoden_2', 'Suikoden', '.mcd'), true)
+})
+
+test('a slot number is only a slot number on a card', () => {
+  // `_` is a slot separator on a memory card and a word separator everywhere
+  // else, and a library named with underscores is full of the second. Only the
+  // extension tells them apart, so a battery save is never read as a slot.
+  assert.equal(stemMatches('Sonic_Advance_2', 'Sonic Advance', '.srm'), false)
+  assert.equal(stemMatches('Sonic_Advance_2', 'Sonic_Advance', '.srm'), false)
+  assert.equal(stemMatches('Sonic_Advance_2', 'Sonic Advance'), false)
 })
 
 test('a region tag on the ROM but not on the save still matches', () => {
   // RomM exposes the game as `Final Fantasy VII (USA)`, and the card written for
   // it carries none of that. This is what the looser second key exists for.
-  assert.equal(stemMatches('Final Fantasy VII_1', 'Final Fantasy VII (USA)'), true)
+  assert.equal(stemMatches('Final Fantasy VII_1', 'Final Fantasy VII (USA)', '.mcd'), true)
   assert.equal(stemMatches('Final Fantasy VII', 'Final Fantasy VII (USA) [!]'), true)
 })
 
 test('a different game does not match', () => {
   assert.equal(stemMatches('Sonic 2', 'Streets of Rage'), false)
   assert.equal(stemMatches('Suikoden', 'Wild Arms'), false)
+})
+
+test('a longer title this one only opens is a different game', () => {
+  // One folder of `.srm` files holds the whole shelf, so a game whose name is
+  // where another's begins is the ordinary case rather than the odd one, and
+  // the cost of getting it wrong is a save uploaded under the wrong game's id.
+  assert.equal(stemMatches('Castlevania - Symphony of the Night (USA)', 'Castlevania (USA)'), false)
+  assert.equal(stemMatches('Castlevania (USA)', 'Castlevania - Symphony of the Night (USA)'), false)
+})
+
+test('a sequel is not the game it follows', () => {
+  // The same rule where the difference is a number, which is the shape a slot
+  // also has. A card is the only file that carries one.
+  assert.equal(stemMatches('Sonic Advance 2', 'Sonic Advance', '.srm'), false)
+  assert.equal(stemMatches('Sonic Advance', 'Sonic Advance 2', '.srm'), false)
+  assert.equal(stemMatches('Sonic Advance 2', 'Sonic Advance', '.mcd'), false)
 })
 
 test('a name that loosens to nothing matches nothing', () => {

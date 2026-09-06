@@ -206,6 +206,16 @@ export interface SaveFileConventions {
   saveExtensions: readonly string[]
   /** Matches a save state; libretro numbers them `.state1`, `.state2`, … */
   statePattern: RegExp
+  /**
+   * The save extensions whose files are written one per console slot.
+   *
+   * A memory card is the only save data a console has more than one of at a
+   * time, so it is the only kind an emulator numbers — and the number is what
+   * separates a card from the ROM it is named after. Nowhere else, which is
+   * the point: a separator and a digit are how half the world writes a sequel,
+   * and taking them for a slot on a battery save hands one game another's.
+   */
+  slotExtensions: readonly string[]
   /** How deep below a save root to look before giving up. */
   maxDepth: number
 }

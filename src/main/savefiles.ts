@@ -15,7 +15,7 @@ import { log } from './log.ts'
  * the filesystem work they imply.
  */
 
-const { maxDepth: MAX_DEPTH } = SAVE_CONVENTIONS
+const { maxDepth: MAX_DEPTH, slotExtensions: SLOT_EXTENSIONS } = SAVE_CONVENTIONS
 
 /**
  * How far apart two timestamps may be and still count as the same file.
@@ -70,18 +70,62 @@ function looseStem(value: string): string {
   )
 }
 
-/** Does a save file's name identify it as this ROM's? */
-export function stemMatches(fileStem: string, romStem: string): boolean {
+/**
+ * The slot number an emulator adds to a card it wrote for one game.
+ *
+ * A separator and a digit, because the emulators disagree on which separator.
+ * That is also how half the world writes a sequel, so two things narrow it.
+ * The extension has to be one written per slot — see `slotExtensions` — and
+ * the separator has to be one the rest of the name does not use, since a
+ * library that writes its spaces as underscores makes every sequel look like
+ * slot two of the game before it. Where the name uses that separator itself
+ * the two readings cannot be told apart, and the file is left to the game
+ * whose name it matches whole.
+ */
+const SLOT_SUFFIX = /[._-]\d{1,2}$/
+
+/** The name without the slot an emulator added, or null if it carries none. */
+function withoutSlot(fileStem: string): string | null {
+  const slot = SLOT_SUFFIX.exec(fileStem)
+  if (!slot) return null
+  const base = fileStem.slice(0, -slot[0].length)
+  return base && !base.includes(slot[0][0]) ? base : null
+}
+
+/**
+ * Does a save file's name identify it as this ROM's?
+ *
+ * `extension` is the file's own, lowercase and with the dot. Omitting it asks
+ * the question without the slot rule, which is the right question for anything
+ * that is not a memory card.
+ */
+export function stemMatches(fileStem: string, romStem: string, extension?: string): boolean {
+  if (sameGame(fileStem, romStem)) return true
+  if (!extension || !SLOT_EXTENSIONS.includes(extension)) return false
+  const base = withoutSlot(fileStem)
+  return base !== null && sameGame(base, romStem)
+}
+
+/**
+ * The two names as one game, strictly and then with what a ROM name carries
+ * and a save file does not.
+ *
+ * Equality both times rather than a prefix: what the two sides differ by is
+ * known — the tags, which `looseStem` drops from both, and the slot, which
+ * `stemMatches` drops before asking — so there is nothing left for a prefix to
+ * allow except another game's title.
+ */
+function sameGame(fileStem: string, romStem: string): boolean {
   const file = normaliseStem(fileStem)
   const rom = normaliseStem(romStem)
-  if (file && rom && (file.startsWith(rom) || rom.startsWith(file))) return true
+  if (file && rom && file === rom) return true
 
   const looseFile = looseStem(fileStem)
   const looseRom = looseStem(romStem)
   // Both have to survive the loosening: an empty key would match everything,
   // which for a directory of memory cards means uploading the wrong game's.
   if (!looseFile || !looseRom) return false
-  return looseFile.startsWith(looseRom) || looseRom.startsWith(looseFile)
+  return looseFile === looseRom
 }
 
 /** The ROM's name without its extension, which is what saves are named after. */
