@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, before, describe, test } from 'node:test'
 import { app } from 'electron'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UpdatePolicy, UpdateStatus } from '@shared/types'
@@ -26,6 +26,18 @@ import { Store } from './store.ts'
 const realFetch = globalThis.fetch
 const scratches: string[] = []
 const heldAppImage = process.env.APPIMAGE
+// Electron's, and undefined out here — the launcher refresh reads the copy the
+// image carries from it, so a test about that has to say where it is.
+const heldResources = process.resourcesPath
+
+/**
+ * Point `process.resourcesPath` somewhere. Electron declares it read-only,
+ * which it is for the application; out here it is the one input the refresh
+ * takes that is not a file path handed in.
+ */
+function resourcesAt(dir: string | undefined): void {
+  Object.defineProperty(process, 'resourcesPath', { value: dir, configurable: true })
+}
 
 before(() => {
   app.getVersion = () => '1.0.0'
@@ -35,6 +47,7 @@ afterEach(() => {
   globalThis.fetch = realFetch
   if (heldAppImage === undefined) delete process.env.APPIMAGE
   else process.env.APPIMAGE = heldAppImage
+  resourcesAt(heldResources)
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
@@ -289,6 +302,81 @@ describe('downloading it', () => {
     await subject.check()
 
     assert.deepEqual(asked, [])
+  })
+})
+
+describe('the launcher beside the image', () => {
+  /**
+   * An installation whose image carries a `rommix-steam.sh` saying `shipped`.
+   *
+   * The resources are this version's, which is the point of refreshing at
+   * start-up: what the running image carries is what the running version was
+   * built with. Nothing is downloaded here, and nothing should be.
+   */
+  function installed(shipped: string): { beside: string } {
+    const dir = scratch()
+    process.env.APPIMAGE = join(dir, image)
+    const resources = scratch()
+    resourcesAt(resources)
+    writeFileSync(join(resources, 'rommix-steam.sh'), shipped)
+    return { beside: join(dir, 'rommix-steam.sh') }
+  }
+
+  test('a stale copy is replaced with the one this version carries', async () => {
+    const { beside } = installed('#!/bin/sh\nnew\n')
+    writeFileSync(beside, '#!/bin/sh\nold\n', { mode: 0o644 })
+    const { updater: subject } = updater()
+
+    await subject.refreshLauncher()
+
+    assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nnew\n')
+    // Repaired along with the contents: a launcher Steam cannot execute is the
+    // same failure as one that says the wrong thing.
+    assert.equal((statSync(beside).mode & 0o100) !== 0, true)
+    assert.equal(existsSync(`${beside}.part`), false)
+  })
+
+  test('a folder with no launcher in it does not gain one', async () => {
+    const { beside } = installed('#!/bin/sh\nnew\n')
+    const { updater: subject } = updater()
+
+    await subject.refreshLauncher()
+
+    assert.equal(existsSync(beside), false)
+  })
+
+  test('a launcher that cannot be rewritten is not an error', async () => {
+    const { beside } = installed('#!/bin/sh\nnew\n')
+    writeFileSync(beside, '#!/bin/sh\nold\n')
+    // Nowhere to read the shipped copy from, which is every way this can go
+    // wrong as far as the caller is concerned.
+    resourcesAt(join(scratch(), 'gone'))
+    const { updater: subject } = updater()
+
+    await subject.refreshLauncher()
+
+    assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nold\n')
+  })
+
+  test('it happens whatever the update policy says', async () => {
+    const { beside } = installed('#!/bin/sh\nnew\n')
+    writeFileSync(beside, '#!/bin/sh\nold\n')
+    const { updater: subject } = updater('off')
+
+    await subject.refreshLauncher()
+
+    assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nnew\n')
+  })
+
+  test('a copy running from something that is not an image is left alone', async () => {
+    const { beside } = installed('#!/bin/sh\nnew\n')
+    writeFileSync(beside, '#!/bin/sh\nold\n')
+    delete process.env.APPIMAGE
+    const { updater: subject } = updater()
+
+    await subject.refreshLauncher()
+
+    assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nold\n')
   })
 })
 

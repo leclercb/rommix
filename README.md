@@ -112,8 +112,9 @@ No version in the file name: updates are written over that same file.
 ### From Steam
 
 Download `rommix-steam.sh` from the same release, keep it **beside** the
-AppImage, and add the _script_ as the non-Steam game — Steam cannot launch an
-AppImage directly.
+AppImage, and add the _script_ as the non-Steam game. Steam launches games in a
+way that stops an AppImage mounting itself, and the script is what gets RomMix
+started around that.
 
 ```bash
 chmod +x RomMix-x86_64.AppImage rommix-steam.sh
@@ -329,8 +330,9 @@ AppImage mounting itself; no `PATH` or `FUSERMOUNT_PROG` value changes that. Use
 **`Failed to connect to Wayland display`, and RomMix exits before a window
 appears.** The session says it is a Wayland one and has no Wayland socket to
 show for it, which is how a gamescope session looks from the outside — Chromium
-believes the first half and quits. `rommix-steam.sh` handles it; started any
-other way, add `--ozone-platform=x11`.
+believes the first half and quits. RomMix falls back to X11 there by itself; if
+you are on a session that needs a particular backend anyway, pass
+`--ozone-platform=x11` or `--ozone-platform=wayland` and it will be left alone.
 
 **`error while loading shared libraries: libnspr4.so`** (or `libglib-2.0.so.0`).
 The distribution does not ship the libraries an unpatched binary expects. On

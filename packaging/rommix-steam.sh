@@ -1,4 +1,5 @@
 #!/bin/sh
+# Do not edit: RomMix replaces this file when it updates itself.
 set -eu
 
 APPIMAGE_EXTRACT_AND_RUN=1
@@ -26,15 +27,6 @@ fi
 if [ ! -x "$ROMMIX_APPIMAGE" ]; then
   echo "rommix-steam.sh: $ROMMIX_APPIMAGE is not executable — chmod +x it." >&2
   exit 1
-fi
-
-if [ "${XDG_SESSION_TYPE-}" = wayland ] && [ -n "${DISPLAY-}" ]; then
-  socket=${WAYLAND_DISPLAY:-wayland-0}
-  case $socket in
-    /*) ;;
-    *) socket="${XDG_RUNTIME_DIR-}/$socket" ;;
-  esac
-  [ -e "$socket" ] || set -- --ozone-platform=x11 "$@"
 fi
 
 exec "$ROMMIX_APPIMAGE" "$@"

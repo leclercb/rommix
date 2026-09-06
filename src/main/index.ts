@@ -52,8 +52,8 @@ protocol.registerSchemesAsPrivileged([
  * then keeps its compositor on a socket name no generic application looks for,
  * leaving Chromium to connect to nothing and exit before it draws. The only
  * thing that answers it is `--ozone-platform` on the real command line, which
- * is why that decision belongs to whatever starts RomMix — see
- * packaging/rommix-steam.sh.
+ * is why that decision belongs to the shell script the image execs before this
+ * binary — see packaging/rommix-launch.sh.
  */
 function applyDisplayFlags(): void {
   app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
@@ -87,6 +87,9 @@ if (!app.requestSingleInstanceLock()) {
     // After the window, which is what the first result is announced to. The
     // check itself is delayed — see `Updater.schedule`.
     rommix.updates.schedule()
+    // Not part of that schedule: the launcher beside the image is brought into
+    // step whatever the update policy says. See `Updater.refreshLauncher`.
+    void rommix.updates.refreshLauncher()
     // Likewise: both of these push to the renderer, and both are things the
     // interface should not be waiting on. The catch-up needs a server and is
     // run again by the watch the moment there is one. See `RomMixApp.catchUp`.

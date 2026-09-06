@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { createWriteStream } from 'node:fs'
-import { chmod, rename, rm } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { chmod, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { UpdatePolicy, UpdateStatus } from '@shared/types'
@@ -200,6 +200,66 @@ function startedBySteam(): boolean {
   return Boolean(process.env.SteamGameId ?? process.env.SteamAppId)
 }
 
+/** The launcher a Steam shortcut is aimed at, beside the image it starts. */
+const STEAM_LAUNCHER = 'rommix-steam.sh'
+
+/**
+ * Bring the launcher beside the image back into step with it.
+ *
+ * `rommix-steam.sh` is downloaded once and then owned by nobody. An update
+ * writes the image and leaves the script saying whatever it said on the day it
+ * was fetched, so anything a release changes there reaches only the people who
+ * think to download it again — and the ones who do not find out months later,
+ * as RomMix failing to start under Steam, on a machine whose owner has no
+ * reason to suspect a file they were told to fetch once. The image carries the
+ * script it was built with for exactly this moment; see `extraResources` in
+ * electron-builder.yml.
+ *
+ * Only a copy that is already there. Putting one in a folder that has none is
+ * answering a question nobody asked: somebody who downloaded the image alone is
+ * not launching it from Steam, and RomMix is not the thing that should leave a
+ * new file in their downloads.
+ *
+ * Nothing here throws. The image starts from a desktop, from gamescope and from
+ * Steam whatever this does; a script that could not be rewritten is worth a
+ * line in the log and no more than that.
+ */
+async function refreshSteamLauncher(beside: string): Promise<void> {
+  const script = join(beside, STEAM_LAUNCHER)
+
+  let current: string
+  try {
+    current = await readFile(script, 'utf8')
+  } catch {
+    // No launcher beside the image, which is most installations.
+    return
+  }
+
+  const partial = `${script}.part`
+  try {
+    const shipped = await readFile(join(process.resourcesPath, STEAM_LAUNCHER), 'utf8')
+    if (current === shipped) return
+
+    // Written aside and renamed on, the way the image itself is: a launcher
+    // caught half-written is a Steam shortcut that starts nothing.
+    await writeFile(partial, shipped)
+    // Set here rather than left to whatever the old copy carried, so a script
+    // that was never made executable is repaired along with its contents.
+    await chmod(partial, 0o755)
+    await rename(partial, script)
+
+    log.info('update', 'the launcher beside the image was brought up to date', { path: script })
+  } catch (cause) {
+    // Swallowed like the rest: a part-file that could not be cleared is worth
+    // no more than the write that left it.
+    await rm(partial, { force: true }).catch(() => undefined)
+    log.warn('update', 'could not bring the launcher beside the image up to date', {
+      path: script,
+      cause: (cause as Error).message
+    })
+  }
+}
+
 /** The status a run starts with: what is running, and nothing else known yet. */
 function initialStatus(): UpdateStatus {
   return {
@@ -242,6 +302,26 @@ export class Updater {
 
   get status(): UpdateStatus {
     return this.current
+  }
+
+  /**
+   * Bring the Steam launcher beside the image into step with this version.
+   *
+   * At start-up rather than at the end of an update, because the copy RomMix
+   * carries is the running version's: `process.resourcesPath` is inside the
+   * image this process started from, while the one just downloaded is a file
+   * nobody has mounted. Refreshing after the swap would write the script of the
+   * version being replaced, and every release's script would land one release
+   * late. Written by the version that starts, it is that version's.
+   *
+   * Whatever the update policy says. Somebody who turned automatic updates off
+   * still replaces the image by hand, and the launcher beside it is still
+   * theirs to have working.
+   */
+  async refreshLauncher(): Promise<void> {
+    const running = process.env.APPIMAGE
+    if (!running) return
+    await refreshSteamLauncher(dirname(running))
   }
 
   private policy(): UpdatePolicy {
