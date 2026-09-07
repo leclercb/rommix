@@ -1,10 +1,9 @@
-import { createWriteStream, existsSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { chmod, mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { basename, join, relative } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import { isInstallableAsset, type ReleaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorInstallProgress, EmulatorRelease } from '@shared/types'
+import { fetchToFile } from './fetchfile.ts'
 import { parseDigest, verifyDownload } from './integrity.ts'
 import { log } from './log.ts'
 import { rootPaths } from './root.ts'
@@ -172,39 +171,40 @@ export async function installAsset(
   const destination = join(staging, asset.name)
   const partial = `${destination}.part`
 
-  const response = await fetch(asset.url)
-  if (!response.ok || !response.body) {
-    log.error('release', 'the download was refused', undefined, {
-      url: asset.url,
-      status: response.status
-    })
-    throw new Error(t('error.assetDownloadFailed', { url: asset.url, status: response.status }))
-  }
-
-  const declared = Number(response.headers.get('content-length') ?? 0)
+  // Kept as the bytes arrive, so a failure can say how far it got.
   let received = 0
-
-  const body = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
-  body.on('data', (chunk: Buffer) => {
-    received += chunk.length
-    onProgress({
-      emulatorId,
-      assetName: asset.name,
-      receivedBytes: received,
-      // The release API reports size 0 for these assets, so the response
-      // header is the only honest total available.
-      totalBytes: declared || asset.sizeBytes
-    })
-  })
+  // A refusal has already said what happened, in the line below that has the
+  // status. It comes out of the same catch as a transfer that broke, which
+  // has nothing to add about a download that never started.
+  let wasRefused = false
 
   try {
-    await pipeline(body, createWriteStream(partial))
-  } catch (cause) {
-    log.error('release', 'the download broke off part-way', cause, {
-      emulator: emulatorId,
-      asset: asset.name,
-      received
+    // The release API states a size of zero for these assets, so the response
+    // header is usually the only honest total — and the asset's figure is
+    // what is left when the header is missing too.
+    const fetched = await fetchToFile(asset.url, partial, {
+      sizeHint: asset.sizeBytes,
+      refused: (status) => {
+        wasRefused = true
+        log.error('release', 'the download was refused', undefined, { url: asset.url, status })
+        return new Error(t('error.assetDownloadFailed', { url: asset.url, status }))
+      },
+      onProgress: ({ receivedBytes, totalBytes }) => {
+        received = receivedBytes
+        onProgress({ emulatorId, assetName: asset.name, receivedBytes, totalBytes })
+      }
     })
+    received = fetched.receivedBytes
+  } catch (cause) {
+    if (!wasRefused) {
+      log.error('release', 'the download broke off part-way', cause, {
+        emulator: emulatorId,
+        asset: asset.name,
+        received
+      })
+    }
+    // The staging directory goes with it, so nothing half-fetched is left for
+    // the next attempt to step over.
     await rm(staging, { recursive: true, force: true })
     throw cause
   }

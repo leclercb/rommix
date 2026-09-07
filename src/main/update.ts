@@ -1,10 +1,8 @@
 import { app } from 'electron'
-import { createWriteStream } from 'node:fs'
 import { chmod, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import type { UpdatePolicy, UpdateStatus } from '@shared/types'
+import { fetchToFile } from './fetchfile.ts'
 import { parseDigest, verifyDownload, type Digest } from './integrity.ts'
 import { log } from './log.ts'
 // The architecture predicate, which is about this machine rather than about
@@ -564,25 +562,12 @@ export class Updater {
         destination: running
       })
 
-      const response = await fetch(asset.url)
-      if (!response.ok || !response.body) {
-        throw new Error(t('update.downloadFailed', { url: asset.url, status: response.status }))
-      }
-
-      const declared = Number(response.headers.get('content-length') ?? 0)
-      let received = 0
-      let announced = 0
-
-      const body = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
-      body.on('data', (chunk: Buffer) => {
-        received += chunk.length
-        const now = Date.now()
-        if (now - announced < PROGRESS_EVERY_MS) return
-        announced = now
-        this.update({ receivedBytes: received, totalBytes: declared || asset.sizeBytes })
+      const { receivedBytes, totalBytes } = await fetchToFile(asset.url, partial, {
+        sizeHint: asset.sizeBytes,
+        everyMs: PROGRESS_EVERY_MS,
+        refused: (status) => new Error(t('update.downloadFailed', { url: asset.url, status })),
+        onProgress: (progress) => this.update(progress)
       })
-
-      await pipeline(body, createWriteStream(partial))
 
       // Before it is made executable, let alone before it is put in place: this
       // is the one download that becomes the program doing the downloading, so
@@ -603,13 +588,14 @@ export class Updater {
       log.info('update', 'the new version is in place', {
         version: this.current.latest,
         path: running,
-        bytes: received
+        bytes: receivedBytes
       })
       this.update({
         state: 'ready',
         readyPath: running,
-        receivedBytes: received,
-        totalBytes: declared || asset.sizeBytes || received
+        receivedBytes,
+        // What arrived is the size of it, for a server that never said.
+        totalBytes: totalBytes || receivedBytes
       })
       return this.current
     } catch (cause) {

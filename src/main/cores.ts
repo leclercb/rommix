@@ -1,12 +1,10 @@
-import { createWriteStream } from 'node:fs'
 import { access, copyFile, mkdir, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import { emulatorById } from '@config/emulators'
 import type { CoreContext, EmulatorState, RequiredCore } from '@config/emulators'
 import type { CoreProgress } from '@shared/api'
+import { fetchToFile } from './fetchfile.ts'
 import { realHome } from './xdg.ts'
 import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
@@ -150,24 +148,6 @@ export async function installCore(
 
   log.info('core', 'downloading', { core: core.fileName, url })
 
-  const response = await fetch(url)
-  if (!response.ok || !response.body) {
-    log.error('core', 'the buildbot refused the download', undefined, {
-      url,
-      status: response.status
-    })
-    throw new Error(t('core.downloadFailed', { core: core.name, url, status: response.status }))
-  }
-
-  const total = Number(response.headers.get('content-length') ?? 0)
-  let received = 0
-
-  const body = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
-  body.on('data', (chunk: Buffer) => {
-    received += chunk.length
-    onProgress({ core: core.name, receivedBytes: received, totalBytes: total })
-  })
-
   const staging = join(tmpdir(), `rommix-core-${core.id}-${process.pid}`)
   const archive = `${staging}.zip`
   // Beside the core rather than in the temp directory, because the last step
@@ -177,7 +157,13 @@ export async function installCore(
   const partial = join(core.dir, `${core.fileName}.part`)
 
   try {
-    await pipeline(body, createWriteStream(archive))
+    const { receivedBytes } = await fetchToFile(url, archive, {
+      refused: (status) => {
+        log.error('core', 'the buildbot refused the download', undefined, { url, status })
+        return new Error(t('core.downloadFailed', { core: core.name, url, status }))
+      },
+      onProgress: (progress) => onProgress({ core: core.name, ...progress })
+    })
 
     /**
      * Nothing to check this against, and the reason is worth stating.
@@ -213,7 +199,7 @@ export async function installCore(
     log.info('core', 'installed', {
       core: core.fileName,
       dir: core.dir,
-      bytes: received
+      bytes: receivedBytes
     })
   } finally {
     await rm(archive, { force: true })
