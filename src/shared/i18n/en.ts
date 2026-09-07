@@ -69,6 +69,7 @@ export const en = {
   'value.unknown': 'unknown',
   'value.never': 'never',
   'value.notConfigured': 'Not configured',
+  'value.progressBytes': '{received} of {total}',
 
   /** Only the two keys whose names are words. Tab and Shift+Tab are neither. */
   'key.enter': 'Enter',
@@ -360,7 +361,6 @@ export const en = {
   'bios.installingTitle': 'Installing BIOS files',
   'bios.workingOut': 'Working out what is missing…',
   'bios.progressFiles': 'File {done} of {total}',
-  'bios.progressBytes': '{received} of {total}',
   'bios.checkedAllInPlace': 'Checked — every BIOS file is in place',
   'bios.checkedMissing_one': 'Checked — {count} file still missing',
   'bios.checkedMissing_other': 'Checked — {count} files still missing',
@@ -758,7 +758,6 @@ export const en = {
   // -- picking a build to install -------------------------------------------
 
   'install.installing': 'Installing {name}',
-  'install.progressBytes': '{received} of {total}',
   'install.title': 'Install {name}',
   'install.noBuilds': 'No builds were published for this machine.',
   'install.whichVersion': 'Which version?',

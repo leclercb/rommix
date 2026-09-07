@@ -61,6 +61,7 @@ export const de: Catalog = {
   'value.unknown': 'unbekannt',
   'value.never': 'nie',
   'value.notConfigured': 'Nicht eingerichtet',
+  'value.progressBytes': '{received} von {total}',
 
   'key.enter': 'Enter',
   'key.esc': 'Esc',
@@ -365,7 +366,6 @@ export const de: Catalog = {
   'bios.installingTitle': 'BIOS-Dateien werden installiert',
   'bios.workingOut': 'Es wird ermittelt, was fehlt…',
   'bios.progressFiles': 'Datei {done} von {total}',
-  'bios.progressBytes': '{received} von {total}',
   'bios.checkedAllInPlace': 'Geprüft — jede BIOS-Datei liegt an ihrem Platz',
   'bios.checkedMissing_one': 'Geprüft — {count} Datei fehlt weiterhin',
   'bios.checkedMissing_other': 'Geprüft — {count} Dateien fehlen weiterhin',
@@ -777,7 +777,6 @@ export const de: Catalog = {
   // -- einen Build zum Installieren wählen ----------------------------------
 
   'install.installing': '{name} wird installiert',
-  'install.progressBytes': '{received} von {total}',
   'install.title': '{name} installieren',
   'install.noBuilds': 'Für diesen Rechner wurden keine Builds veröffentlicht.',
   'install.whichVersion': 'Welche Version?',

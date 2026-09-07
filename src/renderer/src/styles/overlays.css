@@ -273,7 +273,7 @@
  * Two bars at most and a line of words with each, in the order they are asked
  * about from a sofa — what is arriving, then how far, then how much of it is
  * left to go. Drawn by the BIOS screen over a firmware file and by the emulator
- * picker over a release build. See `InstallProgress`.
+ * picker over a release build. See `TransferProgress`.
  */
 .install-progress {
   display: flex;

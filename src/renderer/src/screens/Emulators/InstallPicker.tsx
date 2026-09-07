@@ -6,7 +6,7 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease
 } from '@shared/types'
-import { FocusButton, Overlay, ProgressBar, Spinner, StatusPill } from '../../components'
+import { FocusButton, Overlay, Spinner, StatusPill, TransferProgress } from '../../components'
 import { Icon } from '../../icons'
 import { useAction, useFocusable } from '../../input/focus'
 import { useI18n } from '../../state'
@@ -39,7 +39,7 @@ export function InstallPicker({
   onClose: () => void
   onInstalled: () => void
 }): JSX.Element {
-  const { t, formatBytes } = useI18n()
+  const { t } = useI18n()
   const [releases, setReleases] = useState<EmulatorRelease[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -87,26 +87,7 @@ export function InstallPicker({
         icon="install"
       >
         <div className="install-progress">
-          <div className="install-progress__file">{busy}</div>
-          {total > 0 ? (
-            <>
-              <ProgressBar percent={(received / total) * 100} />
-              <div className="install-progress__meta">
-                {t('install.progressBytes', {
-                  received: formatBytes(received),
-                  total: formatBytes(total)
-                })}
-              </div>
-            </>
-          ) : (
-            /* Nothing to divide by until the first bytes arrive, and Eden's
-               release API reports no size for its assets at all — so what has
-               arrived is the whole of what can honestly be said. */
-            <>
-              <div className="install-progress__meta">{formatBytes(received)}</div>
-              <Spinner />
-            </>
-          )}
+          <TransferProgress name={busy} receivedBytes={received} totalBytes={total} />
         </div>
       </Overlay>
     )

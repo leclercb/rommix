@@ -29,7 +29,7 @@ export {
   type SegmentedOptions,
   type UiScaleChoice
 } from './controls'
-export { DownloadBadge, DownloadBar, ProgressBar } from './downloads'
+export { DownloadBadge, DownloadBar, ProgressBar, TransferProgress } from './downloads'
 export { GameCard, GameRow, tileFromInstalled, tileFromRom, type GameTile } from './games'
 export { Hints, Overlay, PageTitle, QuitOverlay, Spinner } from './overlay'
 export { QrCode, ScanToOpen } from './qr'

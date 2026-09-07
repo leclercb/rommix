@@ -58,6 +58,7 @@ export const fr: Catalog = {
   'value.unknown': 'inconnue',
   'value.never': 'jamais',
   'value.notConfigured': 'Non configurée',
+  'value.progressBytes': '{received} sur {total}',
 
   'key.enter': 'Entrée',
   'key.esc': 'Échap',
@@ -355,7 +356,6 @@ export const fr: Catalog = {
   'bios.installingTitle': 'Installation des fichiers BIOS',
   'bios.workingOut': 'Recherche de ce qui manque…',
   'bios.progressFiles': 'Fichier {done} sur {total}',
-  'bios.progressBytes': '{received} sur {total}',
   'bios.checkedAllInPlace': 'Vérifié — tous les fichiers BIOS sont en place',
   'bios.checkedMissing_one': 'Vérifié — {count} fichier manque toujours',
   'bios.checkedMissing_other': 'Vérifié — {count} fichiers manquent toujours',
@@ -765,7 +765,6 @@ export const fr: Catalog = {
   // -- choisir une version à installer --------------------------------------
 
   'install.installing': 'Installation de {name}',
-  'install.progressBytes': '{received} sur {total}',
   'install.title': 'Installer {name}',
   'install.noBuilds': 'Aucune version n’a été publiée pour cette machine.',
   'install.whichVersion': 'Quelle version ?',

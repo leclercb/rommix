@@ -3,15 +3,17 @@ import type { MessageKey } from '@shared/i18n'
 import { isStopped, type DownloadState } from '@shared/types'
 import type { IconName } from '../icons'
 import { useI18n } from '../state'
+import { Spinner } from './overlay'
 import { StatusBadge, type Tone } from './status'
 
 /**
- * The two pieces that report a transfer: what it is doing, and how far it has
- * got.
+ * The pieces that report a transfer: what it is doing, how far it has got, and
+ * the panel a dialog watches one in.
  *
- * Here rather than on either screen because both draw them — the queue against
- * a game's artwork, the game screen under its own banner — and a state or a bar
- * that reads differently in the two places is one fact told two ways.
+ * Here rather than on any one screen because several draw them — the queue
+ * against a game's artwork, the game screen under its own banner, the two
+ * install dialogs over a file they are fetching — and a state or a bar that
+ * reads differently from one place to the next is one fact told two ways.
  */
 
 /**
@@ -92,4 +94,51 @@ export function DownloadBar({
     state === 'error' ? 'var(--danger)' : isStopped(state) ? 'var(--warning)' : undefined
 
   return <ProgressBar percent={state === 'done' ? 100 : percent} colour={colour} />
+}
+
+/**
+ * One file on its way in, as an install dialog reports it: its name, a bar,
+ * and the figures under it.
+ *
+ * Drawn by the BIOS screen over a firmware file and by the emulator picker
+ * over a release build. Both sit it inside `.install-progress`, and whatever
+ * else a screen has to say — which console the file is for, how far through a
+ * run of them it is — goes above and below it in that same panel.
+ */
+export function TransferProgress({
+  name,
+  receivedBytes,
+  totalBytes
+}: {
+  name: string
+  receivedBytes: number
+  totalBytes: number
+}): JSX.Element {
+  const { t, formatBytes } = useI18n()
+
+  return (
+    <>
+      <div className="install-progress__file">{name}</div>
+      {totalBytes > 0 ? (
+        <>
+          <ProgressBar percent={(receivedBytes / totalBytes) * 100} />
+          <div className="install-progress__meta">
+            {t('value.progressBytes', {
+              received: formatBytes(receivedBytes),
+              total: formatBytes(totalBytes)
+            })}
+          </div>
+        </>
+      ) : (
+        /* Nothing to divide by until a size is known, and one of the release
+           APIs states none for its assets at all — so what has arrived is the
+           whole of what can honestly be said, and the spinner beside it is
+           what says the file is still coming. */
+        <>
+          <div className="install-progress__meta">{formatBytes(receivedBytes)}</div>
+          <Spinner />
+        </>
+      )}
+    </>
+  )
 }

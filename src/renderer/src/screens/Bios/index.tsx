@@ -10,6 +10,7 @@ import {
   ProgressBar,
   Spinner,
   StatusPill,
+  TransferProgress,
   type Tone
 } from '../../components'
 import { useApp, useI18n, type ToastSubject } from '../../state'
@@ -269,7 +270,7 @@ export function BiosScreen(): JSX.Element {
  * are for anyone who walks over to look.
  */
 function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.Element {
-  const { t, formatBytes } = useI18n()
+  const { t } = useI18n()
 
   // Before the first byte of the first file: the scan that works out what is
   // missing runs before anything is fetched, and on a large library it is not
@@ -298,23 +299,11 @@ function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.E
           {progress.platform.name}
         </div>
       ) : null}
-      <div className="install-progress__file">{progress.fileName}</div>
-      {progress.totalBytes > 0 ? (
-        <>
-          <ProgressBar percent={share * 100} />
-          <div className="install-progress__meta">
-            {t('bios.progressBytes', {
-              received: formatBytes(progress.receivedBytes),
-              total: formatBytes(progress.totalBytes)
-            })}
-          </div>
-        </>
-      ) : (
-        /* Nothing to divide by, so what has arrived is the whole of what can
-           honestly be said — and it is enough to show that it is still
-           arriving. */
-        <div className="install-progress__meta">{formatBytes(progress.receivedBytes)}</div>
-      )}
+      <TransferProgress
+        name={progress.fileName}
+        receivedBytes={progress.receivedBytes}
+        totalBytes={progress.totalBytes}
+      />
 
       {progress.total > 1 ? (
         <>
