@@ -17,6 +17,9 @@ import { deleteScopeLabel, deleteScopesOf } from './tabs'
  * Presentational, and here rather than in the screen: each is a title, a
  * sentence of consequence and two or three buttons, and stacked inline at the
  * end of the screen they buried the part that decides *when* each is asked.
+ *
+ * The uninstall one is asked from the downloads screen as well, a row there
+ * ending in the same game gone from the disk.
  */
 
 /** Which of an emulator's several runners should handle this system. */
@@ -138,7 +141,7 @@ export function UninstallDialog({
     <Overlay title={t('uninstall.title')} icon="uninstall">
       <p className="muted">{t('uninstall.body', { folder: entry.path.replace(/\/[^/]*$/, '') })}</p>
       <div className="btn-row">
-        <FocusButton icon="keep" onSelect={onKeep} autoFocus>
+        <FocusButton icon="keep" action="keep-game" onSelect={onKeep} autoFocus>
           {t('action.keep')}
         </FocusButton>
         <FocusButton

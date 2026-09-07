@@ -2,6 +2,7 @@ import type { MessageKey } from '@shared/i18n'
 import { isStopped, type DownloadItem, type InstalledRom } from '@shared/types'
 import { FocusButton, Hints, Overlay, PageTitle, Spinner, Tabs } from '../../components'
 import { useApp, useDownloads, useI18n } from '../../state'
+import { UninstallDialog } from '../Game/dialogs'
 import { startedMessage } from '../Game/useGameCopy'
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import { fileNameOf } from '@shared/gamefiles'
@@ -437,30 +438,15 @@ export function DownloadsScreen(): JSX.Element {
         </>
       )}
 
+      {/* The same question the game's own page asks, because it is the same
+          question: a row here and the button there both end with a game gone
+          from the disk. */}
       {confirming ? (
-        <Overlay title={t('uninstall.title')} icon="uninstall">
-          <p className="muted">
-            {t('uninstall.body', { folder: confirming.path.replace(/\/[^/]*$/, '') })}
-          </p>
-          <div className="btn-row">
-            <FocusButton
-              icon="keep"
-              action="keep-game"
-              onSelect={() => setConfirming(null)}
-              autoFocus
-            >
-              {t('action.keep')}
-            </FocusButton>
-            <FocusButton
-              icon="uninstall"
-              action="uninstall-confirm"
-              variant="danger"
-              onSelect={() => void remove(confirming)}
-            >
-              {t('uninstall.freeing', { size: formatBytes(confirming.sizeBytes) })}
-            </FocusButton>
-          </div>
-        </Overlay>
+        <UninstallDialog
+          entry={confirming}
+          onKeep={() => setConfirming(null)}
+          onUninstall={() => void remove(confirming)}
+        />
       ) : null}
 
       <Hints
