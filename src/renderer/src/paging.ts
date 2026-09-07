@@ -89,10 +89,21 @@ export function usePagedRoms(
 
   const load = useCallback(
     async (offset: number): Promise<void> => {
-      if (!enabled || inFlight.current) {
-        if (!enabled) run.current += 1
+      // Nothing to ask for, and whatever is still out is disowned rather than
+      // waited for — see `enabled`. The flag goes with it, so the next page
+      // asked for once there is something to ask is not held off by a request
+      // this grid has stopped listening to.
+      if (!enabled) {
+        run.current += 1
+        inFlight.current = false
         return
       }
+      // The next page, while the last one is still coming: the sentinel stays
+      // in view and fires again, and one request per page is enough. A first
+      // page is the opposite case — the query has changed under it, so it
+      // takes over from whatever is out rather than being dropped, which used
+      // to leave the grid showing an answer to a question nobody asked.
+      if (inFlight.current && offset > 0) return
       inFlight.current = true
       const mine = ++run.current
       setLoading(true)
@@ -106,8 +117,13 @@ export function usePagedRoms(
       } catch (cause) {
         if (mine === run.current) onError((cause as Error).message)
       } finally {
-        inFlight.current = false
-        if (mine === run.current) setLoading(false)
+        // Only where this is still the request the grid is listening to: one
+        // that has been taken over lands afterwards, and clearing the flag on
+        // its way out would let a second page start beside the first.
+        if (mine === run.current) {
+          inFlight.current = false
+          setLoading(false)
+        }
       }
     },
     [asked, enabled, onError]
