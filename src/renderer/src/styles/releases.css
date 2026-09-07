@@ -93,3 +93,10 @@
   line-height: 1.5;
   opacity: 0.85;
 }
+
+/* The progress bar inside a notice — the update being fetched. The queue's rows
+   sit in a grid that leaves the bar its own line; a notice is prose, so the
+   space above it is given here. */
+.notice .download__bar {
+  margin-top: 10px;
+}

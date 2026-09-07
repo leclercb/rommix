@@ -1,7 +1,7 @@
 import { type JSX, useState } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import type { UpdatePolicy } from '@shared/types'
-import { Choice, FocusButton, Spinner, Toggle } from '../../components'
+import { Choice, FocusButton, ProgressBar, Spinner, Toggle } from '../../components'
 import { useApp, useI18n } from '../../state'
 
 /**
@@ -139,7 +139,11 @@ export function UpdatePanel(): JSX.Element {
             })}
             {percent != null ? ` · ${percent}%` : ''}
           </div>
-          <Spinner />
+          {/* The same bar the download queue and the emulator installer draw,
+              so a transfer looks like a transfer wherever it is watched from.
+              Nothing to divide by until a size is known, and then a spinner is
+              the whole of what can honestly be said. */}
+          {percent != null ? <ProgressBar percent={percent} /> : <Spinner />}
         </div>
       ) : null}
 
