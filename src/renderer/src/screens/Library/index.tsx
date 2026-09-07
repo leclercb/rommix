@@ -1,7 +1,6 @@
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import { resolveSystem } from '@config/systems'
-import { hasMorePages } from '@shared/types'
-import type { InstalledRom, RommPlatform, RommRom } from '@shared/types'
+import type { InstalledRom, RommPlatform } from '@shared/types'
 import {
   GameCard,
   Hints,
@@ -14,10 +13,9 @@ import {
   tileFromRom
 } from '../../components'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
+import { usePagedRoms } from '../../paging'
 import { useApp, useI18n } from '../../state'
 import { fileNameOf } from '@shared/gamefiles'
-
-const PAGE_SIZE = 60
 
 /** What a downloaded game is listed, sorted and searched under. */
 const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.path)
@@ -72,25 +70,25 @@ export function LibraryScreen(): JSX.Element {
   const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [roms, setRoms] = useState<RommRom[]>([])
-  const [total, setTotal] = useState<number | null>(0)
-  /** Whether the last page came back full. See `hasMorePages`. */
-  const [more, setMore] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const searchRef = useRef<HTMLDivElement | null>(null)
-  const sentinelRef = useRef<HTMLDivElement | null>(null)
-  // Synchronous guard: `loading` state lands a render too late to stop the
-  // observer firing several times while one request is still in flight.
-  const inFlight = useRef(false)
   /**
-   * Which fetch the grid is listening to. See the same guard in `useShelf`.
+   * The server's half of the grid.
    *
-   * A page already on the wire when the server goes away lands after the grid
-   * has narrowed to what is downloaded, and its rejection would put an error
-   * over a screen that is working perfectly well without it.
+   * Nothing is asked for while the grid is showing what is downloaded, which
+   * is answered from the installed index — see `Scope`. Nor before the first
+   * connection answer: the grid is about to narrow to this device, and a
+   * request sent in the meantime comes back as a fetch error over a screen
+   * that has nothing to fetch. The spinner it already shows is the honest
+   * state until then.
    */
-  const run = useRef(0)
+  const { roms, total, more, loading, sentinel } = usePagedRoms(
+    {
+      search_term: debouncedSearch || undefined,
+      platform_ids: selectedPlatform ? [selectedPlatform] : undefined
+    },
+    { enabled: offline === false && scope === 'all', onError: setError }
+  )
 
   /**
    * The platforms, which the server's last list stands in for while it is away.
@@ -149,72 +147,6 @@ export function LibraryScreen(): JSX.Element {
       listening = false
     }
   }, [offline, scope, debouncedSearch, platforms])
-
-  const load = useCallback(
-    async (offset: number): Promise<void> => {
-      // Nothing to fetch for the downloaded scope, and the effect below runs
-      // again with a fresh page when the grid goes back to the server.
-      //
-      // Nor before the first connection answer: the grid is about to narrow to
-      // what is downloaded, and a request sent in the meantime comes back as a
-      // fetch error over a screen that has nothing to fetch. The spinner it
-      // already shows is the honest state until then.
-      if (offline !== false || scope === 'downloaded' || inFlight.current) {
-        // Whatever is still out belongs to a grid that has stopped listening.
-        if (offline === true) run.current += 1
-        return
-      }
-      inFlight.current = true
-      const mine = ++run.current
-      setLoading(true)
-      setError(null)
-      try {
-        const page = await window.rommix.library.roms({
-          search_term: debouncedSearch || undefined,
-          platform_ids: selectedPlatform ? [selectedPlatform] : undefined,
-          limit: PAGE_SIZE,
-          offset
-        })
-        if (mine !== run.current) return
-        setTotal(page.total)
-        setMore(hasMorePages(page))
-        setRoms((current) => (offset === 0 ? page.items : [...current, ...page.items]))
-      } catch (cause) {
-        if (mine === run.current) setError((cause as Error).message)
-      } finally {
-        inFlight.current = false
-        if (mine === run.current) setLoading(false)
-      }
-    },
-    [debouncedSearch, selectedPlatform, scope, offline]
-  )
-
-  // Reset to the first page whenever the query changes.
-  useEffect(() => {
-    void load(0)
-  }, [load])
-
-  /**
-   * Fetch the next page as the end of the grid comes into view.
-   *
-   * The margin is deliberately generous: a page is 60 covers, and starting the
-   * request a screenful early means the next rows are usually there by the time
-   * focus reaches them, so the grid never visibly stalls.
-   */
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel || scope === 'downloaded') return
-    if (roms.length === 0 || !more) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void load(roms.length)
-      },
-      { rootMargin: '600px 0px' }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [load, roms.length, more, scope])
 
   // Y jumps to the search box, as the hint bar advertises.
   useAction('search', () => {
@@ -397,7 +329,7 @@ export function LibraryScreen(): JSX.Element {
       </div>
 
       {/* Sits directly below the grid: crossing it is what pulls the next page. */}
-      <div ref={sentinelRef} aria-hidden="true" />
+      <div ref={sentinel} aria-hidden="true" />
 
       {busy ? <Spinner /> : null}
 

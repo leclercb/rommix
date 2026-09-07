@@ -1,11 +1,7 @@
-import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
-import { hasMorePages } from '@shared/types'
-import type { RommRom } from '@shared/types'
+import { type JSX, useState } from 'react'
 import { GameCard, Hints, PageTitle, Spinner, tileFromRom } from '../../components'
+import { usePagedRoms } from '../../paging'
 import { useApp, useI18n } from '../../state'
-
-/** How many covers a page of a collection is. Matches the library's grid. */
-const PAGE_SIZE = 60
 
 /**
  * One collection, as a grid of what is on it.
@@ -31,63 +27,15 @@ export function CollectionScreen({
   const { t } = useI18n()
   const { installedIds, navigate } = useApp()
 
-  const [roms, setRoms] = useState<RommRom[]>([])
-  const [total, setTotal] = useState<number | null>(0)
-  /** Whether the last page came back full. See `hasMorePages`. */
-  const [more, setMore] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const sentinelRef = useRef<HTMLDivElement | null>(null)
-  // Synchronous guard: `loading` lands a render too late to stop the observer
-  // firing several times while one request is still out.
-  const inFlight = useRef(false)
-
-  const load = useCallback(
-    async (offset: number): Promise<void> => {
-      if (inFlight.current) return
-      inFlight.current = true
-      setLoading(true)
-      try {
-        const page = await window.rommix.library.roms({
-          // Two parameters for the two kinds, as RomM has it: the id's own type
-          // is what says which of them this is.
-          ...(typeof collectionId === 'string'
-            ? { virtual_collection_id: collectionId }
-            : { collection_id: collectionId }),
-          limit: PAGE_SIZE,
-          offset
-        })
-        setTotal(page.total)
-        setMore(hasMorePages(page))
-        setRoms((current) => (offset === 0 ? page.items : [...current, ...page.items]))
-      } catch (cause) {
-        setError((cause as Error).message)
-      } finally {
-        inFlight.current = false
-        setLoading(false)
-      }
-    },
-    [collectionId]
+  const { roms, total, loading, sentinel } = usePagedRoms(
+    // Two parameters for the two kinds, as RomM has it: the id's own type is
+    // what says which of them this is.
+    typeof collectionId === 'string'
+      ? { virtual_collection_id: collectionId }
+      : { collection_id: collectionId },
+    { onError: setError }
   )
-
-  useEffect(() => {
-    void load(0)
-  }, [load])
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-    if (roms.length === 0 || !more) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void load(roms.length)
-      },
-      { rootMargin: '600px 0px' }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [load, roms.length, more])
 
   return (
     <div className="content">
@@ -109,7 +57,7 @@ export function CollectionScreen({
       </div>
 
       {/* Sits directly below the grid: crossing it is what pulls the next page. */}
-      <div ref={sentinelRef} aria-hidden="true" />
+      <div ref={sentinel} aria-hidden="true" />
 
       {loading ? <Spinner /> : null}
 
