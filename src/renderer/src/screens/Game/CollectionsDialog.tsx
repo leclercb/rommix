@@ -1,6 +1,6 @@
 import { type JSX, type Ref, useEffect, useState } from 'react'
 import type { RommCollection } from '@shared/types'
-import { FocusButton, Overlay, Spinner } from '../../components'
+import { FocusButton, Overlay, Spinner, StatusPill } from '../../components'
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
 import { useI18n } from '../../state'
@@ -123,10 +123,10 @@ function CollectionRow({
 
   return (
     <li ref={ref as Ref<HTMLLIElement>} data-collection={collection.id} {...props}>
-      <span className="status" data-state={member ? 'ok' : 'off'}>
+      <StatusPill tone={member ? 'ok' : 'off'}>
         <Icon name={member ? 'confirm' : 'add'} size={13} />
         {member ? t('collections.on') : t('collections.off')}
-      </span>
+      </StatusPill>
       <span className="asset__name">{collection.name}</span>
       <span className="asset__meta">{t('library.count', { count: collection.rom_count })}</span>
     </li>

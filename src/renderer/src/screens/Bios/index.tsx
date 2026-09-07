@@ -8,7 +8,9 @@ import {
   PageTitle,
   PlatformIcon,
   ProgressBar,
-  Spinner
+  Spinner,
+  StatusPill,
+  type Tone
 } from '../../components'
 import { useApp, useI18n, type ToastSubject } from '../../state'
 
@@ -370,7 +372,7 @@ function PlatformBios({
    * stops the user looking — which is exactly the wrong outcome for a console
    * whose BIOS is, in fact, not installed.
    */
-  const status: { label: string; state: 'ok' | 'warn' | 'off' } =
+  const status: { label: string; state: Tone } =
     platform.biosDir === null
       ? { label: t('bios.statusUnknown'), state: 'off' }
       : outstanding > 0
@@ -394,9 +396,7 @@ function PlatformBios({
           label={platform.platformName}
         />
         {platform.platformName}
-        <span className="status" data-state={status.state}>
-          {status.label}
-        </span>
+        <StatusPill tone={status.state}>{status.label}</StatusPill>
         {/* Only where it can do something: a console that is ready, or whose
             missing files are not on the server, would offer a button that
             installs nothing. */}
@@ -435,25 +435,18 @@ function PlatformBios({
           <div className="bios__body">
             <div className="bios__name">
               {item.fileName}
-              <span
-                className="status"
-                data-state={item.installed ? 'ok' : item.required ? 'warn' : 'off'}
-              >
+              <StatusPill tone={item.installed ? 'ok' : item.required ? 'warn' : 'off'}>
                 {item.installed
                   ? t('bios.itemInstalled')
                   : item.required
                     ? t('bios.itemRequired')
                     : t('bios.itemOptional')}
-              </span>
+              </StatusPill>
               {/* RomM checks uploads against known-good hashes, and a BIOS that
                   is subtly the wrong dump fails in ways that look like a broken
                   emulator, so it is worth saying when the server has vouched
                   for the file. */}
-              {item.verified ? (
-                <span className="status" data-state="ok">
-                  {t('bios.itemVerified')}
-                </span>
-              ) : null}
+              {item.verified ? <StatusPill tone="ok">{t('bios.itemVerified')}</StatusPill> : null}
             </div>
             <div className="bios__meta">
               {item.note ?? t('bios.uploadedForPlatform')}

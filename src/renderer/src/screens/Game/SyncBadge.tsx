@@ -1,7 +1,8 @@
 import type { JSX } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import type { PendingSave, SaveSyncState } from '@shared/types'
-import { Icon, type IconName } from '../../icons'
+import { StatusBadge, type Tone } from '../../components'
+import type { IconName } from '../../icons'
 import { useI18n } from '../../state'
 
 /**
@@ -23,7 +24,7 @@ import { useI18n } from '../../state'
  */
 const SYNC_BADGES: Record<
   SaveSyncState,
-  { label: MessageKey; tone: 'ok' | 'warn' | 'info' | 'bad'; icon: IconName; hint: MessageKey }
+  { label: MessageKey; tone: Tone; icon: IconName; hint: MessageKey }
 > = {
   synced: { label: 'saves.synced', tone: 'ok', icon: 'confirm', hint: 'saves.syncedHint' },
   'local-newer': {
@@ -112,10 +113,7 @@ export function SyncBadge({
    */
   const badge = forAnotherEmulator ? OTHER_EMULATOR : SYNC_BADGES[sync]
   return (
-    <span className="status status--badge" data-state={badge.tone} title={t(badge.hint)}>
-      <Icon name={badge.icon} size={13} />
-      {t(badge.label)}
-    </span>
+    <StatusBadge tone={badge.tone} icon={badge.icon} label={t(badge.label)} title={t(badge.hint)} />
   )
 }
 

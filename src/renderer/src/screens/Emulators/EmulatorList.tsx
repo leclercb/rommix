@@ -14,7 +14,15 @@ import type {
   EmulatorState,
   ResolvedInstall
 } from '@shared/types'
-import { FocusButton, Filled, Overlay, Spinner, TextField } from '../../components'
+import {
+  FocusButton,
+  Filled,
+  Overlay,
+  Spinner,
+  StatusPill,
+  TextField,
+  type Tone
+} from '../../components'
 import { Icon, type IconName } from '../../icons'
 import { useApp, useI18n } from '../../state'
 import { InstallPicker } from './InstallPicker'
@@ -31,31 +39,17 @@ import { SetupNotesNotice } from './SetupNotesNotice'
 /** Installed / not-installed marker, with the in-between state named. */
 export function Status({ state }: { state: EmulatorState | undefined }): JSX.Element {
   const { t } = useI18n()
-  if (!state)
-    return (
-      <span className="status" data-state="off">
-        {t('emulator.notChecked')}
-      </span>
-    )
-  if (state.available)
-    return (
-      <span className="status" data-state="ok">
-        {t('emulator.installed')}
-      </span>
-    )
   // Present but unusable is worth distinguishing from absent: the fix is
   // different (run it once, vs install it).
-  if (state.install)
-    return (
-      <span className="status" data-state="warn">
-        {t('emulator.needsSetup')}
-      </span>
-    )
-  return (
-    <span className="status" data-state="off">
-      {t('emulator.notInstalled')}
-    </span>
-  )
+  const [label, tone]: [MessageKey, Tone] = !state
+    ? ['emulator.notChecked', 'off']
+    : state.available
+      ? ['emulator.installed', 'ok']
+      : state.install
+        ? ['emulator.needsSetup', 'warn']
+        : ['emulator.notInstalled', 'off']
+
+  return <StatusPill tone={tone}>{t(label)}</StatusPill>
 }
 
 /** One of the routes `installMethods` returns: a thing RomMix can actually do. */

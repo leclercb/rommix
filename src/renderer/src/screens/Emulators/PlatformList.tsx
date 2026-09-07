@@ -2,7 +2,7 @@ import { type JSX, useEffect, useState } from 'react'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
 import type { DiagnosticsReport, EmulatorId, RommPlatform } from '@shared/types'
-import { FocusButton, PlatformIcon } from '../../components'
+import { FocusButton, PlatformIcon, StatusPill } from '../../components'
 import { useApp, useI18n } from '../../state'
 import { Status } from './EmulatorList'
 
@@ -119,11 +119,11 @@ export function PlatformList({
                 {effective ? (
                   <Status state={state} />
                 ) : (
-                  <span className="status" data-state="warn">
+                  <StatusPill tone="warn">
                     {candidates.length === 0
                       ? t('platforms.noneCovers')
                       : t('platforms.noneInstalled')}
-                  </span>
+                  </StatusPill>
                 )}
               </div>
               <div className="emulator__meta">

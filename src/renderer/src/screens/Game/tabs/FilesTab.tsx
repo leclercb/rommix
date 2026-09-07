@@ -2,6 +2,7 @@ import { type JSX, useEffect, useState } from 'react'
 import { fileNameOf, type GameFile } from '@shared/gamefiles'
 import type { MessageKey } from '@shared/i18n'
 import type { InstalledRom, RommRom } from '@shared/types'
+import { StatusBadge, type Tone } from '../../../components'
 import { Icon, type IconName } from '../../../icons'
 import { useI18n } from '../../../state'
 
@@ -22,7 +23,7 @@ import { useI18n } from '../../../state'
 /** How each side reads on a row. */
 const WHERE: Record<
   'both' | 'server' | 'device',
-  { label: MessageKey; hint: MessageKey; tone: 'ok' | 'warn' | 'info'; icon: IconName }
+  { label: MessageKey; hint: MessageKey; tone: Tone; icon: IconName }
 > = {
   both: { label: 'files.tagBoth', hint: 'files.hintBoth', tone: 'ok', icon: 'confirm' },
   server: { label: 'files.tagServer', hint: 'files.hintServer', tone: 'info', icon: 'server' },
@@ -103,10 +104,12 @@ export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom })
             <span className="asset__icon">
               <Icon name="file" size={17} />
             </span>
-            <span className="status status--badge" data-state={where.tone} title={t(where.hint)}>
-              <Icon name={where.icon} size={13} />
-              {t(where.label)}
-            </span>
+            <StatusBadge
+              tone={where.tone}
+              icon={where.icon}
+              label={t(where.label)}
+              title={t(where.hint)}
+            />
             <span className="asset__name">{row.name}</span>
             <span className="asset__meta">{sizeBytes === null ? '' : formatBytes(sizeBytes)}</span>
           </li>

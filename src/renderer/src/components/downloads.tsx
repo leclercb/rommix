@@ -1,8 +1,9 @@
 import type { JSX } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import { isStopped, type DownloadState } from '@shared/types'
-import { Icon, type IconName } from '../icons'
+import type { IconName } from '../icons'
 import { useI18n } from '../state'
+import { StatusBadge, type Tone } from './status'
 
 /**
  * The two pieces that report a transfer: what it is doing, and how far it has
@@ -12,14 +13,6 @@ import { useI18n } from '../state'
  * a game's artwork, the game screen under its own banner — and a state or a bar
  * that reads differently in the two places is one fact told two ways.
  */
-
-/**
- * The tones the status pill is drawn in. See `.status[data-state]`.
- *
- * Named for what a state means rather than for a colour: the same four say
- * whether a BIOS file is in place and whether a save is behind the server's.
- */
-type Tone = 'ok' | 'warn' | 'off' | 'info' | 'bad'
 
 /**
  * What a transfer is doing, as a badge.
@@ -51,12 +44,7 @@ const BADGES = {
 export function DownloadBadge({ state }: { state: DownloadState }): JSX.Element {
   const { t } = useI18n()
   const badge = BADGES[state]
-  return (
-    <span className="status status--badge" data-state={badge.tone}>
-      <Icon name={badge.icon} size={13} />
-      {t(badge.label)}
-    </span>
-  )
+  return <StatusBadge tone={badge.tone} icon={badge.icon} label={t(badge.label)} />
 }
 
 /**

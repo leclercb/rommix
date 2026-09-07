@@ -6,7 +6,7 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease
 } from '@shared/types'
-import { FocusButton, Overlay, ProgressBar, Spinner } from '../../components'
+import { FocusButton, Overlay, ProgressBar, Spinner, StatusPill } from '../../components'
 import { Icon } from '../../icons'
 import { useAction, useFocusable } from '../../input/focus'
 import { useI18n } from '../../state'
@@ -196,15 +196,9 @@ function ReleaseRow({
       <div className="release__body">
         <div className="release__name">
           {release.name || release.tag}
-          {latest ? (
-            <span className="status" data-state="ok">
-              {t('install.latest')}
-            </span>
-          ) : null}
+          {latest ? <StatusPill tone="ok">{t('install.latest')}</StatusPill> : null}
           {release.prerelease ? (
-            <span className="status" data-state="warn">
-              {t('install.prerelease')}
-            </span>
+            <StatusPill tone="warn">{t('install.prerelease')}</StatusPill>
           ) : null}
         </div>
         <div className="release__meta">
