@@ -4,27 +4,19 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
-## 0.13.0-rc.3 — 2026-09-06
+## 0.13.0 — 2026-09-07
 
+- test(app): wait for RomM before reading the favourites shelf (908ce91)
 - chore: update electron, lucide-react and the dev tooling (f8ea62f)
 - fix: decide the display backend inside the image (e89e6d8)
 - fix: register RomMix as a device so a token can push saves (68827a4)
 - fix: match a save to its game by name rather than by prefix (574e9e9)
-
-## 0.13.0-rc.2 — 2026-09-06
-
 - fix: start in a gamescope session that has no Wayland socket (a02fcc2)
-
-## 0.13.0-rc.1 — 2026-09-05
-
 - refactor: rework the colours of the saves rows (52497be)
 - feat: mark incompatible saves in the saves list (dc14a2d)
 - fix: say when RomM refused a save instead of reporting nothing to send (5c59f4e)
 - feat: log how many saves RomM offered when a pull takes none (fb9de92)
 - fix: pull the saves that were listed but never fetched (52a6e9e)
-
-## 0.13.0-rc.0 — 2026-09-04
-
 - feat: tag a libretro save with the core that wrote it (d6903a3)
 - feat: add log entries for every file RomMix copies, moves or deletes (2586c36)
 
