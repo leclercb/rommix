@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { folderOf } from '@shared/gamefiles'
 import type {
   InstalledRom,
   LaunchChoice,
@@ -92,7 +93,7 @@ export function DeleteAssetDialog({
         {/* The file, and where this device keeps it when it has it at all. */}
         {t('game.deleteAssetBody', {
           file: asset.fileName,
-          location: asset.localPath?.replace(/\/[^/]*$/, '') ?? 'RomM'
+          location: asset.localPath ? folderOf(asset.localPath) : 'RomM'
         })}
       </p>
       {/* A delete at one end undoes itself: sync runs both ways around a launch
@@ -139,7 +140,7 @@ export function UninstallDialog({
   const { t, formatBytes } = useI18n()
   return (
     <Overlay title={t('uninstall.title')} icon="uninstall">
-      <p className="muted">{t('uninstall.body', { folder: entry.path.replace(/\/[^/]*$/, '') })}</p>
+      <p className="muted">{t('uninstall.body', { folder: folderOf(entry.path) })}</p>
       <div className="btn-row">
         <FocusButton icon="keep" action="keep-game" onSelect={onKeep} autoFocus>
           {t('action.keep')}

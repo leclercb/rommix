@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chooseLaunchFile, fileNameOf, isLaunchable } from './gamefiles.ts'
+import { chooseLaunchFile, fileNameOf, folderOf, isLaunchable } from './gamefiles.ts'
 
 const file = (name: string, sizeBytes = 1024): { name: string; sizeBytes: number } => ({
   name,
@@ -186,4 +186,21 @@ test('a game directory is named by its own last segment, not by what is in it', 
 
 test('a trailing slash leaves nothing to fall back to, rather than throwing', () => {
   assert.equal(fileNameOf('/home/deck/rommix/roms/psx/'), '')
+})
+
+test('a path is reduced to the directory holding it', () => {
+  // What the screens name when they say where something is: the folder is what
+  // a user can open, the file is what they already pressed.
+  assert.equal(
+    folderOf('/home/deck/rommix/roms/gba/Advance Wars (Europe).gba'),
+    '/home/deck/rommix/roms/gba'
+  )
+})
+
+test('a name with no directory in front of it has no folder to name', () => {
+  assert.equal(folderOf('Sonic the Hedgehog (USA).md'), 'Sonic the Hedgehog (USA).md')
+})
+
+test('a file at the root is in the root', () => {
+  assert.equal(folderOf('/rommix.AppImage'), '')
 })

@@ -16,6 +16,21 @@ export function fileNameOf(path: string): string {
 }
 
 /**
+ * The directory a path is in.
+ *
+ * `dirname` on the same terms as `fileNameOf` above, and for the same callers:
+ * the screens that say where a game, a save or a downloaded copy lives on this
+ * disk name the folder rather than the file, which is the part a user can go
+ * and look in. A path with no directory in front of it is left as it is —
+ * there is no folder to name, and inventing one would be a lie about where the
+ * file is.
+ */
+export function folderOf(path: string): string {
+  const cut = path.lastIndexOf('/')
+  return cut === -1 ? path : path.slice(0, cut)
+}
+
+/**
  * Deciding which file inside a multi-file game is the one to launch.
  *
  * Emulators take a file, never the directory holding it, so an extracted game

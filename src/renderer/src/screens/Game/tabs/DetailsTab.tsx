@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { emulatorById } from '@config/emulators'
+import { folderOf } from '@shared/gamefiles'
 import { SHARED_LIBRARY } from '@shared/types'
 import type { InstalledRom, RommRom } from '@shared/types'
 import { Icon, type IconName } from '../../../icons'
@@ -58,7 +59,7 @@ export function DetailsTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom 
     {
       icon: 'folder',
       label: t('details.installedTo'),
-      value: entry ? (entry.isDirectory ? entry.path : entry.path.replace(/\/[^/]*$/, '')) : null
+      value: entry ? (entry.isDirectory ? entry.path : folderOf(entry.path)) : null
     },
     { icon: 'systemFolder', label: t('details.systemFolder'), value: entry?.system ?? null },
     // Which library holds this copy. It is the reason a game can be on disk and
