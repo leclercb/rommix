@@ -47,34 +47,25 @@ to push.
 
 `npm run test:app` is the other suite: the built application, driven from
 outside against a fake RomM, covering what the unit tests deliberately leave
-out — the renderer, the IPC wiring and the preload bridge together. It needs a
-window, and one the size RomMix is drawn for — on a headless machine that is
+out — the renderer, the IPC wiring and the preload bridge together.
 
 ```bash
-xvfb-run --server-args="-screen 0 1920x1080x24" npm run test:app
+npm run test:app
 ```
 
-The screen size is not incidental. The stylesheet is written for a 1080p
-television, and on Xvfb's default screen the library's games land below the fold
-of a window too small to hold them — where they are drawn, and unreachable,
-which reads as a focus engine that has stopped working. See
+That is the whole of it, on a desktop and on a runner with no screen at all.
+It needs an Electron this machine can execute and a window of the size RomMix
+is drawn for, and [scripts/test-app.sh](scripts/test-app.sh) supplies whichever
+of those is missing — Xvfb where there is no display, and on a distribution
+where the Electron `npm install` downloads cannot be run, one borrowed from
+nixpkgs for the length of the run. A machine that has both never learns it can
+do that. What it cannot find and cannot borrow, it names and stops.
+
+The screen size it asks Xvfb for is not incidental. The stylesheet is written
+for a 1080p television, and on Xvfb's default screen the library's games land
+below the fold of a window too small to hold them — where they are drawn, and
+unreachable, which reads as a focus engine that has stopped working. See
 [test/app/](test/app/).
-
-On NixOS neither half of that is on the machine, and both come out of nixpkgs
-for the length of the run:
-
-```bash
-npm run test:app:nix
-```
-
-Nothing is installed and nothing is left behind — see
-[scripts/test-app-nix.sh](scripts/test-app-nix.sh), which says why each piece is
-there. The short of it: `ELECTRON_EXEC_PATH` is the variable `.envrc` sets and
-is set for the same reason, the Electron `npm install` downloads having no
-loader at the path they are linked against; and what nixpkgs packages is
-whatever Electron major it has, which is not necessarily the one in
-`package.json`. What the suite drives is the DevTools protocol, and the four
-messages it sends predate any of them.
 
 It runs one file at a time on purpose. There is a real window being driven, and
 a second suite competing for the machine changes how long a list takes to draw —
@@ -116,8 +107,9 @@ which on a runner nobody watched is the difference between a diagnosis and
 another run.
 
 Not in the pre-commit hook, which is budgeted in seconds — but `npm run release`
-runs it, because a tag is public the moment it is pushed. Releasing from a
-headless machine means running that under `xvfb-run` too.
+runs it, because a tag is public the moment it is pushed. Nothing has to be
+arranged for that, wherever the release is cut from: it is the same
+`npm run test:app`, and that is the reason it provisions itself.
 
 Keys, the pointer and a controller, because the interface takes all three:
 `useFocusable` binds `onMouseMove` and `onClick` beside the focus engine, and a

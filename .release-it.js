@@ -21,9 +21,10 @@ export default {
     // `test:app` last, and here rather than in the pre-commit hook: it builds,
     // drives a real window and takes about half a minute, which is a hook people
     // pass `--no-verify` to. A release is the one moment that is worth paying,
-    // because it is the last one where the answer can still change anything. It
-    // needs a display — on a headless machine, run the release from under
-    // `xvfb-run`, the same as the workflow does.
+    // because it is the last one where the answer can still change anything.
+    // Nothing has to be arranged for the window it needs — see
+    // scripts/test-app.sh, which is why a release can be cut from a machine with
+    // no screen.
     'before:init': [
       'npm run format:check',
       'npm run lint',

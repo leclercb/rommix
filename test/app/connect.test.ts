@@ -3,7 +3,7 @@ import { after, before, describe, test } from 'node:test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { startApp, type App } from './driver.ts'
+import { atHome, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -97,8 +97,9 @@ describe('signing in for the first time', () => {
     server.approvePairing()
 
     // Signed in, and on the home screen rather than one press behind it: this
-    // is the start of a session, not a step into one.
-    await app.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    // is the start of a session, not a step into one. Settled rather than
+    // arrived, because the scenario below reads the requests its shelves make.
+    await atHome(app)
     await app.waitFor(`document.querySelector('.topbar__user')`, 'the signed-in name')
   })
 
@@ -218,7 +219,9 @@ describe('signing in with a token instead', () => {
 
     const askedSoFar = server.asked.length
     await app.choose('[data-action="connect"]')
-    await app.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    // Settled, not merely arrived: the screen is drawn before its shelves have
+    // answered, and what is read below is the requests they make. See `atHome`.
+    await atHome(app)
 
     // Nothing was left on this disk to sign in with — the scenario above took
     // it away — so a request that is authorised at all is one carrying what
@@ -241,7 +244,7 @@ describe('and with a username and password', () => {
 
     const askedSoFar = server.asked.length
     await app.choose('[data-action="connect"]')
-    await app.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    await atHome(app)
 
     // The grant's own token rather than anything already here: this is the one
     // mode where what RomMix carries afterwards was issued by the sign-in
