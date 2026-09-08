@@ -1,5 +1,5 @@
 import { copyFile, mkdir, readdir, rename, rm, stat, utimes } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { SavePaths } from '@config/emulators'
 import type { RommRom, SaveSyncState } from '@shared/types'
@@ -15,7 +15,11 @@ import { log } from './log.ts'
  * the filesystem work they imply.
  */
 
-const { maxDepth: MAX_DEPTH, slotExtensions: SLOT_EXTENSIONS } = SAVE_CONVENTIONS
+const {
+  maxDepth: MAX_DEPTH,
+  slotExtensions: SLOT_EXTENSIONS,
+  saveExtensions: SAVE_EXTENSION_ORDER
+} = SAVE_CONVENTIONS
 
 /**
  * How far apart two timestamps may be and still count as the same file.
@@ -131,6 +135,68 @@ function sameGame(fileStem: string, romStem: string): boolean {
 /** The ROM's name without its extension, which is what saves are named after. */
 export function romStemOf(rom: RommRom, romPath: string): string {
   return rom.fs_name_no_ext || basename(romPath).replace(/\.[^.]+$/, '')
+}
+
+/**
+ * Which of a game's save files holds the shared slot — see `AUTOSAVE_SLOT`.
+ *
+ * One file can, so a game with several needs a rule, and the rule has to give
+ * the same answer on every device — a slot two machines disagree about pairs
+ * a save with the wrong copy, which is worse than not pairing it at all.
+ *
+ * A game with one save file is that file, whatever it is called: a lone memory
+ * card is the game's save as much as a battery file is, and it is what another
+ * client with the same single file would send. Past that the ROM's own name is
+ * what separates the save from the clock and cheat files kept beside it, and
+ * `saveExtensions` settles what is left by listing the battery formats first.
+ *
+ * Null where none of that decides. Those files go up under their own names
+ * with no slot, which is where every save stood before this — a rule that
+ * declines to answer costs the pairing, not the save.
+ */
+export function primarySave(fileNames: readonly string[], romStem: string): string | null {
+  /**
+   * Memory cards are out, alone or not.
+   *
+   * The number an emulator adds to a card is part of the name it opens, the
+   * emulators disagree on how to write it — see `slotExtensions` — and it
+   * cannot be read off a copy another client uploaded. So a card pulled from a
+   * slot would land under a name nothing opens, and pairing one is a promise
+   * that cannot be kept. Cards keep being matched on their names, which is all
+   * they ever had.
+   */
+  const cards = new Set(SLOT_EXTENSIONS)
+  const candidates = fileNames.filter((name) => !cards.has(extname(name).toLowerCase()))
+  if (candidates.length <= 1) return candidates[0] ?? null
+
+  const named = candidates.filter((name) => sameGame(name.replace(/\.[^.]+$/, ''), romStem))
+  if (named.length === 0) return null
+
+  // Sorted rather than scanned for a first match, so the answer does not depend
+  // on the order the directory happened to be read in. Compared as code units
+  // rather than by collation, which is the machine's setting and would let two
+  // devices order one pair of names differently.
+  return [...named].sort((a, b) => rankOf(a) - rankOf(b) || (a < b ? -1 : 1))[0] ?? null
+}
+
+/**
+ * Are a copy on the server and a file here the same kind of file?
+ *
+ * A slot pairs on neither name nor content, so nothing else stops the copy in
+ * it being written over a local file of another format. The names routinely
+ * differ — that is the point of pairing on the slot — and a game's save folder
+ * holds more than one kind: a battery save beside the clock file that dates it.
+ * Left unasked, a device whose `.srm` has been deleted pairs the slot with the
+ * `.rtc` that remains, and the save arrives as clock bytes over a clock file.
+ */
+export function sameFormat(one: string, other: string): boolean {
+  return extname(one).toLowerCase() === extname(other).toLowerCase()
+}
+
+/** Where a file's extension sits in `saveExtensions`. An unlisted one sorts last. */
+function rankOf(fileName: string): number {
+  const at = SAVE_EXTENSION_ORDER.indexOf(extname(fileName).toLowerCase())
+  return at === -1 ? SAVE_EXTENSION_ORDER.length : at
 }
 
 /**

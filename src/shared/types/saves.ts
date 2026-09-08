@@ -59,6 +59,16 @@ export interface SaveAsset {
   id: number | null
   kind: 'save' | 'state'
   fileName: string
+  /**
+   * The slot RomM pairs it under, where it has one.
+   *
+   * Null for a state, which RomM keeps no slot for, and for a save uploaded
+   * before slots or through the web UI. The one slot RomMix writes is named
+   * by `AUTOSAVE_SLOT`; any other belongs to another client, and the row is
+   * shown so that a save set aside elsewhere is visible here rather than
+   * absent — a pull leaves it alone, having no local file it answers to.
+   */
+  slot: string | null
   /** The server's size where it has one, the file's own size otherwise. */
   sizeBytes: number
   /**

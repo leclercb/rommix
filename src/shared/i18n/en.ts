@@ -534,6 +534,7 @@ export const en = {
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint': 'Written by another emulator. Pull saves will leave it.',
   'saves.fromDevice': 'from {device}',
+  'saves.slot': 'slot {slot}',
   'saves.scopeLocal': 'from this device',
   'saves.scopeRemote': 'from RomM',
   'saves.empty': 'No saves for this game, here or on RomM.',

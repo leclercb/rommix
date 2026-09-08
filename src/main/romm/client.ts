@@ -1126,15 +1126,37 @@ export class RommClient {
     await streamToFile(this.transport, `/api/states/${id}/content`, destination)
   }
 
-  /** POST /api/saves — multipart upload of a save file produced by the emulator. */
+  /**
+   * POST /api/saves — multipart upload of a save file produced by the emulator.
+   *
+   * `slot` is what RomM pairs the upload against on the next client to ask —
+   * see `AUTOSAVE_SLOT`. Left off, the save is stored as an archival upload
+   * that pairs with nothing, which is what every RomMix save was until now. A
+   * server too old to know the parameter ignores it and stores exactly that,
+   * so nothing here has to ask what version it is talking to.
+   *
+   * A slot is a history and not a file: RomM files each upload into it as a new
+   * copy under a name it stamps with the time, and `overwrite` does not apply
+   * within one. So the cleanup goes with the slot — without it a push after
+   * every session would leave a copy on the server after every session, for
+   * every game, with nothing ever taking one away. How many it keeps is the
+   * server's own default, deliberately not named here: retention belongs to the
+   * machine holding the files, and either way it is more than the single
+   * overwritten copy a slotless upload leaves.
+   */
   async uploadSave(
     romId: number,
     filePath: string,
     fileName: string,
-    emulator: string | null
+    emulator: string | null,
+    slot: string | null
   ): Promise<RommSave> {
     const params = new URLSearchParams({ rom_id: String(romId), overwrite: 'true' })
     if (emulator) params.set('emulator', emulator)
+    if (slot) {
+      params.set('slot', slot)
+      params.set('autocleanup', 'true')
+    }
     const deviceId = await this.deviceId()
     if (deviceId) params.set('device_id', deviceId)
 
@@ -1146,6 +1168,7 @@ export class RommClient {
       romId,
       fileName,
       emulator,
+      slot,
       deviceId,
       bytes: payload.length,
       from: filePath

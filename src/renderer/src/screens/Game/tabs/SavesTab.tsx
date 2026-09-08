@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import type { I18n } from '@shared/i18n'
 import type { InstalledRom, SaveAsset, SaveDeleteScope } from '@shared/types'
-import { changedAt } from '@shared/saveassets'
+import { changedAt, AUTOSAVE_SLOT } from '@shared/saveassets'
 import { FocusButton, Spinner } from '../../../components'
 import { useI18n } from '../../../state'
 import { SyncBadge } from '../SyncBadge'
@@ -76,6 +76,7 @@ export function SavesTab({
             : origin === false
               ? (asset.originName ?? t('push.anotherDevice'))
               : null
+        const slot = asset.slot === AUTOSAVE_SLOT ? null : asset.slot
 
         return (
           <li
@@ -107,6 +108,12 @@ export function SavesTab({
             <span className="asset__meta">
               {formatBytes(asset.sizeBytes)}
               {from ? ` · ${t('saves.fromDevice', { device: from })}` : ''}
+              {/* Named only where it is not the slot this device writes. Every
+                  row RomMix put there carries that one, so printing it would
+                  add a word to every line to distinguish nothing — while the
+                  row it does distinguish is another client's, which a pull
+                  leaves alone and this is the only sign of. */}
+              {slot ? ` · ${t('saves.slot', { slot })}` : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
             {/* One mark, opening the dialog that asks which end. The ends stay

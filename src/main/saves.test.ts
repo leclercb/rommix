@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { acceptsTag, localTag, stemMatches, syncStateOf } from './savefiles.ts'
+import {
+  acceptsTag,
+  localTag,
+  primarySave,
+  sameFormat,
+  stemMatches,
+  syncStateOf
+} from './savefiles.ts'
 
 /**
  * The three judgements save sync makes that nothing else checks.
@@ -15,6 +22,11 @@ import { acceptsTag, localTag, stemMatches, syncStateOf } from './savefiles.ts'
  * that a server copy is *always* stamped later than the local file it came from,
  * because `updated_at` is the upload time — so "newer on the server" cannot mean
  * "changed elsewhere" without knowing where it came from.
+ *
+ * `primarySave` decides which of a game's files goes up under the slot every
+ * other client reads. Wrong, and the save syncs against another client's copy
+ * of something else — or against nothing, which is where every RomMix save sat
+ * before there was a slot at all.
  *
  * `localTag` and `acceptsTag` decide whose saves this device will take. They are
  * tested as a pair because the bug they replaced was not in either rule but in
@@ -237,4 +249,64 @@ test('a tag naming another emulator is still refused', () => {
   // The distinction the untagged case turns on: no tag is the absence of a
   // claim, and a tag is a claim that this was written by something else.
   assert.equal(acceptsTag('mupen64plus_next', 'parallel_n64'), false)
+})
+
+test('the only save a game has is the one that holds the slot', () => {
+  // Whatever it is called: the name is what this emulator opens, and the slot
+  // is how the other end finds it whatever it calls its own copy.
+  assert.equal(primarySave(['sonic.srm'], 'Sonic The Hedgehog'), 'sonic.srm')
+  assert.equal(
+    primarySave(['Zelda.rommix-save.zip'], 'Zelda'),
+    'Zelda.rommix-save.zip',
+    'a folder save is the game\u2019s save, and one asset'
+  )
+})
+
+test('a memory card never holds the slot, alone or beside anything', () => {
+  // The number is part of the name DuckStation opens and mednafen writes it
+  // differently, so it cannot be read off a copy another client uploaded — a
+  // card pulled from a slot would land under a name nothing opens. Cards keep
+  // being matched on their names.
+  assert.equal(primarySave(['Suikoden II_1.mcd'], 'Suikoden II'), null)
+  assert.equal(primarySave(['Suikoden II.1.mcr'], 'Suikoden II'), null)
+  // And a battery save beside one is picked without the card confusing it.
+  assert.equal(
+    primarySave(['Suikoden II_1.mcd', 'Suikoden II.srm'], 'Suikoden II'),
+    'Suikoden II.srm'
+  )
+})
+
+test('a game with nothing on disk holds no slot', () => {
+  assert.equal(primarySave([], 'Sonic The Hedgehog'), null)
+})
+
+test("the game's own name separates the save from what sits beside it", () => {
+  // The clock file is real save data and still goes up — under its own name,
+  // with no slot. What it cannot be is the copy another device pairs against.
+  assert.equal(
+    primarySave(['Pokemon Crystal.srm', 'Pokemon Crystal.rtc'], 'Pokemon Crystal'),
+    'Pokemon Crystal.srm'
+  )
+})
+
+test('two cards for one game leave the slot unclaimed', () => {
+  assert.equal(primarySave(['Suikoden II_1.mcd', 'Suikoden II_2.mcd'], 'Suikoden II'), null)
+})
+
+test('the answer does not depend on the order the directory was read in', () => {
+  // Two devices that disagree about the slot pair a save with the wrong copy,
+  // so the same set has to give the same answer whichever way round it arrives.
+  const files = ['Pokemon Crystal.rtc', 'Pokemon Crystal.srm']
+  assert.equal(primarySave(files, 'Pokemon Crystal'), 'Pokemon Crystal.srm')
+  assert.equal(primarySave(files.toReversed(), 'Pokemon Crystal'), 'Pokemon Crystal.srm')
+})
+
+test('a slot pairs two files only where they are the same kind of file', () => {
+  // The names differ by design under a slot, so nothing else stands between the
+  // copy in it and a local file of another format. A save folder holds more
+  // than one kind — the battery save, and the clock file that dates it.
+  assert.equal(sameFormat('Pokemon Crystal.srm', 'Pokemon Crystal [2026-09-08_22-30-05].srm'), true)
+  assert.equal(sameFormat('Pokemon Crystal.rtc', 'Pokemon Crystal.srm'), false)
+  // Case is the emulators' to vary, not a difference in format.
+  assert.equal(sameFormat('sonic.SRM', 'sonic.srm'), true)
 })

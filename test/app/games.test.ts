@@ -909,7 +909,13 @@ describe('saves either side of a session', () => {
     // makes it a save worth bringing down before the game starts.
     server.holdSave({
       romId: 1,
-      fileName: 'cavestory.srm',
+      // Not the name this emulator writes. A client on another platform names
+      // a save whatever its own emulator names saves, and it is the slot below
+      // that says the two are the same save — so a pull that went by the name
+      // would drop this one beside `cavestory.srm` and leave the game starting
+      // on the save it already had.
+      fileName: 'Cave Story (E).srm',
+      slot: 'autosave',
       // The tag every libretro save carried before the core became the tag,
       // which is what a server that has been synced with for a while is full
       // of. It still has to come down: a save tagged for another emulator is
@@ -969,10 +975,17 @@ describe('saves either side of a session', () => {
     const argv = await retroarch.argv()
     assert.ok(argv.length > 0, 'the emulator was never started')
 
+    // Under this emulator's own name for it, never the server's: the name is
+    // what the emulator opens, and the slot is all the two copies share.
     assert.equal(
       await retroarch.found(join(saveDir, 'cavestory.srm')),
       'the save from another device',
       'the emulator started, and the save the server was holding was not there'
+    )
+    assert.equal(
+      existsSync(join(saveDir, 'Cave Story (E).srm')),
+      false,
+      "the server's own name was written into the save folder beside the real save"
     )
 
     assert.ok(
@@ -1013,6 +1026,9 @@ describe('saves either side of a session', () => {
     // Under the name RomM files it by, which is what another device pulls it
     // down as.
     assert.ok(sent[0].body.includes('cavestory.srm'), sent[0].body.slice(0, 200))
+    // And under the slot it pairs on, which is the whole of what makes the
+    // copy this device sent and the copy it pulled one save rather than two.
+    assert.equal(sent[0].slot, 'autosave')
   })
 
   test('and the save can be deleted from one end without touching the other', async () => {

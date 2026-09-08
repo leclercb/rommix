@@ -61,7 +61,14 @@ export interface FakeRomm {
    * one emulator is never dropped into another's folder, so a tag that does not
    * match is a pull that correctly does nothing.
    */
-  holdSave: (save: { romId: number; fileName: string; emulator: string; content: string }) => void
+  holdSave: (save: {
+    romId: number
+    fileName: string
+    emulator: string
+    content: string
+    /** The slot RomM pairs it under. Omitted, it is a save that pairs with none. */
+    slot?: string
+  }) => void
   /** The same for a save state, which RomM keeps at its own endpoint. */
   holdState: (state: { romId: number; fileName: string; emulator: string; content: string }) => void
   /** Saves and states this server was sent, in order. */
@@ -69,6 +76,7 @@ export interface FakeRomm {
     kind: 'save' | 'state'
     romId: number
     emulator: string | null
+    slot: string | null
     deviceId: string | null
     body: string
   }[]
@@ -816,6 +824,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
             kind: 'save',
             romId: Number(url.searchParams.get('rom_id') ?? 0),
             emulator: url.searchParams.get('emulator'),
+            slot: url.searchParams.get('slot'),
             deviceId: url.searchParams.get('device_id'),
             body: Buffer.concat(chunks).toString()
           })
@@ -829,7 +838,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
             file_size_bytes: 0,
             download_path: 'uploaded',
             emulator: url.searchParams.get('emulator'),
-            slot: null,
+            slot: url.searchParams.get('slot'),
             origin_device_id: url.searchParams.get('device_id'),
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-01T00:00:00Z'
@@ -858,6 +867,8 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           kind: 'state',
           romId,
           emulator: url.searchParams.get('emulator'),
+          // States carry none: RomM keeps no slot for them.
+          slot: null,
           deviceId: url.searchParams.get('device_id'),
           body: Buffer.concat(chunks).toString()
         })
@@ -1005,7 +1016,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     asked,
     platforms: [megadrive, gameboy, nintendoSwitch, segacd],
     uploaded,
-    holdSave: ({ romId, fileName, emulator, content }) => {
+    holdSave: ({ romId, fileName, emulator, content, slot }) => {
       held.push({
         content,
         save: {
@@ -1018,7 +1029,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           file_size_bytes: Buffer.byteLength(content),
           download_path: fileName,
           emulator,
-          slot: null,
+          slot: slot ?? null,
           // Another device's, which is what makes it worth bringing down.
           origin_device_id: 'some-other-device',
           created_at: '2026-01-01T00:00:00Z',

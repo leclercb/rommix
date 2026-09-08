@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
 import {
   existsSync,
+  statSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -98,7 +99,7 @@ function setUp(
   stateDir: string
   /** Where the copies a pull displaces are kept, one folder per game. */
   backups: string
-  uploaded: { fileName: string; from: string }[]
+  uploaded: { fileName: string; from: string; slot: string | null }[]
   deleted: number[]
   store: Store
 } {
@@ -108,7 +109,7 @@ function setUp(
   const romDir = join(home, 'roms')
   for (const dir of [saveDir, stateDir, romDir]) mkdirSync(dir, { recursive: true })
 
-  const uploaded: { fileName: string; from: string }[] = []
+  const uploaded: { fileName: string; from: string; slot: string | null }[] = []
   const deleted: number[] = []
 
   /** What the server hands over: a file's contents, or a zip of a folder. */
@@ -130,14 +131,20 @@ function setUp(
     devices: async () => (options.serverSays ? refuse() : (options.devices ?? [])),
     downloadSave: async (_id: number, to: string) => download(to),
     downloadState: async (_id: number, to: string) => download(to),
-    uploadSave: async (_romId: number, filePath: string, fileName: string) => {
+    uploadSave: async (
+      _romId: number,
+      filePath: string,
+      fileName: string,
+      _emulator: string | null,
+      slot: string | null
+    ) => {
       if (options.uploadFails) throw new Error('fetch failed')
-      uploaded.push({ fileName, from: filePath })
+      uploaded.push({ fileName, from: filePath, slot })
       return save({ file_name: fileName })
     },
     uploadState: async (_romId: number, filePath: string, fileName: string) => {
       if (options.uploadFails) throw new Error('fetch failed')
-      uploaded.push({ fileName, from: filePath })
+      uploaded.push({ fileName, from: filePath, slot: null })
       return save({ file_name: fileName })
     },
     deleteSaves: async (ids: number[]) => void deleted.push(...ids),
@@ -1148,5 +1155,245 @@ describe('what a push preview says about what it would replace', () => {
 
     assert.equal(preview.files[0].kind, 'save')
     assert.ok(preview.files.every((file, index) => index === 0 || file.kind === 'state'))
+  })
+})
+
+/**
+ * Saves as the rest of the ecosystem sees them.
+ *
+ * RomM pairs a client's save with the server's on the slot it was sent under
+ * and never on what the file is called, so these are the assertions that a save
+ * made here and a save made on a phone are one save: it goes up under the
+ * shared slot, it comes back whatever the other client named it, and it lands
+ * on the file this emulator opens rather than beside it.
+ */
+describe('pairing on the slot rather than the name', () => {
+  /** What another client uploaded: its own file name, under the shared slot. */
+  function elsewhere(fields: Partial<RommSave> = {}): RommSave {
+    return save({
+      id: 42,
+      file_name: 'Sonic The Hedgehog.srm',
+      slot: 'autosave',
+      origin_device_id: 'a-phone',
+      ...fields
+    })
+  }
+
+  test('the save this game has goes up under the shared slot', async () => {
+    const { sync, target, saveDir, uploaded } = setUp()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played')
+
+    await sync.pushSelected(target, [join(saveDir, 'Sonic the Hedgehog (USA).srm')])
+
+    assert.deepEqual(
+      uploaded.map((file) => file.slot),
+      ['autosave']
+    )
+  })
+
+  test('a state goes up under none, RomM keeping no slot for them', async () => {
+    const { sync, target, stateDir, uploaded } = setUp()
+    writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'a snapshot')
+
+    await sync.pushSelected(target, [join(stateDir, 'Sonic the Hedgehog (USA).state1')])
+
+    assert.deepEqual(
+      uploaded.map((file) => file.slot),
+      [null]
+    )
+  })
+
+  test("another client's copy pairs with the local file despite the name", async () => {
+    const { sync, target, saveDir } = setUp({ saves: [elsewhere()] })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played here')
+
+    const assets = await sync.listAssets(7, target)
+
+    // One row, not two: the same save under two names is one save.
+    assert.equal(assets.length, 1)
+    assert.equal(assets[0].localPath, join(saveDir, 'Sonic the Hedgehog (USA).srm'))
+    assert.equal(assets[0].slot, 'autosave')
+    // Named as this device has it. RomM stamps the copies it files into a slot
+    // with the time they arrived, so its own name for one is never the name
+    // the emulator opens.
+    assert.equal(assets[0].fileName, 'Sonic the Hedgehog (USA).srm')
+  })
+
+  test('a copy no local file answers to keeps the name RomM holds it under', async () => {
+    const { sync, target } = setUp({
+      saves: [elsewhere({ file_name: 'Sonic the Hedgehog (USA) [2026-09-08_22-30-05].srm' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.fileName, 'Sonic the Hedgehog (USA) [2026-09-08_22-30-05].srm')
+  })
+
+  test('it is pulled onto the file the emulator opens, not beside it', async () => {
+    const { sync, target, saveDir } = setUp({ saves: [elsewhere()] })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    // The bug this replaced: the server's own name written into the folder, so
+    // the emulator went on opening the save it already had.
+    assert.equal(existsSync(join(saveDir, 'Sonic The Hedgehog.srm')), false)
+    assert.equal(
+      readFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'utf8'),
+      'from the server'
+    )
+  })
+
+  test('a slot holds a history, and only its newest copy is a row', async () => {
+    const { sync, target } = setUp({
+      saves: [
+        elsewhere({ id: 1, updated_at: '2026-08-01T12:00:00.000Z' }),
+        elsewhere({ id: 2, updated_at: '2026-08-03T12:00:00.000Z' }),
+        elsewhere({ id: 3, updated_at: '2026-08-02T12:00:00.000Z' })
+      ]
+    })
+
+    const assets = await sync.listAssets(7, target)
+
+    assert.equal(assets.length, 1)
+    assert.equal(assets[0].id, 2)
+  })
+
+  test('a slot another client set aside is listed and left where it is', async () => {
+    const { sync, target, saveDir } = setUp({
+      saves: [elsewhere({ id: 8, slot: 'before-the-boss' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.slot, 'before-the-boss')
+    assert.equal(asset.sync, 'remote-only')
+    // Nothing on this device answers to it, so the only place a pull could put
+    // it is on top of the save being played. That is a decision, not a sync.
+    assert.equal((await sync.pullNow(target)).saves, 0)
+    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA).srm')), false)
+  })
+
+  test('the copy sent under the old name does not land on the slotted one', async () => {
+    // The state a device is in the first time it runs a RomMix that sends
+    // slots: its own earlier push is still up there under the file's name, and
+    // another device has written the slot since. Both name the same file here.
+    const { sync, target, saveDir } = setUp({
+      saves: [
+        save({
+          id: 1,
+          slot: null,
+          file_name: 'Sonic the Hedgehog (USA).srm',
+          updated_at: '2026-08-02T12:00:00.000Z'
+        }),
+        elsewhere({ id: 2, updated_at: '2026-08-05T12:00:00.000Z' })
+      ]
+    })
+    const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(local, 'played here long ago')
+    const before = new Date('2026-08-01T12:00:00.000Z')
+    utimesSync(local, before, before)
+
+    await sync.pullNow(target)
+
+    // The slotted copy is the newer of the two and the one a later pull would
+    // bring back, so it is what the emulator has to be left holding. Pulled
+    // second, the older copy would overwrite it — and the tolerance check
+    // cannot catch that, being asked of the mtime read before the pull began.
+    assert.equal(
+      statSync(local).mtime.toISOString(),
+      '2026-08-05T12:00:00.000Z',
+      'the copy sent under the old name was written over the slotted one'
+    )
+  })
+
+  test('the slotted copy is never written over a file of another format', async () => {
+    // The local battery save has been deleted to force a fresh pull, leaving
+    // the clock file that sits beside it. Paired on the slot and nothing else,
+    // the save would arrive as SRAM bytes on top of the clock file — and the
+    // save the pull was for would never appear under the name that loads it.
+    const { sync, target, saveDir } = setUp({ saves: [elsewhere()] })
+    const clock = join(saveDir, 'Sonic the Hedgehog (USA).rtc')
+    writeFileSync(clock, 'the clock file')
+
+    await sync.pullNow(target)
+
+    assert.equal(readFileSync(clock, 'utf8'), 'the clock file')
+    assert.equal(
+      readFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'utf8'),
+      'from the server'
+    )
+  })
+
+  test('a memory card is left to its name rather than sent under the slot', async () => {
+    const { sync, target, saveDir, uploaded } = setUp()
+    const card = join(saveDir, 'Sonic the Hedgehog (USA)_1.mcd')
+    writeFileSync(card, 'card one')
+
+    await sync.pushSelected(target, [card])
+
+    // Its number is part of the name the emulator opens and cannot be read off
+    // another client's copy, so a slot could only promise a pairing that would
+    // land the card under a name nothing reads.
+    assert.deepEqual(
+      uploaded.map((file) => file.slot),
+      [null]
+    )
+  })
+
+  test('deleting a slotted save takes the copies behind it too', async () => {
+    const { sync, target, deleted } = setUp({
+      saves: [
+        elsewhere({ id: 3, updated_at: '2026-08-01T12:00:00.000Z' }),
+        elsewhere({ id: 4, updated_at: '2026-08-05T12:00:00.000Z' }),
+        save({ id: 5, slot: null, file_name: 'Sonic the Hedgehog (USA).sav' })
+      ]
+    })
+
+    const [newest] = await sync.listAssets(7, target)
+    await sync.deleteAsset(7, 'save', newest.id, newest.fileName, 'remote', target)
+
+    // The row is a slot, not a copy: taking only the newest uncovers the one
+    // behind it, and the row comes back with older contents and the same
+    // button. What is left alone is the save that was never in that slot.
+    assert.deepEqual(
+      deleted.toSorted((a, b) => a - b),
+      [3, 4]
+    )
+  })
+
+  test('a save with no slot is still matched on its name', async () => {
+    const { sync, target, saveDir } = setUp({ saves: [save({ slot: null })] })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played here')
+
+    const assets = await sync.listAssets(7, target)
+
+    // Every save RomMix uploaded before it sent a slot is one of these, and a
+    // server too old to keep slots sends nothing else.
+    assert.equal(assets.length, 1)
+    assert.equal(assets[0].localPath, join(saveDir, 'Sonic the Hedgehog (USA).srm'))
+  })
+
+  test('the slotted copy and the name it was sent under before are one row', async () => {
+    const { sync, target, saveDir } = setUp({
+      saves: [
+        save({ id: 1, slot: null, file_name: 'Sonic the Hedgehog (USA).srm' }),
+        elsewhere({ id: 2, file_name: 'Sonic the Hedgehog (USA).srm' })
+      ]
+    })
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played here')
+
+    const assets = await sync.listAssets(7, target)
+
+    // Both are on the server and the local file is one file: it belongs to the
+    // slotted copy, which is the one a later pull would bring back. The older
+    // upload stays listed, with nothing on this device claimed by it.
+    assert.equal(assets.length, 2)
+    const [slotted, byName] = [
+      assets.find((asset) => asset.slot === 'autosave'),
+      assets.find((asset) => asset.slot === null)
+    ]
+    assert.equal(slotted?.localPath, join(saveDir, 'Sonic the Hedgehog (USA).srm'))
+    assert.equal(byName?.localPath, null)
   })
 })

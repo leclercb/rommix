@@ -1308,7 +1308,7 @@ describe('firmware, saves and states', () => {
     writeFileSync(file, 'save bytes')
     const sent = serve(() => json({ id: 21 }))
 
-    const saved = await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'retroarch')
+    const saved = await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'retroarch', null)
 
     assert.equal(saved.id, 21)
     const url = new URL(sent[0].url)
@@ -1319,6 +1319,28 @@ describe('firmware, saves and states', () => {
     // Overwriting is the point: the copy on the server is meant to be replaced
     // by the one the emulator just wrote.
     assert.equal(url.searchParams.get('overwrite'), 'true')
+    // No slot, so nothing to keep bounded — the upload replaces a copy rather
+    // than joining a history.
+    assert.equal(url.searchParams.get('slot'), null)
+    assert.equal(url.searchParams.get('autocleanup'), null)
+  })
+
+  test('a save sent under a slot asks for that slot to be kept bounded', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const file = join(scratch(), 'sonic.srm')
+    writeFileSync(file, 'save bytes')
+    const sent = serve(() => json({ id: 21 }))
+
+    await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'retroarch', 'autosave')
+
+    const url = new URL(sent[0].url)
+    assert.equal(url.searchParams.get('slot'), 'autosave')
+    // RomM files every upload into a slot as another copy and `overwrite` does
+    // not apply within one, so a push after each session would otherwise leave
+    // a copy after each session with nothing ever taking one away. How many
+    // survive is the server's own default, which is why no limit is sent.
+    assert.equal(url.searchParams.get('autocleanup'), 'true')
+    assert.equal(url.searchParams.get('autocleanup_limit'), null)
   })
 
   test('a save from no particular emulator says so by leaving it out', async () => {
@@ -1327,7 +1349,7 @@ describe('firmware, saves and states', () => {
     writeFileSync(file, 'save bytes')
     const sent = serve(() => json({ id: 21 }))
 
-    await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+    await new RommClient(store).uploadSave(5, file, 'sonic.srm', null, null)
 
     assert.equal(new URL(sent[0].url).searchParams.has('emulator'), false)
   })
@@ -1367,7 +1389,7 @@ describe('firmware, saves and states', () => {
       writeFileSync(file, 'save bytes')
       const sent = serveDevices([], { device_id: 'romm-device-7' })
 
-      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null, null)
 
       const registration = sent.find((one) => one.method === 'POST' && one.url.endsWith('/devices'))
       assert.equal(
@@ -1403,7 +1425,7 @@ describe('firmware, saves and states', () => {
         { device_id: 'a-second-row' }
       )
 
-      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null, null)
 
       assert.equal(
         sent.some((one) => one.method === 'POST' && one.url.endsWith('/devices')),
@@ -1422,7 +1444,7 @@ describe('firmware, saves and states', () => {
         request.url.includes('/api/devices') ? json({ detail: 'no' }, 403) : json({ id: 21 })
       )
 
-      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null)
+      await new RommClient(store).uploadSave(5, file, 'sonic.srm', null, null)
 
       const upload = sent[sent.length - 1]
       assert.equal(new URL(upload.url).searchParams.has('device_id'), false)
@@ -1457,7 +1479,7 @@ describe('firmware, saves and states', () => {
 
       await client.devices()
       refuse = false
-      await client.uploadSave(5, file, 'sonic.srm', null)
+      await client.uploadSave(5, file, 'sonic.srm', null, null)
 
       assert.equal(
         sent.some((one) => one.method === 'POST' && one.url.endsWith('/devices')),
@@ -1473,14 +1495,14 @@ describe('firmware, saves and states', () => {
       serveDevices([], { device_id: 'romm-device-7' })
       const client = new RommClient(store)
 
-      await client.uploadSave(5, file, 'sonic.srm', null)
+      await client.uploadSave(5, file, 'sonic.srm', null, null)
       // The same token against the same server: nothing the cache is keyed on
       // has changed, so it answers without registering — and what it answers
       // still has to reach the disk, or the next launch registers again.
       client.setClientToken('rmm_typed_in')
       assert.equal(credentials.deviceId, null)
 
-      await client.uploadSave(5, file, 'sonic.srm', null)
+      await client.uploadSave(5, file, 'sonic.srm', null, null)
 
       assert.equal(credentials.deviceId, 'romm-device-7')
     })
@@ -1512,9 +1534,9 @@ describe('firmware, saves and states', () => {
       const asked = (): number => sent.filter((one) => one.url.includes('/api/devices')).length
       const client = new RommClient(store)
 
-      await assert.rejects(() => client.uploadSave(5, file, 'sonic.srm', null))
+      await assert.rejects(() => client.uploadSave(5, file, 'sonic.srm', null, null))
       const whileAway = asked()
-      await assert.rejects(() => client.uploadSave(5, file, 'sonic.srm', null))
+      await assert.rejects(() => client.uploadSave(5, file, 'sonic.srm', null, null))
 
       // A server that is away is not asked again per save: a queue draining
       // into one would cost three connection attempts a file instead of one.
@@ -1523,8 +1545,8 @@ describe('firmware, saves and states', () => {
       down = false
       // The save that re-establishes contact goes up without a device — what
       // it proves is that the server is back, which nothing knew beforehand.
-      await client.uploadSave(5, file, 'sonic.srm', null)
-      await client.uploadSave(5, file, 'sonic.srm', null)
+      await client.uploadSave(5, file, 'sonic.srm', null, null)
+      await client.uploadSave(5, file, 'sonic.srm', null, null)
 
       // The outage settled nothing: with the server answering again the
       // question is asked, rather than the run being stuck without a device.
@@ -1540,10 +1562,10 @@ describe('firmware, saves and states', () => {
 
       const client = new RommClient(store)
       await Promise.all([
-        client.uploadSave(5, file, 'sonic.srm', null),
-        client.uploadSave(6, file, 'sonic.srm', null)
+        client.uploadSave(5, file, 'sonic.srm', null, null),
+        client.uploadSave(6, file, 'sonic.srm', null, null)
       ])
-      await client.uploadSave(7, file, 'sonic.srm', null)
+      await client.uploadSave(7, file, 'sonic.srm', null, null)
 
       assert.equal(
         sent.filter((one) => one.method === 'POST' && one.url.endsWith('/devices')).length,
@@ -1559,7 +1581,7 @@ describe('firmware, saves and states', () => {
     serve(() => json({ detail: 'too large' }, 413))
 
     await assert.rejects(
-      () => new RommClient(store).uploadSave(5, file, 'sonic.srm', null),
+      () => new RommClient(store).uploadSave(5, file, 'sonic.srm', null, null),
       RommError
     )
   })

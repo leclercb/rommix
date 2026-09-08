@@ -544,6 +544,7 @@ export const de: Catalog = {
   'saves.otherEmulatorHint':
     'Von einem anderen Emulator geschrieben. Spielstände holen lädt ihn nicht herunter.',
   'saves.fromDevice': 'von {device}',
+  'saves.slot': 'Slot {slot}',
   'saves.scopeLocal': 'von diesem Gerät',
   'saves.scopeRemote': 'von RomM',
   'saves.empty': 'Keine Spielstände für dieses Spiel, weder hier noch auf RomM.',

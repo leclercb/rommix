@@ -2,7 +2,7 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { localize } from '@shared/i18n'
-import { changedAt, mayBeSentUnasked } from '@shared/saveassets'
+import { changedAt, mayBeSentUnasked, AUTOSAVE_SLOT } from '@shared/saveassets'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
@@ -28,7 +28,9 @@ import {
   acceptsTag,
   keepBackup,
   localTag,
+  primarySave,
   romStemOf,
+  sameFormat,
   sizeOf,
   stampMtime,
   stemMatches,
@@ -136,6 +138,51 @@ function originIdOf(item: RommSave | RommState): string | null {
   return 'origin_device_id' in item && typeof item.origin_device_id === 'string'
     ? item.origin_device_id
     : null
+}
+
+/**
+ * The server's saves as one per slot, with whatever carries no slot beside it.
+ *
+ * A slot is a history rather than a file: RomM keeps what each client uploaded
+ * into it and only the newest is the copy a client is meant to read back. Taken
+ * as they come, a game played on three devices puts a row on this screen per
+ * revision any of them ever sent, all but one of them a save nothing here can
+ * act on.
+ *
+ * The rest are the saves RomM pairs with nothing — uploaded through the web UI,
+ * or by RomMix before it sent a slot at all — and they keep being matched on
+ * their names, which is the only handle they have.
+ */
+function bySlot(assets: readonly (RommSave | RommState)[]): {
+  slots: Map<string, RommSave | RommState>
+  loose: (RommSave | RommState)[]
+} {
+  const slots = new Map<string, RommSave | RommState>()
+  const loose: (RommSave | RommState)[] = []
+
+  for (const asset of assets) {
+    const slot = slotOf(asset)
+    if (slot === null) {
+      loose.push(asset)
+      continue
+    }
+    const held = slots.get(slot)
+    if (!held || Date.parse(asset.updated_at) > Date.parse(held.updated_at)) slots.set(slot, asset)
+  }
+  return { slots, loose }
+}
+
+/**
+ * The slot RomM filed a copy under, where the copy is the kind that has one.
+ *
+ * Asked the way `originIdOf` asks about the origin, and for the same reason:
+ * `StateSchema` carries no slot, and neither does a save from a RomM too old
+ * to keep one. Both answer that there is nothing to pair on.
+ */
+function slotOf(item: RommSave | RommState): string | null {
+  // Emptiness included: a slot nothing can be filed under is not one to pair
+  // on, and taking it for a name would lose the only handle such a copy has.
+  return 'slot' in item && typeof item.slot === 'string' && item.slot !== '' ? item.slot : null
 }
 
 /**
@@ -387,10 +434,14 @@ export class SaveSync {
      * What this device has, by kind and name.
      *
      * `findLocal` matches on the ROM's stem, which is how a save is recognised
-     * as belonging to this game at all; the exact file name then lines it up
-     * with the server's copy, since that is the name it was uploaded under.
+     * as belonging to this game at all. The name then lines it up with the
+     * server's copy wherever that is all there is to go on — a state, or a save
+     * from before slots — while the save holding the shared slot is paired on
+     * the slot instead, the other end having named it for its own emulator.
      */
     const localAssets = new Map<string, LocalAsset>()
+    /** The local save this device would send under the shared slot, if any. */
+    let primaryKey: string | null = null
     let tag: string | null = null
     let alsoAccepts: readonly string[] = []
     /**
@@ -414,6 +465,13 @@ export class SaveSync {
         for (const file of found) {
           localAssets.set(`${kind}:${file.fileName.toLowerCase()}`, file)
         }
+        if (kind === 'save') {
+          const primary = primarySave(
+            found.map((file) => file.fileName),
+            romStemOf(local.rom, local.romPath)
+          )
+          primaryKey = primary === null ? null : `save:${primary.toLowerCase()}`
+        }
       }
     }
 
@@ -421,32 +479,76 @@ export class SaveSync {
 
     const assets: SaveAsset[] = []
     const matched = new Set<string>()
+    const rows: {
+      kind: 'save' | 'state'
+      item: RommSave | RommState
+      slot: string | null
+      localFile: LocalAsset | undefined
+    }[] = []
 
-    for (const kind of ['save', 'state'] as const) {
-      for (const item of kind === 'save' ? saves : states) {
-        const key = `${kind}:${item.file_name.toLowerCase()}`
-        const localFile = localAssets.get(key)
-        if (localFile) matched.add(key)
+    /**
+     * The saves, paired on the slot first and on the name only after.
+     *
+     * Which is the order that matters: the client that wrote the copy up there
+     * named it whatever its own emulator names saves, so insisting the two
+     * names agree is exactly what left a save made on a phone sitting here as
+     * a second row nothing could line up with. A slot pairs them whatever they
+     * are called; a name is what is left for the saves that carry no slot.
+     */
+    const { slots, loose } = bySlot(saves)
+    for (const [slot, item] of slots) {
+      const held = slot === AUTOSAVE_SLOT && primaryKey ? localAssets.get(primaryKey) : undefined
+      const localFile = held && sameFormat(held.fileName, item.file_name) ? held : undefined
+      if (localFile && primaryKey) matched.add(primaryKey)
+      rows.push({ kind: 'save', item, slot, localFile })
+    }
+    for (const item of loose) {
+      const key = `save:${item.file_name.toLowerCase()}`
+      // Skipped where the slot above already claimed it: the same file, sent
+      // under its name before there was a slot to send it under.
+      const localFile = matched.has(key) ? undefined : localAssets.get(key)
+      if (localFile) matched.add(key)
+      rows.push({ kind: 'save', item, slot: null, localFile })
+    }
 
-        const originId = originIdOf(item)
-        const fromThisDevice = originId ? thisDevice.has(originId) : null
+    // States pair on the name alone, RomM keeping no slot for them.
+    for (const item of states) {
+      const key = `state:${item.file_name.toLowerCase()}`
+      const localFile = localAssets.get(key)
+      if (localFile) matched.add(key)
+      rows.push({ kind: 'state', item, slot: null, localFile })
+    }
 
-        assets.push({
-          id: item.id,
-          kind,
-          fileName: item.file_name,
-          sizeBytes: item.file_size_bytes,
-          emulator: item.emulator,
-          forAnotherEmulator:
-            byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts),
-          localPath: localFile?.path ?? null,
-          localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
-          fromThisDevice,
-          originName: nameOf(originId),
-          updatedAt: item.updated_at,
-          sync: syncStateOf(localFile?.mtimeMs ?? null, item.updated_at, fromThisDevice)
-        })
-      }
+    for (const { kind, item, slot, localFile } of rows) {
+      const originId = originIdOf(item)
+      const fromThisDevice = originId ? thisDevice.has(originId) : null
+
+      assets.push({
+        id: item.id,
+        kind,
+        /**
+         * The file this row is about, named as the person looking has it.
+         *
+         * The two ends need not agree on that, and under a slot they routinely
+         * do not: RomM stamps each copy it files into one with the time it
+         * arrived, so the server's name for a save pushed from here is this
+         * game's name with a date inside it. Printing that against a row the
+         * screen calls in sync reads as some other file. Where this device has
+         * no copy there is only the server's name, and it is the honest one.
+         */
+        fileName: localFile?.fileName ?? item.file_name,
+        slot,
+        sizeBytes: item.file_size_bytes,
+        emulator: item.emulator,
+        forAnotherEmulator:
+          byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts),
+        localPath: localFile?.path ?? null,
+        localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
+        fromThisDevice,
+        originName: nameOf(originId),
+        updatedAt: item.updated_at,
+        sync: syncStateOf(localFile?.mtimeMs ?? null, item.updated_at, fromThisDevice)
+      })
     }
 
     // Whatever is on disk and was not claimed by a row above: this game's
@@ -457,6 +559,11 @@ export class SaveSync {
         id: null,
         kind: key.startsWith('save:') ? 'save' : 'state',
         fileName: file.fileName,
+        // The slot it *would* go up under, for the same reason the tag below is
+        // the one it would carry: this row is about a push that has not
+        // happened, and blanking either would blank exactly the rows a person
+        // opened this screen to send.
+        slot: key === primaryKey ? AUTOSAVE_SLOT : null,
         sizeBytes: await sizeOf(file.path, file.isDirectory === true),
         // The tag it *would* carry, which is what makes the row readable: the
         // emulator column would otherwise be blank on exactly the rows that
@@ -606,8 +713,12 @@ export class SaveSync {
       const location = this.locationFor(paths, kind)
       if (!location) continue
 
-      const local = await this.findLocal(location, target.rom, target.romPath, kind, since)
+      // Unfiltered, then narrowed — see `uploadKind`, which the list here has
+      // to describe exactly.
+      const all = await this.findLocal(location, target.rom, target.romPath, kind)
+      const local = all.filter((asset) => asset.mtimeMs > since)
       if (local.length === 0) continue
+      const primary = this.primaryOf(kind, all, target)
 
       // Only asked for once there is something to compare it against: a game
       // with no local saves should not cost a round-trip to the server.
@@ -622,8 +733,16 @@ export class SaveSync {
       const thisDevice = this.thisDevice()
       const nameOf = deviceNamer(await this.client.devices())
 
+      // The same pairing the game screen shows — see `listAssets`. Two answers
+      // about one pair is how the dialog comes to promise a push the row it
+      // was opened from disagrees with.
+      const { slots, loose } = bySlot(remote)
+
       for (const asset of local) {
-        const existing = remote.find((item) => item.file_name === asset.fileName)
+        const existing =
+          asset.fileName === primary
+            ? (slots.get(AUTOSAVE_SLOT) ?? loose.find((item) => item.file_name === asset.fileName))
+            : loose.find((item) => item.file_name === asset.fileName)
         const originId = existing ? originIdOf(existing) : null
         const fromThisDevice = originId ? thisDevice.has(originId) : null
         const state = existing
@@ -770,7 +889,13 @@ export class SaveSync {
 
       for (const asset of selected) found.add(asset.path)
 
-      const count = await this.uploadAssets(target, kind, selected, tag)
+      const count = await this.uploadAssets(
+        target,
+        kind,
+        selected,
+        tag,
+        this.primaryOf(kind, local, target)
+      )
       if (kind === 'save') moved.saves += count.sent
       else moved.states += count.sent
       moved.failed += count.failed
@@ -855,8 +980,60 @@ export class SaveSync {
     }
 
     if (asset.id === null) throw new Error(t('error.assetNotRemote', { file: fileName }))
-    if (kind === 'save') await this.client.deleteSaves([asset.id])
+    if (kind === 'save') await this.client.deleteSaves(await this.slotCopies(romId, asset))
     else await this.client.deleteStates([asset.id])
+  }
+
+  /**
+   * Every copy on the server a delete has to take with it.
+   *
+   * A slot is a history and the row is its newest copy — see `bySlot` — so
+   * removing that one alone uncovers the one behind it. The row returns with
+   * older contents and the same button, and somebody clearing a save off the
+   * server presses delete until the server's retention runs out. What they
+   * meant was the save, which is the whole slot.
+   *
+   * Read again rather than carried down from the row: the row has one id
+   * because that is all a row can usefully show, and the copies behind it were
+   * never in it.
+   */
+  private async slotCopies(romId: number, asset: SaveAsset): Promise<number[]> {
+    const only = asset.id === null ? [] : [asset.id]
+    if (asset.slot === null) return only
+
+    const remote = await this.client.saves(romId).catch(() => null)
+    if (!remote) return only
+    const ids = remote.filter((item) => slotOf(item) === asset.slot).map((item) => item.id)
+    return ids.length > 0 ? ids : only
+  }
+
+  /**
+   * What one pull brings down, and the slot each copy arrived under.
+   *
+   * States are capped rather than paired — see `STATE_PULL_LIMIT`.
+   *
+   * Saves come down one per slot, the newest that slot holds, and of those
+   * only the shared one. A slot another client set aside is a save this device
+   * has no file answering to, so the only place a pull could put it is on top
+   * of the save currently being played — which is a decision, not a sync. It
+   * stays listed on the game screen, where somebody can make it.
+   */
+  private toPull(
+    kind: 'save' | 'state',
+    usable: readonly (RommSave | RommState)[]
+  ): { item: RommSave | RommState; slot: string | null }[] {
+    if (kind === 'state') {
+      return [...usable]
+        .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+        .slice(0, STATE_PULL_LIMIT)
+        .map((item) => ({ item, slot: null }))
+    }
+
+    const { slots, loose } = bySlot(usable)
+    const shared = slots.get(AUTOSAVE_SLOT)
+    const wanted = loose.map((item) => ({ item, slot: null as string | null }))
+    if (shared) wanted.unshift({ item: shared, slot: AUTOSAVE_SLOT })
+    return wanted
   }
 
   private async pullKind(
@@ -919,29 +1096,79 @@ export class SaveSync {
       })
     }
 
-    const wanted =
-      kind === 'state'
-        ? [...usable]
-            .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
-            .slice(0, STATE_PULL_LIMIT)
-        : usable
+    const wanted = this.toPull(kind, usable)
     if (wanted.length === 0) return { written: 0, offered: remote.length }
 
+    const stem = romStemOf(target.rom, target.romPath)
     const local = await this.findLocal(location, target.rom, target.romPath, kind)
+    /** The local file the shared slot answers to — see `primarySave`. */
+    const primary =
+      kind === 'save'
+        ? primarySave(
+            local.map((entry) => entry.fileName),
+            stem
+          )
+        : null
+    /**
+     * Paths this pass has already written, so nothing lands on them twice.
+     *
+     * Two copies on the server can name the same file here: the slotted one,
+     * paired whatever it is called, and the copy this device pushed under that
+     * name before there were slots. Left to the loop below, the older of the
+     * two arrives second and overwrites the newer — the tolerance check cannot
+     * stop it, being asked of the mtime read before any of this ran.
+     *
+     * The slot wins because `toPull` puts it first, which is the same order
+     * `listAssets` pairs in: one file, claimed by the copy a later pull would
+     * bring back.
+     */
+    const claimed = new Set<string>()
     let written = 0
 
-    for (const item of wanted) {
+    for (const { item, slot } of wanted) {
       const remoteTime = Date.parse(item.updated_at)
-      const match = local.find((entry) => entry.fileName === item.file_name)
-      // Where the download would land, matched or not. A name the server holds
-      // under this game that this game's own rule does not read as its is
-      // still one path and still one file.
-      const destination = match?.path ?? join(location.dir, item.file_name)
+      const match =
+        slot === null
+          ? local.find((entry) => entry.fileName === item.file_name)
+          : local.find(
+              (entry) => entry.fileName === primary && sameFormat(entry.fileName, item.file_name)
+            )
+      /**
+       * Where the download lands when this device has no copy of it yet.
+       *
+       * For a slot-paired save that is this game's own name carrying the
+       * server file's extension, and never the name the server holds it under:
+       * the client that uploaded it named it whatever its emulator names saves,
+       * and writing that name here drops the save *beside* the file this
+       * emulator opens rather than onto it. The game then starts with the save
+       * it already had and the pull looks like it did nothing.
+       *
+       * A save with no slot has only its name to be known by, and keeps it.
+       */
+      const destination =
+        match?.path ??
+        join(location.dir, slot === null ? item.file_name : `${stem}${extname(item.file_name)}`)
       // The same tolerance the badge uses, so a copy the screen calls "in sync"
       // is never one this loop downloads again. Asked of the file that is
       // there rather than of the match, since an unmatched one would otherwise
       // be fetched afresh every launch — and each fetch keeps a copy, which
       // rotates away the very save the copies are kept for.
+      if (claimed.has(destination)) {
+        log.info('saves', `a second ${kind} names a file already written`, {
+          romId: target.rom.id,
+          id: item.id,
+          fileName: item.file_name,
+          slot,
+          destination
+        })
+        continue
+      }
+      // Claimed here rather than after the download, so that a copy left alone
+      // for being already in sync still holds the file against the one behind
+      // it. Whether this pull moved any bytes is a different question from
+      // which copy the file belongs to.
+      claimed.add(destination)
+
       const landed = match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs
       if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
 
@@ -962,8 +1189,12 @@ export class SaveSync {
           romId: target.rom.id,
           id: item.id,
           fileName: item.file_name,
+          slot,
           emulator: item.emulator,
-          into: match?.path ?? location.dir,
+          // The path rather than the folder: a slot-paired save is written
+          // under this game's name and not the server's, so the folder alone
+          // no longer says which file the emulator will open next.
+          into: destination,
           overwrote: Boolean(match)
         })
       } catch (cause) {
@@ -1071,8 +1302,32 @@ export class SaveSync {
     const location = this.locationFor(paths, kind)
     if (!location) return { sent: 0, failed: 0 }
 
-    const assets = await this.findLocal(location, target.rom, target.romPath, kind, since)
-    return this.uploadAssets(target, kind, assets, this.tagFor(paths, target))
+    // Scanned unfiltered and narrowed after, rather than asked for `since`
+    // directly: which file holds the shared slot is a question about all of
+    // this game's saves, and a session that touched only one of them would
+    // otherwise have it answered from a set of one.
+    const all = await this.findLocal(location, target.rom, target.romPath, kind)
+    const assets = all.filter((asset) => asset.mtimeMs > since)
+    return this.uploadAssets(
+      target,
+      kind,
+      assets,
+      this.tagFor(paths, target),
+      this.primaryOf(kind, all, target)
+    )
+  }
+
+  /** The file this game's shared slot belongs to — see `primarySave`. */
+  private primaryOf(
+    kind: 'save' | 'state',
+    local: readonly LocalAsset[],
+    target: SaveTarget
+  ): string | null {
+    if (kind === 'state') return null
+    return primarySave(
+      local.map((asset) => asset.fileName),
+      romStemOf(target.rom, target.romPath)
+    )
   }
 
   /**
@@ -1086,7 +1341,8 @@ export class SaveSync {
     target: SaveTarget,
     kind: 'save' | 'state',
     assets: readonly LocalAsset[],
-    tag: string
+    tag: string,
+    primary: string | null
   ): Promise<{ sent: number; failed: number }> {
     let uploaded = 0
     let failed = 0
@@ -1114,9 +1370,10 @@ export class SaveSync {
           payload = staged
         }
 
+        const slot = asset.fileName === primary ? AUTOSAVE_SLOT : null
         const sent =
           kind === 'save'
-            ? await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag)
+            ? await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag, slot)
             : await this.client.uploadState(target.rom.id, payload, asset.fileName, tag)
         uploaded += 1
         await this.stampUploaded(asset, Date.parse(sent.updated_at))

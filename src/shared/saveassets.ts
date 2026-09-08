@@ -2,6 +2,22 @@
 import type { PendingSave, SaveAsset } from './types/index.ts'
 
 /**
+ * The slot a save has to carry to pair with the copy another client uploaded.
+ *
+ * RomM pairs a client's save against the server's on the ROM and the slot it
+ * was sent under, never on what the file is called, and the clients built on
+ * that all default to this one name. A save sent under no slot is filed as an
+ * archive and paired with nothing — which is what makes this the difference
+ * between a save the rest of the ecosystem can see and one only RomMix will
+ * ever read back.
+ *
+ * Shared rather than kept beside the upload because both ends need it: the
+ * main process decides which file goes up under it, and the Saves tab names
+ * the slots that are *not* it.
+ */
+export const AUTOSAVE_SLOT = 'autosave'
+
+/**
  * When a save last changed, on the end that is ahead.
  *
  * One definition because two places need the same answer: the Saves tab prints

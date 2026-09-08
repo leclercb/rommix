@@ -528,6 +528,7 @@ export const es: Catalog = {
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint': 'Escrita por otro emulador. Traer las partidas no la bajará.',
   'saves.fromDevice': 'desde {device}',
+  'saves.slot': 'ranura {slot}',
   'saves.scopeLocal': 'de este dispositivo',
   'saves.scopeRemote': 'de RomM',
   'saves.empty': 'No hay partidas de este juego, ni aquí ni en RomM.',
