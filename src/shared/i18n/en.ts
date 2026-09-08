@@ -896,6 +896,8 @@ export const en = {
   'error.savesNotSent_one': '{count} save could not be sent to RomM.',
   'error.savesNotSent_other': '{count} saves could not be sent to RomM.',
   'error.serverTimedOut': 'The RomM server at {url} did not answer in time.',
+  'error.serverTooOld':
+    'This RomM server is version {version}. RomMix needs {minimum} or newer — please update it.',
   'error.notAuthorised': 'Not authorised — sign in again',
   'error.permissionDenied': 'Permission denied: {detail}',
   'error.rommReturned': 'RomM returned {status}: {detail}',

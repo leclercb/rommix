@@ -915,6 +915,8 @@ export const fr: Catalog = {
   'error.savesNotSent_one': '{count} sauvegarde n’a pas pu être envoyée à RomM.',
   'error.savesNotSent_other': '{count} sauvegardes n’ont pas pu être envoyées à RomM.',
   'error.serverTimedOut': 'Le serveur RomM {url} n’a pas répondu à temps.',
+  'error.serverTooOld':
+    'Ce serveur RomM est en version {version}. RomMix requiert la version {minimum} ou plus récente — veuillez le mettre à jour.',
   'error.notAuthorised': 'Non autorisé — reconnectez-vous',
   'error.permissionDenied': 'Permission refusée : {detail}',
   'error.rommReturned': 'RomM a répondu {status} : {detail}',

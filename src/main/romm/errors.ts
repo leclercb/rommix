@@ -62,6 +62,22 @@ export class UnreachableError extends RommError {
 }
 
 /**
+ * The server answered, and is older than this build can read — see `atLeast`.
+ *
+ * Its own type because it is the one failure that is neither the network's
+ * fault nor the credentials': waiting does not fix it and signing in again does
+ * not either, so it must not be taken for an outage and drawn over with a saved
+ * copy. What fixes it is upgrading the server, which nobody is told to do by a
+ * screen saying "offline".
+ */
+export class UnsupportedServerError extends RommError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnsupportedServerError'
+  }
+}
+
+/**
  * What arrived is not what RomM holds. See `verify`.
  *
  * Its own type because the queue answers for it differently from a transfer

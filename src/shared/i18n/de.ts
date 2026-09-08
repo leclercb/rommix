@@ -927,6 +927,8 @@ export const de: Catalog = {
   'error.savesNotSent_one': '{count} Spielstand konnte nicht an RomM gesendet werden.',
   'error.savesNotSent_other': '{count} Spielstände konnten nicht an RomM gesendet werden.',
   'error.serverTimedOut': 'Der RomM-Server unter {url} hat nicht rechtzeitig geantwortet.',
+  'error.serverTooOld':
+    'Dieser RomM-Server hat Version {version}. RomMix benötigt Version {minimum} oder neuer — bitte aktualisieren Sie ihn.',
   'error.notAuthorised': 'Nicht berechtigt — melden Sie sich erneut an',
   'error.permissionDenied': 'Zugriff verweigert: {detail}',
   'error.rommReturned': 'RomM antwortete {status}: {detail}',

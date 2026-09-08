@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ConnectionStatus } from '@shared/types'
 import { ConnectionWatch, connectionStatus } from './connection.ts'
-import { RommError, type RommClient } from './romm/index.ts'
+import { RommError, UnsupportedServerError, type RommClient } from './romm/index.ts'
 import { Store } from './store.ts'
 
 const scratches: string[] = []
@@ -73,6 +73,20 @@ describe('what "not connected" means', () => {
       const status = await connectionStatus(store(), client(new RommError('nope', code)))
       assert.equal(status.offline, false, `${code} should send the user to the sign-in screen`)
     }
+  })
+
+  test('a server too old to read is an answer, and not offline', async () => {
+    // The same shape as a refusal and for the same reason: it answered, waiting
+    // fixes nothing, and reported as offline the saved library would be drawn
+    // over the one sentence saying what to do about it.
+    const status = await connectionStatus(
+      store(),
+      client(new UnsupportedServerError('server is 4.9.0'))
+    )
+
+    assert.equal(status.connected, false)
+    assert.equal(status.offline, false)
+    assert.equal(status.error, 'server is 4.9.0')
   })
 
   test('a server that is broken rather than absent is still offline', async () => {

@@ -33,7 +33,8 @@ import { log } from '../log.ts'
 import { t } from '../i18n.ts'
 import type { Store } from '../store.ts'
 import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
-import { RommError, UnreachableError } from './errors.ts'
+import { RommError, UnreachableError, UnsupportedServerError } from './errors.ts'
+import { atLeast, MINIMUM_SERVER_VERSION } from './version.ts'
 import {
   fetchToFile,
   partialPathOf,
@@ -260,13 +261,37 @@ export class RommClient {
 
   // -- authentication -------------------------------------------------------
 
-  /** GET /api/heartbeat — also doubles as the "is this actually a RomM server" probe. */
+  /**
+   * GET /api/heartbeat — also the "is this a RomM server we can read" probe.
+   *
+   * Both halves of that, because both are asked in the same three places: when
+   * a server is first typed in, when a pairing starts against one, and on every
+   * connection check afterwards. A version this build has no schema for is
+   * refused here rather than at each of them, so none can forget to ask — see
+   * `MINIMUM_SERVER_VERSION`.
+   *
+   * A server that names no version is let through. Nothing can be proved about
+   * it, and turning somebody away over a field their server did not send is the
+   * worse of the two mistakes: the one this guards against is a save that reads
+   * as ancient, the other is an application that will not open.
+   */
   async heartbeat(baseUrl?: string): Promise<{ version: string | null }> {
     const res = await this.request('/api/heartbeat', {}, { baseUrl, retryOn401: false })
     if (!res.ok) throw await this.toError(res)
     const body = (await res.json()) as { SYSTEM?: { VERSION?: string } }
     const version = body.SYSTEM?.VERSION ?? null
     log.debug('romm', 'heartbeat', { baseUrl: baseUrl ?? this.baseUrl, serverVersion: version })
+
+    if (version !== null && !atLeast(version, MINIMUM_SERVER_VERSION)) {
+      log.warn('romm', 'the server is older than this build can read', {
+        baseUrl: baseUrl ?? this.baseUrl,
+        serverVersion: version,
+        minimum: MINIMUM_SERVER_VERSION
+      })
+      throw new UnsupportedServerError(
+        t('error.serverTooOld', { version, minimum: MINIMUM_SERVER_VERSION })
+      )
+    }
     return { version }
   }
 

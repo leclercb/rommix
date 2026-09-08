@@ -898,6 +898,8 @@ export const es: Catalog = {
   'error.savesNotSent_one': '{count} partida guardada no se ha podido enviar a RomM.',
   'error.savesNotSent_other': '{count} partidas guardadas no se han podido enviar a RomM.',
   'error.serverTimedOut': 'El servidor RomM en {url} no ha respondido a tiempo.',
+  'error.serverTooOld':
+    'Este servidor RomM es la versión {version}. RomMix necesita la {minimum} o posterior — actualízalo, por favor.',
   'error.notAuthorised': 'No autorizado — inicia sesión otra vez',
   'error.permissionDenied': 'Permiso denegado: {detail}',
   'error.rommReturned': 'RomM respondió {status}: {detail}',

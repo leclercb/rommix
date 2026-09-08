@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict'
 import { after, afterEach, before, describe, test } from 'node:test'
-import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
 import type { RommDevice, RommFirmware, RommRom, RommRomFile } from '@shared/types'
-import { RommClient, RommError } from './romm/index.ts'
+import {
+  RommClient,
+  RommError,
+  UnsupportedServerError,
+  atLeast,
+  MINIMUM_SERVER_VERSION
+} from './romm/index.ts'
 import type { Store } from './store.ts'
 
 /**
@@ -351,6 +357,25 @@ describe('the library', () => {
     assert.deepEqual(await new RommClient(store).heartbeat(), { version: '5.1.0' })
 
     serve(() => json({}))
+    assert.deepEqual(await new RommClient(store).heartbeat(), { version: null })
+  })
+
+  test('a server older than this build has a schema for is turned away', async () => {
+    const { store } = fakeStore()
+    serve(() => json({ SYSTEM: { VERSION: '4.9.0' } }))
+
+    // Its own type, and not an outage: nothing is fixed by waiting, and a
+    // status that said offline would draw the saved library over the one
+    // sentence saying what to do.
+    await assert.rejects(() => new RommClient(store).heartbeat(), UnsupportedServerError)
+  })
+
+  test('a server that names no version is let through', async () => {
+    // Nothing can be proved about it, and an application that will not open is
+    // a worse answer than one that reads a field its server never sent.
+    const { store } = fakeStore()
+    serve(() => json({}))
+
     assert.deepEqual(await new RommClient(store).heartbeat(), { version: null })
   })
 
@@ -1584,5 +1609,51 @@ describe('firmware, saves and states', () => {
       () => new RommClient(store).uploadSave(5, file, 'sonic.srm', null, null),
       RommError
     )
+  })
+})
+
+/**
+ * Which servers this build will talk to at all.
+ *
+ * The comparison, and the one fact it is read against: `schema/` is what says a
+ * version is supported — see `MINIMUM_SERVER_VERSION` — so the two are checked
+ * together here rather than left to agree by memory.
+ */
+describe('the oldest server this build can read', () => {
+  test('the minimum is the oldest version schema/ holds a document for', () => {
+    // Dropping a document is how a version stops being supported. Doing that
+    // without moving the minimum leaves RomMix signing in to a server it has
+    // stopped checking its types against, which is the silent half of the
+    // failure this guards.
+    const oldest = readdirSync(new URL('../../schema/', import.meta.url))
+      .filter((name) => name.startsWith('romm-') && name.endsWith('.json'))
+      .map((name) => name.replace(/^romm-|\.json$/g, ''))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0]
+
+    assert.equal(MINIMUM_SERVER_VERSION, oldest)
+  })
+
+  test('a version is compared as numbers, not as text', () => {
+    // Both directions text gets wrong, which is the reason this function
+    // exists: `'4.9.0' >= '5.0.0'` is false for the right answer, and
+    // `'4.10.0' >= '4.9.0'` is false for the wrong one.
+    assert.equal(atLeast('5.0.0', '5.0.0'), true)
+    assert.equal(atLeast('4.9.0', '5.0.0'), false)
+    assert.equal(atLeast('4.10.0', '4.9.0'), true)
+    assert.equal(atLeast('5.2.0', '5.0.0'), true)
+    assert.equal(atLeast('10.0.0', '9.0.0'), true)
+  })
+
+  test('a version said in fewer parts is read as zeroes', () => {
+    assert.equal(atLeast('5', '5.0.0'), true)
+    assert.equal(atLeast('5.0', '5.0.1'), false)
+  })
+
+  test('a pre-release counts as the version it is a candidate for', () => {
+    // The forgiving direction on purpose: somebody running a candidate of the
+    // minimum is nearer to supported than not, and being turned away by their
+    // own server's version string is the worse failure.
+    assert.equal(atLeast('5.0.0-rc.1', '5.0.0'), true)
+    assert.equal(atLeast('4.9.0-rc.1', '5.0.0'), false)
   })
 })
