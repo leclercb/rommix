@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
+import { dateFormatters } from '@shared/i18n/dates.ts'
 import { en } from '@shared/i18n/en.ts'
 import { fr } from '@shared/i18n/fr.ts'
 import type { App } from './driver.ts'
@@ -1239,6 +1240,529 @@ describe('reading it in another language', () => {
     await app.waitFor(
       `(await window.rommix.system.settings()).language === 'auto'`,
       'the language to be handed back to the system'
+    )
+  })
+})
+
+/**
+ * The screen RomMix opens on, which until now nothing had read.
+ *
+ * Everything here is drawn before anybody has pressed anything, so a shelf
+ * asked for with the wrong words, or a hero taken from the wrong end of one, is
+ * the first thing a new player sees and the last thing anything would catch.
+ */
+describe('the home screen', () => {
+  test('each shelf is a query of its own, in the words that make it that shelf', async () => {
+    await app.goTo('home')
+    await app.waitFor(`document.querySelector('[data-shelf="recent"]')`, 'the shelves')
+
+    // Three requests rather than one library sorted three ways in the page. A
+    // shelf is twenty games off a server holding thousands, and these words are
+    // what makes them the right twenty — a shelf filled by filtering whatever
+    // arrived would agree with a fake this size and hold the wrong games on
+    // anything real.
+    const shelves: [string, string[]][] = [
+      ['continue playing', ['last_played=true']],
+      ['favourites', ['favorite=true']],
+      ['recently added', ['order_by=created_at', 'order_dir=desc']]
+    ]
+    for (const [shelf, marks] of shelves) {
+      assert.ok(
+        server.asked.some(
+          (one) =>
+            one.path.startsWith('/api/roms?') && marks.every((mark) => one.path.includes(mark))
+        ),
+        `the ${shelf} shelf should have been asked for with ${marks.join(' and ')}`
+      )
+    }
+  })
+
+  test('the hero is the head of the first shelf holding anything, and says which', async () => {
+    // Not a game picked out on its own: the banner is the first tile of the
+    // first shelf, and the line above it names that shelf. A hero labelled
+    // "Continue playing" over the newest game in the library is the one failure
+    // here that looks entirely reasonable.
+    const shelved = await app.read<string>(
+      `document.querySelector('[data-shelf="continue"] .card__title')?.textContent`
+    )
+    assert.equal(
+      await app.read<string>(`document.querySelector('.hero__title')?.textContent`),
+      shelved
+    )
+    assert.equal(
+      await app.read<string>(`document.querySelector('.hero__reason')?.textContent`),
+      en['home.continuePlaying']
+    )
+  })
+
+  test('and it opens that game rather than being a picture of one', async () => {
+    // Focusable, and what the highlight opens on: this is the only screen in
+    // RomMix where the first thing under it is not a button, so a hero that
+    // draws and does nothing is a press into a page that appears to be stuck.
+    const title = await app.read<string>(`document.querySelector('.hero__title')?.textContent`)
+    await app.choose('.hero')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    assert.equal(
+      await app.read<string>(`document.querySelector('.game-hero__title')?.textContent`),
+      title
+    )
+  })
+})
+
+describe('the end of the library', () => {
+  test('a grid with no more pages behind it says how many that was', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the grid')
+
+    // The grid pages on a sentinel below it, so "nothing more is coming" is a
+    // statement rather than the absence of one — without it a library that has
+    // been read to the end is indistinguishable from one still fetching.
+    await app.waitFor(
+      `[...document.querySelectorAll('.empty')].some(
+         (one) => one.textContent?.includes(${JSON.stringify(String(server.roms.length))})
+       )`,
+      'the line saying that is all of them'
+    )
+  })
+
+  test('and a search matching nothing says so rather than drawing an empty grid', async () => {
+    await app.press('Search')
+    await app.waitFor(`document.activeElement?.tagName === 'INPUT'`, 'the caret in the box')
+    // A word no game here is called, so the server answers with an empty page
+    // rather than with an error: an empty grid and a failed request look the
+    // same from the sofa, and only one of them is worth a message about the
+    // search.
+    await app.type('zzzz')
+
+    await app.waitFor(`!document.querySelector('[data-rom]')`, 'the grid to empty')
+    await app.waitFor(
+      `[...document.querySelectorAll('.empty')].some(
+         (one) => one.textContent === ${JSON.stringify(en['library.noMatches'])}
+       )`,
+      'the screen to say nothing matched'
+    )
+
+    // Out of the field, and out of the search: while it holds the caret the
+    // keyboard handler stands down, and every scenario after this one shares
+    // the screen it is left on.
+    await app.press('Escape')
+    await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
+    await app.goTo('home')
+  })
+})
+
+/**
+ * The details tab, which is the whole of what RomM knows about a game that the
+ * banner does not already show.
+ *
+ * Built as a list and filtered rather than written as conditional rows — see
+ * `DetailsTab` — and the filter is the part worth driving: RomM's metadata is
+ * only as complete as whatever a game was matched against, so the tab has to be
+ * right about a game it knows four things about as well as about one it knows
+ * everything about.
+ */
+describe('what a game says about itself', () => {
+  /** The game the tab below is read off, as the fake serves it. */
+  const rom = (): (typeof server.roms)[number] => {
+    const found = server.roms.find((one) => one.id === 2)
+    assert.ok(found, 'the fixtures should hold that game')
+    return found
+  }
+
+  /** The labels down the left of the tab, in the order it drew them. */
+  const labels = (): Promise<string[]> =>
+    app.read<string[]>(
+      `[...document.querySelectorAll('.kv--columns .kv__row dt')].map((one) => one.textContent)`
+    )
+
+  /** What it wrote beside one of them. */
+  const valueOf = (label: string): Promise<string | undefined> =>
+    app.read<string | undefined>(
+      `[...document.querySelectorAll('.kv--columns .kv__row')].find(
+         (row) => row.querySelector('dt')?.textContent === ${JSON.stringify(label)}
+       )?.querySelector('dd')?.textContent`
+    )
+
+  test('it draws what the server sent and leaves out what it did not', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.waitFor(`document.querySelector('.kv--columns')`, 'the details')
+
+    // The fake holds no company and no franchise for this game, and nobody has
+    // played it — so those rows are absent rather than blank. A tab that drew
+    // them empty would be a column of labels with nothing beside them, which
+    // reads as data that failed to arrive.
+    assert.deepEqual(await labels(), [
+      en['details.released'],
+      en['details.players'],
+      en['details.modes'],
+      en['details.languages']
+    ])
+
+    // And the values are the server's own, rather than something the screen
+    // worked out: these three are lists RomM sends and RomMix only joins up.
+    assert.equal(await valueOf(en['details.players']), rom().metadatum.player_count)
+    assert.equal(await valueOf(en['details.modes']), rom().metadatum.game_modes.join(', '))
+    assert.equal(await valueOf(en['details.languages']), rom().languages.join(', '))
+  })
+
+  test('and nothing about a copy on this disk, because there is not one', async () => {
+    // The second half of the same filter, from the other side: the facts about
+    // the copy here — where it was installed, what it weighs, which emulator's
+    // library holds it — belong to a game that has been downloaded, and this
+    // one never has.
+    const drawn = await labels()
+    for (const absent of [
+      en['details.installedTo'],
+      en['details.systemFolder'],
+      en['details.downloadedFor'],
+      en['details.onDisk'],
+      en['details.downloaded']
+    ]) {
+      assert.equal(
+        drawn.includes(absent),
+        false,
+        `${absent} should not be on a game that is not here`
+      )
+    }
+  })
+
+  test('the date is written the way Settings says, on the screen that shows one', async () => {
+    // The one setting whose effect is on every other screen. It reaches the
+    // renderer through `createI18n`, so a format kept but never handed on is a
+    // row in Settings that changes nothing anybody can see — and this tab is
+    // where a date is actually read.
+    const asFound = await valueOf(en['details.released'])
+    assert.equal(
+      asFound,
+      dateFormatters('en', 'dmy').date(new Date(rom().metadatum.first_release_date as number))
+    )
+
+    // Arrived at from another screen, so the strip is on General — the tab it
+    // opens with — and the walk goes straight down the page rather than in by
+    // way of the strip.
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-option="iso"]')`, 'the date formats')
+    await app.choose('[data-option="iso"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).dateFormat === 'iso'`,
+      'the format to be kept'
+    )
+
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('.kv--columns')`, 'the details again')
+    assert.equal(
+      await valueOf(en['details.released']),
+      dateFormatters('en', 'iso').date(new Date(rom().metadatum.first_release_date as number))
+    )
+
+    // Back to the default, since every scenario after this one shares the
+    // application and more than one of them reads a date off a screen.
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-option="dmy"]')`, 'the date formats again')
+    await app.choose('[data-option="dmy"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).dateFormat === 'dmy'`,
+      'the format to go back'
+    )
+  })
+})
+
+/**
+ * The address for a phone, which is the only QR code RomMix draws.
+ *
+ * Its own component and its own dependency, and nothing had ever rendered one.
+ * It is also the only picture in RomMix that is computed rather than drawn —
+ * every other one is an icon or something the server sent.
+ */
+describe('the way out to a browser that is not on the television', () => {
+  test('the panel draws a code, and the address under it for anyone typing it', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-action="buy-coffee"]')`, 'the general tab')
+    await app.choose('[data-action="buy-coffee"]')
+    await app.waitFor(`document.querySelector('.overlay .pair-qr svg')`, 'the QR code')
+
+    // Modules, not an empty square: `qrcode-generator` emits the whole code as
+    // one path, and a value it refused would leave an svg of exactly this size
+    // with nothing drawn in it.
+    assert.ok(
+      (await app.read<number>(
+        `document.querySelector('.overlay .pair-qr svg path')?.getAttribute('d')?.length ?? 0`
+      )) > 0,
+      'the code should have been drawn rather than left blank'
+    )
+
+    // And the address in words underneath, which is what the code says. A
+    // gamescope session frequently has no browser to open into at all, so this
+    // line is the fallback for the fallback.
+    const printed = await app.read<string>(
+      `[...document.querySelectorAll('.overlay .muted')].map((one) => one.textContent).find(
+         (text) => text?.startsWith('https://')
+       )`
+    )
+    assert.match(printed, /^https:\/\//)
+  })
+
+  test('and closing it leaves Settings where it was', async () => {
+    await app.choose('[data-action="close-support"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the panel to close')
+    await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'the settings screen')
+  })
+})
+
+describe('what RomMix says about its own version', () => {
+  test('it names the version running and admits it has not looked', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the settings tabs')
+    await app.choose('[data-tab="system"]')
+    await app.waitFor(`document.querySelector('[data-action="recheck-system"]')`, 'the system tab')
+
+    // The version is the running process's own, carried over IPC — the panel
+    // draws no other statement of what this copy is, and the one thing every
+    // bug report needs is which version wrote it.
+    const status = await app.read<{ current: string; checkedAt: string | null }>(
+      `await window.rommix.updates.status()`
+    )
+    const shown = await app.read<string[]>(
+      `[...document.querySelectorAll('.kv dd')].map((one) => one.textContent)`
+    )
+    assert.ok(
+      shown.includes(status.current),
+      `the installed version was not among ${JSON.stringify(shown)}`
+    )
+
+    // Never checked and checked-and-current are different answers, and the
+    // harness turns automatic checks off — so this is the honest one.
+    assert.equal(status.checkedAt, null, 'the harness should have left the checks off')
+    assert.ok(
+      shown.includes(en['update.notCheckedYet']),
+      `it should have said it has not looked, and said ${JSON.stringify(shown)}`
+    )
+  })
+
+  test('and which releases count is a setting it keeps', async () => {
+    // The policy itself is left where the harness put it: anything but off
+    // schedules a real check against GitHub, and the only server this suite is
+    // allowed to talk to is the fake one. This toggle is the other half of the
+    // same question and reschedules nothing while the policy is off.
+    await app.choose('[data-setting="updatePrereleases"] [data-option="on"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).updatePrereleases === true`,
+      'the choice to be kept'
+    )
+    await app.choose('[data-setting="updatePrereleases"] [data-option="off"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).updatePrereleases === false`,
+      'and to go back'
+    )
+  })
+})
+
+/**
+ * The three things the emulators screen does to an emulator rather than to a
+ * platform: read its steps, install it, and move it up the order.
+ *
+ * `launch.test.ts` drives the other list on this screen — which emulator runs
+ * one platform. This is the list above it, where the answer is about every
+ * platform two emulators both cover.
+ */
+describe('the emulators themselves', () => {
+  /**
+   * The screen, freshly drawn, with the highlight back at the top of it.
+   *
+   * The list is several screenfuls and the walk is a walk: a scenario that
+   * started wherever the one before it finished would be reaching the second
+   * row from the bottom of the fourth. Going away and coming back is what
+   * remounts the screen, since navigating to the route already showing keeps
+   * everything it had.
+   */
+  const fromTheTop = async (): Promise<void> => {
+    await app.goTo('home')
+    await app.goTo('emulators')
+    await app.waitFor(`document.querySelector('[data-emulator]')`, 'the emulator list')
+  }
+
+  /** The emulators as the screen has them, top to bottom. */
+  const order = (): Promise<string[]> =>
+    app.read<string[]>(
+      `[...document.querySelectorAll('[data-emulator]')].map((one) => one.dataset.emulator)`
+    )
+
+  test('installing one asks how first, and offers only routes it can take', async () => {
+    await fromTheTop()
+
+    // RetroArch is declared more than one way and RomMix can perform only one
+    // of them: Flathub. The other is a binary it looks for on the machine,
+    // which is how an install is *found* rather than a way of installing
+    // anything — offered here it would be a button that cannot do what it
+    // says.
+    await app.choose('[data-emulator="retroarch"] [data-action="install-emulator"]')
+    await app.waitFor(`document.querySelector('.overlay .choice')`, 'the routes')
+    assert.equal(
+      await app.read<number>(`document.querySelectorAll('.overlay .choice').length`),
+      1,
+      'only Flathub is something RomMix can do'
+    )
+
+    // Nothing has been run. The panel is the confirmation as much as the
+    // choice — on a pad the button under the cursor is one press away at all
+    // times, and this one installs software on the machine.
+    await app.choose('[data-action="install-cancel"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the panel to close')
+  })
+
+  test('and says so plainly for one RomMix has no route to at all', async () => {
+    await fromTheTop()
+
+    // EmuDeck installs itself from its own script, and an empty panel would
+    // read as a panel that failed to load. The way out of this one is the
+    // address in the sentence.
+    await app.choose('[data-emulator="emudeck"] [data-action="install-emulator"]')
+    await app.waitFor(`document.querySelector('.overlay')`, 'the panel')
+    assert.equal(
+      await app.read<number>(`document.querySelectorAll('.overlay .choice').length`),
+      0,
+      'RomMix has no way to install EmuDeck'
+    )
+    await app.waitFor(`document.querySelector('.overlay .muted strong')`, 'where to get it instead')
+
+    await app.choose('[data-action="install-cancel"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the panel to close')
+  })
+
+  test('moving one up asks what it costs, and stays put when the answer is no', async () => {
+    await fromTheTop()
+    const found = await order()
+
+    // The same question a platform handed to another emulator asks, from the
+    // other list on the screen: moving one up makes it the emulator answering
+    // for every platform both cover, which is a re-download of their games and
+    // a reinstall of their BIOS.
+    await app.choose(`[data-emulator="${found[1]}"] [data-action="move-up"]`)
+    await app.waitFor(`document.querySelector('[data-action="emulator-keep"]')`, 'the question')
+    await app.choose('[data-action="emulator-keep"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the question to close')
+
+    assert.deepEqual(await order(), found, 'cancelling should have moved nothing')
+    const saved = await app.read<string[]>(
+      `(await window.rommix.system.settings()).emulatorPriority`
+    )
+    assert.notEqual(saved[0], found[1], 'and should have written no order either')
+  })
+
+  test('and agreeing writes the whole order, not the one that moved', async () => {
+    await fromTheTop()
+    const found = await order()
+    const moved = found[1]
+
+    await app.choose(`[data-emulator="${moved}"] [data-action="move-up"]`)
+    await app.waitFor(`document.querySelector('[data-action="emulator-change"]')`, 'the question')
+    await app.choose('[data-action="emulator-change"]')
+
+    await app.waitFor(
+      `document.querySelector('[data-emulator]')?.dataset.emulator === ${JSON.stringify(moved)}`,
+      'the emulator to be first on the screen'
+    )
+    // The list rather than the entry, because it is the list that answers for
+    // every platform — see `orderedEmulators`, which reads it as a preference
+    // order and falls back to the registry's own for anything not named.
+    assert.deepEqual(
+      await app.read<string[]>(`(await window.rommix.system.settings()).emulatorPriority`),
+      [found[1], found[0], ...found.slice(2)]
+    )
+
+    // Put back, since that order decides which emulator answers for the
+    // platforms in every scenario after this one.
+    await app.choose(`[data-emulator="${moved}"] [data-action="move-down"]`)
+    await app.waitFor(`document.querySelector('[data-action="emulator-change"]')`, 'the question')
+    await app.choose('[data-action="emulator-change"]')
+    await app.waitFor(
+      `document.querySelector('[data-emulator]')?.dataset.emulator === ${JSON.stringify(found[0])}`,
+      'the order it was found in'
+    )
+  })
+
+  test('the steps one still needs are readable from its own row', async () => {
+    await fromTheTop()
+
+    // Eden asks for several things to be done inside it, and every one of them
+    // makes RomMix look broken when it has not been: the download is there and
+    // named, and Eden's own list is empty.
+    await app.choose('[data-emulator="eden"] [data-action="setup-steps"]')
+    await app.waitFor(`document.querySelector('.overlay .notice__list li')`, 'the steps')
+    assert.ok(
+      (await app.read<number>(`document.querySelectorAll('.overlay .notice__list li').length`)) > 0,
+      'an emulator with setup notes should have listed them'
+    )
+
+    await app.choose('[data-action="close-setup"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the steps to close')
+  })
+
+  test('one that keeps its own library can be pointed at where it really is', async () => {
+    await fromTheTop()
+
+    // The main reason anybody opens this screen. RetroDECK and EmuDeck each own
+    // a tree that can sit anywhere — an SD card, a second disk — and RomMix
+    // looks for it in the usual places and nowhere else; a library it cannot
+    // find is one the user has to name. Offered whether or not the emulator was
+    // detected, which is the state that most needs it.
+    await app.choose('[data-emulator="retrodeck"] [data-action="emulator-root"]')
+    await app.waitFor(
+      `document.querySelector('[data-emulator="retrodeck"] .field__input')`,
+      'the folder box'
+    )
+
+    // The caret decides where typing lands, so the box is reached before a
+    // letter is sent and left afterwards — while it holds the caret the
+    // keyboard handler stands down. See `type` in the driver.
+    await app.choose('[data-emulator="retrodeck"] .field__input')
+    await app.waitFor(`document.activeElement?.tagName === 'INPUT'`, 'the caret in the box')
+    await app.read(
+      `document.activeElement.setSelectionRange(0, document.activeElement.value.length)`
+    )
+    await app.type('/tmp/rommix-a-library-elsewhere')
+    await app.press('Escape')
+    await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
+
+    await app.choose('[data-emulator="retrodeck"] [data-action="emulator-root-save"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).emulatorRoots?.retrodeck ===
+         '/tmp/rommix-a-library-elsewhere'`,
+      'the folder to be kept'
+    )
+
+    // Emptied again, which is a request to go back to looking rather than a
+    // request to look in a directory called "". A space rather than nothing at
+    // all, because there is no way to type an empty string into a box — and it
+    // is what the trim on the other side is for.
+    await app.choose('[data-emulator="retrodeck"] [data-action="emulator-root"]')
+    await app.choose('[data-emulator="retrodeck"] .field__input')
+    await app.waitFor(`document.activeElement?.tagName === 'INPUT'`, 'the caret in the box again')
+    await app.read(
+      `document.activeElement.setSelectionRange(0, document.activeElement.value.length)`
+    )
+    await app.type(' ')
+    await app.press('Escape')
+    await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
+
+    await app.choose('[data-emulator="retrodeck"] [data-action="emulator-root-save"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).emulatorRoots?.retrodeck === undefined`,
+      'the folder to be forgotten'
+    )
+  })
+
+  test('and the button is off, not missing, for one that needs nothing', async () => {
+    // Disabled rather than hidden on purpose: "there is nothing to set up" is
+    // worth being able to read off the row, and a button that comes and goes
+    // moves every row below it.
+    await app.waitFor(
+      `document.querySelector('[data-emulator="retroarch"] [data-action="setup-steps"]')
+         ?.dataset.disabled === 'true'`,
+      'the steps button to be off for RetroArch'
     )
   })
 })

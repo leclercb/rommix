@@ -1,4 +1,4 @@
-import { standInEmulator, startApp, type App } from './driver.ts'
+import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -36,6 +36,10 @@ export async function startScenario(): Promise<Scenario> {
       confirmSavePush: false
     }
   })
+
+  // Handed over settled, so the first thing any scenario does is not a walk
+  // across a screen that is still filling. See `atHome`.
+  await atHome(app)
 
   return {
     server,

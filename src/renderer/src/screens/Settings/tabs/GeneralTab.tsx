@@ -152,7 +152,7 @@ export function GeneralTab(): JSX.Element {
         {t('settings.supportBody')}
       </p>
       <div className="btn-row">
-        <FocusButton icon="coffee" onSelect={() => setSupporting(true)}>
+        <FocusButton icon="coffee" action="buy-coffee" onSelect={() => setSupporting(true)}>
           {t('settings.buyCoffee')}
         </FocusButton>
       </div>
@@ -175,7 +175,12 @@ export function GeneralTab(): JSX.Element {
           <p className="muted">{t('settings.scanOrOpen')}</p>
           <ScanToOpen url={SUPPORT_URL} />
           <div className="btn-row">
-            <FocusButton icon="keep" onSelect={() => setSupporting(false)} autoFocus>
+            <FocusButton
+              icon="keep"
+              action="close-support"
+              onSelect={() => setSupporting(false)}
+              autoFocus
+            >
               {t('action.close')}
             </FocusButton>
             <FocusButton

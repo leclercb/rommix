@@ -52,7 +52,13 @@ export function SetupNotesNotice({
         ))}
       </ul>
       <div className="btn-row">
-        <FocusButton icon="confirm" variant="primary" onSelect={onClose} autoFocus>
+        <FocusButton
+          icon="confirm"
+          action="close-setup"
+          variant="primary"
+          onSelect={onClose}
+          autoFocus
+        >
           {t('action.close')}
         </FocusButton>
       </div>

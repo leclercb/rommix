@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { standInEmulator, startApp, type App } from './driver.ts'
+import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -51,7 +51,7 @@ describe('while an emulator owns the screen', () => {
   const START = 9
 
   test('a game takes the screen, and the overlay says so', async () => {
-    await stuck.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    await atHome(stuck)
     await stuck.goTo('library')
     await stuck.choose('[data-rom="3"]')
     await stuck.choose('[data-action="download"]')

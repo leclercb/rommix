@@ -90,6 +90,7 @@ export function UpdatePanel(): JSX.Element {
       <Toggle
         label={t('update.prereleases')}
         hint={t('update.prereleasesHint')}
+        setting="updatePrereleases"
         on={prereleases}
         onToggle={() => void saveSettings({ updatePrereleases: !prereleases })}
       />

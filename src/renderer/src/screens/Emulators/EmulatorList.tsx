@@ -431,6 +431,7 @@ export function EmulatorList({
                   <div className="btn-row">
                     <FocusButton
                       icon="folder"
+                      action="emulator-root-save"
                       onSelect={() => void saveRoot(descriptor.id, rootDraft.value)}
                     >
                       {t('emulator.useThisFolder')}
@@ -450,6 +451,7 @@ export function EmulatorList({
               {descriptor.layout?.relative && rootDraft?.id !== descriptor.id ? (
                 <FocusButton
                   icon="folder"
+                  action="emulator-root"
                   variant="ghost"
                   onSelect={() =>
                     setRootDraft({
@@ -496,6 +498,7 @@ export function EmulatorList({
                    emulator in front of someone who only wants it installed. */
                 <FocusButton
                   icon="install"
+                  action="install-emulator"
                   variant="ghost"
                   disabled={flatpakBusy !== null}
                   onSelect={() => setPending(descriptor)}
@@ -512,6 +515,7 @@ export function EmulatorList({
                   rows below it move. */}
               <FocusButton
                 icon="note"
+                action="setup-steps"
                 variant="ghost"
                 actionLabel={t('emulator.setupSteps')}
                 disabled={descriptor.setupNotes.length === 0}
@@ -523,6 +527,7 @@ export function EmulatorList({
                   the emulator that answers for every platform both cover. */}
               <FocusButton
                 icon="moveUp"
+                action="move-up"
                 actionLabel={t('action.moveUp')}
                 variant="ghost"
                 disabled={index === 0}
@@ -530,6 +535,7 @@ export function EmulatorList({
               />
               <FocusButton
                 icon="moveDown"
+                action="move-down"
                 actionLabel={t('action.moveDown')}
                 variant="ghost"
                 disabled={index === order.length - 1}
@@ -589,6 +595,7 @@ export function EmulatorList({
           <div className="btn-row">
             <FocusButton
               icon="cancel"
+              action="install-cancel"
               variant="ghost"
               onSelect={() => setPending(null)}
               autoFocus={installMethods(pending).length === 0}

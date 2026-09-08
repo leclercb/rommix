@@ -10,8 +10,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { standInEmulator, startApp, type App } from './driver.ts'
+import { dirname, join } from 'node:path'
+import { en } from '@shared/i18n/en.ts'
+import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startScenario, type Scenario } from './harness.ts'
 import type { FakeRomm } from './server.ts'
 
@@ -138,6 +139,62 @@ describe('downloading a game', () => {
     assert.ok(roms[0].path.endsWith('cavestory.md'), roms[0].path)
     assert.equal(existsSync(roms[0].path), true)
   })
+
+  test('and the home screen offers it off this disk rather than off a query', async () => {
+    // The one shelf on that screen that is not a request: it is the download
+    // index, complete and already in hand, which is why it is also the shelf
+    // that survives the server going away. Filtering the three shelves that
+    // are requests would hold a game only where it happened to be a favourite
+    // or recently played, and make the one shelf about *this machine* the
+    // least reliable on the screen.
+    await app.goTo('home')
+    await app.waitFor(`document.querySelector('[data-shelf="ready"]')`, 'the ready-to-play shelf')
+
+    const held = await app.read<number[]>(
+      `(await window.rommix.library.installed())
+         .sort((a, b) => b.installedAt.localeCompare(a.installedAt))
+         .map((one) => one.romId)`
+    )
+    assert.deepEqual(
+      await app.read<number[]>(
+        `[...document.querySelectorAll('[data-shelf="ready"] [data-rom]')].map(
+           (one) => Number(one.dataset.rom)
+         )`
+      ),
+      held,
+      'the shelf should hold what the index holds, newest install first'
+    )
+  })
+
+  test('and its own page says where the copy went', async () => {
+    // The facts on the details tab that are about the file rather than about
+    // the game. None of them can be drawn for something that has not been
+    // downloaded — which is every game in `interface.test.ts`, where the rest
+    // of that tab is read.
+    await app.goTo('library')
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(`document.querySelector('.kv--columns')`, 'the details')
+
+    const entry = await app.read<{ path: string; system: string }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 1)`
+    )
+    const valueOf = (label: string): Promise<string | undefined> =>
+      app.read<string | undefined>(
+        `[...document.querySelectorAll('.kv--columns .kv__row')].find(
+           (row) => row.querySelector('dt')?.textContent === ${JSON.stringify(label)}
+         )?.querySelector('dd')?.textContent`
+      )
+
+    // The folder rather than the file. Which file it is is the Files tab's
+    // whole subject, and this is the row somebody reads to go and look.
+    assert.equal(await valueOf(en['details.installedTo']), dirname(entry.path))
+    // The ES-DE system folder it was filed under, which is what decides
+    // whether an emulator's own scanner will ever find it.
+    assert.equal(await valueOf(en['details.systemFolder']), entry.system)
+    // And what it takes up here, which is a stat of this disk rather than the
+    // size RomM reported — the two come apart the moment a game is unpacked.
+    assert.notEqual(await valueOf(en['details.onDisk']), undefined)
+  })
 })
 
 describe('launching a game', () => {
@@ -255,6 +312,38 @@ describe('downloading a game of several files', () => {
       server.asked.some((one) => one.path.startsWith('/api/roms/4/content/')),
       false,
       'it should not have fallen back to the archive'
+    )
+  })
+
+  test('and its files tab draws the two ends as one list', async () => {
+    // The tab is a merge, and only a game that is actually here can produce
+    // the answer worth having: "both". Everything `interface.test.ts` can read
+    // off it is the half where RomM holds a file and this disk does not.
+    await app.choose('[data-tab="files"]')
+    await app.waitFor(`document.querySelector('.asset-list')`, 'the files')
+
+    const entry = await app.read<{ files: string[] }>(
+      `(await window.rommix.library.installed()).find((one) => one.romId === 4)`
+    )
+    const listed = await app.read<string[]>(
+      `[...document.querySelectorAll('.asset__name')].map((one) => one.textContent)`
+    )
+    assert.deepEqual(
+      listed.slice().sort(),
+      entry.files.slice().sort(),
+      'every file of the set should be listed once'
+    )
+
+    // Matched by name across the two sides rather than listed twice — a cue
+    // and its track are one file each, here and on the server, and a merge
+    // that missed would invent a discrepancy on a set that has none.
+    const tags = await app.read<string[]>(
+      `[...document.querySelectorAll('.asset-list .status')].map((one) => one.textContent)`
+    )
+    assert.deepEqual(
+      tags,
+      entry.files.map(() => en['files.tagBoth']),
+      `the rows said ${JSON.stringify(tags)}`
     )
   })
 })
@@ -853,7 +942,7 @@ describe('saves either side of a session', () => {
   })
 
   test("the server's copy is brought down before the game starts", async () => {
-    await saved.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+    await atHome(saved)
     await saved.goTo('library')
     await saved.choose('[data-rom="1"]')
     await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
@@ -1082,6 +1171,14 @@ describe('saves either side of a session', () => {
     mkdirSync(stateDir, { recursive: true })
     writeFileSync(join(stateDir, 'cavestory.state1'), 'stopped mid-boss')
 
+    // Another game's save, in the same folder, whose name starts with this
+    // one's. A save directory is one flat pile per system, so every game's
+    // files sit beside every other's — and a match that allowed a prefix would
+    // send this file to Cave Story on RomM, where it is not a save anybody can
+    // load and where it overwrites nothing that would explain itself.
+    writeFileSync(join(saveDir, 'cavestory 2.srm'), "the sequel's save")
+    writeFileSync(join(stateDir, 'cavestory 2.state1'), "the sequel's state")
+
     await saved.goTo('library')
     await saved.choose('[data-rom="1"]')
     await saved.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
@@ -1095,6 +1192,15 @@ describe('saves either side of a session', () => {
       `[...document.querySelectorAll('.overlay .asset__kind')].map((one) => one.dataset.kind)`
     )
     assert.deepEqual(listed.sort(), ['save', 'state'], `the dialog listed ${listed}`)
+
+    // By name as well as by count: two saves in the folder and one row is the
+    // right answer only if the row is the right file.
+    assert.deepEqual(
+      await saved.read<string[]>(
+        `[...document.querySelectorAll('.overlay .asset__name')].map((one) => one.textContent).sort()`
+      ),
+      ['cavestory.srm', 'cavestory.state1']
+    )
   })
 
   test('and sending it puts each kind at its own end of RomM', async () => {
@@ -1122,6 +1228,17 @@ describe('saves either side of a session', () => {
       sent.every((one) => one.romId === 1 && one.emulator === core),
       'both should have been filed under the game and the emulator that wrote them'
     )
+
+    // And the neighbour stayed where it was. Left on the disk rather than
+    // merely left out of the upload: what is being checked is a file that
+    // belongs to another game, and a sync that moved or emptied it would be
+    // the same fault arriving by a different route.
+    assert.equal(
+      server.uploaded.some((one) => one.body.includes('cavestory 2.')),
+      false,
+      `the sequel's files went up as this game's: ${JSON.stringify(server.uploaded.map((one) => one.kind))}`
+    )
+    assert.equal(readFileSync(join(saveDir, 'cavestory 2.srm'), 'utf8'), "the sequel's save")
   })
 
   test('cancelling the question sends nothing at all', async () => {
@@ -1232,8 +1349,29 @@ describe('installing the BIOS a platform needs', () => {
     await bios?.stop()
   })
 
+  test('a game whose console needs one is warned before it is played, not after', async () => {
+    await atHome(bios)
+    await bios.goTo('library')
+    // The Sega CD game. Its platform is the only one in this library with a
+    // file marked required, and this application has installed nothing.
+    await bios.choose('[data-rom="4"]')
+    await bios.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    // Said on the screen the Play button is on, which is the point of asking
+    // here at all rather than leaving it to the BIOS screen: "the game does
+    // not start" is the least informative failure in emulation, and a missing
+    // BIOS is among its commonest causes — with a message that never mentions
+    // one. The file name rather than the sentence, which changes with the
+    // language.
+    await bios.waitFor(
+      `[...document.querySelectorAll('.notice--warn')].some(
+         (one) => one.textContent?.includes('bios_CD_U.bin')
+       )`,
+      'the warning naming the file that is missing'
+    )
+  })
+
   test('one file is fetched where one file is what was asked for', async () => {
-    await bios.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
     await bios.goTo('bios')
     await bios.waitFor(`document.querySelector('[data-screen="bios"]')`, 'the BIOS screen')
 
@@ -1287,6 +1425,33 @@ describe('installing the BIOS a platform needs', () => {
     assert.ok(
       server.asked.some((one) => one.path.startsWith('/api/firmware/70/content/')),
       'it should have fetched the firmware itself'
+    )
+  })
+
+  test('and the game stops warning, because the warning is about the disk', async () => {
+    // The other half of the first scenario in this file's BIOS section: the
+    // notice is drawn from a fresh look at the folder rather than from
+    // anything the BIOS screen said, so installing from one screen has to be
+    // visible from the other without either being told.
+    await bios.goTo('library')
+    await bios.choose('[data-rom="4"]')
+    await bios.waitFor(`document.querySelector('[data-action="download"]')`, 'the game screen')
+    assert.equal(
+      await bios.read<boolean>(
+        `[...document.querySelectorAll('.notice--warn')].some(
+           (one) => one.textContent?.includes('bios_CD_U.bin')
+         )`
+      ),
+      false,
+      'the warning should have gone with the file it was about'
+    )
+
+    // Back on the BIOS screen, which is where the scenario below starts: it
+    // reads the row this one drew, and then takes the file away behind it.
+    await bios.goTo('bios')
+    await bios.waitFor(
+      `document.querySelector('[data-bios="bios_CD_U.bin"] .status')?.dataset.state === 'ok'`,
+      'the BIOS screen again'
     )
   })
 

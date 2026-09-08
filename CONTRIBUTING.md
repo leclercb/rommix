@@ -60,6 +60,22 @@ of a window too small to hold them — where they are drawn, and unreachable,
 which reads as a focus engine that has stopped working. See
 [test/app/](test/app/).
 
+On NixOS neither half of that is on the machine, and both come out of nixpkgs
+for the length of the run:
+
+```bash
+npm run test:app:nix
+```
+
+Nothing is installed and nothing is left behind — see
+[scripts/test-app-nix.sh](scripts/test-app-nix.sh), which says why each piece is
+there. The short of it: `ELECTRON_EXEC_PATH` is the variable `.envrc` sets and
+is set for the same reason, the Electron `npm install` downloads having no
+loader at the path they are linked against; and what nixpkgs packages is
+whatever Electron major it has, which is not necessarily the one in
+`package.json`. What the suite drives is the DevTools protocol, and the four
+messages it sends predate any of them.
+
 It runs one file at a time on purpose. There is a real window being driven, and
 a second suite competing for the machine changes how long a list takes to draw —
 which showed up as the focus scan giving up on a library that was still filling.
@@ -70,7 +86,10 @@ Several scenario files, and a file exists where an application cannot be shared.
 `running.test.ts` runs an emulator that ignores being asked to quit;
 `offline.test.ts` takes the server away and brings it back on the same address;
 `launch.test.ts` needs a machine with two ways to run one system, which is a
-`HOME` of its own. The two that are left are split by whether order matters.
+`HOME` of its own; `device.test.ts` signs in for real, because every other
+application is handed credentials that already name a device on the server and
+that is the one state where nothing has to register. The two that are left are
+split by whether order matters.
 `games.test.ts` is one session read top to bottom — the game downloaded by one
 scenario is the game launched by the next, and the last takes the server away —
 because none of those states can be seeded from outside without seeding away the

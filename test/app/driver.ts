@@ -451,6 +451,29 @@ function seed(home: string, options: StartOptions): void {
   )
 }
 
+/**
+ * Wait for the home screen to have settled, rather than merely arrived.
+ *
+ * Three of its shelves are requests, and the hero is drawn when the first of
+ * them answers — taking the highlight with it, `autoFocus` being what puts the
+ * first press of all on the game RomMix is offering. A walk started between
+ * those two moments is one the page moves out from under: `goTo` presses Back
+ * to reach the menu, the highlight is no longer where it was measured, and the
+ * press arrives at the bottom of the stack as an offer to quit.
+ *
+ * So every scenario that starts a signed-in application waits here before it
+ * drives anything. Waiting on the screen alone is not enough and reads as
+ * though it were, which is what made this a failure that came and went with how
+ * busy the machine was.
+ */
+export async function atHome(app: App): Promise<void> {
+  await app.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+  await app.waitFor(
+    `document.querySelector('.hero')?.dataset.focused === 'true'`,
+    'the home screen to settle'
+  )
+}
+
 /** Start the built application against a fake server, and wait for its window. */
 export async function startApp(options: StartOptions): Promise<App> {
   const home = mkdtempSync(join(tmpdir(), 'rommix-app-test-'))

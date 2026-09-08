@@ -3,7 +3,7 @@ import { after, before, describe, test } from 'node:test'
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { standInEmulator, startApp, type App } from './driver.ts'
+import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -70,9 +70,9 @@ before(async () => {
   })
 
   // Before anything is pressed. `goTo` walks out of wherever it is to reach the
-  // menu, and a window that has not finished mounting has no menu to reach —
-  // the press lands on the bottom of the stack and offers to quit instead.
-  await app.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+  // menu, and a screen that is still filling has no settled menu to reach — the
+  // press lands on the bottom of the stack and offers to quit instead.
+  await atHome(app)
 })
 
 after(async () => {
