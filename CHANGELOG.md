@@ -4,6 +4,22 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.14.0-rc.0 — 2026-09-08
+
+- chore: silence Node's transform-types and typeless-package warnings (6eb1850)
+- feat: let test:app find its own Electron and window (79ce1d4)
+- feat: rename the log to app.log (76763fd)
+- feat: log every launch to logs/launcher.log (5e10d06)
+- test: increase screens test:app coverage (6a53081)
+- refactor: extract fetchToFile for the three public downloads (6660eae)
+- fix: keep a paged grid from stalling when its query changes mid-flight (b5cabd8)
+- refactor: add folderOf beside fileNameOf (b555c02)
+- refactor: extract a usePagedRoms hook (ce80b39)
+- refactor: extract a shared TransferProgress component (4ebb103)
+- refactor: extract StatusPill and StatusBadge components (9209d34)
+- refactor: reuse UninstallDialog on the downloads screen (87c568b)
+- feat: show the update download as a progress bar (c47c0c7)
+
 ## 0.13.0 — 2026-09-07
 
 - test(app): wait for RomM before reading the favourites shelf (908ce91)
