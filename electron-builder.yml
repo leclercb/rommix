@@ -32,14 +32,14 @@ files:
 
 # The shell script that goes in front of the Electron binary inside the image.
 # It decides `--ozone-platform`, which has to be on the real command line and so
-# cannot be decided by RomMix itself — see packaging/rommix-launch.sh for why,
+# cannot be decided by RomMix itself — see packaging/rommix-launcher.sh for why,
 # and scripts/after-pack.mjs for how it gets there.
 afterPack: ./scripts/after-pack.mjs
 
 # `rommix-steam.sh` as RomMix carries it, at `process.resourcesPath`. The copy a
 # user downloaded once would otherwise keep whatever it said on the day they
 # downloaded it; carrying the current one lets the version that starts put it
-# back in step. See `Updater.refreshLauncher` in src/main/update.ts.
+# back in step. See `Updater.refreshSteamLauncher` in src/main/update.ts.
 extraResources:
   - from: packaging/rommix-steam.sh
     to: rommix-steam.sh

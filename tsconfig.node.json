@@ -30,6 +30,7 @@
     "src/shared/**/*",
     "src/config/**/*",
     "test/**/*",
+    "packaging/**/*",
     "electron.vite.config.ts",
     "vite.web.config.ts"
   ]

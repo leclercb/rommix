@@ -305,6 +305,7 @@ somewhere RomMix would not look.
 | What RomM says about installed games  | `~/rommix/offline/`                                    |
 | Emulators RomMix installed            | `~/rommix/emulators/`                                  |
 | Log file                              | `~/rommix/logs/rommix.log`                             |
+| What happened before it started       | `~/rommix/logs/launcher.log`                           |
 
 By default ROMs go into each emulator's own library, so a game is still there
 when you start that emulator yourself. Settings → Games → **Games on disk**
@@ -333,6 +334,19 @@ show for it, which is how a gamescope session looks from the outside — Chromiu
 believes the first half and quits. RomMix falls back to X11 there by itself; if
 you are on a session that needs a particular backend anyway, pass
 `--ozone-platform=x11` or `--ozone-platform=wayland` and it will be left alone.
+
+That choice is made before RomMix starts, and it is written down either way — a
+line per launch in `logs/launcher.log`, beside the log rather than in it, since
+a start that fails this early never reaches the log itself. Each line records
+which version and machine, what the session claimed and what was there to
+connect to, and how RomMix was started, along with what was decided.
+
+**It is the file to attach whenever RomMix will not start**, whatever the
+reason: `rommix.log` can say nothing about a run that ended before it opened.
+And the question is usually about more than one launch — it works from the
+desktop and not from Steam, or it worked yesterday — where two lines that
+disagree are the whole answer. The same line goes to standard error, which under
+Steam is the console log named above, beside any error it explains.
 
 **`error while loading shared libraries: libnspr4.so`** (or `libglib-2.0.so.0`).
 The distribution does not ship the libraries an unpatched binary expects. On

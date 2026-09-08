@@ -327,7 +327,7 @@ describe('the launcher beside the image', () => {
     writeFileSync(beside, '#!/bin/sh\nold\n', { mode: 0o644 })
     const { updater: subject } = updater()
 
-    await subject.refreshLauncher()
+    await subject.refreshSteamLauncher()
 
     assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nnew\n')
     // Repaired along with the contents: a launcher Steam cannot execute is the
@@ -340,7 +340,7 @@ describe('the launcher beside the image', () => {
     const { beside } = installed('#!/bin/sh\nnew\n')
     const { updater: subject } = updater()
 
-    await subject.refreshLauncher()
+    await subject.refreshSteamLauncher()
 
     assert.equal(existsSync(beside), false)
   })
@@ -353,7 +353,7 @@ describe('the launcher beside the image', () => {
     resourcesAt(join(scratch(), 'gone'))
     const { updater: subject } = updater()
 
-    await subject.refreshLauncher()
+    await subject.refreshSteamLauncher()
 
     assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nold\n')
   })
@@ -363,7 +363,7 @@ describe('the launcher beside the image', () => {
     writeFileSync(beside, '#!/bin/sh\nold\n')
     const { updater: subject } = updater('off')
 
-    await subject.refreshLauncher()
+    await subject.refreshSteamLauncher()
 
     assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nnew\n')
   })
@@ -374,7 +374,7 @@ describe('the launcher beside the image', () => {
     delete process.env.APPIMAGE
     const { updater: subject } = updater()
 
-    await subject.refreshLauncher()
+    await subject.refreshSteamLauncher()
 
     assert.equal(readFileSync(beside, 'utf8'), '#!/bin/sh\nold\n')
   })

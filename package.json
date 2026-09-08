@@ -22,7 +22,7 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test \"src/**/*.test.ts\"",
+    "test": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test \"src/**/*.test.ts\" \"packaging/**/*.test.ts\"",
     "test:coverage": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --test --experimental-test-coverage --test-coverage-lines=96 --test-coverage-branches=88 --test-coverage-functions=89 \"src/**/*.test.ts\"",
     "schema:fetch": "node scripts/fetch-openapi.mjs",
     "test:app": "npm run build && node --import ./scripts/test-resolve.mjs --experimental-transform-types --test --test-concurrency=1 \"test/app/**/*.test.ts\"",

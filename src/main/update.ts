@@ -202,9 +202,10 @@ function startedBySteam(): boolean {
 const STEAM_LAUNCHER = 'rommix-steam.sh'
 
 /**
- * Bring the launcher beside the image back into step with it.
+ * Write the shipped `rommix-steam.sh` over the copy beside the image, where the
+ * two have come apart.
  *
- * `rommix-steam.sh` is downloaded once and then owned by nobody. An update
+ * That script is downloaded once and then owned by nobody. An update
  * writes the image and leaves the script saying whatever it said on the day it
  * was fetched, so anything a release changes there reaches only the people who
  * think to download it again — and the ones who do not find out months later,
@@ -222,7 +223,7 @@ const STEAM_LAUNCHER = 'rommix-steam.sh'
  * Steam whatever this does; a script that could not be rewritten is worth a
  * line in the log and no more than that.
  */
-async function refreshSteamLauncher(beside: string): Promise<void> {
+async function writeSteamLauncher(beside: string): Promise<void> {
   const script = join(beside, STEAM_LAUNCHER)
 
   let current: string
@@ -316,10 +317,10 @@ export class Updater {
    * still replaces the image by hand, and the launcher beside it is still
    * theirs to have working.
    */
-  async refreshLauncher(): Promise<void> {
+  async refreshSteamLauncher(): Promise<void> {
     const running = process.env.APPIMAGE
     if (!running) return
-    await refreshSteamLauncher(dirname(running))
+    await writeSteamLauncher(dirname(running))
   }
 
   private policy(): UpdatePolicy {
