@@ -37,7 +37,15 @@ cp -r site/img "$OUT/img"
 # catalogue: the picture on the page is a drawing of RomMix, and its labels come
 # from what RomMix actually says. Nothing is bundled: the two short scripts the
 # page runs are inline in the template — see `scripts/build-landing.mjs`.
-node --experimental-transform-types --no-warnings scripts/build-landing.mjs
+#
+# The two warnings that reading TypeScript out here prints are turned off by
+# name — the same pair, for the same reasons, as `scripts/test-app.sh` — rather
+# than with `--no-warnings`, which would also swallow anything Node has to say
+# about the build itself.
+node --experimental-transform-types \
+  --disable-warning=ExperimentalWarning \
+  --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
+  scripts/build-landing.mjs
 
 cat <<EOF
 

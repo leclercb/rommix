@@ -99,9 +99,19 @@ npm run build
 
 # One file at a time on purpose. There is a real window being driven, and a
 # second suite competing for the machine changes how long a list takes to draw.
+
+# Two warnings are turned off by name rather than left to be read past. The
+# experimental one is about `--experimental-transform-types` below, which is
+# asked for deliberately and is the only experimental thing here. The
+# typeless one asks for `"type": "module"` in package.json, which is not a
+# choice this suite gets to make: the same field decides the format the
+# application is built in, and a preload cannot be an ES module while the
+# renderer that loads it is sandboxed — see `sandbox` in src/main/app.ts.
 exec "${window[@]}" node \
   --import ./scripts/test-resolve.mjs \
   --experimental-transform-types \
+  --disable-warning=ExperimentalWarning \
+  --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
   --test \
   --test-concurrency=1 \
   "test/app/**/*.test.ts"
