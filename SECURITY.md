@@ -19,7 +19,7 @@ Worth knowing before deciding whether something is a security issue here:
   kept in `~/rommix/config/credentials.bin` and encrypted with the OS keyring
   through Electron's `safeStorage`. Where no keyring is reachable it falls back
   to plaintext in a file created mode `0600`, and says so in the log.
-- **The log.** `~/rommix/logs/rommix.log` records every request and every launch.
+- **The log.** `~/rommix/logs/app.log` records every request and every launch.
   Credentials are redacted on the way in — by key, and by pattern for anything
   token-shaped — because the log is meant to be pasted into bug reports.
   `src/main/log.test.ts` is what holds that promise up. A credential surviving

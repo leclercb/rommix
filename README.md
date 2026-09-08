@@ -304,7 +304,7 @@ somewhere RomMix would not look.
 | Settings, credentials, download index | `~/rommix/config/`                                     |
 | What RomM says about installed games  | `~/rommix/offline/`                                    |
 | Emulators RomMix installed            | `~/rommix/emulators/`                                  |
-| Log file                              | `~/rommix/logs/rommix.log`                             |
+| Log file                              | `~/rommix/logs/app.log`                                |
 | What happened before it started       | `~/rommix/logs/launcher.log`                           |
 
 By default ROMs go into each emulator's own library, so a game is still there
@@ -342,7 +342,7 @@ which version and machine, what the session claimed and what was there to
 connect to, and how RomMix was started, along with what was decided.
 
 **It is the file to attach whenever RomMix will not start**, whatever the
-reason: `rommix.log` can say nothing about a run that ended before it opened.
+reason: `app.log` can say nothing about a run that ended before it opened.
 And the question is usually about more than one launch — it works from the
 desktop and not from Steam, or it worked yesterday — where two lines that
 disagree are the whole answer. The same line goes to standard error, which under
@@ -416,12 +416,12 @@ that do not are worth reporting with that name.
 
 ### The log
 
-`~/rommix/logs/rommix.log` holds everything RomMix does — the command each
+`~/rommix/logs/app.log` holds everything RomMix does — the command each
 emulator was started with, what was asked of RomM, where every file was written.
 Credentials are stripped on the way in, so it is safe to paste into a bug report.
 
 ```bash
-tail -f ~/rommix/logs/rommix.log
+tail -f ~/rommix/logs/app.log
 ```
 
 A new file each day, or sooner if one gets large; the old ones sit beside it

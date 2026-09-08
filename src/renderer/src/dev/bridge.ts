@@ -879,7 +879,7 @@ const bridge: RomMixBridge = {
         // The path the real app would print, though nothing writes to it here:
         // the panel shows it so a bug report can quote it, and a demo quoting a
         // folder RomMix does not use teaches the wrong one.
-        logPath: `${PREVIEW_ROOT}/logs/rommix.log`,
+        logPath: `${PREVIEW_ROOT}/logs/app.log`,
         notes: [say('demo.nothingChecked')]
       }),
     root: () =>

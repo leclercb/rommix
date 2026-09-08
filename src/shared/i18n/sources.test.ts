@@ -16,7 +16,7 @@ import { join } from 'node:path'
  *
  *  - `log.*` in the main process. The log is what gets attached to a bug
  *    report, and one written in four languages is one nobody can triage. It is
- *    written for whoever reads `rommix.log`, which is not the player.
+ *    written for whoever reads `app.log`, which is not the player.
  *  - the demo's stub library in `src/renderer/src/dev/library.ts`. That is
  *    RomM's own metadata standing in for a server response — game summaries,
  *    company names — and the real app shows those in whatever language the

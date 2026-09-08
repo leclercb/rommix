@@ -61,9 +61,13 @@ body:
     attributes:
       label: Log
       description: |
-        `~/rommix/logs/rommix.log` — the part around the failure. Credentials are
+        `~/rommix/logs/app.log` — the part around the failure. Credentials are
         stripped on the way in, so it is safe to paste as it is. If nothing there
         explains it, re-run with `ROMMIX_LOG=debug`.
+
+        If RomMix does not start at all, that file cannot say why — it is opened
+        after the point such a launch stops. `~/rommix/logs/launcher.log` is the
+        one to attach then.
       render: text
     validations:
       required: true

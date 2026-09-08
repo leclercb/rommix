@@ -37,7 +37,7 @@ process.env.ROMMIX_HOME = root
 delete process.env.ROMMIX_LOG
 
 const { log } = await import('./log.ts')
-const logFile = join(root, 'logs', 'rommix.log')
+const logFile = join(root, 'logs', 'app.log')
 
 /** Everything written so far. */
 function written(): string {
@@ -173,7 +173,7 @@ test('a file past the size limit is rolled over, and the live name starts again'
   pastTheLimit('x')
   log.info('test', 'after the rollover')
 
-  const rolled = readdirSync(join(root, 'logs')).filter((name) => /^rommix-.*\.log$/.test(name))
+  const rolled = readdirSync(join(root, 'logs')).filter((name) => /^app-.*\.log$/.test(name))
   assert.equal(rolled.length, 1)
   // The live file is the new one: what a person opens is always the session
   // they are in.
@@ -196,9 +196,7 @@ test('a file left over from yesterday is rolled over on the first line of today'
     String(yesterday.getMonth() + 1).padStart(2, '0'),
     String(yesterday.getDate()).padStart(2, '0')
   ].join('-')
-  const rolled = readdirSync(join(root, 'logs')).filter((name) =>
-    name.startsWith(`rommix-${stamp}`)
-  )
+  const rolled = readdirSync(join(root, 'logs')).filter((name) => name.startsWith(`app-${stamp}`))
   assert.equal(rolled.length, 1)
   // Named for the day it holds, not the day it was renamed on.
   assert.match(readFileSync(join(root, 'logs', rolled[0]), 'utf8'), /yesterday evening/)
@@ -207,8 +205,11 @@ test('a file left over from yesterday is rolled over on the first line of today'
 })
 
 test('a rolled-over file older than the keeping is deleted, a recent one is not', () => {
-  const stale = oldLog('rommix-2026-01-01-00-00-00.log', 40)
-  const recent = oldLog('rommix-2026-08-01-00-00-00.log', 2)
+  const stale = oldLog('app-2026-01-01-00-00-00.log', 40)
+  const recent = oldLog('app-2026-08-01-00-00-00.log', 2)
+  // Rolled over by a version that called the live file `rommix.log`. Nothing
+  // renames those, so this sweep is the only thing that will ever clear them.
+  const older = oldLog('rommix-2026-01-01-00-00-00.log', 40)
   // The name the version that kept one generation wrote, which is still on the
   // disk of anyone who used it.
   const legacy = oldLog('rommix.log.1', 40)
@@ -219,6 +220,7 @@ test('a rolled-over file older than the keeping is deleted, a recent one is not'
   log.info('test', 'the line that rolls it')
 
   assert.equal(existsSync(stale), false)
+  assert.equal(existsSync(older), false)
   assert.equal(existsSync(legacy), false)
   assert.equal(existsSync(recent), true)
 })

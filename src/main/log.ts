@@ -58,6 +58,18 @@ const MAX_BYTES = 5 * 1024 * 1024
  */
 const KEEP_DAYS = 15
 
+/**
+ * The file this writes, beside `launcher.log` — what the launcher decided
+ * before there was an application, and what the application did once there was.
+ *
+ * Named for what it holds rather than for RomMix, which the folder above it
+ * already says twice over. What a version that called it `rommix.log` left
+ * behind stays where it is: a log is read, not carried forward, and the oldest
+ * line worth having is younger than the rename. `sweep` still recognises the
+ * rolled-over ones, so the folder does empty itself in the end.
+ */
+const LIVE = 'app.log'
+
 /** Resolved once: relocating the root only takes effect on the next start. */
 let logFile: string | null = null
 
@@ -82,7 +94,7 @@ function filePath(): string | null {
   try {
     const dir = join(rootPaths().root, 'logs')
     mkdirSync(dir, { recursive: true })
-    logFile = join(dir, 'rommix.log')
+    logFile = join(dir, LIVE)
     // Once, as the first line of the session is written. A machine that logs
     // little enough never to roll a file over would otherwise keep the last one
     // for ever, and the sweep is the only thing that ends that.
@@ -173,7 +185,18 @@ function sweep(dir: string): void {
   for (const name of entries) {
     // The stamped names above, and the `.1` written by the version that kept
     // one generation — which is still on the disk of anyone who used it.
-    if (!/^rommix-[\d-]+\.log$/.test(name) && !/^rommix\.log\.\d+$/.test(name)) continue
+    //
+    // MIGRATION(0.13): and the same stamp under the name the live file had
+    // then. Nothing renames those — what an older RomMix wrote is left where it
+    // put it — so this is the only thing that will ever clear them, and it can
+    // go once no folder holds one younger than `KEEP_DAYS`.
+    if (
+      !/^app-[\d-]+\.log$/.test(name) &&
+      !/^rommix-[\d-]+\.log$/.test(name) &&
+      !/^rommix\.log\.\d+$/.test(name)
+    ) {
+      continue
+    }
     const path = join(dir, name)
     try {
       if (statSync(path).mtimeMs < cutoff) {
@@ -327,7 +350,7 @@ export const log = {
    * what creates the folder, least of all on a run with logging switched off.
    */
   path(): string {
-    return logFile ?? join(rootPaths().root, 'logs', 'rommix.log')
+    return logFile ?? join(rootPaths().root, 'logs', LIVE)
   },
 
   /**
