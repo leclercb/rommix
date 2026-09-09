@@ -29,6 +29,9 @@ export const SAVE_CONVENTIONS: SaveFileConventions = {
   // game rather than as one file for the whole library: DuckStation numbers
   // the slot behind an underscore, mednafen behind a dot.
   slotExtensions: ['.mcd', '.mcr', '.gme'],
+  // The real-time clock a GBC or GBA game keeps beside its battery save. Synced
+  // like any other save file, and never the one a slot is paired on.
+  companionExtensions: ['.rtc'],
   // Three levels covers `<system>/<emulator>/<file>` and stops a large library
   // turning every launch into a full-tree walk.
   maxDepth: 3

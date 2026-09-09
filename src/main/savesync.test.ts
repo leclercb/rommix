@@ -12,6 +12,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
@@ -65,8 +66,14 @@ function save(fields: Partial<RommSave> = {}): RommSave {
     emulator: 'retroarch',
     updated_at: '2026-08-01T12:00:00.000Z',
     origin_device_id: null,
+    content_hash: null,
     ...fields
   } as RommSave
+}
+
+/** The md5 RomM would hold for these bytes. See `sameContent`. */
+function md5(content: string): string {
+  return createHash('md5').update(content).digest('hex')
 }
 
 function device(fields: Partial<RommDevice> = {}): RommDevice {
@@ -973,6 +980,23 @@ describe('a save the emulator keeps as a folder', () => {
     assert.match(uploaded[0].fileName, /\.rommix-save\.zip$/)
   })
 
+  test('a folder save is not put in the slot the ecosystem shares', async () => {
+    const { sync, target, gameDir, uploaded } = switchGame()
+    writeFileSync(join(gameDir, 'save.dat'), 'progress')
+
+    await sync.pushNow(target)
+
+    // What goes up is a zip RomMix names itself, which no other client reads as
+    // a save. It also could not come back: RomM stamps the time into the name
+    // of every copy it files into a slot, displacing the suffix the archive is
+    // recognised by, so the zip would be written into the save folder whole
+    // instead of being unpacked into it.
+    assert.deepEqual(
+      uploaded.map((file) => file.slot),
+      [null]
+    )
+  })
+
   test('a folder another emulator wrote is left, unlike a save file', async () => {
     // The third shape, and the one the pull rule covers by saying nothing about
     // it: only a save named after the ROM is taken whatever wrote it, so this
@@ -1175,6 +1199,7 @@ describe('pairing on the slot rather than the name', () => {
       file_name: 'Sonic The Hedgehog.srm',
       slot: 'autosave',
       origin_device_id: 'a-phone',
+      updated_at: '2026-08-05T12:00:00.000Z',
       ...fields
     })
   }
@@ -1359,6 +1384,89 @@ describe('pairing on the slot rather than the name', () => {
     assert.deepEqual(
       deleted.toSorted((a, b) => a - b),
       [3, 4]
+    )
+  })
+
+  test('a clock that disagrees does not make a save look changed', async () => {
+    // The handheld case: no battery-backed clock, so the file it wrote is
+    // stamped with whatever date the machine woke up believing — years out,
+    // and behind the server rather than ahead of it. Every launch
+    // then reads the server as ahead and pulls a copy of the save already
+    // sitting there, displacing the real one into the backups a launch at a
+    // time until the copies it went into have rotated away.
+    const { sync, target, saveDir } = setUp({
+      saves: [elsewhere({ content_hash: md5('the same bytes') })]
+    })
+    const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(local, 'the same bytes')
+    const wrong = new Date('2001-01-01T00:00:00.000Z')
+    utimesSync(local, wrong, wrong)
+
+    const [asset] = await sync.listAssets(7, target)
+    assert.equal(asset.sync, 'synced', 'identical bytes are in sync whatever the clocks say')
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 0)
+    assert.equal(readFileSync(local, 'utf8'), 'the same bytes')
+    // And the disagreement is settled rather than skipped over, so the next
+    // launch answers without reading the file at all.
+    assert.equal(statSync(local).mtime.toISOString(), '2026-08-05T12:00:00.000Z')
+  })
+
+  test('bytes that really differ are still pulled', async () => {
+    // The other side of it: the hash only ever says "these are the same file",
+    // and a hash that does not match leaves the timestamps deciding exactly as
+    // they did before.
+    const { sync, target, saveDir } = setUp({
+      saves: [elsewhere({ content_hash: md5('what the server holds') })]
+    })
+    const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(local, 'something else entirely')
+    const old = new Date('2026-08-01T12:00:00.000Z')
+    utimesSync(local, old, old)
+
+    assert.equal((await sync.pullNow(target)).saves, 1)
+    assert.equal(readFileSync(local, 'utf8'), 'from the server')
+  })
+
+  test('a save the slot holds in another format is still offered for push', async () => {
+    // The dialog and the game screen have to pair the same way. Where they did
+    // not, the row read local-only while the dialog counted the file as already
+    // up there and offered nothing — and `drain` is built on the same preview,
+    // so the automatic push skipped it too and the save could never leave.
+    const { sync, target, saveDir } = setUp({
+      saves: [elsewhere({ file_name: 'Sonic The Hedgehog.sav' })]
+    })
+    const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(local, 'played here')
+    // Stamped as the slot's copy was. Paired with it the timestamps read as in
+    // sync, which is how a file that had never been sent came to be counted as
+    // already up there.
+    const when = new Date('2026-08-05T12:00:00.000Z')
+    utimesSync(local, when, when)
+
+    const preview = await sync.previewPush(target)
+
+    assert.deepEqual(
+      preview.files.map((file) => file.fileName),
+      ['Sonic the Hedgehog (USA).srm']
+    )
+    assert.equal(preview.inSync, 0)
+  })
+
+  test('a clock file left on its own does not take the slot', async () => {
+    const { sync, target, saveDir, uploaded } = setUp()
+    const clock = join(saveDir, 'Sonic the Hedgehog (USA).rtc')
+    writeFileSync(clock, 'the clock file')
+
+    await sync.pushSelected(target, [clock])
+
+    // It still goes up, under its own name. What it cannot do is stand in the
+    // slot in front of the battery save every other client reads it for.
+    assert.deepEqual(
+      uploaded.map((file) => file.slot),
+      [null]
     )
   })
 

@@ -839,6 +839,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
             download_path: 'uploaded',
             emulator: url.searchParams.get('emulator'),
             slot: url.searchParams.get('slot'),
+            content_hash: createHash('md5').update(Buffer.concat(chunks)).digest('hex'),
             origin_device_id: url.searchParams.get('device_id'),
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-01T00:00:00Z'
@@ -1030,6 +1031,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           download_path: fileName,
           emulator,
           slot: slot ?? null,
+          // As RomM states it: md5 of what it holds, which is what lets a client
+          // tell a save it already has from one it needs.
+          content_hash: createHash('md5').update(content).digest('hex'),
           // Another device's, which is what makes it worth bringing down.
           origin_device_id: 'some-other-device',
           created_at: '2026-01-01T00:00:00Z',

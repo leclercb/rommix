@@ -3,6 +3,7 @@ import { basename, extname, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { SavePaths } from '@config/emulators'
 import type { RommRom, SaveSyncState } from '@shared/types'
+import { hashOf } from './integrity.ts'
 import { log } from './log.ts'
 
 /**
@@ -18,6 +19,7 @@ import { log } from './log.ts'
 const {
   maxDepth: MAX_DEPTH,
   slotExtensions: SLOT_EXTENSIONS,
+  companionExtensions: COMPANION_EXTENSIONS,
   saveExtensions: SAVE_EXTENSION_ORDER
 } = SAVE_CONVENTIONS
 
@@ -144,11 +146,10 @@ export function romStemOf(rom: RommRom, romPath: string): string {
  * the same answer on every device — a slot two machines disagree about pairs
  * a save with the wrong copy, which is worse than not pairing it at all.
  *
- * A game with one save file is that file, whatever it is called: a lone memory
- * card is the game's save as much as a battery file is, and it is what another
- * client with the same single file would send. Past that the ROM's own name is
- * what separates the save from the clock and cheat files kept beside it, and
- * `saveExtensions` settles what is left by listing the battery formats first.
+ * A game with one save file to its name is that file. Past that the ROM's own
+ * name is what separates the save from the clock and cheat files kept beside
+ * it, and `saveExtensions` settles what is left by listing the battery formats
+ * first.
  *
  * Null where none of that decides. Those files go up under their own names
  * with no slot, which is where every save stood before this — a rule that
@@ -156,17 +157,23 @@ export function romStemOf(rom: RommRom, romPath: string): string {
  */
 export function primarySave(fileNames: readonly string[], romStem: string): string | null {
   /**
-   * Memory cards are out, alone or not.
+   * Two kinds of file are out, alone or not.
    *
-   * The number an emulator adds to a card is part of the name it opens, the
-   * emulators disagree on how to write it — see `slotExtensions` — and it
-   * cannot be read off a copy another client uploaded. So a card pulled from a
-   * slot would land under a name nothing opens, and pairing one is a promise
-   * that cannot be kept. Cards keep being matched on their names, which is all
-   * they ever had.
+   * A memory card, because the number an emulator adds to one is part of the
+   * name it opens, the emulators disagree on how to write it — see
+   * `slotExtensions` — and it cannot be read off a copy another client
+   * uploaded. A card pulled from a slot would land under a name nothing opens.
+   *
+   * And a companion, because one slot holds one copy: a device left holding
+   * only the clock file would put that in the slot, where it stands in front of
+   * the battery save every other client is reading the slot for — including
+   * RomMix on another device, which then declines it for being the wrong format
+   * and gets nothing at all.
+   *
+   * Both keep being matched on their names, which is all they ever had.
    */
-  const cards = new Set(SLOT_EXTENSIONS)
-  const candidates = fileNames.filter((name) => !cards.has(extname(name).toLowerCase()))
+  const excluded = new Set([...SLOT_EXTENSIONS, ...COMPANION_EXTENSIONS])
+  const candidates = fileNames.filter((name) => !excluded.has(extname(name).toLowerCase()))
   if (candidates.length <= 1) return candidates[0] ?? null
 
   const named = candidates.filter((name) => sameGame(name.replace(/\.[^.]+$/, ''), romStem))
@@ -287,6 +294,30 @@ export function syncStateOf(
   if (Math.abs(localMtimeMs - remote) <= SYNC_TOLERANCE_MS) return 'synced'
   if (localMtimeMs > remote) return 'local-newer'
   return fromThisDevice === true ? 'synced' : 'remote-newer'
+}
+
+/**
+ * Do both ends hold the same bytes?
+ *
+ * The one comparison in save sync that no clock takes part in. Everything else
+ * weighs a local mtime against an `updated_at` another machine stamped, and the
+ * machines RomMix runs on are the ones least able to agree: a handheld with no
+ * battery-backed clock starts at the epoch until something tells it otherwise,
+ * and a save folder on exFAT rounds every mtime it is given. Both show up as a
+ * copy that looks changed and is not.
+ *
+ * `hashOf` rather than a second implementation — see `verifyDownload`, which
+ * asks the same question of a download. RomM states this one as md5.
+ *
+ * False where there is nothing to compare against, never where the file cannot
+ * be read: an unreadable save is a question for the caller's own rules, and
+ * answering "not the same" is the safe direction through this one — it leaves
+ * the timestamps deciding, exactly as they did before.
+ */
+export async function sameContent(path: string, contentHash: string | null): Promise<boolean> {
+  if (!contentHash) return false
+  const actual = await hashOf(path, 'md5').catch(() => null)
+  return actual !== null && actual === contentHash.toLowerCase()
 }
 
 /**

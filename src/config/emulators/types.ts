@@ -216,6 +216,16 @@ export interface SaveFileConventions {
    * and taking them for a slot on a battery save hands one game another's.
    */
   slotExtensions: readonly string[]
+  /**
+   * Save extensions that accompany a save rather than being one.
+   *
+   * A clock file is written beside a battery save and is no use without it, so
+   * it is still synced — but it can never be the file the shared slot pairs
+   * on. One slot holds one copy, and a device whose battery save has been
+   * deleted would otherwise put its clock file there, where it hides the real
+   * save from every other client that reads the slot.
+   */
+  companionExtensions: readonly string[]
   /** How deep below a save root to look before giving up. */
   maxDepth: number
 }

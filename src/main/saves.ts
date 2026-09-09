@@ -15,7 +15,8 @@ import type {
   SaveAsset,
   SaveDeleteScope,
   SavePushPreview,
-  SaveSyncResult
+  SaveSyncResult,
+  SaveSyncState
 } from '@shared/types'
 import { refusedUs } from './romm/index.ts'
 import type { RommClient } from './romm/index.ts'
@@ -30,6 +31,7 @@ import {
   localTag,
   primarySave,
   romStemOf,
+  sameContent,
   sameFormat,
   sizeOf,
   stampMtime,
@@ -183,6 +185,16 @@ function slotOf(item: RommSave | RommState): string | null {
   // Emptiness included: a slot nothing can be filed under is not one to pair
   // on, and taking it for a name would lose the only handle such a copy has.
   return 'slot' in item && typeof item.slot === 'string' && item.slot !== '' ? item.slot : null
+}
+
+/**
+ * The md5 RomM holds for a copy, where the copy is the kind that has one.
+ *
+ * States have none — `StateSchema` records no hash — so a state is left to its
+ * timestamps, which is all it ever had.
+ */
+function contentHashOf(item: RommSave | RommState): string | null {
+  return 'content_hash' in item && typeof item.content_hash === 'string' ? item.content_hash : null
 }
 
 /**
@@ -465,13 +477,8 @@ export class SaveSync {
         for (const file of found) {
           localAssets.set(`${kind}:${file.fileName.toLowerCase()}`, file)
         }
-        if (kind === 'save') {
-          const primary = primarySave(
-            found.map((file) => file.fileName),
-            romStemOf(local.rom, local.romPath)
-          )
-          primaryKey = primary === null ? null : `save:${primary.toLowerCase()}`
-        }
+        const primary = this.primaryOf(kind, found, local)
+        if (primary !== null) primaryKey = `save:${primary.toLowerCase()}`
       }
     }
 
@@ -547,7 +554,7 @@ export class SaveSync {
         fromThisDevice,
         originName: nameOf(originId),
         updatedAt: item.updated_at,
-        sync: syncStateOf(localFile?.mtimeMs ?? null, item.updated_at, fromThisDevice)
+        sync: await this.compare(localFile, item, fromThisDevice)
       })
     }
 
@@ -739,15 +746,14 @@ export class SaveSync {
       const { slots, loose } = bySlot(remote)
 
       for (const asset of local) {
+        const shared = asset.fileName === primary ? slots.get(AUTOSAVE_SLOT) : undefined
         const existing =
-          asset.fileName === primary
-            ? (slots.get(AUTOSAVE_SLOT) ?? loose.find((item) => item.file_name === asset.fileName))
+          shared && sameFormat(asset.fileName, shared.file_name)
+            ? shared
             : loose.find((item) => item.file_name === asset.fileName)
         const originId = existing ? originIdOf(existing) : null
         const fromThisDevice = originId ? thisDevice.has(originId) : null
-        const state = existing
-          ? syncStateOf(asset.mtimeMs, existing.updated_at, fromThisDevice)
-          : null
+        const state = existing ? await this.compare(asset, existing, fromThisDevice) : null
 
         if (state === 'synced') {
           inSync += 1
@@ -1101,14 +1107,8 @@ export class SaveSync {
 
     const stem = romStemOf(target.rom, target.romPath)
     const local = await this.findLocal(location, target.rom, target.romPath, kind)
-    /** The local file the shared slot answers to — see `primarySave`. */
-    const primary =
-      kind === 'save'
-        ? primarySave(
-            local.map((entry) => entry.fileName),
-            stem
-          )
-        : null
+    /** The local file the shared slot answers to — see `primaryOf`. */
+    const primary = this.primaryOf(kind, local, target)
     /**
      * Paths this pass has already written, so nothing lands on them twice.
      *
@@ -1171,6 +1171,31 @@ export class SaveSync {
 
       const landed = match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs
       if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
+
+      /**
+       * The clocks say fetch it. The bytes get the last word.
+       *
+       * Which is the difference between a handheld with no battery-backed clock
+       * syncing and not: it stamps what it writes with whatever it thinks the
+       * date is, so every launch reads the server as ahead and pulls a copy of
+       * the save already sitting there — displacing the real one into the
+       * backups, a launch at a time, until the copies it was displaced into
+       * have rotated away.
+       *
+       * Stamped rather than only skipped, so the timestamps stop disagreeing
+       * about a file that was never in question and the next launch settles it
+       * without reading anything off the disk.
+       */
+      if (match && !match.isDirectory && (await sameContent(match.path, contentHashOf(item)))) {
+        log.debug('saves', `the ${kind} here is already the copy on the server`, {
+          romId: target.rom.id,
+          id: item.id,
+          fileName: item.file_name,
+          path: match.path
+        })
+        await stampMtime(match.path, remoteTime)
+        continue
+      }
 
       const download =
         kind === 'save'
@@ -1317,7 +1342,47 @@ export class SaveSync {
     )
   }
 
-  /** The file this game's shared slot belongs to — see `primarySave`. */
+  /**
+   * How the two copies of one file compare, asking the bytes where it matters.
+   *
+   * `syncStateOf` weighs a local mtime against a stamp another machine wrote,
+   * which is the best two ends can do about *when* — and on the machines RomMix
+   * runs on it is regularly wrong. A handheld with no battery-backed clock
+   * stamps a save it wrote today with a date in 1970, and every screen then
+   * offers to pull the copy on the server over it.
+   *
+   * So where the timestamps disagree, the hashes are asked, and identical bytes
+   * settle it whatever the clocks say. Only where they disagree: the answer
+   * cannot change when they already agree, and the common case is worth leaving
+   * free of reading every save off the disk.
+   *
+   * A folder save is left alone. What the server holds for one is an archive
+   * built at upload time, and nothing on this disk hashes to it.
+   */
+  private async compare(
+    local: LocalAsset | undefined,
+    item: RommSave | RommState,
+    fromThisDevice: boolean | null
+  ): Promise<SaveSyncState> {
+    const state = syncStateOf(local?.mtimeMs ?? null, item.updated_at, fromThisDevice)
+    if (!local || local.isDirectory || state === 'synced') return state
+    return (await sameContent(local.path, contentHashOf(item))) ? 'synced' : state
+  }
+
+  /**
+   * The file this game's shared slot belongs to — see `primarySave`.
+   *
+   * The one place the question is answered, because three callers ask it and a
+   * slot two of them disagree about pairs a save against the wrong copy.
+   *
+   * A folder save is never it. What goes up for one is a zip RomMix builds and
+   * names itself, which no other client can read as a save — putting that in
+   * the slot the ecosystem shares hands everyone else an archive instead of
+   * their save data. It also comes back unusable: RomM stamps a name with the
+   * time on every copy it files into a slot, and the archive is recognised on
+   * the way in by the suffix that stamp displaces, so the zip would be written
+   * into the save folder whole rather than unpacked into it.
+   */
   private primaryOf(
     kind: 'save' | 'state',
     local: readonly LocalAsset[],
@@ -1325,7 +1390,7 @@ export class SaveSync {
   ): string | null {
     if (kind === 'state') return null
     return primarySave(
-      local.map((asset) => asset.fileName),
+      local.filter((asset) => !asset.isDirectory).map((asset) => asset.fileName),
       romStemOf(target.rom, target.romPath)
     )
   }

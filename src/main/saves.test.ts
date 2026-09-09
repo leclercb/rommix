@@ -255,10 +255,17 @@ test('the only save a game has is the one that holds the slot', () => {
   // Whatever it is called: the name is what this emulator opens, and the slot
   // is how the other end finds it whatever it calls its own copy.
   assert.equal(primarySave(['sonic.srm'], 'Sonic The Hedgehog'), 'sonic.srm')
+})
+
+test('a clock file never holds the slot, alone or beside the save it dates', () => {
+  // One slot holds one copy. A device left holding only the clock file would
+  // put that in it, in front of the battery save every other client reads the
+  // slot for — and RomMix on another device then declines it for being the
+  // wrong format and gets nothing at all.
+  assert.equal(primarySave(['Pokemon Crystal.rtc'], 'Pokemon Crystal'), null)
   assert.equal(
-    primarySave(['Zelda.rommix-save.zip'], 'Zelda'),
-    'Zelda.rommix-save.zip',
-    'a folder save is the game\u2019s save, and one asset'
+    primarySave(['Pokemon Crystal.rtc', 'Pokemon Crystal.srm'], 'Pokemon Crystal'),
+    'Pokemon Crystal.srm'
   )
 })
 
@@ -281,10 +288,10 @@ test('a game with nothing on disk holds no slot', () => {
 })
 
 test("the game's own name separates the save from what sits beside it", () => {
-  // The clock file is real save data and still goes up — under its own name,
-  // with no slot. What it cannot be is the copy another device pairs against.
+  // A second battery file under another name is somebody else's save or a
+  // backup, and either way not the one to pair on.
   assert.equal(
-    primarySave(['Pokemon Crystal.srm', 'Pokemon Crystal.rtc'], 'Pokemon Crystal'),
+    primarySave(['Pokemon Crystal.srm', 'Pokemon Crystal backup.srm'], 'Pokemon Crystal'),
     'Pokemon Crystal.srm'
   )
 })
@@ -296,7 +303,7 @@ test('two cards for one game leave the slot unclaimed', () => {
 test('the answer does not depend on the order the directory was read in', () => {
   // Two devices that disagree about the slot pair a save with the wrong copy,
   // so the same set has to give the same answer whichever way round it arrives.
-  const files = ['Pokemon Crystal.rtc', 'Pokemon Crystal.srm']
+  const files = ['Pokemon Crystal.sav', 'Pokemon Crystal.srm']
   assert.equal(primarySave(files, 'Pokemon Crystal'), 'Pokemon Crystal.srm')
   assert.equal(primarySave(files.toReversed(), 'Pokemon Crystal'), 'Pokemon Crystal.srm')
 })

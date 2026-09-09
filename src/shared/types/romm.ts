@@ -291,6 +291,15 @@ export interface RommSave {
   download_path: string
   emulator: string | null
   slot: string | null
+  /**
+   * md5 of the stored file, which is how two ends agree without a clock.
+   *
+   * Every comparison beside it is between a local mtime and an `updated_at`
+   * stamped by another machine, and a handheld with no battery-backed clock
+   * has neither the same idea of now nor a stable one. The hash is the only
+   * fact about a save that both ends compute the same way.
+   */
+  content_hash: string | null
   /** The RomM device that uploaded it, when the upload named one. */
   origin_device_id?: string | null
   created_at: string
