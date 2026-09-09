@@ -1430,6 +1430,27 @@ describe('pairing on the slot rather than the name', () => {
     assert.equal(readFileSync(local, 'utf8'), 'from the server')
   })
 
+  test('the preview names the slot each file is going into', async () => {
+    // The dialog answers the question the row does: which slot, and so whether
+    // this is a copy the rest of the ecosystem reads back or one filed where
+    // only RomMix will look at it again. Asked of the same rule the upload
+    // uses, so the two cannot name different slots for one file.
+    const { sync, target, saveDir, stateDir } = setUp()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played')
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).rtc'), 'the clock file')
+    writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'a snapshot')
+
+    const preview = await sync.previewPush(target)
+
+    // Sorted here rather than relied on: the dialog orders by what was written
+    // most recently, which is not what this is about.
+    assert.deepEqual(preview.files.map((file) => `${file.fileName} -> ${file.slot}`).toSorted(), [
+      'Sonic the Hedgehog (USA).rtc -> null',
+      'Sonic the Hedgehog (USA).srm -> autosave',
+      'Sonic the Hedgehog (USA).state1 -> null'
+    ])
+  })
+
   test('a save the slot holds in another format is still offered for push', async () => {
     // The dialog and the game screen have to pair the same way. Where they did
     // not, the row read local-only while the dialog counted the file as already

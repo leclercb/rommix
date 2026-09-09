@@ -53,6 +53,12 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
               <span className="asset__name">{file.fileName}</span>
               <span className="asset__meta">
                 {formatBytes(file.sizeBytes)}
+                {/* Which slot it is going into, where it is going into one.
+                  The same phrase the Saves tab puts on the same file, and the
+                  difference between a copy the rest of the ecosystem reads
+                  back and one filed where only RomMix will look again — which
+                  is worth seeing before pressing send rather than after. */}
+                {file.slot ? ` · ${t('saves.slot', { slot: file.slot })}` : ''}
                 {/* A Switch save is a folder of files named after nothing, so it
                   travels as one archive — worth saying, since the name above is
                   not a name anything on disk has. */}

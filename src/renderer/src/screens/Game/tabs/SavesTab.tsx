@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import type { I18n } from '@shared/i18n'
 import type { InstalledRom, SaveAsset, SaveDeleteScope } from '@shared/types'
-import { changedAt, AUTOSAVE_SLOT } from '@shared/saveassets'
+import { changedAt } from '@shared/saveassets'
 import { FocusButton, Spinner } from '../../../components'
 import { useI18n } from '../../../state'
 import { SyncBadge } from '../SyncBadge'
@@ -76,7 +76,6 @@ export function SavesTab({
             : origin === false
               ? (asset.originName ?? t('push.anotherDevice'))
               : null
-        const slot = asset.slot === AUTOSAVE_SLOT ? null : asset.slot
 
         return (
           <li
@@ -108,12 +107,14 @@ export function SavesTab({
             <span className="asset__meta">
               {formatBytes(asset.sizeBytes)}
               {from ? ` · ${t('saves.fromDevice', { device: from })}` : ''}
-              {/* Named only where it is not the slot this device writes. Every
-                  row RomMix put there carries that one, so printing it would
-                  add a word to every line to distinguish nothing — while the
-                  row it does distinguish is another client's, which a pull
-                  leaves alone and this is the only sign of. */}
-              {slot ? ` · ${t('saves.slot', { slot })}` : ''}
+              {/* Named on every row that has one, the shared slot included.
+                  Which slot a save is in is what decides whether another
+                  client ever sees it, so a row silent about it reads as a row
+                  with nothing to say rather than one in the slot they read.
+                  Silent only where there is genuinely none: a state, which
+                  RomM keeps no slot for, and a save filed before there were
+                  slots to file it under. */}
+              {asset.slot ? ` · ${t('saves.slot', { slot: asset.slot })}` : ''}
               {at ? ` · ${formatDateTime(at)}` : ''}
             </span>
             {/* One mark, opening the dialog that asks which end. The ends stay

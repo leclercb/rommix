@@ -194,6 +194,15 @@ export interface PendingSave {
   modifiedAt: string
   /** The emulator tag the upload will carry. */
   emulator: string
+  /**
+   * The slot the upload will be filed under, or null for one that carries none.
+   *
+   * What decides whether this file is the copy another client reads back or an
+   * archive only RomMix will ever look at again — see `AUTOSAVE_SLOT`. One file
+   * per game can hold it, so the rest of a push shows null here, and that is
+   * worth seeing before sending rather than after.
+   */
+  slot: string | null
   /** True when `path` is a folder that gets zipped into one asset. */
   isDirectory: boolean
   /**

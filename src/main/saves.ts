@@ -208,6 +208,18 @@ function contentHashOf(item: RommSave | RommState): string | null {
 }
 
 /**
+ * The slot a file on its way up will be filed under.
+ *
+ * Asked twice — once by the upload and once by the dialog that describes it —
+ * and the two must not be able to differ. A preview naming a slot the push then
+ * does not use is a promise about where a save is going, made to the one person
+ * in a position to say no.
+ */
+function slotToSend(fileName: string, primary: string | null): string | null {
+  return primary !== null && fileName === primary ? AUTOSAVE_SLOT : null
+}
+
+/**
  * Does a copy filed under the shared slot answer to this file on disk?
  *
  * Three callers ask it — the listing, the push preview and the pull — and each
@@ -865,6 +877,7 @@ export class SaveSync {
           sizeBytes: await sizeOf(asset.path, asset.isDirectory === true),
           modifiedAt: new Date(asset.mtimeMs).toISOString(),
           emulator: tag,
+          slot: slotToSend(asset.fileName, primary),
           isDirectory: asset.isDirectory === true,
           replaces: existing
             ? {
@@ -1482,7 +1495,7 @@ export class SaveSync {
           payload = staged
         }
 
-        const slot = asset.fileName === primary ? AUTOSAVE_SLOT : null
+        const slot = slotToSend(asset.fileName, primary)
         const sent =
           kind === 'save'
             ? await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag, slot)

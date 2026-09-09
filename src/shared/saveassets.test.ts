@@ -21,6 +21,7 @@ function pending(replaces: PendingSave['replaces']): PendingSave {
     sizeBytes: 8192,
     modifiedAt: '2026-08-10T12:00:00.000Z',
     emulator: 'retroarch',
+    slot: 'autosave',
     isDirectory: false,
     replaces
   }
