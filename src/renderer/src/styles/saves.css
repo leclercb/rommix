@@ -21,14 +21,31 @@
 }
 
 /* The emulator that wrote a file, which is a name rather than a state.
- 
-   At `--text-dim` it read as something faded out, and it is not: it is the one
-   fact on the row that says whose file this is. The plain `.status` colour is
-   still what an actual state uses, and `data-state` overrides this wherever the
-   chip is carrying one — which on these rows is the incompatible case, in the
-   same red as its badge. */
-.status--emulator {
+
+   At the plain chip colour it read as something faded out, and it is not: it is
+   the one fact on the row that says whose file this is. `data-state` overrides
+   it wherever the chip is carrying one — which on these rows is the incompatible
+   case, in the same red as its badge. */
+.chip--emulator {
   color: var(--text);
+}
+
+/* The slot, wearing the tone of the kind tag at the head of the row.
+
+   The chips between them say what the file is made of — which emulator, how
+   much room. This one says where it belongs, which is the same thing the kind
+   tag says, and a save is the only thing that can carry one: RomM keeps no slot
+   for a state, so the save tone is the only one this ever wears. */
+.chip--slot {
+  --chip-tone: var(--kind-save);
+  background: color-mix(in srgb, var(--chip-tone) 14%, transparent);
+  border-color: color-mix(in srgb, var(--chip-tone) 30%, transparent);
+  color: var(--chip-tone);
+}
+
+.chip--emulator[data-state='bad'] {
+  color: var(--danger);
+  border-color: rgb(255 107 107 / 35%);
 }
 
 /* A row the pull will step over, the file being another emulator's.
@@ -48,7 +65,10 @@
 
 .asset-list li.asset--inert .asset__kind,
 .asset-list li.asset--inert .asset__name,
-.asset-list li.asset--inert .asset__meta {
+.asset-list li.asset--inert .asset__meta,
+/* The chips saying what the file is recede with it. Not the emulator's, which
+   is why the row is grey, and not the badge's, which says so. */
+.asset-list li.asset--inert .chip:not(.chip--emulator) {
   opacity: 0.45;
 }
 

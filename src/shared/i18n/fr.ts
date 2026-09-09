@@ -535,7 +535,6 @@ export const fr: Catalog = {
   'saves.otherEmulatorHint':
     'Écrite par un autre émulateur. Récupérer les sauvegardes ne la rapatriera pas.',
   'saves.fromDevice': 'depuis {device}',
-  'saves.slot': 'emplacement {slot}',
   'saves.scopeLocal': 'de cet appareil',
   'saves.scopeRemote': 'de RomM',
   'saves.empty': 'Aucune sauvegarde pour ce jeu, ni ici ni sur RomM.',

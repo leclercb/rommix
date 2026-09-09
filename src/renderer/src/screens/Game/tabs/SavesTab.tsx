@@ -3,6 +3,7 @@ import type { I18n } from '@shared/i18n'
 import type { InstalledRom, SaveAsset, SaveDeleteScope } from '@shared/types'
 import { changedAt } from '@shared/saveassets'
 import { FocusButton, Spinner } from '../../../components'
+import { Icon } from '../../../icons'
 import { useI18n } from '../../../state'
 import { SyncBadge } from '../SyncBadge'
 
@@ -88,34 +89,42 @@ export function SavesTab({
             {/* Which side has it and whether they agree — and so which button,
                 if any, would do something about this row. */}
             <SyncBadge sync={asset.sync} forAnotherEmulator={asset.forAnotherEmulator} />
-            {/* The emulator as a chip rather than a word in the line below: a
-                save is only loadable by the emulator that wrote it, which makes
-                the tag a property of the file rather than another of its
-                measurements — and the push confirmation has always drawn it
-                this way. */}
+            {/* What the file is, as the chips the game's own header uses for
+                the same shape of fact: the emulator that wrote it, the slot it
+                is filed under, how much room it takes. Marked ones, because a
+                row of bare words is a row that has to be read to be sorted —
+                and the badge above is the only thing here that is a state. */}
             {asset.emulator ? (
               // Marked where it is the reason the row is inert, so the eye
               // lands on the name that explains the badge beside it.
               <span
-                className="status status--emulator"
+                className="chip chip--icon chip--emulator"
                 data-state={asset.forAnotherEmulator ? 'bad' : undefined}
               >
+                <Icon name="emulator" size={14} />
                 {asset.emulator}
               </span>
             ) : null}
+            {/* Which slot it is in is what decides whether another client ever
+                sees it, so it sits beside the tag that decides whether this one
+                can load it. Absent only where there is genuinely no slot: a
+                state, which RomM keeps none for, and a save filed before there
+                were any. */}
+            {asset.slot ? (
+              <span className="chip chip--icon chip--slot">
+                <Icon name="slot" size={14} />
+                {asset.slot}
+              </span>
+            ) : null}
+            <span className="chip chip--icon">
+              <Icon name="size" size={14} />
+              {formatBytes(asset.sizeBytes)}
+            </span>
             <span className="asset__name">{asset.fileName}</span>
             <span className="asset__meta">
-              {formatBytes(asset.sizeBytes)}
-              {from ? ` · ${t('saves.fromDevice', { device: from })}` : ''}
-              {/* Named on every row that has one, the shared slot included.
-                  Which slot a save is in is what decides whether another
-                  client ever sees it, so a row silent about it reads as a row
-                  with nothing to say rather than one in the slot they read.
-                  Silent only where there is genuinely none: a state, which
-                  RomM keeps no slot for, and a save filed before there were
-                  slots to file it under. */}
-              {asset.slot ? ` · ${t('saves.slot', { slot: asset.slot })}` : ''}
-              {at ? ` · ${formatDateTime(at)}` : ''}
+              {from ? t('saves.fromDevice', { device: from }) : ''}
+              {from && at ? ' · ' : ''}
+              {at ? formatDateTime(at) : ''}
             </span>
             {/* One mark, opening the dialog that asks which end. The ends stay
                 separable — deleting the local copy and pulling RomM's back is

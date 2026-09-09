@@ -33,6 +33,7 @@ import {
   Layers,
   ClipboardList,
   BookMarked,
+  Bookmark,
   Plus,
   LayoutGrid,
   Library,
@@ -135,6 +136,8 @@ export const ICONS = {
   languages: Languages,
   /** Which dump of the game this is. */
   revision: Tag,
+  /** The slot RomM files a save under — see `AUTOSAVE_SLOT`. */
+  slot: Bookmark,
   tags: Tags,
   /** A moment in time: when something was last done. */
   time: Clock,

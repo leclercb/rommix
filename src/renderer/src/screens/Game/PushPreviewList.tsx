@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import type { PendingSave } from '@shared/types'
 import { useI18n } from '../../state'
+import { Icon } from '../../icons'
 import { SyncBadge, pushSyncState } from './SyncBadge'
 
 /**
@@ -49,21 +50,31 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
                   holds something newer — which used to be a phrase at the end
                   of the row, after everything that did not decide anything. */}
               <SyncBadge sync={pushSyncState(file)} />
-              <span className="status status--emulator">{file.emulator}</span>
-              <span className="asset__name">{file.fileName}</span>
-              <span className="asset__meta">
+              <span className="chip chip--icon chip--emulator">
+                <Icon name="emulator" size={14} />
+                {file.emulator}
+              </span>
+              {/* The slot it is going into, beside the tag it will carry — the
+                  same pair the Saves tab puts on the same file, and the
+                  difference between a copy the rest of the ecosystem reads back
+                  and one filed where only RomMix will look again. */}
+              {file.slot ? (
+                <span className="chip chip--icon chip--slot">
+                  <Icon name="slot" size={14} />
+                  {file.slot}
+                </span>
+              ) : null}
+              <span className="chip chip--icon">
+                <Icon name="size" size={14} />
                 {formatBytes(file.sizeBytes)}
-                {/* Which slot it is going into, where it is going into one.
-                  The same phrase the Saves tab puts on the same file, and the
-                  difference between a copy the rest of the ecosystem reads
-                  back and one filed where only RomMix will look again — which
-                  is worth seeing before pressing send rather than after. */}
-                {file.slot ? ` · ${t('saves.slot', { slot: file.slot })}` : ''}
-                {/* A Switch save is a folder of files named after nothing, so it
+              </span>
+              <span className="asset__name">{file.fileName}</span>
+              {/* A Switch save is a folder of files named after nothing, so it
                   travels as one archive — worth saying, since the name above is
                   not a name anything on disk has. */}
-                {file.isDirectory ? ` · ${t('push.folderAsZip')}` : ''}
-              </span>
+              {file.isDirectory ? (
+                <span className="asset__meta">{t('push.folderAsZip')}</span>
+              ) : null}
               {/* Both dates on one line with what happens between them, because
                   the question is which of the two is later and that is not a
                   thing to work out across two sentences. The arrow points the
