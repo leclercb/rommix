@@ -4,6 +4,12 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.14.0-rc.2 — 2026-09-09
+
+- chore: take the screenshots on release and drop npm start (fa03a8e)
+- refactor: share one headless launcher between test:app and screenshots (494317f)
+- feat: show a save's emulator, slot and size as icon chips (d516ef7)
+
 ## 0.14.0-rc.1 — 2026-09-09
 
 - feat: name the slot on every save row and in the push dialog (e44762c)
