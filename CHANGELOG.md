@@ -4,6 +4,16 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.14.0-rc.1 — 2026-09-09
+
+- feat: name the slot on every save row and in the push dialog (e44762c)
+- refactor: ask the slot pairing rule in one place (6fe38ca)
+- docs: bring back the TODO with the two save-slot questions (491a05f)
+- docs: record the decision against /api/sync/negotiate (1726663)
+- feat: settle a save comparison with its hash instead of its clock (4fef5fa)
+- feat: turn away an unsupported RomM server (17fb581)
+- feat: pair saves with RomM on the slot rather than the file name (f7e962f)
+
 ## 0.14.0-rc.0 — 2026-09-08
 
 - chore: silence Node's transform-types and typeless-package warnings (6eb1850)
