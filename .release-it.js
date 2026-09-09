@@ -33,9 +33,21 @@ export default {
       'npm run test:app'
     ],
 
-    // Runs after package.json is bumped and before the release commit, so the
-    // changelog entry lands in that same commit.
-    'after:bump': 'node scripts/changelog-release.mjs ${version} ${latestTag}'
+    // Runs after package.json is bumped and before the release commit, so what
+    // these write lands in that same commit.
+    //
+    // The pictures are here rather than above for the same reason the changelog
+    // is: they are files, and `before:init` runs ahead of the check that the
+    // working directory is clean — writing them there would fail the release
+    // that asked for them. Taken every time rather than when somebody
+    // remembers, because the landing page is built from them and a release is
+    // the moment they are meant to show what is being shipped. Nothing has to
+    // be arranged for the screen they need — see scripts/headless.sh, which is
+    // why this can be run from a machine that has none.
+    'after:bump': [
+      'node scripts/changelog-release.mjs ${version} ${latestTag}',
+      'npm run screenshots'
+    ]
   },
 
   git: {

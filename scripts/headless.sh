@@ -18,10 +18,10 @@
 # of the run, which is also why nix is only asked for when something is actually
 # missing: a machine that has what it needs never learns this script can do that.
 #
-# Not for `npm run dev` or `npm start`, which also start Electron. Those open a
-# window somebody is going to look at, and the whole business below ends by
-# putting the window somewhere nobody can see it. What those two want from here
-# is the binary alone, which `.envrc` already gives them.
+# Not for `npm run dev`, which also starts Electron. That opens a window
+# somebody is going to look at, and the whole business below ends by putting the
+# window somewhere nobody can see it. What it wants from here is the binary
+# alone, which `.envrc` already gives it.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
