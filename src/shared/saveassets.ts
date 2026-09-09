@@ -5,11 +5,18 @@ import type { PendingSave, SaveAsset } from './types/index.ts'
  * The slot a save has to carry to pair with the copy another client uploaded.
  *
  * RomM pairs a client's save against the server's on the ROM and the slot it
- * was sent under, never on what the file is called, and the clients built on
- * that all default to this one name. A save sent under no slot is filed as an
- * archive and paired with nothing — which is what makes this the difference
- * between a save the rest of the ecosystem can see and one only RomMix will
- * ever read back.
+ * was sent under, never on what the file is called. A save sent under no slot
+ * is filed as an archive and paired with nothing — which is what makes this
+ * the difference between a save the rest of the ecosystem can see and one only
+ * RomMix will ever read back.
+ *
+ * This name because RomM's own schema points clients at it, in the
+ * `ClientSaveState` field and again in the docstring for `/api/sync/negotiate`,
+ * and because Grout's guide says its saves go there by default. That is the
+ * whole of the evidence: a slot is a convention between programs rather than
+ * anything the server validates — the field takes any string, with no enum,
+ * pattern or length in any document under `schema/` — so what the other clients
+ * really write is a question a document cannot close. `TODO.md` says how to.
  *
  * Shared rather than kept beside the upload because both ends need it: the
  * main process decides which file goes up under it, and the Saves tab names
