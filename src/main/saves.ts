@@ -75,6 +75,16 @@ import { extractZip, zipDirectory } from './zip.ts'
  * a local one when it is strictly newer, and the local file is copied aside
  * first — into the RomMix folder, a few deep, see `keepBackup`. Losing a save
  * file is far worse than an extra sync round-trip.
+ *
+ * Which end is ahead is decided here rather than at `/api/sync/negotiate`, and
+ * that is a decision rather than an omission. Negotiate reconciles the saves a
+ * client declares it already holds: told of none it plans nothing, whatever the
+ * server is holding. So it cannot answer the question a launch actually asks —
+ * what is up there for a game this device has just downloaded and has no save
+ * for — and the listing it would be layered over is the same one that answers
+ * it. What it rules on, it rules on the slot, the timestamps and the content
+ * hash, which is what `compare` is given. It would be a round trip and a sync
+ * session per launch to be told what this file already knows.
  */
 
 const SAVE_EXTENSIONS = new Set(SAVE_CONVENTIONS.saveExtensions)
