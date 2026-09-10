@@ -7,6 +7,7 @@ import { useApp, useDownloads, useI18n } from '../../state'
 import { CollectionsDialog } from './CollectionsDialog'
 import { StatusDialog } from './StatusDialog'
 import { GameHero } from './GameHero'
+import { SaveTransfer } from './SaveTransfer'
 import {
   DeleteAssetDialog,
   LaunchVariantDialog,
@@ -96,6 +97,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
     waiting: savesWaiting,
     reload,
     busy: syncing,
+    progress: saveProgress,
     syncSaves,
     beginPush,
     sendPush,
@@ -463,6 +465,11 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       {download?.state === 'error' && download.error ? (
         <div className="notice notice--error">{download.error}</div>
       ) : null}
+
+      {/* The saves going the other way, in the same panel and the same place:
+          both are this game's bytes on the wire, and only one of them can be
+          running at a time — the transfer buttons grey each other out. */}
+      {saveProgress ? <SaveTransfer progress={saveProgress} /> : null}
 
       {/* Saves a session wrote that RomMix would not hand over on its own —
           because RomM's copy came from somewhere else or has moved on, or

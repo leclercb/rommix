@@ -70,6 +70,7 @@ export const en = {
   'value.never': 'never',
   'value.notConfigured': 'Not configured',
   'value.progressBytes': '{received} of {total}',
+  'value.progressFiles': 'File {done} of {total}',
 
   /** Only the two keys whose names are words. Tab and Shift+Tab are neither. */
   'key.enter': 'Enter',
@@ -360,7 +361,6 @@ export const en = {
   'bios.noPlatforms': 'No platforms on your RomM server yet.',
   'bios.installingTitle': 'Installing BIOS files',
   'bios.workingOut': 'Working out what is missing…',
-  'bios.progressFiles': 'File {done} of {total}',
   'bios.checkedAllInPlace': 'Checked — every BIOS file is in place',
   'bios.checkedMissing_one': 'Checked — {count} file still missing',
   'bios.checkedMissing_other': 'Checked — {count} files still missing',
@@ -539,6 +539,8 @@ export const en = {
   'saves.empty': 'No saves for this game, here or on RomM.',
   'saves.emptyPlayIt': 'Play it once and its save will appear here.',
   'saves.nothingNewer': 'Nothing newer on RomM',
+  'saves.pulling': 'Pulling saves',
+  'saves.pushing': 'Pushing saves',
   'saves.noLocalSaves': 'No local saves to send',
   'saves.allInSync': 'RomM already has every save here',
   'saves.pulled_one': '{count} file downloaded',

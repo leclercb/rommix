@@ -15,6 +15,7 @@ import { writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { SaveProgress } from '@shared/api'
 import type { EmulatorState } from '@config/emulators'
 import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
 import { RommError, type RommClient } from './romm/index.ts'
@@ -70,6 +71,9 @@ function save(fields: Partial<RommSave> = {}): RommSave {
     ...fields
   } as RommSave
 }
+
+/** What the client tells a caller about the bytes of one download. */
+type Progress = (progress: { received: number; total: number }) => void
 
 /** The md5 RomM would hold for these bytes. See `sameContent`. */
 function md5(content: string): string {
@@ -136,8 +140,16 @@ function setUp(
     saves: async () => (options.serverSays ? refuse() : (options.saves ?? [])),
     states: async () => (options.serverSays ? refuse() : (options.states ?? [])),
     devices: async () => (options.serverSays ? refuse() : (options.devices ?? [])),
-    downloadSave: async (_id: number, to: string) => download(to),
-    downloadState: async (_id: number, to: string) => download(to),
+    // Half the file, then the rest, and no length declared — which is what a
+    // pull falls back to RomM's own record for. See `pullKind`.
+    downloadSave: async (_id: number, to: string, onProgress?: Progress) => {
+      onProgress?.({ received: 4096, total: 0 })
+      return download(to)
+    },
+    downloadState: async (_id: number, to: string, onProgress?: Progress) => {
+      onProgress?.({ received: 4096, total: 0 })
+      return download(to)
+    },
     uploadSave: async (
       _romId: number,
       filePath: string,
@@ -832,6 +844,75 @@ describe('pushing', () => {
     await sync.pushSelected(target, ['/etc/passwd'])
 
     assert.deepEqual(uploaded, [])
+  })
+})
+
+describe('saying what a transfer is doing while it runs', () => {
+  test('a pull names the file it is fetching and counts what has arrived', async () => {
+    const { sync, target } = setUp({ saves: [save()] })
+    const seen: SaveProgress[] = []
+
+    const result = await sync.pullNow(target, (progress) => seen.push(progress))
+
+    assert.equal(result.saves, 1)
+    // Before anything is asked of the server, which is the wait the panel
+    // exists for: the listing alone is seconds on a slow connection.
+    assert.deepEqual(seen[0], {
+      romId: 7,
+      direction: 'pull',
+      fileName: null,
+      done: 0,
+      total: null,
+      receivedBytes: 0,
+      totalBytes: 0
+    })
+    // The size RomM recorded, the response having declared none.
+    assert.deepEqual(
+      seen.find((progress) => progress.receivedBytes > 0),
+      {
+        romId: 7,
+        direction: 'pull',
+        fileName: 'Sonic the Hedgehog (USA).srm',
+        done: 0,
+        total: null,
+        receivedBytes: 4096,
+        totalBytes: 8192
+      }
+    )
+    assert.equal(seen.at(-1)?.done, 1)
+  })
+
+  test('a copy already in sync is not counted as a file being moved', async () => {
+    const { sync, target, saveDir } = setUp({ saves: [save()] })
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'the local one')
+    const when = new Date('2026-08-01T12:00:00.000Z')
+    utimesSync(path, when, when)
+    const seen: SaveProgress[] = []
+
+    await sync.pullNow(target, (progress) => seen.push(progress))
+
+    // Nothing was fetched, so nothing names a file: a counter that moved for
+    // the copies a pull decides against would report a run that never ran.
+    assert.deepEqual(
+      seen.filter((progress) => progress.fileName !== null),
+      []
+    )
+  })
+
+  test('a push counts saves and states as one run before the first file goes', async () => {
+    const { sync, target, saveDir, stateDir } = setUp()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
+    writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'local')
+    const seen: SaveProgress[] = []
+
+    const result = await sync.pushNow(target, (progress) => seen.push(progress))
+
+    assert.equal(result.saves + result.states, 2)
+    // Both kinds, from the first report on: a total that grew when the states
+    // pass started would be a bar that went backwards half way through.
+    assert.deepEqual([...new Set(seen.map((progress) => progress.total))], [2])
+    assert.equal(seen.at(-1)?.done, 2)
   })
 })
 

@@ -60,16 +60,29 @@ export function DownloadBadge({ state }: { state: DownloadState }): JSX.Element 
  */
 export function ProgressBar({
   percent,
-  colour
+  colour,
+  waiting = false
 }: {
   percent: number
   colour?: string
+  /**
+   * Nothing to divide by, so the bar travels instead of filling.
+   *
+   * For the transfers whose size cannot be known while they run — a save handed
+   * to the server whole, a response that declares no length. A bar left at
+   * nothing for the length of one is indistinguishable from a transfer that has
+   * stopped, which is the one thing it must not say.
+   */
+  waiting?: boolean
 }): JSX.Element {
   return (
-    <div className="download__bar">
+    <div className={`download__bar${waiting ? ' download__bar--waiting' : ''}`}>
       <div
         className="download__fill"
-        style={{ width: `${Math.max(0, Math.min(100, percent))}%`, background: colour }}
+        style={{
+          width: waiting ? undefined : `${Math.max(0, Math.min(100, percent))}%`,
+          background: colour
+        }}
       />
     </div>
   )

@@ -1143,12 +1143,20 @@ export class RommClient {
     log.info('romm', 'states deleted on the server', { ids })
   }
 
-  async downloadSave(id: number, destination: string): Promise<void> {
-    await streamToFile(this.transport, `/api/saves/${id}/content`, destination)
+  async downloadSave(
+    id: number,
+    destination: string,
+    onProgress?: (progress: DownloadProgress) => void
+  ): Promise<void> {
+    await streamToFile(this.transport, `/api/saves/${id}/content`, destination, onProgress)
   }
 
-  async downloadState(id: number, destination: string): Promise<void> {
-    await streamToFile(this.transport, `/api/states/${id}/content`, destination)
+  async downloadState(
+    id: number,
+    destination: string,
+    onProgress?: (progress: DownloadProgress) => void
+  ): Promise<void> {
+    await streamToFile(this.transport, `/api/states/${id}/content`, destination, onProgress)
   }
 
   /**

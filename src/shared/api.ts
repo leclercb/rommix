@@ -119,6 +119,37 @@ export interface BiosProgress {
 }
 
 /**
+ * Emitted while a save transfer the user asked for is running.
+ *
+ * The two directions can say different things about themselves, and the screen
+ * draws whichever is on offer rather than pretending both are.
+ */
+export interface SaveProgress {
+  romId: number
+  direction: 'pull' | 'push'
+  /** The file on the wire, or null before the first one is chosen. */
+  fileName: string | null
+  /** Files moved so far. */
+  done: number
+  /**
+   * How many files the run will move, or null where that is not yet known.
+   *
+   * A push settles its list before the first byte, so it can be counted. A pull
+   * cannot: what the server offers is weighed one file at a time — a copy this
+   * device already holds is skipped without being fetched — so a total taken
+   * from the server's list would be a bar that stops half way on a run that
+   * did everything it had to.
+   */
+  total: number | null
+  /**
+   * How much of that file has arrived. Zero for a push, which hands the file to
+   * `fetch` whole and is told nothing until the server answers.
+   */
+  receivedBytes: number
+  totalBytes: number
+}
+
+/**
  * The surface exposed to the renderer on `window.rommix`.
  * Every method crosses the context bridge and is therefore asynchronous.
  */
@@ -204,6 +235,14 @@ export interface RomMixBridge {
      * rather than announced.
      */
     onSent(listener: (romIds: number[]) => void): () => void
+    /**
+     * How a pull or a push is getting on, while it runs.
+     *
+     * Only the transfers asked for by hand raise it: the automatic pass around
+     * a launch has the launch curtain in front of it, which is already saying
+     * what is happening.
+     */
+    onProgress(listener: (progress: SaveProgress) => void): () => void
     /** Fetch newer remote saves now, ignoring the automatic-sync preference. */
     pull(romId: number): Promise<SaveSyncResult>
     /** Send every local save for this game to RomM, not only this session's. */

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { SaveProgress } from '@shared/api'
 import type { SaveAsset, SaveDeleteScope, SavePushPreview } from '@shared/types'
 import { useApp, useI18n } from '../../state'
 import { deleteScopeLabel } from './tabs'
@@ -28,6 +29,8 @@ export function useGameSaves(
   waiting: boolean
   reload: () => Promise<void>
   busy: boolean
+  /** The transfer running now, for the panel that reports it. Null when idle. */
+  progress: SaveProgress | null
   syncSaves: (direction: 'pull' | 'push') => Promise<void>
   /**
    * `alwaysAsk` for the files a session left behind: those are the ones the
@@ -55,6 +58,7 @@ export function useGameSaves(
   const waiting = unsentSaves.some((game) => game.romId === romId)
   const [assets, setAssets] = useState<SaveAsset[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<SaveProgress | null>(null)
   const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
   const [deleting, setDeleting] = useState<SaveAsset | null>(null)
 
@@ -75,6 +79,25 @@ export function useGameSaves(
     setAssets(null)
     void reload()
   }, [reload])
+
+  /**
+   * How the transfer in flight is getting on.
+   *
+   * Filtered by game rather than trusted: the main process broadcasts to every
+   * window, and a push started from one game's page must not draw a bar on
+   * another's. Each run clears it when it ends, so what is left is only ever
+   * the one this screen asked for.
+   *
+   * Cleared as the screen moves too, because the screen is one component for
+   * every game it shows: a transfer left running while its versions list is
+   * used to open another dump would otherwise go on drawing its bar there.
+   */
+  useEffect(() => {
+    setProgress(null)
+    return window.rommix.saves.onProgress((next) => {
+      if (next.romId === romId) setProgress(next)
+    })
+  }, [romId])
 
   /**
    * Move saves by hand, in either direction.
@@ -127,6 +150,7 @@ export function useGameSaves(
       // Reported centrally.
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 
@@ -205,6 +229,7 @@ export function useGameSaves(
       // Reported centrally.
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 
@@ -239,6 +264,7 @@ export function useGameSaves(
     waiting,
     reload,
     busy,
+    progress,
     syncSaves,
     beginPush,
     sendPush,

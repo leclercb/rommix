@@ -109,6 +109,26 @@
 }
 
 /*
+ * A transfer with nothing to measure: a save is handed to the server whole and
+ * nothing is heard until it answers, and some responses declare no length at
+ * all. The bar travels the track instead of filling it, which answers the one
+ * question it is there for when the size is unknowable — whether anything is
+ * still happening. See `ProgressBar`.
+ */
+.download__bar--waiting .download__fill {
+  width: 35%;
+  animation: sweep 1400ms ease-in-out infinite alternate;
+}
+
+@keyframes sweep {
+  to {
+    /* Its own width, not the track's: 35% of the track travels 185% of itself
+       to arrive at the far end. */
+    transform: translateX(185%);
+  }
+}
+
+/*
  * The line under the name: where the game is from, and which of its files is
  * arriving.
  *

@@ -1,6 +1,7 @@
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import type { SaveProgress } from '@shared/api'
 import { localize } from '@shared/i18n'
 import { changedAt, mayBeSentUnasked, AUTOSAVE_SLOT } from '@shared/saveassets'
 import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
@@ -262,6 +263,63 @@ function deviceNamer(devices: readonly RommDevice[]): (id: string | null) => str
     )
     return device?.name ?? device?.hostname ?? null
   }
+}
+
+/** What a transfer in progress tells the screen. See `SaveProgress`. */
+export interface SaveRun {
+  /** The file being moved, and how much of it is here where that is countable. */
+  moving(fileName: string, receivedBytes?: number, totalBytes?: number): void
+  /** One file has gone by, whether it arrived or was left. */
+  moved(): void
+}
+
+/**
+ * Count one run of transfers for the screen watching it.
+ *
+ * One counter across the whole run rather than one per kind: saves and states
+ * are two passes over one button press, and a count that starts again half way
+ * through reads as a transfer that started again.
+ *
+ * The first report goes out as this is made, before anything is asked of the
+ * server, because that is the wait this exists for: on a slow connection the
+ * listing alone is seconds of a screen with nothing on it.
+ */
+function progressRun(
+  romId: number,
+  direction: 'pull' | 'push',
+  total: number | null,
+  onProgress?: (progress: SaveProgress) => void
+): SaveRun {
+  let done = 0
+  let fileName: string | null = null
+  let totalBytes = 0
+  const send = (receivedBytes: number): void =>
+    onProgress?.({ romId, direction, fileName, done, total, receivedBytes, totalBytes })
+
+  send(0)
+  return {
+    moving(name, receivedBytes = 0, bytes = 0) {
+      fileName = name
+      totalBytes = bytes
+      send(receivedBytes)
+    },
+    moved() {
+      done += 1
+      // The file that has just gone reads as full rather than as nothing. A
+      // screen with no size to divide by draws a bar that travels instead of
+      // filling, and a counter that dropped to zero between files would send it
+      // there once per file. See `SaveTransfer`.
+      send(totalBytes)
+    }
+  }
+}
+
+/** One kind's files, ready to go, with what sending them needs. */
+interface UploadBatch {
+  kind: 'save' | 'state'
+  assets: LocalAsset[]
+  tag: string
+  primary: string | null
 }
 
 export class SaveSync {
@@ -756,10 +814,14 @@ export class SaveSync {
    * newer-wins rule and the copy `keepBackup` puts aside still apply, so this
    * can never lose a local save.
    */
-  async pullNow(target: SaveTarget): Promise<SaveSyncResult> {
+  async pullNow(
+    target: SaveTarget,
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<SaveSyncResult> {
     const paths = this.locate(target)
-    const saves = await this.pullKind(target, paths, 'save')
-    const states = await this.pullKind(target, paths, 'state')
+    const run = progressRun(target.rom.id, 'pull', null, onProgress)
+    const saves = await this.pullKind(target, paths, 'save', run)
+    const states = await this.pullKind(target, paths, 'state', run)
     const result = {
       saves: saves.written,
       states: states.written,
@@ -784,9 +846,12 @@ export class SaveSync {
    * is on this machine", including saves written before RomMix was installed,
    * which the post-session push deliberately excludes.
    */
-  async pushNow(target: SaveTarget): Promise<SaveSyncResult> {
+  async pushNow(
+    target: SaveTarget,
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<SaveSyncResult> {
     const paths = this.locate(target)
-    const pushed = await this.upload(target, paths, 0)
+    const pushed = await this.upload(target, paths, 0, onProgress)
     const result = {
       ...pushed,
       skippedReason: this.reasonFor(paths, pushed.saves + pushed.states)
@@ -988,13 +1053,17 @@ export class SaveSync {
    * after the launch" here would only re-litigate a question the dialog has
    * already answered.
    */
-  async pushSelected(target: SaveTarget, chosen: readonly string[]): Promise<SaveSyncResult> {
+  async pushSelected(
+    target: SaveTarget,
+    chosen: readonly string[],
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<SaveSyncResult> {
     const paths = this.locate(target)
     const wanted = new Set(chosen)
     const tag = this.tagFor(paths, target)
-    const moved = { saves: 0, states: 0, failed: 0 }
     /** Which of the approved paths this side actually found again. */
     const found = new Set<string>()
+    const batches: UploadBatch[] = []
 
     for (const kind of ['save', 'state'] as const) {
       const location = this.locationFor(paths, kind)
@@ -1005,18 +1074,10 @@ export class SaveSync {
       if (selected.length === 0) continue
 
       for (const asset of selected) found.add(asset.path)
-
-      const count = await this.uploadAssets(
-        target,
-        kind,
-        selected,
-        tag,
-        this.primaryOf(kind, local, target)
-      )
-      if (kind === 'save') moved.saves += count.sent
-      else moved.states += count.sent
-      moved.failed += count.failed
+      batches.push({ kind, assets: selected, tag, primary: this.primaryOf(kind, local, target) })
     }
+
+    const moved = await this.sendBatches(target, batches, onProgress)
 
     // A file the dialog offered that the scan no longer finds is how an
     // approved save silently fails to arrive, and nothing else would say so.
@@ -1158,7 +1219,8 @@ export class SaveSync {
   private async pullKind(
     target: SaveTarget,
     paths: SavePaths,
-    kind: 'save' | 'state'
+    kind: 'save' | 'state',
+    run?: SaveRun
   ): Promise<PullCount> {
     const location = this.locationFor(paths, kind)
     if (!location) return { written: 0, offered: 0 }
@@ -1308,10 +1370,19 @@ export class SaveSync {
         continue
       }
 
+      // Reported here rather than at the top of the loop: everything above is
+      // a file the pull decided not to fetch, and a counter that moved for
+      // those would report a run of ten over a server offering ten copies of
+      // what is already on this disk.
+      run?.moving(item.file_name)
+      // The size RomM recorded stands in where the response declares none, so
+      // the bar has something to divide by either way.
+      const onBytes = ({ received, total }: { received: number; total: number }): void =>
+        run?.moving(item.file_name, received, total || item.file_size_bytes)
       const download =
         kind === 'save'
-          ? (to: string): Promise<void> => this.client.downloadSave(item.id, to)
-          : (to: string): Promise<void> => this.client.downloadState(item.id, to)
+          ? (to: string): Promise<void> => this.client.downloadSave(item.id, to, onBytes)
+          : (to: string): Promise<void> => this.client.downloadState(item.id, to, onBytes)
 
       try {
         const backups = this.backupDir(target.rom.id)
@@ -1343,6 +1414,8 @@ export class SaveSync {
           fileName: item.file_name,
           dir: location.dir
         })
+      } finally {
+        run?.moved()
       }
     }
     return { written, offered: remote.length }
@@ -1420,39 +1493,78 @@ export class SaveSync {
     return this.upload(target, this.locate(target), since)
   }
 
-  /** The upload itself, with the "should we" decisions already made. */
+  /**
+   * The upload itself, with the "should we" decisions already made.
+   *
+   * Both kinds are scanned before the first file goes up, so the run can be
+   * counted: what is being watched is one press of one button, and a total that
+   * grew when the states pass started would be a bar that went backwards. See
+   * `SaveProgress.total`.
+   */
   private async upload(
     target: SaveTarget,
     paths: SavePaths,
-    since: number
+    since: number,
+    onProgress?: (progress: SaveProgress) => void
   ): Promise<{ saves: number; states: number; failed: number }> {
-    const saves = await this.uploadKind(target, paths, 'save', since)
-    const states = await this.uploadKind(target, paths, 'state', since)
-    return { saves: saves.sent, states: states.sent, failed: saves.failed + states.failed }
+    const batches = [
+      await this.pendingUploads(target, paths, 'save', since),
+      await this.pendingUploads(target, paths, 'state', since)
+    ]
+    return this.sendBatches(target, batches, onProgress)
   }
 
-  private async uploadKind(
+  /**
+   * What one kind has to send, and what sending it needs to know.
+   *
+   * Scanned unfiltered and narrowed after, rather than asked for `since`
+   * directly: which file holds the shared slot is a question about all of
+   * this game's saves, and a session that touched only one of them would
+   * otherwise have it answered from a set of one.
+   */
+  private async pendingUploads(
     target: SaveTarget,
     paths: SavePaths,
     kind: 'save' | 'state',
     since: number
-  ): Promise<{ sent: number; failed: number }> {
+  ): Promise<UploadBatch> {
     const location = this.locationFor(paths, kind)
-    if (!location) return { sent: 0, failed: 0 }
+    if (!location) return { kind, assets: [], tag: '', primary: null }
 
-    // Scanned unfiltered and narrowed after, rather than asked for `since`
-    // directly: which file holds the shared slot is a question about all of
-    // this game's saves, and a session that touched only one of them would
-    // otherwise have it answered from a set of one.
     const all = await this.findLocal(location, target.rom, target.romPath, kind)
-    const assets = all.filter((asset) => asset.mtimeMs > since)
-    return this.uploadAssets(
-      target,
+    return {
       kind,
-      assets,
-      this.tagFor(paths, target),
-      this.primaryOf(kind, all, target)
-    )
+      assets: all.filter((asset) => asset.mtimeMs > since),
+      tag: this.tagFor(paths, target),
+      primary: this.primaryOf(kind, all, target)
+    }
+  }
+
+  /** Send what the scans found, counting the whole run as one. */
+  private async sendBatches(
+    target: SaveTarget,
+    batches: readonly UploadBatch[],
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<{ saves: number; states: number; failed: number }> {
+    const total = batches.reduce((count, batch) => count + batch.assets.length, 0)
+    const run = progressRun(target.rom.id, 'push', total, onProgress)
+    const moved = { saves: 0, states: 0, failed: 0 }
+
+    for (const batch of batches) {
+      if (batch.assets.length === 0) continue
+      const count = await this.uploadAssets(
+        target,
+        batch.kind,
+        batch.assets,
+        batch.tag,
+        batch.primary,
+        run
+      )
+      if (batch.kind === 'save') moved.saves += count.sent
+      else moved.states += count.sent
+      moved.failed += count.failed
+    }
+    return moved
   }
 
   /**
@@ -1467,7 +1579,8 @@ export class SaveSync {
     kind: 'save' | 'state',
     assets: readonly LocalAsset[],
     tag: string,
-    primary: string | null
+    primary: string | null,
+    run?: SaveRun
   ): Promise<{ sent: number; failed: number }> {
     let uploaded = 0
     let failed = 0
@@ -1476,6 +1589,10 @@ export class SaveSync {
       // A directory save is zipped first; the archive is what the server holds.
       let payload = asset.path
       let staged: string | null = null
+      // Named without a byte count: the file is handed to `fetch` whole and
+      // nothing is heard again until the server answers, so what can honestly
+      // be said is which file is on the wire and how many are left after it.
+      run?.moving(asset.fileName)
       try {
         if (asset.isDirectory) {
           staged = join(tmpdir(), `rommix-save-${target.rom.id}-${Date.now()}.zip`)
@@ -1518,6 +1635,7 @@ export class SaveSync {
         failed += 1
       } finally {
         if (staged) await rm(staged, { force: true }).catch(() => undefined)
+        run?.moved()
       }
     }
     return { sent: uploaded, failed }

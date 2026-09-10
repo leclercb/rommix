@@ -311,7 +311,7 @@ function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.E
             {/* The file in flight, not the count of those finished — and the
                 last one of a run stays the last one, rather than becoming a
                 file after the end of it. */}
-            {t('bios.progressFiles', {
+            {t('value.progressFiles', {
               done: Math.min(progress.done + 1, progress.total),
               total: progress.total
             })}
