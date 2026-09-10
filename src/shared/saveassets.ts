@@ -12,11 +12,13 @@ import type { PendingSave, SaveAsset } from './types/index.ts'
  *
  * This name because RomM's own schema points clients at it, in the
  * `ClientSaveState` field and again in the docstring for `/api/sync/negotiate`,
- * and because Grout's guide says its saves go there by default. That is the
- * whole of the evidence: a slot is a convention between programs rather than
- * anything the server validates — the field takes any string, with no enum,
- * pattern or length in any document under `schema/` — so what the other clients
- * really write is a question a document cannot close. `TODO.md` says how to.
+ * because Grout's guide says its saves go there by default, and because Argosy
+ * — the client issue #12 was raised about — has been seen filing its saves
+ * under it against a real server. The last of those is the one that settles it:
+ * a slot is a convention between programs rather than anything the server
+ * validates, the field taking any string with no enum, pattern or length in any
+ * document under `schema/`, so nothing but another client's uploads can say
+ * what the name really is.
  *
  * Shared rather than kept beside the upload because both ends need it: the
  * main process decides which file goes up under it, and the Saves tab names

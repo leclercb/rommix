@@ -48,22 +48,3 @@ worth sending deliberately rather than inheriting.
 Not part of what issue #12 asked for, which was that a game played here and on a
 phone stay one save. That is what the shared slot does, and this is a second
 feature wearing the same mechanism.
-
-## Which slot the other clients actually write
-
-`AUTOSAVE_SLOT` is the name RomM's own schema points clients at — twice, in the
-`ClientSaveState` field and in the docstring for `/api/sync/negotiate`, both
-committed under `schema/` — and Grout's guide says its saves go there by
-default. That is the whole of the evidence. Argosy and Tender describe their
-save sync without naming a slot anywhere a reader can reach, and issue #12 named
-Argosy in particular, so the one client the fix was asked for is the one the
-convention is unconfirmed against.
-
-Nothing to build, and nothing a fake can settle: a slot name is a convention
-between programs rather than anything RomM validates, so the only answer is what
-another client really writes. One save synced from Argosy against a server
-somebody already runs, then `GET /api/saves?rom_id=` — the `slot` on the row is
-the answer. If it turns out to be some other name, what changes is one constant.
-
-Worth doing before anyone concludes from a quiet Saves tab that syncing is
-broken, since a mismatch looks exactly like nothing happening.
