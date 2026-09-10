@@ -1,13 +1,36 @@
 ---
 name: update
-description: Implement a requested update in this repo, propose a short commit message, wait for the user's approval, then commit it on main. Use whenever the user asks for a change, fix, or feature in rommix.
+description: Implement a requested update in this repo, propose a commit message, wait for the user's approval, then commit it on main. Several updates asked for at once are taken one at a time. Use whenever the user asks for a change, fix, or feature in rommix.
 ---
 
 # update
 
 Repo: `/home/leclercb/workspace/rommix`. Work on `main` — never create a branch.
 
-## 1. Implement
+## How this talks
+
+Invoke the `caveman` skill first and stay in it: everything said to the user
+while this skill is running is caveman, full level.
+
+Its own auto-clarity rule still holds — a destructive step, a warning, or a
+sequence that has to be followed in order drops back to plain prose and then
+resumes. Two more things are never compressed, because neither is a message to
+the user:
+
+- **the commit message**, which is a file in the repo's own voice — see §2;
+- **code, comments, and catalogue entries**, which follow `CONTRIBUTING.md` and
+  `CLAUDE.md` exactly as they always did.
+
+Never write **"of its own"** or "of their own" — in prose, in a comment, in a
+commit message, anywhere. Say the thing directly: `Give the launch a screen of
+its own` → `Add a full-screen launch screen`.
+
+## 1. Implement — one point at a time
+
+Several things asked for in one message are a queue, not a task. Take the one at
+the head, and take it to a commit before the next one is started: the point of a
+cycle each is that every one of them gets an answer that can be judged on its
+own.
 
 Do the change the user asked for, nothing more. Follow the repo's house style
 (`CONTRIBUTING.md`, `.oxlintrc.json`).
@@ -24,40 +47,33 @@ not verified.
 
 ## 2. Propose the commit message
 
-Show the user:
+Write it with the `caveman-commit` skill. It decides the wording, the length,
+and whether there is a body at all.
 
-- a one-line summary of what changed and the files touched
-- the proposed commit message in full, in a fenced block
+Two things it cannot know about this repo:
 
-Message style — match `git log`:
-
-- a subject line: `type(scope): ` then one lowercase clause, imperative, no
-  trailers, saying what the change does for the user, under ~72 characters
-- types: `feat`, `fix`, `refactor`, `test`, `ci`, `docs`, `chore`. A scope only
-  where it divides something real — `test(app)` for `test/app/`, `test(unit)`
-  for a `src/**/*.test.ts`, `test(schema)` for the conformance checks,
-  `refactor(test)` for restructuring the suites. No scope where there is nothing
-  to divide: `ci: `, `docs: `.
-- examples: `fix: offer only the EmuDeck launchers that are actually installed`,
-  `test(app): cover signing in by pairing`,
-  `ci: run the app suite before a release`
+- **the prefix.** Types are `feat`, `fix`, `refactor`, `test`, `ci`, `docs` and
+  `chore`, and no others. A scope only where it divides something real —
+  `test(app)` for `test/app/`, `test(unit)` for a `src/**/*.test.ts`,
+  `test(schema)` for the conformance checks, `refactor(test)` for restructuring
+  the suites. No scope where there is nothing to divide: `ci: `, `docs: `.
 - **one clause.** Never a trailing clause after a comma — not `, and`, not
   `, which`, not `, from`. A comma is only for items of a list, as in
-  `test(app): cover the collections, settings and emulators screens`. If a
-  second clause feels needed, the subject is covering two things and the wrong
-  one is being named; the rest belongs in the body.
-- a body, wrapped at 72, whenever the subject alone would leave the next reader
-  asking why. Say what was wrong before and why this is the answer — the same
-  standard the comments are held to. A change that genuinely explains itself
-  keeps the subject alone.
-- the subject stays general where the body is specific: it names the change,
-  not every part of it.
+  `test(app): cover the collections, settings and emulators screens`. A subject
+  reaching for a second clause is covering two things and naming the wrong one;
+  the rest belongs in the body.
 
-Never write **"of its own"** or "of their own", here or anywhere else. Say the
-thing directly: `Give the launch a screen of its own` → `Add a full-screen
-launch screen`.
+Show the user, in this order:
+
+1. a one-line summary of what changed and the files touched;
+2. the proposed commit message in full, in a fenced block;
+3. the next point still outstanding, as the user worded it — one line.
 
 Then stop and wait. Do not commit in the same turn you propose.
+
+The queue line goes here rather than after the commit because this is the turn
+the user is reading: they asked for several things at once, each has been
+through its own approval since, and by now the rest have scrolled out of sight.
 
 ## 3. Commit after approval
 
@@ -85,27 +101,17 @@ Rules:
 - Do not push, tag, or release unless the user asks. Releases go through
   `npm run release` (release-it), not a hand-written `Release x.y.z` commit.
 
-## 4. Say what is next
+## 4. Start the next point
 
-Right after reporting the commit, name the next item still outstanding — one
-line, the item as the user worded it:
+Report the commit and begin the next item in the same turn:
 
 ```
 Committed as <sha>. Next up: <the next item>.
 ```
 
-Then start it. Where nothing is left, say the queue is empty rather than
-inventing work.
+Where nothing is left, say the queue is empty rather than inventing work.
 
-This is what keeps a list of updates from losing its place: the user asked for
-several things in one message, each has been through its own approval since,
-and by the time one is committed the rest have scrolled well out of sight.
-
-## Several updates in a row
-
-Each update is its own implement → propose → approve → commit cycle. Do not batch
-them into one commit.
-
-Keep the outstanding list in view: repeat what remains, in the order asked, and
-carry over anything the user has since added or reworded. An item the user
-dropped or answered differently is gone from the list — do not resurrect it.
+Keep the outstanding list honest between cycles: repeat what remains, in the
+order asked, and carry over anything the user has since added or reworded. An
+item the user dropped or answered differently is gone from the list — do not
+resurrect it.
