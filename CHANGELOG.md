@@ -4,6 +4,15 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.14.0-rc.3 — 2026-09-10
+
+- docs: record that Argosy writes to the shared save slot (270c752)
+- chore: rework the update skill's voice and cycle (ec470d3)
+- feat: group a game's versions into one tile (84baf61)
+- docs: settle how a save checkpoint would be made and restored (5a2b19e)
+- feat: add a progress bar for save and state transfers (c91640e)
+- chore: vendor the caveman skills (d6fea86)
+
 ## 0.14.0-rc.2 — 2026-09-09
 
 - chore: take the screenshots on release and drop npm start (fa03a8e)
