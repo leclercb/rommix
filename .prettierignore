@@ -1,6 +1,9 @@
 node_modules
 out
 dist
+# Vendored, and pinned by hash in skills-lock.json — reformatting them is what
+# the hash is there to notice.
+.agents/skills
 packaging/icon.png
 package-lock.json
 *.tsbuildinfo
