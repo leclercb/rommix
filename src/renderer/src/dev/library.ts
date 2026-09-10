@@ -376,6 +376,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1278547200000,
       average_rating: 70.01
     },
+    sibling_roms: [],
     rom_user: {
       id: 6,
       rom_id: 6,
@@ -450,6 +451,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1388448000000,
       average_rating: 70.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 30,
       rom_id: 30,
@@ -524,6 +526,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1267228800000,
       average_rating: 63.4
     },
+    sibling_roms: [],
     rom_user: {
       id: 42,
       rom_id: 42,
@@ -598,6 +601,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1293840000000,
       average_rating: 63.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 45,
       rom_id: 45,
@@ -672,6 +676,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1400025600000,
       average_rating: 80.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 54,
       rom_id: 54,
@@ -746,6 +751,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1420070400000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 58,
       rom_id: 58,
@@ -819,6 +825,7 @@ export const ROMS: RommRom[] = [
       first_release_date: null,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 187,
       rom_id: 187,
@@ -890,6 +897,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1459036800000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 62,
       rom_id: 62,
@@ -964,6 +972,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1639094400000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 65,
       rom_id: 65,
@@ -1038,6 +1047,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1512259200000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 77,
       rom_id: 77,
@@ -1112,6 +1122,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1546300800000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 75,
       rom_id: 75,
@@ -1186,6 +1197,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1218240000000,
       average_rating: 40.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 86,
       rom_id: 86,
@@ -1260,6 +1272,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1179446400000,
       average_rating: 85.7
     },
+    sibling_roms: [],
     rom_user: {
       id: 83,
       rom_id: 83,
@@ -1334,6 +1347,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1769904000000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 99,
       rom_id: 99,
@@ -1408,6 +1422,7 @@ export const ROMS: RommRom[] = [
       first_release_date: null,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 95,
       rom_id: 95,
@@ -1482,6 +1497,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1627776000000,
       average_rating: 85.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 169,
       rom_id: 169,
@@ -1556,6 +1572,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1552435200000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 175,
       rom_id: 175,
@@ -1630,6 +1647,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1359590400000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 137,
       rom_id: 137,
@@ -1704,6 +1722,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1355529600000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 123,
       rom_id: 123,
@@ -1783,6 +1802,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 762480000000,
       average_rating: 81.796666666
     },
+    sibling_roms: [],
     rom_user: {
       id: 139,
       rom_id: 139,
@@ -1886,6 +1906,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 725760000000,
       average_rating: 69.35
     },
+    sibling_roms: [],
     rom_user: {
       id: 144,
       rom_id: 144,
@@ -1960,6 +1981,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1459036800000,
       average_rating: null
     },
+    sibling_roms: [],
     rom_user: {
       id: 149,
       rom_id: 149,
@@ -2034,6 +2056,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 574905600000,
       average_rating: 85.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 154,
       rom_id: 154,
@@ -2108,6 +2131,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1468108800000,
       average_rating: 91.5
     },
+    sibling_roms: [],
     rom_user: {
       id: 163,
       rom_id: 163,
@@ -2182,6 +2206,7 @@ export const ROMS: RommRom[] = [
       first_release_date: 1388448000000,
       average_rating: 66.0
     },
+    sibling_roms: [],
     rom_user: {
       id: 162,
       rom_id: 162,

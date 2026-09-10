@@ -29,7 +29,12 @@ export type Route =
   | { name: 'connect' }
   | { name: 'home' }
   | { name: 'library' }
-  | { name: 'game'; romId: number }
+  /**
+   * One game. `fromVersions` says it was opened from another dump's versions
+   * list, which is where the highlight belongs when it arrives: the pad is on a
+   * tab strip and stepping to the next version should leave it there.
+   */
+  | { name: 'game'; romId: number; fromVersions?: true }
   | { name: 'downloads' }
   /**
    * One shelf on RomM. The name travels with the id: it was on screen in the

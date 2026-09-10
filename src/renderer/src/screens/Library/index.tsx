@@ -9,8 +9,10 @@ import {
   SegmentedControl,
   Spinner,
   TextField,
+  romToOpen,
   tileFromInstalled,
-  tileFromRom
+  tileFromRom,
+  tileInstalled
 } from '../../components'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
 import { usePagedRoms } from '../../paging'
@@ -85,7 +87,12 @@ export function LibraryScreen(): JSX.Element {
   const { roms, total, more, loading, sentinel } = usePagedRoms(
     {
       search_term: debouncedSearch || undefined,
-      platform_ids: selectedPlatform ? [selectedPlatform] : undefined
+      platform_ids: selectedPlatform ? [selectedPlatform] : undefined,
+      // One tile per game rather than one per dump. A library with the USA, the
+      // European and the revised copy of everything is three grids of the same
+      // games, and the count under the title is a number nobody recognises as
+      // their collection. Which versions there are is on the game's own page.
+      group_by_meta_id: true
     },
     { enabled: offline === false && scope === 'all', onError: setError }
   )
@@ -219,7 +226,10 @@ export function LibraryScreen(): JSX.Element {
   )
 
   const tiles = useMemo(
-    () => (scope === 'downloaded' ? downloaded.map(tileFromInstalled) : roms.map(tileFromRom)),
+    () =>
+      scope === 'downloaded'
+        ? downloaded.map(tileFromInstalled)
+        : roms.map((rom) => tileFromRom(rom, true)),
     [scope, downloaded, roms]
   )
   // What the server counted, or what is actually here when it counted
@@ -321,8 +331,8 @@ export function LibraryScreen(): JSX.Element {
           <GameCard
             key={tile.romId}
             tile={tile}
-            installed={installedIds.has(tile.romId)}
-            onSelect={() => navigate({ name: 'game', romId: tile.romId })}
+            installed={tileInstalled(tile, installedIds)}
+            onSelect={() => navigate({ name: 'game', romId: romToOpen(tile, installedIds) })}
             showPlatform={selectedPlatform === undefined}
           />
         ))}

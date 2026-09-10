@@ -262,6 +262,9 @@ export const en = {
   'library.thatIsAll_one': 'That is all {count} of them.',
   'library.thatIsAll_other': 'That is all {count} of them.',
   'library.downloadedMark': 'Downloaded',
+  'library.versions_one': '{count} version',
+  'library.versions_other': '{count} versions',
+  'versions.current': 'Current version',
 
   // -- the user's own shelves on RomM ---------------------------------------
 
@@ -456,6 +459,7 @@ export const en = {
   'game.tabSaves': 'Saves',
   'game.tabFiles': 'Files',
   'game.tabScreenshots': 'Screenshots',
+  'game.tabVersions': 'Versions',
   'game.revision': 'Rev {revision}',
   'game.ratingOutOf': '/ 100',
   'game.runningAsk':

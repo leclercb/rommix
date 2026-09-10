@@ -256,6 +256,9 @@ export const fr: Catalog = {
   'library.thatIsAll_one': 'C’est tout : {count} en tout.',
   'library.thatIsAll_other': 'C’est tout : {count} en tout.',
   'library.downloadedMark': 'Téléchargé',
+  'library.versions_one': '{count} version',
+  'library.versions_other': '{count} versions',
+  'versions.current': 'Version actuelle',
 
   // -- les étagères de l'utilisateur sur RomM --------------------------------
 
@@ -453,6 +456,7 @@ export const fr: Catalog = {
   'game.tabSaves': 'Sauvegardes',
   'game.tabFiles': 'Fichiers',
   'game.tabScreenshots': 'Captures',
+  'game.tabVersions': 'Versions',
   'game.revision': 'Rév. {revision}',
   'game.ratingOutOf': '/ 100',
   'game.runningAsk':

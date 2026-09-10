@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useState } from 'react'
+import { type JSX, useEffect, useMemo, useState } from 'react'
 import { resolveSystem } from '@config/systems'
 import { isStopped, type BiosPlatform, type InstalledRom, type RommRom } from '@shared/types'
 import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
@@ -14,22 +14,38 @@ import {
   PushConfirmDialog,
   UninstallDialog
 } from './dialogs'
-import { DetailsTab, FilesTab, SavesTab, ScreenshotsTab } from './tabs'
+import { DetailsTab, FilesTab, SavesTab, ScreenshotsTab, VersionsTab } from './tabs'
 import { useGameCopy } from './useGameCopy'
 import { useGameLaunch } from './useGameLaunch'
 import { useGameMarks } from './useGameMarks'
 import { useGameSaves } from './useGameSaves'
 
-type GameTab = 'details' | 'saves' | 'files' | 'screenshots'
+type GameTab = 'details' | 'saves' | 'files' | 'screenshots' | 'versions'
 
 /**
  * A single game: artwork, metadata, and the actions that matter — download it,
  * play it, remove it.
  */
-export function GameScreen({ romId }: { romId: number }): JSX.Element {
+export function GameScreen({
+  romId,
+  fromVersions = false
+}: {
+  romId: number
+  /** Opened from another dump's versions list. See `Route`. */
+  fromVersions?: boolean
+}): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { installed, offline, runningRomId, goBack, navigate, notify, settings, unsentSaves } =
-    useApp()
+  const {
+    installed,
+    installedIds,
+    offline,
+    runningRomId,
+    goBack,
+    navigate,
+    notify,
+    settings,
+    unsentSaves
+  } = useApp()
   const downloads = useDownloads()
 
   const [rom, setRom] = useState<RommRom | null>(null)
@@ -62,6 +78,20 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       .then(setBios)
       .catch(() => setBios(null))
   }, [platformId])
+
+  /**
+   * Every other dump of this game.
+   *
+   * Filtered rather than taken as it comes: a version that opens the page it is
+   * drawn on is not one, and whether RomM counts a row among its own siblings
+   * is its business. Held rather than rebuilt each render because the tab
+   * fetches each of them, and a list with a new identity every time is a list
+   * fetched every time.
+   */
+  const versions = useMemo(
+    () => (rom?.sibling_roms ?? []).filter((sibling) => sibling.id !== rom?.id),
+    [rom]
+  )
 
   const entry: InstalledRom | undefined = installed.find((item) => item.romId === romId)
   const download = downloads.find((item) => item.romId === romId)
@@ -146,7 +176,12 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
    */
   useEffect(() => {
     setRom(null)
-    setTab('details')
+    // Back to the top for a game arrived at from anywhere else — but straight
+    // to the versions list for one opened from another's. Walking a game's
+    // versions is a comparison, and being put back on Details at every step
+    // means finding the tab again to take one step more. A game that turns out
+    // to have no versions falls back on its own; see `activeTab`.
+    setTab(fromVersions ? 'versions' : 'details')
     void window.rommix.library
       .rom(romId)
       .then((fetched) => {
@@ -154,7 +189,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
         setStatus(fetched.rom_user.status)
       })
       .catch((cause: Error) => setError(cause.message))
-  }, [romId, setStatus])
+  }, [romId, fromVersions, setStatus])
 
   /**
    * Anything in flight greys out everything else.
@@ -229,6 +264,30 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
       : 0
 
   /**
+   * The tab actually drawn.
+   *
+   * Versions is offered only for a game the server holds several files of, and
+   * a move that opens on it can land on a game that has none — the versions
+   * list a dump is named in is not itself a promise that the dump has one. The
+   * panel would otherwise be drawing a tab the strip above it does not show.
+   */
+  const activeTab: GameTab = tab === 'versions' && versions.length === 0 ? 'details' : tab
+  /**
+   * Whether the highlight belongs to the tab strip rather than to this screen's
+   * own first action.
+   *
+   * Arriving on Versions means arriving from a press inside somebody else's
+   * Versions tab, and the strip is where the pad already was; every other way
+   * into this screen puts it on the button the screen is for.
+   *
+   * Taken from the move rather than from the tab in hand, because `autoFocus`
+   * is acted on whenever it changes and not only as a button appears: a flag
+   * that followed the open tab would take the highlight off the strip and drop
+   * it on Play the moment somebody stepped off Versions.
+   */
+  const focusTabs = fromVersions && versions.length > 0
+
+  /**
    * Why this game's saves have not gone up, in as many lines as there are
    * reasons.
    *
@@ -254,7 +313,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             variant="primary"
             onSelect={() => void startPlay()}
             disabled={working || running}
-            autoFocus
+            autoFocus={!focusTabs}
           >
             {running ? t('game.running') : t('game.play')}
           </FocusButton>
@@ -278,7 +337,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
                 icon="pause"
                 action="pause"
                 onSelect={() => void window.rommix.downloads.pause(romId)}
-                autoFocus
+                autoFocus={!focusTabs}
               >
                 {t('game.pauseDownload', { percent: progress })}
               </FocusButton>
@@ -287,7 +346,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
               icon="cancel"
               variant="danger"
               onSelect={() => void window.rommix.downloads.cancel(romId)}
-              autoFocus={download?.resumable === false}
+              autoFocus={download?.resumable === false && !focusTabs}
             >
               {t('game.cancelDownload', { percent: progress })}
             </FocusButton>
@@ -299,7 +358,7 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
             variant="primary"
             onSelect={() => void startDownload()}
             disabled={working}
-            autoFocus
+            autoFocus={!focusTabs}
           >
             {/* The same button either way: what the player wants is the game,
                 and whether that means starting or finishing a transfer is not
@@ -534,8 +593,9 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
           is under them rather than as four buttons floating above the page. */}
       <div className="panel">
         <Tabs<GameTab>
-          active={tab}
+          active={activeTab}
           onChange={setTab}
+          autoFocus={focusTabs}
           tabs={[
             { id: 'details', label: t('game.tabDetails'), icon: 'details' },
             { id: 'saves', label: t('game.tabSaves'), icon: 'saves', badge: assets?.length },
@@ -550,17 +610,38 @@ export function GameScreen({ romId }: { romId: number }): JSX.Element {
               label: t('game.tabScreenshots'),
               icon: 'screenshots',
               badge: rom.merged_screenshots?.length || undefined
-            }
+            },
+            // Only where there is more than one dump — see `tabs/index.ts`. The
+            // count is every version including this one, which is the number
+            // the grid's own tile carries.
+            ...(versions.length > 0
+              ? [
+                  {
+                    id: 'versions' as const,
+                    label: t('game.tabVersions'),
+                    icon: 'roms' as const,
+                    badge: versions.length + 1
+                  }
+                ]
+              : [])
           ]}
         />
 
         <div className="panel__body">
-          {tab === 'details' ? <DetailsTab rom={rom} entry={entry} /> : null}
-          {tab === 'saves' ? (
+          {activeTab === 'details' ? <DetailsTab rom={rom} entry={entry} /> : null}
+          {activeTab === 'saves' ? (
             <SavesTab assets={assets} entry={entry} onDelete={(asset) => setDeleting(asset)} />
           ) : null}
-          {tab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
-          {tab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
+          {activeTab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
+          {activeTab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
+          {activeTab === 'versions' ? (
+            <VersionsTab
+              rom={rom}
+              siblings={versions}
+              installedIds={installedIds}
+              onOpen={(id) => navigate({ name: 'game', romId: id, fromVersions: true })}
+            />
+          ) : null}
         </div>
       </div>
 

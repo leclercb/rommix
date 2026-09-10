@@ -10,6 +10,7 @@ import type {
   RommCollectionBase,
   RommVirtualCollection,
   RommRom,
+  RommSiblingRom,
   RomQuery,
   RomUserStatus,
   SaveAsset,
@@ -109,6 +110,7 @@ const UNMATCHED: RommRom = {
     first_release_date: null,
     average_rating: null
   },
+  sibling_roms: [],
   rom_user: {
     id: 9001,
     rom_id: 9001,
@@ -148,10 +150,64 @@ const PLAYED: Readonly<Record<number, string>> = {
   163: '2026-08-17T09:50:00Z'
 }
 
+/**
+ * The same game as a second dump of it, and the pair of rows that says so.
+ *
+ * Invented, like `UNMATCHED` above and for the same kind of reason: every row
+ * the demo server returned is the only file of its game, so nothing in the
+ * harvested library is grouped — and a grid that draws one tile per game cannot
+ * be seen doing anything at all without a game that has two.
+ *
+ * The harvested row stays the main sibling, so it is the one the grid keeps and
+ * the one the shelves already know; the copy carries the tags, the region and
+ * the revision that tell the two apart, which is what the game's versions tab
+ * is read on.
+ */
+function withAnotherVersion(
+  rom: RommRom,
+  dump: { id: number; tags: string; regions: string[]; revision: string | null }
+): RommRom[] {
+  const { id, tags } = dump
+  const copy: RommRom = {
+    ...rom,
+    id,
+    fs_name: `${rom.fs_name_no_tags} ${tags}.${rom.fs_extension}`,
+    fs_name_no_ext: `${rom.fs_name_no_tags} ${tags}`,
+    // The facts the versions tab is there to be read on, which the harvested
+    // row has none of: RomM's demo library is homebrew, one dump apiece, and
+    // nothing in it was ever released twice.
+    regions: dump.regions,
+    revision: dump.revision,
+    rom_user: { ...rom.rom_user, id, rom_id: id, last_played: null },
+    sibling_roms: []
+  }
+  const entry = (of: RommRom, main: boolean): RommSiblingRom => ({
+    id: of.id,
+    name: of.name,
+    fs_name_no_tags: of.fs_name_no_tags,
+    fs_name_no_ext: of.fs_name_no_ext,
+    is_main_sibling: main
+  })
+  return [
+    { ...rom, sibling_roms: [entry(copy, false)] },
+    { ...copy, sibling_roms: [entry(rom, true)] }
+  ]
+}
+
 const ROMS: RommRom[] = [
-  ...LIBRARY.map((rom) =>
-    PLAYED[rom.id] ? { ...rom, rom_user: { ...rom.rom_user, last_played: PLAYED[rom.id] } } : rom
-  ),
+  ...LIBRARY.flatMap((rom) => {
+    const played = PLAYED[rom.id]
+      ? { ...rom, rom_user: { ...rom.rom_user, last_played: PLAYED[rom.id] } }
+      : rom
+    return rom.id === CAVE_STORY
+      ? withAnotherVersion(played, {
+          id: 9002,
+          tags: '(Europe) (Rev A)',
+          regions: ['Europe'],
+          revision: 'A'
+        })
+      : [played]
+  }),
   UNMATCHED
 ]
 
@@ -648,7 +704,11 @@ const bridge: RomMixBridge = {
       const counts: Record<number, number> = {}
       for (const id of platformIds) {
         counts[id] = ROMS.filter(
-          (rom) => rom.platform_id === id && (rom.name ?? '').toLowerCase().includes(term)
+          (rom) =>
+            rom.platform_id === id &&
+            (rom.name ?? '').toLowerCase().includes(term) &&
+            // Counted the way the grid draws it — grouped. See `romCounts`.
+            !rom.sibling_roms.some((sibling) => sibling.is_main_sibling)
         ).length
       }
       return later(counts)
@@ -687,11 +747,20 @@ const bridge: RomMixBridge = {
             )
           : matched
 
+      /**
+       * One row per game where the screen asked for it, as the server does it:
+       * the row left out is the one whose set has its main sibling elsewhere.
+       * See `RomQuery.group_by_meta_id`.
+       */
+      const grouped = query.group_by_meta_id
+        ? ordered.filter((rom) => !rom.sibling_roms.some((sibling) => sibling.is_main_sibling))
+        : ordered
+
       const offset = query.offset ?? 0
       const limit = query.limit ?? 50
       return later({
-        items: ordered.slice(offset, offset + limit),
-        total: matched.length,
+        items: grouped.slice(offset, offset + limit),
+        total: grouped.length,
         limit,
         offset
       })

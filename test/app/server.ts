@@ -380,6 +380,9 @@ function rom(
     merged_screenshots: art
       ? Array.from({ length: SHOTS_PER_ROM }, (_, at) => shotPath(id, at))
       : [],
+    // No game in this library is a second dump of another, so nothing here is
+    // grouped and every scenario counts the tiles it puts on screen.
+    sibling_roms: [],
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z'
   }

@@ -168,3 +168,19 @@
   background: var(--success);
   border: 2px solid rgba(0, 0, 0, 0.55);
 }
+
+/* How many dumps of one game the tile stands for, where the server grouped
+   them. Along the bottom rather than beside the dot above: they answer
+   different questions — what is on this disk, and what this cover is standing
+   in for — and a tile can carry both at once. */
+.card__versions {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.72);
+}

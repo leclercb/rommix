@@ -255,6 +255,9 @@ export const es: Catalog = {
   'library.thatIsAll_one': 'Eso es todo: {count} en total.',
   'library.thatIsAll_other': 'Eso es todo: {count} en total.',
   'library.downloadedMark': 'Descargado',
+  'library.versions_one': '{count} versión',
+  'library.versions_other': '{count} versiones',
+  'versions.current': 'Versión actual',
 
   // -- las estanterías del usuario en RomM -----------------------------------
 
@@ -449,6 +452,7 @@ export const es: Catalog = {
   'game.tabSaves': 'Partidas',
   'game.tabFiles': 'Archivos',
   'game.tabScreenshots': 'Capturas',
+  'game.tabVersions': 'Versiones',
   'game.revision': 'Rev. {revision}',
   'game.ratingOutOf': '/ 100',
   'game.runningAsk':

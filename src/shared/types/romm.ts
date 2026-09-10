@@ -152,6 +152,28 @@ export interface RommRomMetadata {
   average_rating: number | null
 }
 
+/**
+ * Another ROM RomM considers the same game (`SiblingRomSchema`).
+ *
+ * Siblings are the copies that share a metadata id — the regions and revisions
+ * of one game — and the server works them out, which is what makes a grouped
+ * grid possible without RomMix matching file names against each other.
+ *
+ * `is_main_sibling` is the server's own answer to which of them stands for the
+ * set, and is what a grouped query returns the row for.
+ *
+ * `fs_name_no_ext` and `fs_name_no_tags` are both here because the difference
+ * between them is the only thing that tells two versions apart on screen: what
+ * is left after the shared name is the region and revision this copy carries.
+ */
+export interface RommSiblingRom {
+  id: number
+  name: string | null
+  fs_name_no_tags: string
+  fs_name_no_ext: string
+  is_main_sibling: boolean
+}
+
 /** GET /api/roms items (`SimpleRomSchema`) and GET /api/roms/{id} (`DetailedRomSchema`). */
 export interface RommRom {
   id: number
@@ -194,6 +216,12 @@ export interface RommRom {
   rom_user: RommRomUser
   files: RommRomFile[]
   merged_screenshots: string[]
+  /**
+   * The other versions of this game, which a listing carries as well as the
+   * game's own page — so a grid can say how many there are without asking
+   * after every tile it draws.
+   */
+  sibling_roms: RommSiblingRom[]
 
   created_at: string
   updated_at: string
@@ -447,6 +475,15 @@ export interface RomQuery {
   virtual_collection_id?: string
   favorite?: boolean
   last_played?: boolean
+  /**
+   * One row per game rather than one per file: the server returns the main
+   * sibling of each set and names the rest on it. See `RommSiblingRom`.
+   *
+   * Off unless a screen asks for it, which is RomM's own default and the right
+   * one for a list somebody curated — a collection holding two versions of a
+   * game holds them because someone put them there.
+   */
+  group_by_meta_id?: boolean
   order_by?: string
   order_dir?: 'asc' | 'desc'
   limit?: number

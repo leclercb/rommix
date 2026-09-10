@@ -264,6 +264,9 @@ export const de: Catalog = {
   'library.thatIsAll_one': 'Das war alles: {count} insgesamt.',
   'library.thatIsAll_other': 'Das war alles: {count} insgesamt.',
   'library.downloadedMark': 'Heruntergeladen',
+  'library.versions_one': '{count} Fassung',
+  'library.versions_other': '{count} Fassungen',
+  'versions.current': 'Aktuelle Fassung',
 
   // -- die eigenen Regale des Nutzers auf RomM -------------------------------
 
@@ -463,6 +466,7 @@ export const de: Catalog = {
   'game.tabSaves': 'Spielstände',
   'game.tabFiles': 'Dateien',
   'game.tabScreenshots': 'Screenshots',
+  'game.tabVersions': 'Fassungen',
   'game.revision': 'Rev. {revision}',
   'game.ratingOutOf': '/ 100',
   'game.runningAsk':

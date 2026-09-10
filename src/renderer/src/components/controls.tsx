@@ -262,12 +262,22 @@ function SegmentedOption({
 export function Tabs<T extends string>({
   tabs,
   active,
-  onChange
+  onChange,
+  autoFocus = false
 }: {
   /** `badge` is a count, as the Saves tab has, or a short word — a version. */
   tabs: { id: T; label: string; icon?: IconName; badge?: number | string }[]
   active: T
   onChange: (id: T) => void
+  /**
+   * Put the highlight on the open tab as the strip appears.
+   *
+   * For a screen arrived at from inside a tab of the screen before it — one
+   * game's versions opening another's page. The highlight would otherwise be
+   * handed to that screen's own first action, which after two presses inside a
+   * list is a long way from where the pad was.
+   */
+  autoFocus?: boolean
 }): JSX.Element {
   const step = (delta: number): void => {
     const index = tabs.findIndex((tab) => tab.id === active)
@@ -288,6 +298,7 @@ export function Tabs<T extends string>({
           icon={tab.icon}
           badge={tab.badge}
           active={tab.id === active}
+          autoFocus={autoFocus && tab.id === active}
           onSelect={() => onChange(tab.id)}
         />
       ))}
@@ -301,6 +312,7 @@ function TabButton({
   icon,
   badge,
   active,
+  autoFocus,
   onSelect
 }: {
   id: string
@@ -308,9 +320,10 @@ function TabButton({
   icon?: IconName
   badge?: number | string
   active: boolean
+  autoFocus?: boolean
   onSelect: () => void
 }): JSX.Element {
-  const { ref, props } = useFocusable({ onSelect })
+  const { ref, props } = useFocusable({ onSelect, autoFocus })
   return (
     <button
       ref={ref as Ref<HTMLButtonElement>}

@@ -55,6 +55,14 @@
    one grey" — and so does Delete, which still works here: dropping another
    core's state off the server is a thing somebody may well want. Dimming the
    whole row would say it is disabled, and it is not. */
+/* A row that leads somewhere — the versions list, where the row is the target
+   rather than a button on it. The same ring every other focusable carries, so
+   what the pad is on reads the same here as on a card or a button. */
+.asset-list li[data-focused='true'] {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
 .asset-list li.asset--inert {
   /* No panel behind it, where every actionable row has one. Dimming the panel
      instead does nothing worth seeing: `--surface` is 4% white to begin with,
@@ -78,6 +86,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-left: auto;
+}
+
+/* The mark saying a row is the one already open, at the end of the row where
+   the buttons sit — see `asset__actions`, which is the same slot for the same
+   reason: it is what the row *is*, not another fact about the file. */
+.asset__here {
   margin-left: auto;
 }
 

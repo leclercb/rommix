@@ -9,8 +9,10 @@ import {
   PageTitle,
   PlatformIcon,
   Spinner,
+  romToOpen,
   tileFromInstalled,
-  tileFromRom
+  tileFromRom,
+  type GameTile
 } from '../../components'
 import { Icon } from '../../icons'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
@@ -174,13 +176,26 @@ export function HomeScreen(): JSX.Element {
    * is left, with a line above it saying why. The alternative — a screen of its
    * own for the same games — was a different application appearing whenever the
    * network dropped.
+   *
+   * Two of the three are grouped, as the library's grid is: a shelf holds a
+   * dozen tiles and three of them being the same game in three regions is most
+   * of a shelf spent saying one thing. See `RomQuery.group_by_meta_id`.
+   *
+   * Not this one. What it offers is the session to carry on with, and that
+   * belongs to the dump that was played — the save is filed under that ROM, and
+   * grouping would sooner or later hand somebody the copy the server picked
+   * instead. Two versions of a game played here are two things to carry on
+   * with, and this is the shelf that should say so.
    */
   const continuePlaying = useShelf(
     { last_played: true, order_by: 'last_played', order_dir: 'desc' },
     offline
   )
-  const favourites = useShelf({ favorite: true }, offline)
-  const recentlyAdded = useShelf({ order_by: 'created_at', order_dir: 'desc' }, offline)
+  const favourites = useShelf({ favorite: true, group_by_meta_id: true }, offline)
+  const recentlyAdded = useShelf(
+    { order_by: 'created_at', order_dir: 'desc', group_by_meta_id: true },
+    offline
+  )
 
   const error = continuePlaying.error ?? favourites.error ?? recentlyAdded.error
   const ready = continuePlaying.loaded && favourites.loaded && recentlyAdded.loaded
@@ -209,7 +224,11 @@ export function HomeScreen(): JSX.Element {
   const highlightReason = continuePlaying.items[0]
     ? t('home.continuePlaying')
     : t('home.recentlyAdded')
-  const open = (tile: { romId: number }): void => navigate({ name: 'game', romId: tile.romId })
+  // The copy on this disk where a grouped tile stands for several — see
+  // `romToOpen`. The shelves built from the download index are one ROM each and
+  // answer themselves.
+  const open = (tile: GameTile): void =>
+    navigate({ name: 'game', romId: romToOpen(tile, installedIds) })
 
   return (
     <div className="content">
@@ -226,7 +245,7 @@ export function HomeScreen(): JSX.Element {
       <GameRow
         title={t('home.continuePlaying')}
         shelf="continue"
-        tiles={continuePlaying.items.map(tileFromRom)}
+        tiles={continuePlaying.items.map((rom) => tileFromRom(rom))}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={continuePlaying.loadMore}
@@ -243,7 +262,7 @@ export function HomeScreen(): JSX.Element {
       <GameRow
         title={t('home.favourites')}
         shelf="favourites"
-        tiles={favourites.items.map(tileFromRom)}
+        tiles={favourites.items.map((rom) => tileFromRom(rom, true))}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={favourites.loadMore}
@@ -251,7 +270,7 @@ export function HomeScreen(): JSX.Element {
       <GameRow
         title={t('home.recentlyAdded')}
         shelf="recent"
-        tiles={recentlyAdded.items.map(tileFromRom)}
+        tiles={recentlyAdded.items.map((rom) => tileFromRom(rom, true))}
         installedIds={installedIds}
         onSelect={open}
         onEndReached={recentlyAdded.loadMore}

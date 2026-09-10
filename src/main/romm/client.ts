@@ -629,6 +629,7 @@ export class RommClient {
     }
     if (query.favorite != null) params.set('favorite', String(query.favorite))
     if (query.last_played != null) params.set('last_played', String(query.last_played))
+    if (query.group_by_meta_id) params.set('group_by_meta_id', 'true')
     params.set('order_by', query.order_by ?? 'name')
     params.set('order_dir', query.order_dir ?? 'asc')
     params.set('limit', String(query.limit ?? 60))
@@ -656,7 +657,15 @@ export class RommClient {
     const counts: Record<number, number> = {}
     const ask = async (): Promise<void> => {
       for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-        const page = await this.roms({ search_term: searchTerm, platform_ids: [id], limit: 1 })
+        // Grouped, because the grid this number is a promise about is grouped:
+        // a chip offering two where pressing it draws one tile is a chip that
+        // has been read as a filter that lost something.
+        const page = await this.roms({
+          search_term: searchTerm,
+          platform_ids: [id],
+          group_by_meta_id: true,
+          limit: 1
+        })
         if (page.total !== null) counts[id] = page.total
       }
     }
