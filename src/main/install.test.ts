@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { RommRom } from '@shared/types'
@@ -139,6 +139,81 @@ async function archiveOf(files: Record<string, string>): Promise<{ zip: string; 
   await zipDirectory(root, zip)
   return { zip, dir: mkdtempSync(join(tmpdir(), 'rommix-install-system-')) }
 }
+
+describe('an unpack that cannot finish', () => {
+  test('an archive with nothing in it is refused rather than half-installed', async () => {
+    /**
+     * Nothing came out, so there is no game and no honest way to say there is.
+     *
+     * The branch that used to be reached instead was `join(systemDir,
+     * moved[0])` with `moved` empty, which throws `ERR_INVALID_ARG_TYPE` — a
+     * message naming neither the game nor the problem. The non-flat path was
+     * worse: it recorded an installed game with no files at all, which `adopt`
+     * refuses to do and `library.record` does not check.
+     */
+    const { dir } = await archiveOf({ 'Sonic (USA).md': '0' })
+    scratches.push(dir)
+    // A valid archive holding nothing: the end-of-central-directory record and
+    // not one entry in front of it. What an archive of only *directory*
+    // entries also comes to, once nothing is written out of it.
+    const zip = join(dir, 'empty.zip')
+    writeFileSync(zip, Buffer.from('504b0506' + '00'.repeat(18), 'hex'))
+
+    await assert.rejects(
+      () => unpack(rom(), zip, dir, 'genesis', join(dir, 'Sonic (USA).md'), false),
+      /Sonic \(USA\)\.md/
+    )
+    // And nothing of it is left in the folder an emulator browses, staging
+    // directory included.
+    assert.deepEqual(readdirSync(dir), ['empty.zip'])
+  })
+
+  test('an extraction that fails takes its staging directory with it', async () => {
+    /**
+     * The hidden directory nothing else knows about.
+     *
+     * `discardHeld` cleans up what the *transfer* held; the staging folder is
+     * made here and named for the game with a dot in front, so a failed unpack
+     * left part of a game in the system folder with nothing that could ever
+     * find it — one copy per attempt.
+     */
+    const { dir } = await archiveOf({ 'Sonic (USA).md': '0' })
+    scratches.push(dir)
+    const notAnArchive = join(dir, 'broken.zip')
+    writeFileSync(notAnArchive, 'this is not a zip at all')
+
+    await assert.rejects(() =>
+      unpack(rom(), notAnArchive, dir, 'genesis', join(dir, 'Sonic (USA).md'), false)
+    )
+
+    assert.deepEqual(
+      readdirSync(dir),
+      ['broken.zip'],
+      'the staging directory must not survive the failure'
+    )
+  })
+
+  test('a name that climbs out of the system folder is refused', async () => {
+    // `targetPath` came through `Library.plan`, which has already refused one;
+    // the staging name is derived here and gets the same check, because a name
+    // that decides where RomMix writes is a name to refuse rather than trim.
+    const { zip, dir } = await archiveOf({ 'Sonic (USA).md': '0'.repeat(64) })
+    scratches.push(dir)
+
+    await assert.rejects(
+      () =>
+        unpack(
+          rom({ fs_name: '../escaped.md', fs_name_no_ext: '../escaped' }),
+          zip,
+          dir,
+          'genesis',
+          join(dir, 'Sonic (USA).md'),
+          false
+        ),
+      /escaped/
+    )
+  })
+})
 
 describe('unpacking what the server sent', () => {
   test('a lone ROM comes out of the folder RomM zipped it in', async () => {

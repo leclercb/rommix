@@ -46,8 +46,13 @@ before(() => {
   app.getVersion = () => '1.0.0'
 })
 
+const realRelaunch = app.relaunch
+const realExit = app.exit
+
 afterEach(() => {
   globalThis.fetch = realFetch
+  app.relaunch = realRelaunch
+  app.exit = realExit
   if (heldAppImage === undefined) delete process.env.APPIMAGE
   else process.env.APPIMAGE = heldAppImage
   resourcesAt(heldResources)
@@ -359,6 +364,64 @@ describe('downloading it', () => {
     await subject.check()
 
     assert.deepEqual(asked, [])
+  })
+})
+
+describe('restarting into what was downloaded', () => {
+  /**
+   * `app.exit` skips `before-quit`, so the quit's own work has to be asked for
+   * here — and the order it is asked in is the whole of what these check.
+   */
+  function watchExit(): { relaunched: string[]; exited: number[] } {
+    const relaunched: string[] = []
+    const exited: number[] = []
+    app.relaunch = ((options?: { execPath?: string }) => {
+      relaunched.push(options?.execPath ?? '')
+    }) as typeof app.relaunch
+    app.exit = ((code?: number) => {
+      exited.push(code ?? 0)
+    }) as typeof app.exit
+    return { relaunched, exited }
+  }
+
+  test('the shutdown runs first, and the image staged is what starts', async () => {
+    const running = join(scratch(), image)
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response(BODY)))
+    await subject.check()
+    await subject.download()
+    const { relaunched, exited } = watchExit()
+
+    const order: string[] = []
+    await subject.restart(async () => {
+      order.push('shutdown')
+    })
+    order.push('relaunched')
+
+    assert.deepEqual(order, ['shutdown', 'relaunched'])
+    // The image rather than `process.execPath`, which is the binary *inside*
+    // the AppImage and still the old version.
+    assert.deepEqual(relaunched, [running])
+    assert.deepEqual(exited, [0])
+  })
+
+  test('a restart with nothing to restart into closes nothing', async () => {
+    // The refusal comes first on purpose: a restart that is going to be turned
+    // down must not have shut the emulator down on the way to being refused.
+    const { updater: subject } = updater()
+    const { relaunched, exited } = watchExit()
+    let shutdowns = 0
+
+    await assert.rejects(() =>
+      subject.restart(async () => {
+        shutdowns += 1
+      })
+    )
+
+    assert.equal(shutdowns, 0, 'nothing should have been closed for a restart that cannot happen')
+    assert.deepEqual(relaunched, [])
+    assert.deepEqual(exited, [])
   })
 })
 

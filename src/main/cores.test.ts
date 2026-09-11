@@ -92,6 +92,50 @@ describe('whether a core has to be installed at all', () => {
 })
 
 describe('installing one', () => {
+  test('a machine with no buildbot build for it is told so, not sent nowhere', async () => {
+    /**
+     * The one case with no URL to fetch from.
+     *
+     * `buildbotUrl` is what a `retroarch.cfg` named, and a RetroArch that has
+     * never been run has not written one — so the architecture is RomMix's
+     * guess, and on a machine libretro publishes no nightlies for there is no
+     * guess to make. A refusal naming the core is the whole of what can be
+     * done; the alternative is a request to `undefined` and an error about a
+     * URL rather than about a core.
+     */
+    const held = process.arch
+    Object.defineProperty(process, 'arch', { value: 'mips', configurable: true })
+    try {
+      const asked = serve(() => new Response(''))
+
+      await assert.rejects(
+        () => installCore(core({ buildbotUrl: null }), () => undefined),
+        /Mupen64Plus-Next/
+      )
+      assert.deepEqual(asked, [], 'nothing should be fetched when there is nowhere to fetch from')
+    } finally {
+      Object.defineProperty(process, 'arch', { value: held, configurable: true })
+    }
+  })
+
+  test('and one it does publish for falls back to the buildbot on its own', async () => {
+    // The other half: no config to read, but an architecture libretro builds
+    // for, so the default directory is the honest answer rather than a refusal.
+    const held = process.arch
+    Object.defineProperty(process, 'arch', { value: 'arm64', configurable: true })
+    try {
+      const asked = serve(() => new Response(''))
+
+      await installCore(core({ buildbotUrl: null }), () => undefined).catch(() => undefined)
+
+      assert.equal(asked.length, 1)
+      assert.match(asked[0], /^https:\/\/buildbot\.libretro\.com\/nightly\/linux\/arm64\//)
+      assert.match(asked[0], /mupen64plus_next_libretro\.so\.zip$/)
+    } finally {
+      Object.defineProperty(process, 'arch', { value: held, configurable: true })
+    }
+  })
+
   test('it arrives over https even when the config asked for plain http', async () => {
     const required = core()
     const asked = serve(() => new Response(''))
