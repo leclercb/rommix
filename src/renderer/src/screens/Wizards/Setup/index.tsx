@@ -76,8 +76,25 @@ export function SetupScreen(): JSX.Element {
    */
   const [step, setStep] = useState<SetupStep | null>(null)
   useEffect(() => {
-    if (settings && step === null) setStep(settings.setupComplete ? 'server' : 'scale')
-  }, [settings, step])
+    if (!settings || step !== null) return
+    setStep(settings.setupComplete ? 'server' : 'scale')
+    /**
+     * Why this screen is showing, when nobody on it asked for it.
+     *
+     * A server that answered and turned us away — too old to read, or
+     * credentials it refuses — sends the session here instead of to the
+     * library, and the reason it gave is the only thing on the form that says
+     * what would fix it. Without this it is dropped, and the user is shown a
+     * sign-in form with no idea why, which for a server that is merely old
+     * invites the one action that cannot help.
+     *
+     * Seeded, and seeded once, rather than drawn from the status directly: the
+     * watch goes on probing the stored server for as long as this form is open,
+     * and a push about that server must not write over what the user's own
+     * attempt against a different one just said. See `ConnectionWatch`.
+     */
+    if (status?.configured && !status.connected && !status.offline) setError(status.error)
+  }, [settings, step, status])
 
   /**
    * B, which means two things on this screen and used to mean neither.
