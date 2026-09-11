@@ -137,9 +137,24 @@ never stays up long enough to prove it.
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
 at: a module worth adding is worth testing, and the report says which lines of
-it nothing has run. Only files a test actually imports appear — the renderer,
-the IPC wiring and anything that drives Electron or spawns a process are
-deliberately absent, and are covered by running the application.
+it nothing has run. Only files a test actually imports appear — the IPC wiring
+and anything that drives Electron or spawns a process are deliberately absent,
+and are covered by running the application.
+
+Components are left out of it — every `.tsx` under `src/renderer/`. A component
+is drawn, and what it draws is `npm run test:app`'s to prove against a real
+window; a unit test that renders one is asking a different question, and
+`focus.test.tsx` asks the only one worth asking here — how much of the interface
+wakes up when the highlight moves. Holding that file to the same floor as a
+module of pure rules would mean either a number nothing can honestly raise or a
+floor low enough to stop meaning anything.
+
+By extension rather than by name, so the rule needs no list kept up to date: a
+new component is covered by it the day it is written, and a module of rules
+stays measured wherever it sits. `input/scroll.ts` is the one that reads oddly —
+it wants a layout happy-dom has not got, so most of it can only be reached by
+running the application — and it stays in the report anyway, because what it is
+low on is worth being able to see.
 
 ## Where things live
 
@@ -268,6 +283,26 @@ way the rest of the codebase is.
 `src/renderer/src/components/` is the shared UI, imported as one module
 (`../components`); `input/` is the focus engine, split into the geometry, the
 scrolling and the two input sources it is built from.
+
+Most of what is worth unit-testing in here has been lifted into plain `.ts`
+modules for exactly that reason — `input/geometry.ts`, `input/keyboard.ts`,
+`history.ts`, `components/tiles.ts` — and the rule is worth keeping: a rule that
+can be stated without a screen belongs where `npm test` can reach it, and the
+component keeps the drawing. That is the cheapest kind of test here by a wide
+margin.
+
+A test that genuinely has to render is a `.test.tsx`, and there is one:
+`input/focus.test.tsx`, which counts how much of the interface wakes up when the
+highlight moves. It calls `installDom` from `src/renderer/src/test/dom.ts` before
+importing React, and imports everything after that dynamically, because a window
+has to exist first. `scripts/test-resolve.mjs` compiles JSX with esbuild on the
+way in — Node's own type stripping refuses `.tsx` — and resolves the
+extensionless relative imports the renderer is written with, which the bundler
+otherwise does.
+
+There is no layout in happy-dom: `getBoundingClientRect` answers zero for
+everything and `getComputedStyle` comes back blank. So anything about where an
+element _is_ cannot be asked here and is `npm run test:app`'s to answer.
 
 Seventeen attributes exist for `npm run test:app` and nothing else:
 `data-screen` on the shell, `data-route` on a menu item, `data-rom` on a game

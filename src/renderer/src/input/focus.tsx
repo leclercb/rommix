@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject
@@ -56,7 +57,19 @@ interface FocusContextValue {
    * not anything on it can be focused. Returns a release function.
    */
   claimLayer(layer: number): () => void
-  focusedId: string | null
+  /**
+   * Whether `id` has the highlight right now, and a way to hear when that
+   * changes — the pair `useSyncExternalStore` takes.
+   *
+   * Not a value on this context, which is the whole point. A context value
+   * carrying the focused id re-renders every consumer on every press: a library
+   * paged three times holds a few hundred cards, each re-allocating its props
+   * and its closures, repeated while a direction is held — to change which two
+   * of them are drawing a ring. Subscribed to instead, a press wakes only the
+   * element losing the highlight and the one taking it.
+   */
+  isFocused(id: string): boolean
+  subscribeFocus(listener: () => void): () => void
   setFocus(id: string): void
   move(direction: Direction): void
   /**
@@ -73,24 +86,28 @@ interface FocusContextValue {
   activate(): void
   /** Subscribe to a non-directional action. Returns an unsubscribe function. */
   onAction(action: Action, handler: () => void, layer: number): () => void
-  /** What the last input came from, for anything that has to name a button. */
-  inputKind: InputKind
-  /**
-   * What pressing A would do right now, named by whatever holds focus.
-   *
-   * The hint bar is written per screen, so on its own it can only describe one
-   * of the things A does there — "Play" stays on screen while focus sits on
-   * Pull saves. This is the focused element's own answer, which is the only one
-   * that is true at the moment it is read.
-   */
-  focusedAction: string | null
-  /** Called by the focused element to say what it does. */
+  /** Called by the focused element to say what it does. See `useFocusedAction`. */
   reportAction(label: string | null): void
   /** See `useSuspendGamepad`. */
   setInputSuspended(suspended: boolean): void
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
+
+/**
+ * The two things that change while the interface is being driven, each on its
+ * own context.
+ *
+ * Apart from `FocusContext`, whose value is built once and never again — every
+ * member of it is a stable callback. Anything that varies per press and sits
+ * on the same object drags every consumer of the registry into a re-render
+ * with it, which is the cost this split exists to remove. Each of these has
+ * one consumer or two, and they change on different occasions: what A does
+ * changes as the highlight moves, and which input is driving changes when
+ * somebody picks up a different one.
+ */
+const FocusedActionContext = createContext<string | null>(null)
+const InputKindContext = createContext<InputKind>('keyboard')
 
 /**
  * The layer a subtree's focusables belong to.
@@ -234,8 +251,43 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [])
 
   const actionHandlers = useRef(new Map<Action, { handler: () => void; layer: number }[]>())
-  const [focusedId, setFocusedId] = useState<string | null>(null)
+  /**
+   * Which element has the highlight — a ref and a list of listeners rather
+   * than React state.
+   *
+   * State here would re-render the provider on every press, and with it every
+   * consumer of the context. What actually has to change is the two elements
+   * whose ring is moving, so they subscribe and the rest are left alone. See
+   * `FocusContextValue.isFocused`.
+   */
   const focusedRef = useRef<string | null>(null)
+  const focusListeners = useRef(new Set<() => void>())
+
+  /**
+   * Move the highlight and tell whoever is listening.
+   *
+   * Nothing to say where it is already there, which is what makes a repeated
+   * press against the end of a row free. Iterated live rather than over a copy:
+   * this runs on every press with one listener per focusable, and an array of
+   * several hundred of them per press is the allocation this whole arrangement
+   * exists to avoid. Removing an entry during iteration is well defined, and a
+   * listener that unsubscribes itself on being called is the only mutation that
+   * happens here.
+   */
+  const publishFocus = useCallback((id: string | null): void => {
+    if (focusedRef.current === id) return
+    focusedRef.current = id
+    for (const listener of focusListeners.current) listener()
+  }, [])
+
+  const subscribeFocus = useCallback((listener: () => void): (() => void) => {
+    focusListeners.current.add(listener)
+    return () => {
+      focusListeners.current.delete(listener)
+    }
+  }, [])
+
+  const isFocused = useCallback((id: string): boolean => focusedRef.current === id, [])
   // Highest layer with anything on it: whatever is topmost owns the input.
   const layerRef = useRef(0)
   /**
@@ -274,8 +326,6 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
    */
   const groupMemory = useRef(new Map<string, string>())
 
-  focusedRef.current = focusedId
-
   const visibleEntries = useCallback((): FocusableEntry[] => {
     const layer = layerRef.current
     return [...entries.current.values()].filter(
@@ -285,34 +335,36 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [])
 
   /** Focus an element without disturbing a run in progress. */
-  const applyFocus = useCallback((id: string): void => {
-    const entry = entries.current.get(id)
-    if (!entry) return
-    /**
-     * The highlight and the caret are one thing, and this is where they are
-     * kept that way.
-     *
-     * `TextField` focuses its input when it is selected, and until now nothing
-     * but the field's own Escape handler ever blurred it. So moving the mouse
-     * over a game card or pressing Down on the pad moved the highlight off the
-     * field while the caret stayed in it — and `keyboard.ts` stands down while
-     * an input holds the caret, which left every arrow key and Enter going
-     * nowhere for the rest of the screen with no cause on screen.
-     */
-    const active = document.activeElement
-    if (
-      active instanceof HTMLElement &&
-      active !== entry.element &&
-      !entry.element.contains(active)
-    )
-      active.blur()
-    focusedRef.current = id
-    zoneMemory.current.set(entry.zone, id)
-    lastZone.current = entry.zone
-    if (entry.group) groupMemory.current.set(entry.group, id)
-    setFocusedId(id)
-    revealElement(entry.element)
-  }, [])
+  const applyFocus = useCallback(
+    (id: string): void => {
+      const entry = entries.current.get(id)
+      if (!entry) return
+      /**
+       * The highlight and the caret are one thing, and this is where they are
+       * kept that way.
+       *
+       * `TextField` focuses its input when it is selected, and until now nothing
+       * but the field's own Escape handler ever blurred it. So moving the mouse
+       * over a game card or pressing Down on the pad moved the highlight off the
+       * field while the caret stayed in it — and `keyboard.ts` stands down while
+       * an input holds the caret, which left every arrow key and Enter going
+       * nowhere for the rest of the screen with no cause on screen.
+       */
+      const active = document.activeElement
+      if (
+        active instanceof HTMLElement &&
+        active !== entry.element &&
+        !entry.element.contains(active)
+      )
+        active.blur()
+      zoneMemory.current.set(entry.zone, id)
+      lastZone.current = entry.zone
+      if (entry.group) groupMemory.current.set(entry.group, id)
+      publishFocus(id)
+      revealElement(entry.element)
+    },
+    [publishFocus]
+  )
 
   const setFocus = useCallback(
     (id: string): void => {
@@ -379,14 +431,13 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       visible.find((entry) => entry.zone === lastZone.current) ??
       visible[0] ??
       [...entries.current.values()].find((e) => e.layer === top)
-    focusedRef.current = first?.id ?? null
     if (first) {
       zoneMemory.current.set(first.zone, first.id)
       lastZone.current = first.zone
       if (first.group) groupMemory.current.set(first.group, first.id)
     }
-    setFocusedId(first?.id ?? null)
-  }, [setFocus, visibleEntries])
+    publishFocus(first?.id ?? null)
+  }, [publishFocus, setFocus, visibleEntries])
 
   const claimLayer = useCallback(
     (layer: number): (() => void) => {
@@ -699,38 +750,70 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   useGamepad(move, fireAction, activate, noteInput, inputSuspended)
   useKeyboard(move, fireAction, activate, noteInput)
 
+  /**
+   * Built once, and after that never again.
+   *
+   * Every member is a stable callback, so this object keeps its identity for
+   * the life of the provider and a consumer of it is never re-rendered by the
+   * engine. What changes while the interface is driven is on the two contexts
+   * below and on the focus subscription, each of which wakes only what it has
+   * to.
+   */
   const value = useMemo<FocusContextValue>(
     () => ({
       register,
       claimLayer,
-      focusedId,
+      isFocused,
+      subscribeFocus,
       setFocus,
       move,
       enterZone,
       activate,
       onAction,
-      inputKind,
-      focusedAction,
       reportAction,
       setInputSuspended
     }),
     [
       register,
       claimLayer,
-      focusedId,
+      isFocused,
+      subscribeFocus,
       setFocus,
       move,
       enterZone,
       activate,
       onAction,
-      inputKind,
-      focusedAction,
       reportAction,
       setInputSuspended
     ]
   )
 
-  return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
+  return (
+    <FocusContext.Provider value={value}>
+      <InputKindContext.Provider value={inputKind}>
+        <FocusedActionContext.Provider value={focusedAction}>
+          {children}
+        </FocusedActionContext.Provider>
+      </InputKindContext.Provider>
+    </FocusContext.Provider>
+  )
+}
+
+/**
+ * What pressing A would do right now, named by whatever holds focus.
+ *
+ * The hint bar is written per screen, so on its own it can only describe one
+ * of the things A does there — "Play" stays on screen while focus sits on Pull
+ * saves. This is the focused element's own answer, which is the only one that
+ * is true at the moment it is read.
+ */
+export function useFocusedAction(): string | null {
+  return useContext(FocusedActionContext)
+}
+
+/** What the last input came from, for anything that has to name a button. */
+export function useInputKind(): InputKind {
+  return useContext(InputKindContext)
 }
 
 export function useFocusContext(): FocusContextValue {
@@ -748,7 +831,7 @@ export function useFocusContext(): FocusContextValue {
  * keep saying `A`.
  */
 export function useKeyLabel(): (key: string) => string {
-  const { inputKind } = useFocusContext()
+  const inputKind = useInputKind()
   const { t } = useI18n()
   return useCallback(
     (key: string): string =>
@@ -812,7 +895,7 @@ export function useFocusable(options: {
   id?: string
 }): UseFocusableResult {
   const { onSelect, enabled = true, autoFocus = false, actionLabel } = options
-  const { register, focusedId, setFocus, reportAction } = useFocusContext()
+  const { register, isFocused, subscribeFocus, setFocus, reportAction } = useFocusContext()
   const layer = useContext(LayerContext)
   const zone = useContext(ZoneContext)
   const group = useContext(GroupContext)
@@ -854,18 +937,32 @@ export function useFocusable(options: {
     setFocus(id)
   }, [autoFocus, enabled, id, setFocus])
 
+  /**
+   * Subscribed to rather than read off a context value.
+   *
+   * A boolean, so this component is woken only when its own ring appears or
+   * goes — not on every press somewhere else on the screen. `useSyncExternalStore`
+   * is what makes that safe under a concurrent render: it re-reads the answer
+   * before committing, so a highlight that moved while React was working cannot
+   * be drawn stale.
+   */
+  const focused = useSyncExternalStore(
+    subscribeFocus,
+    () => isFocused(id),
+    () => false
+  )
+
   // Only while focused: an element that has just lost focus must not overwrite
   // what the one that took it has already said.
-  const focused = focusedId === id
   useEffect(() => {
     if (focused) reportAction(actionLabel ?? null)
   }, [focused, actionLabel, reportAction])
 
   return {
     ref,
-    focused: focusedId === id,
+    focused,
     props: {
-      'data-focused': focusedId === id,
+      'data-focused': focused,
       /**
        * The pointer moving over something is what puts the highlight on it —
        * the pointer *arriving* under one is not, which is why this is a move
@@ -873,7 +970,7 @@ export function useFocusable(options: {
        */
       onMouseMove: (event: ReactMouseEvent) => {
         if (event.clientX === pointer.x && event.clientY === pointer.y) return
-        if (enabled && focusedId !== id) setFocus(id)
+        if (enabled && !isFocused(id)) setFocus(id)
       },
       /**
        * The innermost focusable takes the click, and nothing above it does.

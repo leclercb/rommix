@@ -531,6 +531,32 @@ export class RomMixApp {
       event.preventDefault()
     })
 
+    /**
+     * Nothing the page could ask the desktop for is anything RomMix wants.
+     *
+     * Electron's default is to grant most of these, and the list is the
+     * camera, the microphone, the screen, the clipboard, notifications and the
+     * machine's location. RomMix asks for none of them: what it draws is cover
+     * art and text, and the one thing it opens outside itself is a link, which
+     * goes through `setWindowOpenHandler` above and out to the browser.
+     *
+     * No route to a page that could ask is known — the window loads its own
+     * bundle under a `default-src 'self'` policy and cannot navigate away, per
+     * the two guards above. This is the floor under all of that rather than a
+     * fix for a way through it: a default that says yes is the wrong default to
+     * be one mistake away from, and a request refused here is one line in the
+     * log instead of a permission prompt on a television nobody can answer.
+     */
+    window.webContents.session.setPermissionRequestHandler((_contents, permission, decide) => {
+      log.warn('window', 'refused a permission the interface has no use for', { permission })
+      decide(false)
+    })
+    // Asked separately by Chromium for anything it can settle without a
+    // prompt, and answered the same way — otherwise the synchronous half of
+    // the same question keeps the permissive default the handler above exists
+    // to replace.
+    window.webContents.session.setPermissionCheckHandler(() => false)
+
     if (process.env.ELECTRON_RENDERER_URL) {
       void window.loadURL(process.env.ELECTRON_RENDERER_URL)
     } else {

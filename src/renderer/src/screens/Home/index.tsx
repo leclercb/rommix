@@ -1,5 +1,4 @@
-import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { hasMorePages } from '@shared/types'
+import { type JSX, type Ref, useMemo, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
 import {
   ArtBackdrop,
@@ -16,6 +15,7 @@ import {
 } from '../../components'
 import { Icon } from '../../icons'
 import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
+import { useRomPages } from '../../paging'
 import { useApp, useI18n } from '../../state'
 
 /**
@@ -35,117 +35,36 @@ interface Shelf {
 }
 
 /**
- * One shelf: a query plus its own offset, so scrolling one to the end pages
- * that shelf alone and leaves the others where they are.
+ * One shelf: a query paged on its own, so walking one to its end fetches for
+ * that shelf and leaves the others where they are.
  *
- * The query is serialised to key the effect. Callers pass an object literal,
- * which is a new reference every render, and comparing it by identity would
- * refetch the shelf on each one.
+ * `useRomPages` does the paging — it is the same paging the library grid does,
+ * and was written twice before it was one thing. What a shelf adds is where the
+ * message goes and what being away from the server means to a row of the
+ * server's own games.
  */
 function useShelf(query: RomQuery, offline: boolean | null): Shelf {
-  const [items, setItems] = useState<RommRom[]>([])
-  /** Whether the last page came back full. See `hasMorePages`. */
-  const [more, setMore] = useState(false)
-  const [loaded, setLoaded] = useState(false)
+  /**
+   * The message this shelf is holding, if any.
+   *
+   * Kept here rather than in the core because Home draws one notice above all
+   * three shelves and any of them can be the one that failed — see the notice
+   * `HomeScreen` draws, and `useRomPages.onError`.
+   */
   const [error, setError] = useState<string | null>(null)
-  // Synchronous guard: `loaded` lands a render too late to stop the row's
-  // observer firing again while a request is already out.
-  const inFlight = useRef(false)
-  /**
-   * Which fetch the shelf is currently listening to.
-   *
-   * A request already on the wire when the server goes away lands *after* the
-   * shelf has stood itself down, and its rejection would put the error back
-   * over a screen that had just finished narrowing — which is a Home page
-   * showing nothing but "fetch failed" until it is navigated away from and
-   * back. Bumping this disowns whatever is still out.
-   */
-  const run = useRef(0)
+  const { roms, settled, loadMore, reload } = useRomPages(query, {
+    pageSize: SHELF_PAGE,
+    // Null until the first connection answer: a shelf that asked then put a
+    // fetch error over a screen that was about to narrow, and left it there
+    // until the screen was navigated away from and back.
+    enabled: offline === null ? null : !offline,
+    // The games on a shelf are the server's, most of which are not on this
+    // disk. See `useRomPages.forgetOnStandDown`.
+    forgetOnStandDown: true,
+    onError: setError
+  })
 
-  /**
-   * The same query, with an identity that only changes when the query does.
-   *
-   * Rebuilt from the serialised form rather than kept from the argument, so
-   * that this is what the fetch closes over and `key` is honestly the only
-   * thing it depends on. Once per change of query, rather than once per page.
-   */
-  const key = JSON.stringify(query)
-  const asked = useMemo(() => JSON.parse(key) as RomQuery, [key])
-
-  const fetchPage = useCallback(
-    async (offset: number): Promise<void> => {
-      // Before the first connection answer there is nothing to do but wait:
-      // asking then is what put a fetch error over a screen that was about to
-      // narrow, and left it there until the screen was navigated away from and
-      // back. The shelf stays unloaded, which is the spinner it already has.
-      if (offline === null) return
-
-      /**
-       * Nothing to query while the server is away, and nothing left standing
-       * from when it was there.
-       *
-       * The error goes because Home draws it in place of the whole screen, and
-       * a request that failed on the way out of range would otherwise leave
-       * that error over a screen with a perfectly good shelf on it. The items
-       * go because they are games from the server, most of which are not on
-       * this disk — a tile still on screen is one that opens a game page with
-       * nothing behind it. Loaded, so the shelves that do have something draw
-       * rather than waiting behind a spinner.
-       */
-      if (offline) {
-        run.current += 1
-        // The flag goes with the run it belonged to. Left set, the first page
-        // asked for once the server is back was refused by the guard below on
-        // behalf of a request this shelf had already stopped listening to.
-        inFlight.current = false
-        setItems([])
-        setError(null)
-        setLoaded(true)
-        return
-      }
-      // The next page, while the last one is still coming: the sentinel stays
-      // in view and fires again, and one request per page is enough. A first
-      // page is the opposite case and takes over from whatever is out — the
-      // same rule `paging.ts` states, and the reason a handheld carried out of
-      // range and back used to find this shelf empty, with no spinner and no
-      // error, until the screen was navigated away from and back.
-      if (inFlight.current && offset > 0) return
-      inFlight.current = true
-      const mine = ++run.current
-      // Cleared on the way in, not only set on the way out: a shelf that failed
-      // and then succeeded would otherwise keep the message from the attempt
-      // before, and Home draws it instead of the screen.
-      setError(null)
-      try {
-        const page = await window.rommix.library.roms({
-          ...asked,
-          limit: SHELF_PAGE,
-          offset
-        })
-        if (mine !== run.current) return
-        setMore(hasMorePages(page))
-        setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]))
-      } catch (cause) {
-        if (mine === run.current) setError((cause as Error).message)
-      } finally {
-        inFlight.current = false
-        if (mine === run.current) setLoaded(true)
-      }
-    },
-    [asked, offline]
-  )
-
-  useEffect(() => {
-    void fetchPage(0)
-  }, [fetchPage])
-
-  const loadMore = useCallback(() => {
-    if (items.length > 0 && more) void fetchPage(items.length)
-  }, [fetchPage, items.length, more])
-
-  const retry = useCallback(() => void fetchPage(0), [fetchPage])
-
-  return { items, loaded, error, loadMore, retry }
+  return { items: roms, loaded: settled, error, loadMore, retry: reload }
 }
 
 /** How many of the games on disk the shelf shows before Downloads takes over. */

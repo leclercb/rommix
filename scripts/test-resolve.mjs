@@ -12,15 +12,22 @@
  *    outside an Electron process at all. Only the handful of names the main
  *    process reaches for at *import* time are provided; anything a test actually
  *    calls throws, loudly and by name, rather than quietly answering wrong.
+ *  - JSX. Node's own type stripping reads TypeScript and refuses `.tsx`, which
+ *    is why the renderer's pure logic has been moved out into `.ts` modules to
+ *    be tested at all — see `geometry.ts` and `history.ts`. What that cannot
+ *    reach is a component, and the focus engine *is* one: what it costs to
+ *    press a direction is a question about rendering. esbuild is already here
+ *    for the bundler and answers in a millisecond a file.
  *
  * Registered with `module.registerHooks`, which is synchronous and in-thread —
  * so it needs no worker, and a resolution failure surfaces as an ordinary stack
  * rather than as a loader crash.
  */
 import { registerHooks } from 'node:module'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolve as resolvePath } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { transformSync } from 'esbuild'
 
 const ALIASES = {
   '@shared/': resolvePath(import.meta.dirname, '..', 'src', 'shared'),
@@ -50,10 +57,55 @@ registerHooks({
       return { url: pathToFileURL(target).href, shortCircuit: true }
     }
 
+    /**
+     * A relative import with no extension on it, which is how the renderer is
+     * written.
+     *
+     * `src/main/` carries an explicit `.ts` on every relative import precisely
+     * so the test runner can resolve it — see CONTRIBUTING. The renderer never
+     * had to: Vite resolves its own graph, and nothing out here ever loaded one
+     * of those files. Now that a component can be rendered in a test, the
+     * bundler's rule has to be spelled out, and this is it — the file itself
+     * first, then the folder standing for the `index` inside it.
+     */
+    if (specifier.startsWith('.') && !/\.[cm]?[jt]sx?$/.test(specifier)) {
+      const from = resolvePath(fileURLToPath(context.parentURL ?? import.meta.url), '..')
+      const base = resolvePath(from, specifier)
+      const candidates = [
+        `${base}.tsx`,
+        `${base}.ts`,
+        resolvePath(base, 'index.tsx'),
+        resolvePath(base, 'index.ts')
+      ]
+      const target = candidates.find((candidate) => existsSync(candidate))
+      if (target) return { url: pathToFileURL(target).href, shortCircuit: true }
+    }
+
     return nextResolve(specifier, context)
   },
 
   load(url, context, nextLoad) {
+    /**
+     * JSX, compiled on the way in.
+     *
+     * `automatic` rather than the classic transform, so a component file needs
+     * no `import React` it would not otherwise have — which is how the
+     * application's own files are written, and the point is to run those rather
+     * than a variant of them. Types are stripped in the same pass; Node's
+     * `--experimental-transform-types` never sees these files.
+     */
+    if (url.startsWith('file:') && url.endsWith('.tsx')) {
+      const path = fileURLToPath(url)
+      const { code } = transformSync(readFileSync(path, 'utf8'), {
+        loader: 'tsx',
+        jsx: 'automatic',
+        format: 'esm',
+        target: 'node24',
+        sourcefile: path
+      })
+      return { format: 'module', shortCircuit: true, source: code }
+    }
+
     if (url !== ELECTRON_STUB) return nextLoad(url, context)
     return {
       format: 'module',

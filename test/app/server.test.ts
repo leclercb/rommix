@@ -54,8 +54,12 @@ function client(token = server.token): RommClient {
 
 describe('what the fake answers', () => {
   test('it says which RomM it is, before anything is signed in', async () => {
+    // Against what the fake reports rather than a number written out here, on
+    // the principle the test below states: a second copy of a fixture only ever
+    // goes stale, and this one decides which schema the client thinks it is
+    // talking to.
     const { version } = await client('').heartbeat()
-    assert.equal(version, '5.1.0')
+    assert.equal(version, server.version)
   })
 
   test('everything else needs the token, so a badly seeded harness fails here', async () => {

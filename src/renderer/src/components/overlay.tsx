@@ -1,5 +1,5 @@
 import { type JSX, type ReactNode } from 'react'
-import { FocusLayer, useAction, useFocusContext, useKeyLabel } from '../input/focus'
+import { FocusLayer, useAction, useFocusedAction, useKeyLabel } from '../input/focus'
 import { useApp, useI18n } from '../state'
 import { Icon, type IconName } from '../icons'
 import { FocusButton } from './controls'
@@ -162,7 +162,7 @@ export function Hints({ items }: { items: { key: string; label: string }[] }): J
   const { t } = useI18n()
   const { update } = useApp()
   const keyLabel = useKeyLabel()
-  const { focusedAction } = useFocusContext()
+  const focusedAction = useFocusedAction()
 
   return (
     <div className="hints">
