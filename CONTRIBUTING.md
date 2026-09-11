@@ -2,17 +2,15 @@
 
 Thanks for looking. RomMix is a front end for [RomM](https://romm.app) that runs
 on a television and is driven with a controller, and most of what makes it hard
-is other people's software: five emulators, three packaging formats and a
-different folder layout behind each one.
+is other people's software: five emulators, each packaged more than one way,
+with a different folder layout behind every combination.
 
 ## Getting set up
 
-Node 24 or newer — the version RomMix is built, tested and released on.
-
-Higher than either the AppImage or `npm test` strictly needs: the suite wants
-Node's own type stripping and a `module.registerHooks` loader, both of which
-arrived in 22.15. Nothing an end user installs depends on any of it — the
-AppImage carries Electron's own runtime — so this is a number for contributors.
+Node 24 or newer, as `engines` in `package.json` says. Higher than either the
+AppImage or `npm test` strictly needs — the suite wants Node's own type
+stripping and a `module.registerHooks` loader — and nothing an end user installs
+depends on it, the AppImage carrying Electron's own runtime.
 
 ```bash
 git clone https://github.com/leclercb/rommix.git
@@ -40,10 +38,9 @@ format` fixes the first one for you.
 
 `npm install` also installs a pre-commit hook that runs them — plus `npm run
 build`, which is the one thing CI does that the tests do not, a renderer being
-perfectly capable of typechecking and then failing to bundle. It takes about six
-seconds. `git commit --no-verify` skips it, which is the right answer for a
-work-in-progress commit on a branch and the wrong one for anything you are about
-to push.
+perfectly capable of typechecking and then failing to bundle. `git commit
+--no-verify` skips it, which is the right answer for a work-in-progress commit
+on a branch and the wrong one for anything you are about to push.
 
 `npm run test:app` is the other suite: the built application, driven from
 outside against a fake RomM, covering what the unit tests deliberately leave
@@ -54,62 +51,18 @@ npm run test:app
 ```
 
 That is the whole of it, on a desktop and on a runner with no screen at all.
-It needs an Electron this machine can execute and a window of the size RomMix
-is drawn for, and [scripts/test-app.sh](scripts/test-app.sh) supplies whichever
-of those is missing — Xvfb where there is no display, and on a distribution
-where the Electron `npm install` downloads cannot be run, one borrowed from
-nixpkgs for the length of the run. A machine that has both never learns it can
-do that. What it cannot find and cannot borrow, it names and stops.
+An Electron this machine can execute and a screen to draw on are what
+[scripts/headless.sh](scripts/headless.sh) supplies where they are missing,
+borrowed from nixpkgs for the length of the run; what it can neither find nor
+borrow it names, and stops. That is also why `npm run release` runs the suite
+before it tags anything — a tag is public the moment it is pushed. Not in the
+pre-commit hook, which is budgeted in seconds.
 
-The screen size it asks Xvfb for is not incidental. The stylesheet is written
-for a 1080p television, and on Xvfb's default screen the library's games land
-below the fold of a window too small to hold them — where they are drawn, and
-unreachable, which reads as a focus engine that has stopped working. See
-[test/app/](test/app/).
-
-It runs one file at a time on purpose. There is a real window being driven, and
-a second suite competing for the machine changes how long a list takes to draw —
-which showed up as the focus scan giving up on a library that was still filling.
-A GUI under test is not a thing to parallelise.
-
-Several scenario files, and a file exists where an application cannot be shared.
-`setup.test.ts` starts signed out and signs out again at the end;
-`running.test.ts` runs an emulator that ignores being asked to quit;
-`offline.test.ts` takes the server away and brings it back on the same address;
-`launch.test.ts` needs a machine with two ways to run one system, which is a
-`HOME` of its own; `device.test.ts` signs in for real, because every other
-application is handed credentials that already name a device on the server and
-that is the one state where nothing has to register. The two that are left are
-split by whether order matters.
-`games.test.ts` is one session read top to bottom — the game downloaded by one
-scenario is the game launched by the next, and the last takes the server away —
-because none of those states can be seeded from outside without seeding away the
-thing under test. `interface.test.ts` needs nothing on disk and each of its
-scenarios opens the section it is about, so it can be read, and run, in any
-order. Those two start from `startScenario` in `harness.ts`, which is what stops
-the settings they share from drifting apart.
-
-Three applications to a file is the ceiling. A fourth in the same process
-reliably never brought its debugger up, which is why `running.test.ts` is a file
-rather than another `describe`.
-
-A second application in the same file needs `XDG_CONFIG_HOME` of its own, and
-every one that starts one passes it. Two Electrons sharing a configuration
-directory refuse to be two: the second finds the first's profile locked and
-exits, which arrives as a debugger that never came up rather than as anything
-about profiles.
-
-Where it gives up it leaves a screenshot behind, named after what it was waiting
-for and pointed at from the failure message — see `capture` in
-[test/app/driver.ts](test/app/driver.ts). A failure here is otherwise a sentence
-about what did not happen with nothing to say what was on the screen instead,
-which on a runner nobody watched is the difference between a diagnosis and
-another run.
-
-Not in the pre-commit hook, which is budgeted in seconds — but `npm run release`
-runs it, because a tag is public the moment it is pushed. Nothing has to be
-arranged for that, wherever the release is cut from: it is the same
-`npm run test:app`, and that is the reason it provisions itself.
+One file at a time, because a GUI under test is not a thing to parallelise: a
+second suite competing for the machine changes how long a list takes to draw.
+Where a scenario gives up it leaves a screenshot behind, named after what it was
+waiting for and pointed at from the failure message, which on a runner nobody
+watched is the difference between a diagnosis and another run.
 
 Keys, the pointer and a controller, because the interface takes all three:
 `useFocusable` binds `onMouseMove` and `onClick` beside the focus engine, and a
@@ -117,22 +70,10 @@ change that breaks one and not the other would otherwise go out. The pad is what
 RomMix is designed around, so a scenario reaches a button by walking to it
 unless another input is the subject.
 
-Typing goes through `Input.insertText` rather than a key per letter: `press`
-sends `rawKeyDown`, which carries no character on purpose, and a controlled
-React field listens for an `input` event. The caret decides where it lands, so
-a scenario reaches the field first — and leaves it afterwards, because while a
-field holds the caret the keyboard handler stands down and the menu is
-unreachable.
-
-The controller is an object rather than a device — `navigator.getGamepads()` is
-polled and returns plain data, so `plugInPad` supplies some. That is what
-reaches the two things no key can describe: a held direction that repeats, and
-the button layout of a pad Chromium could not identify.
-
-What the pad does while an emulator owns the screen is `running.test.ts`, which
-is the only place a game holds the screen for long enough to ask: every press
-but Start held down is thrown away there, and a stand-in that quits when asked
-never stays up long enough to prove it.
+Why the scenarios are split across the files they are, what a second application
+in one file needs, and how typing and the pad are driven are documented where
+they are done: the head of each file in [test/app/](test/app/), and
+[driver.ts](test/app/driver.ts) beside them.
 
 `npm run test:coverage` runs the same suite with Node's coverage report and a
 floor under it. The floor is there to stop the number sliding, not to be aimed
@@ -141,21 +82,16 @@ it nothing has run. Only files a test actually imports appear — the IPC wiring
 and anything that drives Electron or spawns a process are deliberately absent,
 and are covered by running the application.
 
-Components are left out of it — every `.tsx` under `src/renderer/`. A component
-is drawn, and what it draws is `npm run test:app`'s to prove against a real
-window; a unit test that renders one is asking a different question, and the two
-`.test.tsx` files here ask the two worth asking — how much of the interface
-wakes up when the highlight moves, and what a paged query holds while its
-answers are still out. Holding those to the same floor as a module of pure rules
-would mean either a number nothing can honestly raise or a floor low enough to
-stop meaning anything.
-
-By extension rather than by name, so the rule needs no list kept up to date: a
-new component is covered by it the day it is written, and a module of rules
-stays measured wherever it sits. `input/scroll.ts` is the one that reads oddly —
-it wants a layout happy-dom has not got, so most of it can only be reached by
-running the application — and it stays in the report anyway, because what it is
-low on is worth being able to see.
+Components are left out of it — every `.tsx` under `src/renderer/`, by extension
+rather than by name, so a new component is covered by the rule the day it is
+written and a module of rules stays measured wherever it sits. What a component
+draws is `npm run test:app`'s to prove against a real window, and holding the
+two `.test.tsx` files here to the same floor as a module of pure rules would
+mean either a number nothing can honestly raise or a floor low enough to stop
+meaning anything. `input/scroll.ts` is the one that reads oddly — it wants a
+layout happy-dom has not got, so most of it can only be reached by running the
+application — and it stays in the report anyway, because what it is low on is
+worth being able to see.
 
 ## Where things live
 
@@ -207,9 +143,9 @@ same component — RetroDECK and EmuDeck both run Dolphin.
 
 Start from [`src/config/emulators/example/index.ts`](src/config/emulators/example/index.ts).
 It is a complete, annotated `EmulatorDescriptor` that documents every field and
-every value it can take, and the compiler checks it alongside the five real
-ones — so adding a field to the interface breaks the example too, which is the
-point of it.
+every value it can take, and the compiler checks it alongside the real ones —
+so adding a field to the interface breaks the example too, which is the point
+of it.
 
 1. Copy it to `src/config/emulators/<your emulator>/index.ts`.
 2. Delete the branches that do not apply.
@@ -253,9 +189,9 @@ client; everything else there is imported through `index.ts`.
 `npm test` checks the first against all of the second: a field renamed upstream
 is otherwise `undefined` with nothing between it and a screen.
 
-Each type is bound to its schema by the name in its own doc comment — `GET
-/api/users/me (\`UserSchema\`)`— so there is no table to keep beside it.`?` on
-a field means one supported version does not send it, and nothing else.
+Each type is bound to its schema by the name in its own doc comment — <code>GET
+/api/users/me (`UserSchema`)</code> — so there is no table to keep beside it. A
+`?` on a field means one supported version does not send it, and nothing else.
 
 Bodies RomMix **sends** are declared there too, and say `body` in their comment,
 because the two directions are checked by opposite rules. A response may carry
@@ -295,40 +231,31 @@ margin.
 A test that genuinely has to render is a `.test.tsx`, and there are two:
 `input/focus.test.tsx`, which counts how much of the interface wakes up when the
 highlight moves, and `paging.test.tsx`, which is the only thing that reaches
-`useRomPages` at all — what pages is a hook inside components, and the library
-the fake server holds is smaller than a page, so no `npm run test:app` scenario
-has ever asked for a second one. Both call `installDom` from
-`src/renderer/src/test/dom.ts` before importing React, and import everything
-after that dynamically, because a window has to exist first. `scripts/test-resolve.mjs` compiles JSX with esbuild on the
-way in — Node's own type stripping refuses `.tsx` — and resolves the
-extensionless relative imports the renderer is written with, which the bundler
-otherwise does.
+`useRomPages` at all. Both call `installDom` from
+[src/renderer/src/test/dom.ts](src/renderer/src/test/dom.ts) before importing
+React, and import everything after that dynamically, because a window has to
+exist first. `scripts/test-resolve.mjs` compiles JSX with esbuild on the way in —
+Node's own type stripping refuses `.tsx` — and resolves the extensionless
+relative imports the renderer is written with, which the bundler otherwise does.
 
 There is no layout in happy-dom: `getBoundingClientRect` answers zero for
 everything and `getComputedStyle` comes back blank. So anything about where an
 element _is_ cannot be asked here and is `npm run test:app`'s to answer.
 
-Seventeen attributes exist for `npm run test:app` and nothing else:
-`data-screen` on the shell, `data-route` on a menu item, `data-rom` on a game
-card or an installed row, `data-emulator` on a row of the emulator list, `data-collection` on a
-shelf, `data-tab` on a tab, `data-option` on one side of a segmented control,
-`data-setting` on a toggle in Settings, `data-field` on a text box,
-`data-platform` on a platform chip or a platform's row on the Emulators
-screen, `data-system` on a downloads group,
-`data-status` on one answer in the status dialog, `data-shot` on a screenshot
-thumbnail, `data-shelf` on a row of games on the home screen, `data-download` on
-a row of the transfer queue, `data-bios` on a row of the firmware list, and
-`data-action` on a `FocusButton` that a scenario presses. They are there because
-every other handle on the interface changes — the text with the language, the
-position with the next button added beside it. Add one when a test needs it, not
-before.
+A set of `data-*` attributes exists for `npm run test:app` and nothing else —
+`data-screen` on the shell, `data-rom` on a game card, `data-action` on a
+`FocusButton` a scenario presses, and one more for each kind of thing a scenario
+has to find. They are there because every other handle on the interface changes:
+the text with the language, the position with the next button added beside it.
+`grep -rn 'data-' test/app/` is the list of them that cannot go stale. Add one
+when a test needs it, not before.
 
 Every screen is a folder under `screens/`, named after the screen and holding
 `index.tsx` — the screen itself — with its own parts beside it: `Game/` keeps
-its banner, its dialogs and its save hook, and its four tabs in `tabs/`. A
-screen that is still one file gets the folder anyway, so growing one is a new
-file rather than a move. The folder is named for the screen's subject, which is
-also the route it answers to (`Game/`, `{ name: 'game', romId }`).
+its banner, its dialogs and its save hook, and its tabs in `tabs/`. A screen
+that is still one file gets the folder anyway, so growing one is a new file
+rather than a move. The folder is named for the screen's subject, which is also
+the route it answers to (`Game/`, `{ name: 'game', romId }`).
 
 `Wizards/` is the one folder holding screens rather than being one. Both of them
 walk a player through a sequence of pages with a pad — first-run setup, and
@@ -341,19 +268,14 @@ the interface, and the import order there is the cascade.
 
 ### The linter
 
-[oxlint](https://oxc.rs), not ESLint. That started as a constraint — no published
-`typescript-eslint` supports TypeScript 7, which this project is on — and has
-since become a preference: it lints the whole tree in well under a second, needs
+[oxlint](https://oxc.rs), not ESLint — originally because no published
+`typescript-eslint` supports TypeScript 7, which this project is on, and since
+kept for its own reasons: it lints the whole tree in well under a second, needs
 no parser plugin, and carries the two rules worth having here,
-`react/exhaustive-deps` and `react/rules-of-hooks`.
-
-**TODO:** revisit when typescript-eslint's `typescript` peer range moves past
-`<6.1.0`. Revisiting is not the same as switching — the case for adding ESLint
-back would be a specific type-aware rule oxlint cannot express, such as
-`no-floating-promises`, and the answer then might well be both: oxlint on every
-commit, a type-aware pass in CI. Every rule switched off in
-[.oxlintrc.json](.oxlintrc.json) says why it is off, so that file is the place to
-argue with any of this.
+`react/exhaustive-deps` and `react/rules-of-hooks`. Every rule switched off in
+[.oxlintrc.json](.oxlintrc.json) says why it is off, and the standing TODO to
+reconsider ESLint is there too, so that file is the place to argue with any of
+this.
 
 ## House style
 
