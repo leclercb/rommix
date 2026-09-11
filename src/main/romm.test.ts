@@ -10,6 +10,7 @@ import {
   RommError,
   UnsupportedServerError,
   atLeast,
+  isComparable,
   MINIMUM_SERVER_VERSION
 } from './romm/index.ts'
 import type { Store } from './store.ts'
@@ -377,6 +378,16 @@ describe('the library', () => {
     serve(() => json({}))
 
     assert.deepEqual(await new RommClient(store).heartbeat(), { version: null })
+  })
+
+  test('and neither is a server whose version is not a number', async () => {
+    // RomM's own development builds report `development`, which every
+    // comparison below reads as zero — and a build newer than any release was
+    // turned away as older than the oldest supported one.
+    const { store } = fakeStore()
+    serve(() => json({ SYSTEM: { VERSION: 'development' } }))
+
+    assert.deepEqual(await new RommClient(store).heartbeat(), { version: 'development' })
   })
 
   test('a heartbeat can probe a server that is not the configured one', async () => {
@@ -1647,6 +1658,18 @@ describe('the oldest server this build can read', () => {
   test('a version said in fewer parts is read as zeroes', () => {
     assert.equal(atLeast('5', '5.0.0'), true)
     assert.equal(atLeast('5.0', '5.0.1'), false)
+  })
+
+  test('a version with no number in it cannot be compared at all', () => {
+    // The gate asks this first, because everything below reads such a string
+    // as 0.0.0 — the answer furthest from the truth for a build that is newer
+    // than every release. See `RommClient.heartbeat`.
+    assert.equal(isComparable('development'), false)
+    assert.equal(isComparable(''), false)
+    assert.equal(isComparable('5.0.0'), true)
+    assert.equal(isComparable('5'), true)
+    // A zero is a number, and a server saying 0.0.0 is saying something.
+    assert.equal(isComparable('0.0.0'), true)
   })
 
   test('a pre-release counts as the version it is a candidate for', () => {

@@ -22,6 +22,6 @@ export {
   answered,
   refusedUs
 } from './errors.ts'
-export { atLeast, MINIMUM_SERVER_VERSION } from './version.ts'
+export { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 export { partialPathOf } from './transfer.ts'
 export type { DownloadProgress, TransferOptions } from './transfer.ts'

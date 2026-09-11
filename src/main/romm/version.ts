@@ -14,6 +14,20 @@
 export const MINIMUM_SERVER_VERSION = '5.0.0'
 
 /**
+ * Does this version string say anything a comparison can use?
+ *
+ * RomM's `get_version()` answers the literal `development` for any build whose
+ * `__version__` placeholder its release pipeline never substituted — a source
+ * checkout, or one of the community install scripts. There is no number in that
+ * to weigh against the minimum, which is the same position as a server that
+ * sends no version at all, and it gets the same answer. See
+ * `RommClient.heartbeat`.
+ */
+export function isComparable(version: string): boolean {
+  return version.split('.').some((piece) => counted(piece) !== null)
+}
+
+/**
  * Is this version at least that one?
  *
  * Compared segment by segment as numbers rather than as text, which is the
@@ -39,8 +53,11 @@ export function atLeast(version: string, minimum: string): boolean {
 }
 
 function segments(version: string): number[] {
-  return version.split('.').map((piece) => {
-    const number = Number.parseInt(piece, 10)
-    return Number.isFinite(number) ? number : 0
-  })
+  return version.split('.').map((piece) => counted(piece) ?? 0)
+}
+
+/** The number a segment opens with, or null where it opens with none. */
+function counted(piece: string): number | null {
+  const number = Number.parseInt(piece, 10)
+  return Number.isFinite(number) ? number : null
 }
