@@ -110,6 +110,33 @@ describe('moving around', () => {
 })
 
 describe('downloading a game', () => {
+  test('a game with nothing to run it offers an emulator before the transfer', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library')
+
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'a game screen')
+
+    // Eden is the only emulator here and it runs the Switch, so a Mega Drive
+    // game is one this machine cannot start — which is worth knowing before
+    // several hundred megabytes rather than after them.
+    await app.choose('[data-action="download"]')
+    await app.choose('[data-action="install-emulator-first"]')
+    await app.waitFor(
+      `document.querySelector('[data-screen="install-emulator"]')`,
+      'the install screen'
+    )
+    assert.ok(
+      (await app.read<number>(`document.querySelectorAll('.release').length`)) > 0,
+      'it should have offered the emulators that run the platform'
+    )
+
+    // Nothing is installed from here: the scenario is the question, and the one
+    // below is the transfer it was asked in front of.
+    await app.choose('[data-action="install-back"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game again')
+  })
+
   test('the file lands on this disk and the queue says so', async () => {
     await app.goTo('library')
     await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library')

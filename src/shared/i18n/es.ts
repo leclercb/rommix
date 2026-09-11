@@ -770,6 +770,15 @@ export const es: Catalog = {
 
   'install.installing': 'Instalando {name}',
   'install.title': 'Instalar {name}',
+  'install.flow': 'Instalación de un emulador',
+  'install.whichEmulator': '¿Qué emulador?',
+  'install.whichEmulatorFor':
+    'Los juegos de {platform} funcionan en cualquiera de estos. RomMix instala el que elijas.',
+  'install.chooseEmulator': 'Elegir este emulador',
+  'install.whichMethod': '¿Cómo se instala?',
+  'install.chooseMethod': 'Instalar de esta forma',
+  'install.failedTitle': 'No se pudo instalar {name}',
+  'install.nothingElse': 'Nada más que configurar: {name} está listo.',
   'install.noBuilds': 'No se ha publicado ninguna compilación para esta máquina.',
   'install.whichVersion': '¿Qué versión?',
   'install.publishedAt': 'Publicado en {url}.',

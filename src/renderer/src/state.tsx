@@ -15,6 +15,7 @@ import {
   type ConnectionStatus,
   type DownloadItem,
   type DownloadState,
+  type EmulatorId,
   type InstalledRom,
   type SavesWaiting,
   type Settings,
@@ -49,6 +50,23 @@ export type Route =
   | { name: 'collections' }
   | { name: 'bios' }
   | { name: 'emulators' }
+  /**
+   * Installing an emulator, page by page.
+   *
+   * `emulatorId` is one already settled on — the row pressed on the Emulators
+   * screen — and its absence is what puts the choice of emulator in front: a
+   * game's platform is covered by several, and which of them is the first
+   * question. `system` is the list that choice is drawn from and `platform`
+   * what to call it on screen.
+   */
+  | {
+      name: 'install-emulator'
+      emulatorId?: EmulatorId
+      system?: string
+      platform?: string
+      /** Straight to the builds, for an install RomMix already manages. */
+      changeVersion?: true
+    }
   | { name: 'settings' }
 
 /**

@@ -1590,46 +1590,51 @@ describe('the emulators themselves', () => {
       `[...document.querySelectorAll('[data-emulator]')].map((one) => one.dataset.emulator)`
     )
 
-  test('installing one asks how first, and offers only routes it can take', async () => {
+  test('installing one opens a screen that asks how first', async () => {
     await fromTheTop()
 
     // RetroArch is declared more than one way and RomMix can perform only one
     // of them: Flathub. The other is a binary it looks for on the machine,
     // which is how an install is *found* rather than a way of installing
-    // anything — offered here it would be a button that cannot do what it
-    // says.
+    // anything — offered here it would be a row that cannot do what it says.
     await app.choose('[data-emulator="retroarch"] [data-action="install-emulator"]')
-    await app.waitFor(`document.querySelector('.overlay .choice')`, 'the routes')
+    await app.waitFor(
+      `document.querySelector('[data-screen="install-emulator"]')`,
+      'the install screen'
+    )
     assert.equal(
-      await app.read<number>(`document.querySelectorAll('.overlay .choice').length`),
+      await app.read<number>(`document.querySelectorAll('.release').length`),
       1,
       'only Flathub is something RomMix can do'
     )
 
-    // Nothing has been run. The panel is the confirmation as much as the
-    // choice — on a pad the button under the cursor is one press away at all
-    // times, and this one installs software on the machine.
-    await app.choose('[data-action="install-cancel"]')
-    await app.waitFor(`!document.querySelector('.overlay')`, 'the panel to close')
+    // Nothing has been run. The page is the confirmation as much as the choice
+    // — on a pad the button under the cursor is one press away at all times,
+    // and the next page installs software on the machine.
+    await app.choose('[data-action="install-back"]')
+    await app.waitFor(`document.querySelector('[data-screen="emulators"]')`, 'the way back')
   })
 
   test('and says so plainly for one RomMix has no route to at all', async () => {
     await fromTheTop()
 
-    // EmuDeck installs itself from its own script, and an empty panel would
-    // read as a panel that failed to load. The way out of this one is the
-    // address in the sentence.
+    // EmuDeck installs itself from its own script, and an empty page would read
+    // as a page that failed to load. The way out of this one is the address in
+    // the sentence.
     await app.choose('[data-emulator="emudeck"] [data-action="install-emulator"]')
-    await app.waitFor(`document.querySelector('.overlay')`, 'the panel')
+    await app.waitFor(
+      `document.querySelector('[data-screen="install-emulator"]')`,
+      'the install screen'
+    )
     assert.equal(
-      await app.read<number>(`document.querySelectorAll('.overlay .choice').length`),
+      await app.read<number>(`document.querySelectorAll('.release').length`),
       0,
       'RomMix has no way to install EmuDeck'
     )
-    await app.waitFor(`document.querySelector('.overlay .muted strong')`, 'where to get it instead')
+    await app.waitFor(`document.querySelector('.muted strong')`, 'where to get it instead')
 
-    await app.choose('[data-action="install-cancel"]')
-    await app.waitFor(`!document.querySelector('.overlay')`, 'the panel to close')
+    await app.choose('[data-action="install-done"]')
+    await app.waitFor(`document.querySelector('[data-screen="emulators"]')`, 'the way back')
   })
 
   test('moving one up asks what it costs, and stays put when the answer is no', async () => {

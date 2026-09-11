@@ -773,6 +773,15 @@ export const en = {
 
   'install.installing': 'Installing {name}',
   'install.title': 'Install {name}',
+  'install.flow': 'Installing an emulator',
+  'install.whichEmulator': 'Which emulator?',
+  'install.whichEmulatorFor':
+    '{platform} games run in any of these. RomMix installs the one you pick.',
+  'install.chooseEmulator': 'Choose this emulator',
+  'install.whichMethod': 'How should it be installed?',
+  'install.chooseMethod': 'Install it this way',
+  'install.failedTitle': 'Could not install {name}',
+  'install.nothingElse': 'Nothing else to set up — {name} is ready.',
   'install.noBuilds': 'No builds were published for this machine.',
   'install.whichVersion': 'Which version?',
   'install.publishedAt': 'Published at {url}.',

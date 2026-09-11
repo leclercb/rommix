@@ -16,6 +16,7 @@ import { CollectionScreen } from './screens/Collections/CollectionScreen'
 import { CollectionsScreen } from './screens/Collections'
 import { DownloadsScreen } from './screens/Downloads'
 import { EmulatorsScreen } from './screens/Emulators'
+import { InstallEmulatorScreen } from './screens/InstallEmulator'
 import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
 import { SettingsScreen } from './screens/Settings'
@@ -132,9 +133,12 @@ export function App(): JSX.Element {
     setConfirmingQuit(true)
   }, [canGoBack, goBack, enterZone])
 
-  // Everywhere except the connect screen, which has neither a history nor a
-  // menu bar to climb into.
-  useAction('back', back, route.name !== 'connect')
+  // Everywhere except the two screens that walk a player through a sequence of
+  // pages: the connect screen, which has neither a history nor a menu bar to
+  // climb into, and the install flow, where B is a page back until there are no
+  // pages left. Both bind it themselves, and a handler registered on a screen
+  // cannot shadow one registered here — see `useAction`.
+  useAction('back', back, route.name !== 'connect' && route.name !== 'install-emulator')
 
   // X / Start opens Settings: on a console this button is the menu, and
   // Settings is where every switch in RomMix lives.
@@ -331,6 +335,15 @@ function Screen({ route }: { route: Route }): JSX.Element {
       return <BiosScreen />
     case 'emulators':
       return <EmulatorsScreen />
+    case 'install-emulator':
+      return (
+        <InstallEmulatorScreen
+          emulatorId={route.emulatorId}
+          system={route.system}
+          platform={route.platform}
+          changeVersion={route.changeVersion}
+        />
+      )
     case 'settings':
       return <SettingsScreen />
     case 'connect':

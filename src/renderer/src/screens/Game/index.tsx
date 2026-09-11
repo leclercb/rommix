@@ -720,7 +720,11 @@ export function GameScreen({
           canInstall={canInstallEmulator}
           onInstall={() => {
             setAskingEmulator(false)
-            navigate({ name: 'emulators' })
+            navigate({
+              name: 'install-emulator',
+              system: system ?? undefined,
+              platform: rom.platform_display_name
+            })
           }}
           onDownload={() => {
             setAskingEmulator(false)

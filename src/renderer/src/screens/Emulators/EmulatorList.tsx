@@ -1,11 +1,5 @@
-import { type JSX, type ReactNode, useEffect, useState } from 'react'
-import {
-  orderedEmulators,
-  emulatorById,
-  installMethods,
-  releaseSource,
-  systemCount
-} from '@config/emulators'
+import { type JSX, type ReactNode, useState } from 'react'
+import { orderedEmulators, emulatorById, releaseSource, systemCount } from '@config/emulators'
 import { localize, type MessageKey } from '@shared/i18n'
 import type {
   DiagnosticsReport,
@@ -14,18 +8,9 @@ import type {
   EmulatorState,
   ResolvedInstall
 } from '@shared/types'
-import {
-  FocusButton,
-  Filled,
-  Overlay,
-  Spinner,
-  StatusPill,
-  TextField,
-  type Tone
-} from '../../components'
+import { FocusButton, StatusPill, TextField, type Tone } from '../../components'
 import { Icon, type IconName } from '../../icons'
 import { useApp, useI18n } from '../../state'
-import { InstallPicker } from './InstallPicker'
 import { SetupNotesNotice } from './SetupNotesNotice'
 
 /**
@@ -33,7 +18,8 @@ import { SetupNotesNotice } from './SetupNotesNotice'
  *
  * Everything about one emulator is in this file: what the row says, where its
  * files are, and the three things that can be done to it — pointed at a folder,
- * installed, started. The version picker installing brings up is its own module.
+ * installed, started. Installing is a separate screen, which this only opens:
+ * see `InstallEmulatorScreen`.
  */
 
 /** Installed / not-installed marker, with the in-between state named. */
@@ -52,9 +38,6 @@ export function Status({ state }: { state: EmulatorState | undefined }): JSX.Ele
   return <StatusPill tone={tone}>{t(label)}</StatusPill>
 }
 
-/** One of the routes `installMethods` returns: a thing RomMix can actually do. */
-type InstallMethod = ReturnType<typeof installMethods>[number]
-
 /**
  * How each install kind is spelled on screen.
  *
@@ -62,7 +45,7 @@ type InstallMethod = ReturnType<typeof installMethods>[number]
  * anybody writes, and a row that says "appimage:" looks like a leaked internal
  * name rather than a statement about the user's machine.
  */
-const INSTALL_KIND: Record<ResolvedInstall['kind'], MessageKey> = {
+export const INSTALL_KIND: Record<ResolvedInstall['kind'], MessageKey> = {
   flatpak: 'emulator.kindFlatpak',
   binary: 'emulator.kindBinary',
   appimage: 'emulator.kindAppImage',
@@ -137,28 +120,13 @@ export function EmulatorList({
 }): JSX.Element {
   const i18n = useI18n()
   const { t } = i18n
-  const { settings, saveSettings, refreshInstalled } = useApp()
-  const [installing, setInstalling] = useState<EmulatorId | null>(null)
+  const { settings, saveSettings, refreshInstalled, navigate } = useApp()
   const [running, setRunning] = useState<EmulatorId | null>(null)
-  const [flatpakBusy, setFlatpakBusy] = useState<EmulatorId | null>(null)
-  const [flatpakLine, setFlatpakLine] = useState<string | null>(null)
   /**
-   * The emulator whose install panel is open.
-   *
-   * One button in the row and the choice inside the panel: installing reaches
-   * outside RomMix — it runs flatpak against the host, or writes a program into
-   * its own folder — and on a pad the button under the cursor is one A press
-   * away at all times. The panel is both the confirmation and, for an emulator
-   * packaged more than one way, where that is picked.
-   */
-  const [pending, setPending] = useState<EmulatorDescriptor | null>(null)
-  /**
-   * The emulator that has just arrived and still wants something done inside
-   * it. Null for one that needs nothing, which is most of them.
+   * The emulator whose setup steps are being read, long after it arrived. Null
+   * for one that wants nothing done, which is most of them.
    */
   const [setUp, setSetUp] = useState<EmulatorDescriptor | null>(null)
-  /** True while `setUp` is the confirmation of an install rather than a lookup. */
-  const [justInstalled, setJustInstalled] = useState(false)
 
   // The order shown is the order used. Held as a full list rather than as the
   // moved entry alone, so what is saved is exactly what is on screen.
@@ -216,14 +184,6 @@ export function EmulatorList({
     }
   }
 
-  useEffect(
-    () =>
-      window.rommix.system.onInstallProgress((progress) => {
-        if (progress.message) setFlatpakLine(progress.message)
-      }),
-    []
-  )
-
   /**
    * The home folder the user is editing, and what they have typed.
    *
@@ -252,19 +212,6 @@ export function EmulatorList({
   }
 
   /**
-   * Put this emulator on the machine, by the route the user confirmed.
-   *
-   * A download is a choice of build rather than one act, so it opens the
-   * picker; Flathub is one command and runs here.
-   */
-  /**
-   * Say it arrived, and say what is left.
-   *
-   * The steps replace the notification rather than joining it: the panel's own
-   * title is "{name} is installed", and a toast saying the same thing over the
-   * top of it is the same sentence twice.
-   */
-  /**
    * Steps the user has said they do not want shown again, by emulator.
    *
    * The same key the game page writes, so hiding them in either place hides
@@ -277,37 +224,6 @@ export function EmulatorList({
     if (dismissedNotices.includes(key)) return
     await saveSettings({ dismissedNotices: [...dismissedNotices, key] })
     notify(t('setup.hidden', { emulator: descriptor.name }))
-  }
-
-  const announce = (descriptor: EmulatorDescriptor): void => {
-    if (descriptor.setupNotes.length === 0) {
-      notify(t('emulator.installedToast', { name: descriptor.name }))
-      return
-    }
-    setJustInstalled(true)
-    setSetUp(descriptor)
-  }
-
-  const install = async (descriptor: EmulatorDescriptor, spec: InstallMethod): Promise<void> => {
-    setPending(null)
-    if (spec.kind === 'appimage') {
-      setInstalling(descriptor.id)
-      return
-    }
-
-    setFlatpakBusy(descriptor.id)
-    setFlatpakLine(null)
-    try {
-      await window.rommix.system.installEmulatorFlatpak(descriptor.id)
-      onInstalled()
-      announce(descriptor)
-    } catch {
-      // Reported centrally on `app:error`; this only keeps the success
-      // notification from firing over a failed install.
-    } finally {
-      setFlatpakBusy(null)
-      setFlatpakLine(null)
-    }
   }
 
   return (
@@ -471,7 +387,13 @@ export function EmulatorList({
                 <FocusButton
                   icon="download"
                   variant="ghost"
-                  onSelect={() => setInstalling(descriptor.id)}
+                  onSelect={() =>
+                    navigate({
+                      name: 'install-emulator',
+                      emulatorId: descriptor.id,
+                      changeVersion: true
+                    })
+                  }
                 >
                   {t('emulator.changeVersion')}
                 </FocusButton>
@@ -493,17 +415,16 @@ export function EmulatorList({
                 </FocusButton>
               ) : (
                 /* One button whatever the emulator offers — how it gets here is
-                   the panel's business, including "you install this one
+                   the flow's business, including "you install this one
                    yourself". A row of routes would put the packaging of an
                    emulator in front of someone who only wants it installed. */
                 <FocusButton
                   icon="install"
                   action="install-emulator"
                   variant="ghost"
-                  disabled={flatpakBusy !== null}
-                  onSelect={() => setPending(descriptor)}
+                  onSelect={() => navigate({ name: 'install-emulator', emulatorId: descriptor.id })}
                 >
-                  {flatpakBusy === descriptor.id ? t('action.installing') : t('action.install')}
+                  {t('action.install')}
                 </FocusButton>
               )}
               {/* The steps, on demand. Icon-only because it is the one button
@@ -546,90 +467,7 @@ export function EmulatorList({
         )
       })}
 
-      {flatpakBusy ? (
-        <Overlay title={t('emulator.installingFlathub')} icon="install">
-          <p className="muted">{flatpakLine ?? t('emulator.contactingFlathub')}</p>
-          <Spinner />
-        </Overlay>
-      ) : null}
-
-      {/* Every route this emulator has, each naming what it would do — and the
-          answer "none of them" where that is the truth. */}
-      {pending ? (
-        <Overlay title={t('emulator.installTitle', { name: pending.name })} icon="install">
-          {installMethods(pending).map((spec, index) => (
-            <div className="choice" key={spec.kind}>
-              <FocusButton
-                icon={spec.kind === 'flatpak' ? 'install' : 'download'}
-                onSelect={() => void install(pending, spec)}
-                autoFocus={index === 0}
-              >
-                {t(INSTALL_KIND[spec.kind])}
-              </FocusButton>
-              <span className="faint">
-                {spec.kind === 'flatpak'
-                  ? t('emulator.fromFlathub', { appId: spec.appId })
-                  : t('emulator.buildIntoRomMix')}
-              </span>
-            </div>
-          ))}
-
-          {installMethods(pending).length === 0 ? (
-            <p className="muted">
-              {pending.homepage ? (
-                /* `homepage` is deliberately not passed: an unfilled
-                   placeholder is left standing, which is exactly what `Filled`
-                   then splits the sentence at. */
-                <Filled
-                  text={t('emulator.manualInstallFrom', { name: pending.name })}
-                  name="homepage"
-                >
-                  <strong>{pending.homepage}</strong>
-                </Filled>
-              ) : (
-                t('emulator.manualInstall', { name: pending.name })
-              )}
-            </p>
-          ) : null}
-
-          <div className="btn-row">
-            <FocusButton
-              icon="cancel"
-              action="install-cancel"
-              variant="ghost"
-              onSelect={() => setPending(null)}
-              autoFocus={installMethods(pending).length === 0}
-            >
-              {t('action.cancel')}
-            </FocusButton>
-          </div>
-        </Overlay>
-      ) : null}
-
-      {setUp ? (
-        <SetupNotesNotice
-          emulator={setUp}
-          installed={justInstalled}
-          onClose={() => {
-            setSetUp(null)
-            setJustInstalled(false)
-          }}
-        />
-      ) : null}
-
-      {installing ? (
-        <InstallPicker
-          emulatorId={installing}
-          onClose={() => setInstalling(null)}
-          onInstalled={() => {
-            const descriptor = emulatorById(installing)
-            setInstalling(null)
-            onInstalled()
-            if (descriptor) announce(descriptor)
-            else notify(t('emulator.installedToast', { name: installing }))
-          }}
-        />
-      ) : null}
+      {setUp ? <SetupNotesNotice emulator={setUp} onClose={() => setSetUp(null)} /> : null}
     </div>
   )
 }

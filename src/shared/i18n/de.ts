@@ -793,6 +793,15 @@ export const de: Catalog = {
 
   'install.installing': '{name} wird installiert',
   'install.title': '{name} installieren',
+  'install.flow': 'Emulator installieren',
+  'install.whichEmulator': 'Welcher Emulator?',
+  'install.whichEmulatorFor':
+    '{platform}-Spiele laufen in jedem davon. RomMix installiert den, den Sie wählen.',
+  'install.chooseEmulator': 'Diesen Emulator wählen',
+  'install.whichMethod': 'Wie soll er installiert werden?',
+  'install.chooseMethod': 'Auf diese Weise installieren',
+  'install.failedTitle': '{name} konnte nicht installiert werden',
+  'install.nothingElse': 'Nichts weiter einzurichten — {name} ist bereit.',
   'install.noBuilds': 'Für diesen Rechner wurden keine Builds veröffentlicht.',
   'install.whichVersion': 'Welche Version?',
   'install.publishedAt': 'Veröffentlicht auf {url}.',

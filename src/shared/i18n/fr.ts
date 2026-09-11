@@ -781,6 +781,16 @@ export const fr: Catalog = {
 
   'install.installing': 'Installation de {name}',
   'install.title': 'Installer {name}',
+  'install.flow': 'Installation d’un émulateur',
+  'install.whichEmulator': 'Quel émulateur ?',
+  'install.whichEmulatorFor':
+    'Les jeux {platform} tournent sur n’importe lequel d’entre eux. RomMix installe celui que ' +
+    'vous choisissez.',
+  'install.chooseEmulator': 'Choisir cet émulateur',
+  'install.whichMethod': 'Comment l’installer ?',
+  'install.chooseMethod': 'Installer de cette façon',
+  'install.failedTitle': 'Impossible d’installer {name}',
+  'install.nothingElse': 'Rien d’autre à configurer — {name} est prêt.',
   'install.noBuilds': 'Aucune version n’a été publiée pour cette machine.',
   'install.whichVersion': 'Quelle version ?',
   'install.publishedAt': 'Publié sur {url}.',
