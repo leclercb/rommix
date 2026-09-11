@@ -4,6 +4,16 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.15.0-rc.0 — 2026-09-11
+
+- fix: keep a press sideways inside its own row (63bf084)
+- fix: let a server with an unnumbered version connect (5224d5a)
+- fix: reword the interface copy (f4f9b30)
+- refactor: gather the two wizards under one folder (88fe802)
+- feat: install an emulator page by page (5d114d9)
+- test(app): answer the emulator question in the download scenarios (415e687)
+- feat: ask about installing an emulator before a download (fb22147)
+
 ## 0.14.0 — 2026-09-10
 
 - docs: record that Argosy writes to the shared save slot (270c752)
