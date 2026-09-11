@@ -421,25 +421,46 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       const line = anchor.current
 
       /**
-       * The nearest candidate in this direction; among those the same distance
-       * away, the one most nearly in line.
+       * The nearest candidate in this direction — sideways, the nearest one in
+       * the same row — and among those the same distance away, the one most
+       * nearly in line.
        */
       const nearest = (pool: FocusableEntry[]): string | null => {
         const measured: { id: string; at: Measure }[] = []
-        let closest = Infinity
 
         for (const candidate of pool) {
           if (candidate.id === current.id) continue
           const at = measure(from, rectOf(candidate.element), direction, line)
           if (!at) continue
           measured.push({ id: candidate.id, at })
-          closest = Math.min(closest, at.gap)
         }
         if (measured.length === 0) return null
 
+        /**
+         * Sideways, whatever the press runs into going straight, before
+         * anything it would have to leave the row to reach.
+         *
+         * Distance cannot make that call on its own, because the row below
+         * begins sooner than this row ends: measured along the floor, the first
+         * button of the next row is nearer than the last button of this one,
+         * and a press sideways walks diagonally down the page. On the emulators
+         * screen that is Right off a row's Install landing three rows below it.
+         *
+         * Sideways only. Down is how one leaves a row in the first place, and
+         * nothing below is ever "in" the row being left — reading this on the
+         * vertical axis would make a press skip the row in front of the player
+         * whenever it was not squarely underneath them.
+         *
+         * Nothing straight ahead falls back to the whole field, which is what
+         * still carries the highlight on from the last button of a row.
+         */
+        const straight = vertical ? [] : measured.filter((entry) => entry.at.inLine)
+        const field = straight.length > 0 ? straight : measured
+        const closest = Math.min(...field.map((entry) => entry.at.gap))
+
         // One step's worth of candidates — a single row, a single line — then
         // the column decides between them.
-        const step = measured.filter((entry) => entry.at.gap <= closest + SAME_STEP_PX)
+        const step = field.filter((entry) => entry.at.gap <= closest + SAME_STEP_PX)
         step.sort((a, b) => a.at.cross - b.at.cross || a.at.gap - b.at.gap)
         return step[0].id
       }

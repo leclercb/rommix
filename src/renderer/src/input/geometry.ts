@@ -46,6 +46,15 @@ export interface Measure {
   gap: number
   /** How far out of the line of travel, 0 when the line passes through it. */
   cross: number
+  /**
+   * Whether the press would run into it going straight.
+   *
+   * True when the two rectangles overlap across the line of travel — the
+   * candidate is somewhere the row, column or band being left actually reaches.
+   * A row of buttons is all of it; the row three below it is none of it,
+   * however little further along it happens to start.
+   */
+  inLine: boolean
 }
 
 /**
@@ -61,6 +70,13 @@ export interface Measure {
  * immediately below — which is how a press ends up skipping something the user
  * can plainly see. Distance decides; alignment only settles candidates that are
  * the same distance away.
+ *
+ * `inLine` is the third answer, and the one that says whether the candidate is
+ * that way at all rather than how far: a button in the row below starts a few
+ * pixels sooner than the one at the far end of this row, so on distance alone a
+ * press sideways leaves the row and lands most of a screen further down. See
+ * `nearest` in `focus.tsx`, which reads it before either number — and only for
+ * a press across, Down being how a row is left.
  */
 export function measure(
   from: Rect,
@@ -93,7 +109,7 @@ export function measure(
   if (inside(from, to) || inside(to, from)) {
     if (vertical) return null
     const towards = direction === 'right' ? to.cx > from.cx : to.cx < from.cx
-    return towards ? { gap: 0, cross: 0 } : null
+    return towards ? { gap: 0, cross: 0, inLine: true } : null
   }
 
   const gap =
@@ -112,5 +128,9 @@ export function measure(
     ? Math.max(0, to.left - anchor, anchor - to.right)
     : Math.max(0, to.top - anchor, anchor - to.bottom)
 
-  return { gap: Math.max(gap, 0), cross }
+  const inLine = vertical
+    ? to.left < from.right && to.right > from.left
+    : to.top < from.bottom && to.bottom > from.top
+
+  return { gap: Math.max(gap, 0), cross, inLine }
 }

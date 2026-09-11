@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { measure, rectOf, SAME_STEP_PX, type Rect } from './geometry.ts'
+import type { Direction } from './types.ts'
 
 /**
  * The arithmetic behind every directional press.
@@ -50,10 +51,18 @@ describe('which way a candidate lies', () => {
     // unwalkable wherever two rows happen to abut.
     const from = box(0, 0, 100, 20)
     const touching = box(0, 20, 100, 20)
-    assert.deepEqual(measure(from, touching, 'down', from.cx), { gap: 0, cross: 0 })
+    assert.deepEqual(measure(from, touching, 'down', from.cx), {
+      gap: 0,
+      cross: 0,
+      inLine: true
+    })
 
     const overlapping = box(0, 19, 100, 20)
-    assert.deepEqual(measure(from, overlapping, 'down', from.cx), { gap: 0, cross: 0 })
+    assert.deepEqual(measure(from, overlapping, 'down', from.cx), {
+      gap: 0,
+      cross: 0,
+      inLine: true
+    })
   })
 
   test('something genuinely overlapping is not in any direction', () => {
@@ -122,11 +131,11 @@ describe('a button drawn inside a row', () => {
   const cancel = box(700, 15, 80, 30)
 
   test('is reached sideways', () => {
-    assert.deepEqual(measure(row, cancel, 'right', row.cy), { gap: 0, cross: 0 })
+    assert.deepEqual(measure(row, cancel, 'right', row.cy), { gap: 0, cross: 0, inLine: true })
   })
 
   test('and left again from inside it', () => {
-    assert.deepEqual(measure(cancel, row, 'left', cancel.cy), { gap: 0, cross: 0 })
+    assert.deepEqual(measure(cancel, row, 'left', cancel.cy), { gap: 0, cross: 0, inLine: true })
   })
 
   test('but never by walking down the list', () => {
@@ -142,23 +151,32 @@ describe('a button drawn inside a row', () => {
   })
 })
 
-describe('what the engine does with the two numbers', () => {
+describe('what the engine does with the measurements', () => {
   /**
-   * `nearest` in `focus.tsx`, in the two lines that matter.
+   * `nearest` in `focus.tsx`, in the lines that matter.
    *
    * Repeated rather than imported because the registry it lives in needs a
    * browser, and the rule being pinned is the contract between the two files:
-   * distance decides, and alignment only settles candidates that are already
-   * the same distance away. `measure` returning the right pair means nothing if
-   * they are combined into one number on the way out.
+   * a press across keeps to its row, and after that distance decides and
+   * alignment only settles candidates that are already the same distance away.
+   * `measure` returning the right answers means nothing if they are combined
+   * into one number on the way out.
    */
-  function winner(from: Rect, pool: Record<string, Rect>, anchor: number): string | null {
+  function winner(
+    from: Rect,
+    pool: Record<string, Rect>,
+    anchor: number,
+    direction: Direction = 'down'
+  ): string | null {
     const measured = Object.entries(pool)
-      .map(([id, rect]) => ({ id, at: measure(from, rect, 'down', anchor) }))
+      .map(([id, rect]) => ({ id, at: measure(from, rect, direction, anchor) }))
       .filter((entry) => entry.at !== null)
     if (measured.length === 0) return null
-    const closest = Math.min(...measured.map((entry) => entry.at!.gap))
-    return measured
+    const vertical = direction === 'down' || direction === 'up'
+    const straight = vertical ? [] : measured.filter((entry) => entry.at!.inLine)
+    const field = straight.length > 0 ? straight : measured
+    const closest = Math.min(...field.map((entry) => entry.at!.gap))
+    return field
       .filter((entry) => entry.at!.gap <= closest + SAME_STEP_PX)
       .sort((a, b) => a.at!.cross - b.at!.cross || a.at!.gap - b.at!.gap)[0].id
   }
@@ -188,6 +206,28 @@ describe('what the engine does with the two numbers', () => {
 
   test('nothing that way is no answer rather than the nearest thing anywhere', () => {
     assert.equal(winner(from, { above: box(200, -200, 100, 100) }, from.cx), null)
+  })
+
+  test('a press sideways stays in its row rather than taking the shortest hop', () => {
+    // The failure this prevents: the last buttons of a row are further along it
+    // than the first button of the row below is, so on distance alone Right
+    // left the row and landed most of a screen down the page. Rows of
+    // icon-only buttons make it worst — the gap to the far end of this row is
+    // the width of everything between, and the row below starts at once.
+    const button = box(200, 0, 100, 40)
+    const drawn = {
+      sameRow: box(500, 0, 40, 40),
+      rowsBelow: box(360, 540, 40, 40)
+    }
+    assert.equal(winner(button, drawn, button.cy, 'right'), 'sameRow')
+  })
+
+  test('and reaches the row below when its own row has run out', () => {
+    const button = box(200, 0, 100, 40)
+    assert.equal(
+      winner(button, { rowsBelow: box(360, 540, 40, 40) }, button.cy, 'right'),
+      'rowsBelow'
+    )
   })
 })
 
