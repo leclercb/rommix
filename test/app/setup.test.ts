@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { atHome, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
+
+/**
+ * How long to watch a screen that should be asking the server nothing.
+ *
+ * Several times the shortest poll anything in RomMix runs on, so a screen that
+ * had not stood down would have been caught more than once.
+ */
+const QUIET_MS = 3000
+
+/** The second application's profile directory. See where it is passed. */
+const freshConfig = mkdtempSync(join(tmpdir(), 'rommix-first-run-'))
 
 /**
  * Setup, which is the one screen a working RomMix cannot reach: the three
@@ -56,14 +67,12 @@ describe('signing in for the first time', () => {
     // Out of the field before pressing anything: while it holds the caret the
     // focus engine stands down, so the button cannot be walked to.
     //
-    // The same press also reaches the screen's own Back, which here offers to
-    // quit — this is the bottom of the stack and there is nothing behind it. So
-    // leaving the address costs two presses, the second being the one the
-    // dialog answers itself.
+    // One press, one action. The field consumes Escape, so it does not also
+    // reach the screen's own Back — which here would offer to quit, this being
+    // the bottom of the stack with nothing behind it.
     await app.press('Escape')
     await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
-    await app.press('Escape')
-    await app.waitFor(`!document.querySelector('.overlay')`, 'the quit question to go')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'and nothing else to have happened')
 
     await app.choose('[data-action="start-pairing"]')
 
@@ -153,8 +162,10 @@ describe('signing out again', () => {
     const askedSoFar = server.asked.length
     await app.waitFor(`document.querySelector('.field__input')`, 'the address field')
 
-    const until = Date.now() + 3000
-    while (Date.now() < until) await new Promise((done) => setTimeout(done, 250))
+    // A plain wait, because what is being asserted is that nothing happened:
+    // there is no state to poll for, only a stretch of time long enough to
+    // cover several rounds of anything that might still be polling.
+    await new Promise((done) => setTimeout(done, QUIET_MS))
 
     // The heartbeat is the exception: the screen checks an address as it is
     // typed, and this one has nothing typed into it yet.
@@ -185,9 +196,9 @@ describe('signing out again', () => {
  * out replaces the route, not the screen, so the address stays where it was
  * typed and appending to it produces an address that is not one.
  *
- * Leaving the box costs two presses, for the reason the pairing scenario
- * gives: the first leaves the field and reaches the screen's own Back, which
- * at the bottom of the stack offers to quit, and the second answers that.
+ * One press leaves the box and does nothing else: the field consumes Escape,
+ * so the screen's own Back — which at the bottom of the stack offers to quit —
+ * never sees it.
  */
 async function fill(field: string, text: string): Promise<void> {
   await app.choose(`[data-field="${field}"]`)
@@ -196,8 +207,7 @@ async function fill(field: string, text: string): Promise<void> {
   await app.type(text)
   await app.press('Escape')
   await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
-  await app.press('Escape')
-  await app.waitFor(`!document.querySelector('.overlay')`, 'the quit question to go')
+  await app.waitFor(`!document.querySelector('.overlay')`, 'and nothing else to have happened')
 }
 
 /** Sign out, which is also how the form is emptied between attempts. */
@@ -313,13 +323,16 @@ describe('the first run', () => {
       // to be two: the second finds the first's profile locked and goes away
       // again, taking its debugger with it — which is why every other file that
       // starts a second application pins this too.
-      env: { XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), 'rommix-first-run-')) }
+      env: { XDG_CONFIG_HOME: freshConfig }
     })
     await fresh.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the first page')
   })
 
   after(async () => {
     await fresh?.stop()
+    // `startApp` clears its own temp home; this one is made here, so nothing
+    // else knows it exists.
+    rmSync(freshConfig, { recursive: true, force: true })
   })
 
   test('it opens on a question rather than on the sign-in form', async () => {
@@ -387,15 +400,18 @@ describe('the first run', () => {
     /**
      * Fill one box, and come back to the page it is on.
      *
-     * Leaving a field is one press of Back, and inside the wizard Back is a
-     * page rather than the quit question — so the way out of a box is out of
-     * the page, and the way on is the button that brought it up. What is typed
-     * survives the trip, which is the other half of what this checks.
+     * Two presses: one to leave the field, which is all the field's own Escape
+     * does, and one for Back — which inside the wizard is a page rather than
+     * the quit question. So the way out of a box is out of the page, and the
+     * way on is the button that brought it up. What is typed survives the trip,
+     * which is the other half of what this checks.
      */
     const answer = async (field: string, text: string): Promise<void> => {
       await fresh.choose(`[data-field="${field}"]`)
       await fresh.waitFor(`document.activeElement?.tagName === 'INPUT'`, `the caret in ${field}`)
       await fresh.type(text)
+      await fresh.press('Escape')
+      await fresh.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
       await fresh.press('Escape')
       await fresh.waitFor(`document.querySelector('[data-option="emulator"]')`, 'the page behind')
       await fresh.choose('[data-action="setup-next"]')

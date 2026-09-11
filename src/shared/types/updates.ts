@@ -46,9 +46,10 @@ export interface UpdateStatus {
   /**
    * Where the downloaded image landed, once there is one.
    *
-   * Shown rather than kept quiet: the new file is named for its version, so
-   * updating leaves a different filename in the folder, and anyone who made a
-   * shortcut by hand needs to see that.
+   * Shown rather than kept quiet: this is the file the next start runs, and
+   * anyone who made a shortcut by hand is entitled to know which one that is.
+   * `Updater.restart` renames over `process.env.APPIMAGE`, so on an ordinary
+   * install the path is the one RomMix was already started from.
    */
   readyPath: string | null
   /**

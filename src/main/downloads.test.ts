@@ -1224,6 +1224,42 @@ describe('a game fetched one file at a time', () => {
     assert.equal(existsSync(join(root, 'roms', 'escaped.desktop')), false)
   })
 
+  test('a name that was refused is not measured or deleted either', async () => {
+    /**
+     * The write is the obvious half. The other two are the record.
+     *
+     * `runOne` writes the file names into the pending record before any of them
+     * is checked, and both `bytesHeld` and `discardHeld` rebuild paths from
+     * that record. So a refused name was still stat-ed — finding the user's own
+     * file, and counting its size as bytes received — and still handed to `rm`
+     * when the row was cancelled.
+     */
+    const { downloads, root } = manager({ perFile: true })
+    // Where `../../` from the game's own folder lands.
+    const outside = join(root, 'roms', 'a-file-of-the-users-own')
+    mkdirSync(join(root, 'roms'), { recursive: true })
+    writeFileSync(outside, 'not part of any download')
+
+    const escaping = multi()
+    escaping.files = [
+      { id: 1, rom_id: 2, file_name: '../../a-file-of-the-users-own', file_size_bytes: 64 },
+      { id: 2, rom_id: 2, file_name: 'disc.cue', file_size_bytes: 8 }
+    ] as RommRom['files']
+
+    downloads.enqueue(escaping)
+    await settled(downloads, 2)
+    downloads.cancel(2)
+    // The removal is asynchronous; the row reaching `cancelled` is what says it
+    // is done.
+    await settled(downloads, 2)
+
+    assert.equal(
+      existsSync(outside),
+      true,
+      'a name the transfer refused must not be one the cancel deletes'
+    )
+  })
+
   test('a file refused for its hash pauses the game, and the row says so', async () => {
     /**
      * The rest of the game is real and worth keeping, so this pauses rather

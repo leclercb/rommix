@@ -231,6 +231,62 @@ describe('an expired access token', () => {
     assert.equal(failure?.status, 401)
     assert.equal(cleared(), true)
   })
+
+  test('a refresh that nothing answered keeps the credentials', async () => {
+    /**
+     * The branch one `if` away from the one above, and the opposite answer.
+     *
+     * A server that refused the refresh has revoked the session, and clearing
+     * is right. A server that did not answer has said nothing at all — the
+     * handheld walked out of range mid-refresh — and signing the user out of a
+     * perfectly good session over a dropped connection means typing a password
+     * back in on a television. Going through the request layer is what draws
+     * the line: it raises `UnreachableError` before the refusal branch is ever
+     * reached.
+     */
+    const { store, cleared, credentials } = fakeStore({
+      accessToken: 'stale',
+      refreshToken: 'still-good'
+    })
+    let asked = 0
+    globalThis.fetch = (() => {
+      asked += 1
+      return asked === 1
+        ? Promise.resolve(json({ detail: 'expired' }, 401))
+        : Promise.reject(new Error('ECONNREFUSED'))
+    }) as typeof globalThis.fetch
+
+    await assert.rejects(() => new RommClient(store).me())
+    assert.equal(cleared(), false)
+    assert.equal(credentials.refreshToken, 'still-good')
+  })
+
+  test('several 401s at once cost one refresh between them', async () => {
+    // `refreshInFlight` is what stops three parallel calls each spending the
+    // one-shot refresh token — the second and third would be handed a token
+    // the server had already rotated away.
+    const { store } = fakeStore({ accessToken: 'stale', refreshToken: 'refresh-me' })
+    let refreshes = 0
+    const seen = new Set<string>()
+    globalThis.fetch = ((input: string) => {
+      const url = String(input)
+      if (url.endsWith('/api/token')) {
+        refreshes += 1
+        return Promise.resolve(json({ access_token: 'fresh', refresh_token: 'next', expires: 900 }))
+      }
+      // 401 the first time each path is asked, and answer it after the refresh.
+      if (!seen.has(url)) {
+        seen.add(url)
+        return Promise.resolve(json({ detail: 'expired' }, 401))
+      }
+      return Promise.resolve(json([]))
+    }) as typeof globalThis.fetch
+
+    const client = new RommClient(store)
+    await Promise.all([client.platforms(), client.collections(), client.firmware()])
+
+    assert.equal(refreshes, 1)
+  })
 })
 
 describe('turning a failed response into a message', () => {
@@ -1418,6 +1474,46 @@ describe('firmware, saves and states', () => {
         return json(request.method === 'POST' ? created : devices)
       })
     }
+
+    test('the device list is held for the run, but not across a change of account', async () => {
+      /**
+       * Two accounts on one RomM see different device lists.
+       *
+       * The names off this list are what every Saves row is labelled with, so
+       * a cache keyed on the server alone had rows on the second account
+       * carrying the first account's machine names. `registration` beside it
+       * was already keyed on the token; this is the other half of the same
+       * rule.
+       */
+      const { store } = fakeStore({ clientToken: 'rmm_first' })
+      const sent = serveDevices(
+        [{ id: 'romm-device-4', name: 'the sofa', hostname: null, client_device_identifier: null }],
+        {}
+      )
+      const client = new RommClient(store)
+
+      await client.devices()
+      await client.devices()
+      assert.equal(sent.filter((one) => one.url.includes('/api/devices')).length, 1)
+
+      client.setClientToken('rmm_second')
+      await client.devices()
+
+      assert.equal(sent.filter((one) => one.url.includes('/api/devices')).length, 2)
+    })
+
+    test('a list the server would not give up is cached as empty rather than re-asked', async () => {
+      // One server too old for the endpoint, or a token without `devices.read`,
+      // must not become a refused request behind every row on the screen.
+      const { store } = fakeStore({ clientToken: 'rmm_typed_in' })
+      const sent = serve(() => json({ detail: 'no' }, 403))
+      const client = new RommClient(store)
+
+      assert.deepEqual(await client.devices(), [])
+      assert.deepEqual(await client.devices(), [])
+
+      assert.equal(sent.length, 1)
+    })
 
     test('a machine RomM has never seen is registered before the save goes up', async () => {
       const { store, credentials } = fakeStore({ clientToken: 'rmm_typed_in' })

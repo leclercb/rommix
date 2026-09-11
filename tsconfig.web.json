@@ -1,26 +1,12 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     // The renderer itself has no Node available to it. This is for the tests
     // below, which run under `node --test` like every other one: without it a
     // renderer test cannot so much as import `node:assert`.
     "types": ["node"],
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    // Shared code is imported both by the bundler and by Node's TypeScript
-    // stripping in the tests, and the latter requires explicit .ts specifiers
-    // on relative imports. Vite resolves them fine.
-    "allowImportingTsExtensions": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
       "@config/*": ["./src/config/*"],

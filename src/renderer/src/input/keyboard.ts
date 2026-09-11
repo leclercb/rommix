@@ -49,7 +49,10 @@ export function useKeyboard(
         target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable
       if (typing && event.key !== 'Escape') return
 
-      switch (event.key) {
+      // Lower-cased for the letters below: `keyboardLabel` advertises `M` and
+      // the hint bar draws it uppercase, so Caps Lock or a held Shift is a
+      // press that matches the label and does nothing.
+      switch (event.key.length === 1 ? event.key.toLowerCase() : event.key) {
         case 'ArrowUp':
           move('up')
           break

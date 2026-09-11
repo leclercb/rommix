@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync } from 'node:fs'
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { atHome, standInEmulator, startApp, type App } from './driver.ts'
@@ -28,10 +28,12 @@ let app: App
 /** The two launchers, and what each was run with. See `standInEmulator`. */
 let retroarch: ReturnType<typeof standInEmulator>
 let mgba: ReturnType<typeof standInEmulator>
+/** The EmuDeck tree this scenario builds, cleared with the run. */
+let home: string
 
 before(async () => {
   server = await startFakeRomm()
-  const home = mkdtempSync(join(tmpdir(), 'rommix-emudeck-'))
+  home = mkdtempSync(join(tmpdir(), 'rommix-emudeck-'))
   const launchers = join(home, 'Emulation', 'tools', 'launchers')
   mkdirSync(launchers, { recursive: true })
   // The rest of the folders EmuDeck's own setup makes. Without them RomMix
@@ -78,6 +80,9 @@ before(async () => {
 after(async () => {
   await app?.stop()
   await server?.close().catch(() => undefined)
+  // `startApp` clears its own temp home; this one is made here, so nothing
+  // else knows it exists.
+  rmSync(home, { recursive: true, force: true })
 })
 
 describe('a game its emulator has more than one way to run', () => {

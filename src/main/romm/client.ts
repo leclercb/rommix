@@ -46,7 +46,11 @@ import {
 } from './transfer.ts'
 
 /**
- * Client for the RomM 5.1.0 REST API.
+ * Client for the RomM REST API.
+ *
+ * Which versions of it is `schema/`, against which `romm.test.ts` checks every
+ * field RomMix reads, and `MINIMUM_SERVER_VERSION` is the oldest a server may
+ * report.
  *
  * Auth: RomM accepts a Bearer JWT from the OAuth2 password grant, a long-lived
  * `rmm_...` client token, or HTTP basic. RomMix uses the first two — a JWT pair
@@ -88,6 +92,23 @@ export const REQUIRED_SCOPES = [
  */
 const COUNTS_AT_ONCE = 6
 
+/**
+ * How long any one request that carries an *answer* may take.
+ *
+ * The runtime's own default is long enough that a server which accepts the
+ * connection and then stops answering — a captive portal, a host that went away
+ * mid-reply — leaves the interface waiting behind a button that has already
+ * been pressed. Generous enough for a home server indexing a large library on
+ * the far end of a slow link.
+ *
+ * Not applied to the calls that carry *bytes*: the streamed asset fetch and the
+ * two uploads pass `timeoutMs: null`, because how long those take is a function
+ * of the file's size and the link, and a deadline there is a transfer that
+ * breaks off for no reason the user can see. `transfer.ts` owns those instead,
+ * and can resume.
+ */
+const REQUEST_TIMEOUT_MS = 30_000
+
 /** Strip trailing slashes so we can concatenate paths safely. */
 export function normaliseBaseUrl(input: string): string {
   let url = input.trim()
@@ -97,6 +118,12 @@ export function normaliseBaseUrl(input: string): string {
   // A user pasting the RomM web UI URL often includes a path; keep it, but drop
   // a trailing /api which we add ourselves.
   parsed.pathname = parsed.pathname.replace(/\/+$/, '').replace(/\/api$/, '')
+  // `https://user:password@host` is a realistic paste, since RomM accepts HTTP
+  // basic — and this string is written to settings.json, which `store.ts` says
+  // holds no secrets, and printed beside every request. RomMix authenticates
+  // with a token, so there is nothing here to keep.
+  parsed.username = ''
+  parsed.password = ''
   return parsed.toString().replace(/\/+$/, '')
 }
 
@@ -104,8 +131,17 @@ export class RommClient {
   /** Guards against several 401s triggering parallel refreshes. */
   private refreshInFlight: Promise<void> | null = null
 
-  /** See `devices`. Carries its server, so switching servers cannot reuse it. */
-  private cachedDevices: { baseUrl: string; devices: RommDevice[] } | null = null
+  /**
+   * See `devices`. Carries the server *and* the token, so neither switching
+   * servers nor switching accounts on one server can reuse it — two accounts
+   * on the same RomM see different device lists, and the names off this list
+   * are what every Saves row is labelled with.
+   */
+  private cachedDevices: {
+    baseUrl: string
+    token: string | null
+    devices: RommDevice[]
+  } | null = null
 
   /**
    * See `deviceId`. Carries what it was resolved against, so nothing else
@@ -179,16 +215,36 @@ export class RommClient {
   private async request(
     path: string,
     init: RequestInit = {},
-    opts: { baseUrl?: string; retryOn401?: boolean } = {}
+    opts: { baseUrl?: string; retryOn401?: boolean; timeoutMs?: number | null } = {}
   ): Promise<Response> {
     const base = opts.baseUrl ?? this.baseUrl
     const retryOn401 = opts.retryOn401 ?? true
     const method = init.method ?? 'GET'
+    const timeoutMs = opts.timeoutMs === undefined ? REQUEST_TIMEOUT_MS : opts.timeoutMs
+    /**
+     * The token goes only to the configured server.
+     *
+     * A caller naming its own address is talking to a server the user has just
+     * typed, which is not the one the stored token belongs to. All four such
+     * endpoints are unauthenticated, so there is nothing to send and every
+     * reason not to: a mistyped address would otherwise be handed the bearer
+     * token for the server the user is actually signed in to.
+     *
+     * Read per attempt rather than once, because the retry below exists to use
+     * a token the refresh has just written.
+     */
+    const auth = (): Record<string, string> => (opts.baseUrl === undefined ? this.authHeader() : {})
 
     const send = async (): Promise<Response> =>
       fetch(`${base}${path}`, {
+        // A server that accepts the connection and then says nothing otherwise
+        // holds the screen for as long as the runtime's own default allows,
+        // behind a button that has already been pressed. The deadline covers
+        // the body as well as the reply, which is why the endpoints that carry
+        // bytes rather than an answer turn it off. See `REQUEST_TIMEOUT_MS`.
+        ...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
         ...init,
-        headers: { Accept: 'application/json', ...this.authHeader(), ...(init.headers ?? {}) }
+        headers: { Accept: 'application/json', ...auth(), ...(init.headers ?? {}) }
       })
 
     // Every call to the server, with what came back. The path carries the query
@@ -436,14 +492,24 @@ export class RommClient {
       const refreshToken = this.store.credentials.refreshToken
       if (!refreshToken) throw new RommError(t('error.sessionExpired'), 401)
 
-      const res = await fetch(`${this.baseUrl}/api/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken
-        }).toString()
-      })
+      // Through the request layer like everything else: a refresh that fails
+      // because nothing answered must not be read as a refusal. `request`
+      // raises `UnreachableError` for that case and never reaches the branch
+      // below, so credentials survive an outage and are cleared only when the
+      // server actually turned them down. `retryOn401` because this *is* the
+      // retry.
+      const res = await this.request(
+        '/api/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken
+          }).toString()
+        },
+        { retryOn401: false }
+      )
       if (!res.ok) {
         log.warn('romm', 'token refresh refused, credentials cleared', { status: res.status })
         this.store.clearCredentials()
@@ -687,7 +753,8 @@ export class RommClient {
   /** Streamed asset fetch used by the custom image protocol. */
   async asset(path: string): Promise<Response> {
     const clean = path.startsWith('/') ? path : `/${path}`
-    return this.request(clean)
+    // The caller reads the body; see `REQUEST_TIMEOUT_MS`.
+    return this.request(clean, {}, { timeoutMs: null })
   }
 
   // -- ROM content ----------------------------------------------------------
@@ -975,19 +1042,22 @@ export class RommClient {
     const baseUrl = this.store.server?.baseUrl
     if (!baseUrl) return []
 
+    const { clientToken, accessToken } = this.store.credentials
+    const token = clientToken ?? accessToken
+
     const cached = this.cachedDevices
-    if (cached && cached.baseUrl === baseUrl) return cached.devices
+    if (cached && cached.baseUrl === baseUrl && cached.token === token) return cached.devices
 
     try {
       const devices = await this.json<RommDevice[]>('/api/devices')
-      this.cachedDevices = { baseUrl, devices }
+      this.cachedDevices = { baseUrl, token, devices }
       return devices
     } catch (cause) {
       log.warn('romm', 'the device list could not be read; saves will not be named', {
         reason: (cause as Error).message
       })
       // Cached as empty, so one unsupported server is not asked on every row.
-      this.cachedDevices = { baseUrl, devices: [] }
+      this.cachedDevices = { baseUrl, token, devices: [] }
       return []
     }
   }
@@ -1222,10 +1292,12 @@ export class RommClient {
       bytes: payload.length,
       from: filePath
     })
-    const res = await this.request(`/api/saves?${params.toString()}`, {
-      method: 'POST',
-      body: form as RequestInit['body']
-    })
+    const res = await this.request(
+      `/api/saves?${params.toString()}`,
+      { method: 'POST', body: form as RequestInit['body'] },
+      // The body is the save; see `REQUEST_TIMEOUT_MS`.
+      { timeoutMs: null }
+    )
     if (!res.ok) throw await this.toError(res)
     const saved = (await res.json()) as RommSave
     log.info('romm', 'save uploaded', { romId, saveId: saved.id, fileName })
@@ -1253,10 +1325,12 @@ export class RommClient {
       bytes: payload.length,
       from: filePath
     })
-    const res = await this.request(`/api/states?${params.toString()}`, {
-      method: 'POST',
-      body: form as RequestInit['body']
-    })
+    const res = await this.request(
+      `/api/states?${params.toString()}`,
+      { method: 'POST', body: form as RequestInit['body'] },
+      // The body is the save state; see `REQUEST_TIMEOUT_MS`.
+      { timeoutMs: null }
+    )
     if (!res.ok) throw await this.toError(res)
     const saved = (await res.json()) as RommState
     log.info('romm', 'save state uploaded', { romId, stateId: saved.id, fileName })

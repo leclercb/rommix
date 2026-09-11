@@ -7,6 +7,7 @@ import { fetchToFile } from './fetchfile.ts'
 import { parseDigest, verifyDownload } from './integrity.ts'
 import { log } from './log.ts'
 import { rootPaths } from './root.ts'
+import { safeJoin } from './safepath.ts'
 import { extractZip, isZip } from './zip.ts'
 import { t } from './i18n.ts'
 
@@ -168,7 +169,17 @@ export async function installAsset(
   await rm(staging, { recursive: true, force: true })
   await mkdir(staging, { recursive: true })
 
-  const destination = join(staging, asset.name)
+  /**
+   * The release lists the name; the release is not RomMix's. `basename` as
+   * well as `safeJoin`, because a name with any directory in it at all is one
+   * to refuse here — this is a single program file, and the two staging
+   * renames below assume it sits directly in the directory they move.
+   */
+  const destination = basename(asset.name) === asset.name ? safeJoin(staging, asset.name) : null
+  if (!destination) {
+    await rm(staging, { recursive: true, force: true })
+    throw new Error(t('error.assetNotRunnable', { asset: asset.name }))
+  }
   const partial = `${destination}.part`
 
   // Kept as the bytes arrive, so a failure can say how far it got.

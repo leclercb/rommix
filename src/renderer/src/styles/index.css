@@ -1,8 +1,8 @@
 /*
  * RomMix — a 10-foot interface.
  *
- * Sizing assumes a couch: nothing smaller than 16px, generous hit areas, and a
- * 3.5% safe-area inset so nothing important lands in a TV's overscan. Focus is
+ * Sizing assumes a couch: a floor under the type size, generous hit areas, and
+ * a safe-area inset so nothing important lands in a TV's overscan. Focus is
  * communicated by a bright ring, a colour change and elevation — and, where
  * there is no colour to change, by scale — because on a TV a subtle outline is
  * invisible from three metres away.

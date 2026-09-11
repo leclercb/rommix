@@ -135,22 +135,46 @@ export async function unpack(
   }
   const dirTarget = asDirectory ? targetPath : staged
   /**
-   * A lone ROM is staged aside first, because where it ends up depends on what
-   * the archive turns out to contain.
+   * Every archive is unpacked aside and promoted by rename, whatever it holds.
+   *
+   * For a lone ROM because where it ends up depends on what the archive turns
+   * out to contain. For a multi-file game because an extraction that fails
+   * part-way would otherwise leave three of eight tracks under the game's own
+   * name — which the next library scan reads as a game already on disk, and
+   * `adopt` records: a Play button that dies at load, on a game that then
+   * refuses to be downloaded. That is the state `discardHeld` exists to
+   * prevent, reached by a route it cannot see.
    *
    * Hidden, because for as long as it exists it is a directory sitting in a
    * folder an emulator browses: ES-DE reading the tree mid-unpack would show it
    * as a game. The dot goes on the leaf rather than the whole name, so a name
    * carrying a directory hides what RomMix made and not the folder above it.
    */
-  const staging = asDirectory ? dirTarget : join(dirname(staged), `.${basename(staged)}.rommix-tmp`)
+  const staging = join(dirname(dirTarget), `.${basename(dirTarget)}.rommix-tmp`)
 
   log.debug('install', 'unpacking the archive', {
     romId: rom.id,
     archive: archivePath,
     into: staging
   })
-  await extractZip(archivePath, staging)
+  let extracted: string[]
+  try {
+    extracted = await extractZip(archivePath, staging)
+  } catch (cause) {
+    // Otherwise a hidden directory holding part of a game accumulates in the
+    // system folder, one failed attempt at a time, with nothing that knows it
+    // is there to remove it.
+    await rm(staging, { recursive: true, force: true })
+    throw cause
+  }
+  if (extracted.length === 0) {
+    await rm(staging, { recursive: true, force: true })
+    log.error('install', 'the archive held no files', undefined, {
+      romId: rom.id,
+      archive: archivePath
+    })
+    throw new Error(t('error.emptyArchive', { name: rom.fs_name }))
+  }
   await rm(archivePath, { force: true })
 
   if (!asDirectory) {
@@ -190,7 +214,10 @@ export async function unpack(
         const target = join(systemDir, basename(file))
         await rm(target, { force: true })
         await rename(file, target)
-        moved.push(basename(target))
+        // By name, once. Two branches of the archive sharing a basename land
+        // on one file, so listing it twice would count its size twice and
+        // carry a duplicate into the installed index.
+        if (!moved.includes(basename(target))) moved.push(basename(target))
       }
       await rm(staging, { recursive: true, force: true })
 
@@ -213,12 +240,13 @@ export async function unpack(
         files: moved
       }
     }
-
-    // Several files after all, so it is a real multi-file game: promote the
-    // staging directory to the name the game should have.
-    await rm(dirTarget, { recursive: true, force: true })
-    await rename(staging, dirTarget)
   }
+
+  // Whole, so it can take the name the game should have. The only moment the
+  // finished path exists, which is what keeps a half-unpacked game out of the
+  // library.
+  await rm(dirTarget, { recursive: true, force: true })
+  await rename(staging, dirTarget)
 
   log.info('install', 'the archive was unpacked into a folder for the game', {
     romId: rom.id,

@@ -289,6 +289,40 @@ describe('draining what a session left behind', () => {
     assert.deepEqual(uploaded, [])
   })
 
+  test('a save written after its own push is not read as already sent', async () => {
+    /**
+     * The clock-skew case, which is the one shape of loss this cannot recover
+     * from by itself.
+     *
+     * `stampUploaded` dates a pushed file with the server's `updated_at`. Where
+     * the server's clock runs ahead of the device's, every save the emulator
+     * writes in the minutes after a push lands *behind* that stamp — so the
+     * timestamps say the server's copy is newer, `origin_device_id` says it
+     * came from here, and the pair is read as this file after its own upload.
+     * Nothing then asks the bytes, the dialog files it under "already up to
+     * date", and the drain clears the unsent record on a save that never left.
+     */
+    const { sync, target, saveDir, store } = setUp({
+      saves: [
+        save({
+          origin_device_id: 'this-device',
+          updated_at: '2026-09-01T00:00:00.000Z',
+          content_hash: md5('what the server holds')
+        })
+      ]
+    })
+    store.updateSettings({ deviceId: 'this-device' })
+    const since = played(saveDir, '2026-08-10T12:00:00.000Z')
+
+    const result = await sync.drain(target, since, { sendUnasked: true })
+
+    // Not sent unasked — the two copies really do differ, and which is wanted
+    // is the user's to say — but counted, so the record stays and the game's
+    // own screen has something to offer.
+    assert.equal(result.conflicts, 1)
+    assert.equal(result.sent, 0)
+  })
+
   test('a push that sends nothing reports the files it could not send', async () => {
     const { sync, target, saveDir } = setUp({ uploadFails: true })
     writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played')
@@ -736,7 +770,7 @@ describe('pulling', () => {
   test('a pull offered nothing at all reports the zero as a zero', async () => {
     const { sync, target } = setUp()
 
-    assert.deepEqual(await sync.pull(target), { written: 0, offered: 0 })
+    assert.deepEqual(await sync.pull(target), { written: 0, offered: 0, failed: 0 })
   })
 
   test('an automatic pull respects the setting; the button does not', async () => {
@@ -1498,9 +1532,10 @@ describe('pairing on the slot rather than the name', () => {
   test('bytes that really differ are still pulled', async () => {
     // The other side of it: the hash only ever says "these are the same file",
     // and a hash that does not match leaves the timestamps deciding exactly as
-    // they did before.
+    // they did before. The server's hash is of what the server serves, which
+    // is also what the download is held to on the way in.
     const { sync, target, saveDir } = setUp({
-      saves: [elsewhere({ content_hash: md5('what the server holds') })]
+      saves: [elsewhere({ content_hash: md5('from the server') })]
     })
     const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(local, 'something else entirely')
@@ -1509,6 +1544,36 @@ describe('pairing on the slot rather than the name', () => {
 
     assert.equal((await sync.pullNow(target)).saves, 1)
     assert.equal(readFileSync(local, 'utf8'), 'from the server')
+  })
+
+  test('a server copy differing only in case is the same file', async () => {
+    /**
+     * One name, whatever it is spelled like.
+     *
+     * The copy on the server was written by some other client on some other
+     * filesystem. Read case-sensitively, `SONIC.SRM` against a local
+     * `Sonic.srm` had the preview find nothing to replace, call the file new on
+     * RomM and let the drain send it unasked over a copy it had never compared
+     * against — while the pull wrote a second file beside the one the emulator
+     * opens.
+     */
+    const { sync, target, saveDir } = setUp({
+      saves: [save({ file_name: 'SONIC THE HEDGEHOG (USA).SRM', slot: null })]
+    })
+    const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(local, 'played')
+    const when = new Date('2026-09-01T12:00:00.000Z')
+    utimesSync(local, when, when)
+
+    const preview = await sync.previewPush(target)
+
+    const [file] = preview.files
+    assert.ok(file, 'the local save is offered')
+    assert.equal(
+      file.replaces?.updatedAt,
+      '2026-08-01T12:00:00.000Z',
+      'it replaces the copy the server already holds rather than reading as new'
+    )
   })
 
   test('the preview names the slot each file is going into', async () => {

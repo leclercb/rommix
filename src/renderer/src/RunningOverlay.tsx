@@ -111,9 +111,9 @@ export function RunningOverlay(): JSX.Element {
 /**
  * How long a polite request gets before the panel offers to force it.
  *
- * Past the five seconds `stopFlatpakApp` waits before killing a flatpak itself,
- * so that route has already finished by the time this appears. What is left is
- * an emulator RomMix signalled directly and which has not gone.
+ * Past the wait `stopFlatpakApp` gives a flatpak before killing it itself, so
+ * that route has already finished by the time this appears. What is left is an
+ * emulator RomMix signalled directly and which has not gone.
  */
 const FORCE_AFTER_MS = 6000
 

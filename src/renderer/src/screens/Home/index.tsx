@@ -4,9 +4,9 @@ import type { RommRom, RomQuery } from '@shared/types'
 import {
   ArtBackdrop,
   CoverArt,
+  FocusButton,
   GameRow,
   Hints,
-  PageTitle,
   PlatformIcon,
   Spinner,
   romToOpen,
@@ -27,10 +27,11 @@ const SHELF_PAGE = 20
 
 interface Shelf {
   items: RommRom[]
-  total: number
   loaded: boolean
   error: string | null
   loadMore: () => void
+  /** Ask for the first page again. See the notice `HomeScreen` draws. */
+  retry: () => void
 }
 
 /**
@@ -43,7 +44,6 @@ interface Shelf {
  */
 function useShelf(query: RomQuery, offline: boolean | null): Shelf {
   const [items, setItems] = useState<RommRom[]>([])
-  const [total, setTotal] = useState<number | null>(0)
   /** Whether the last page came back full. See `hasMorePages`. */
   const [more, setMore] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -94,13 +94,22 @@ function useShelf(query: RomQuery, offline: boolean | null): Shelf {
        */
       if (offline) {
         run.current += 1
+        // The flag goes with the run it belonged to. Left set, the first page
+        // asked for once the server is back was refused by the guard below on
+        // behalf of a request this shelf had already stopped listening to.
+        inFlight.current = false
         setItems([])
-        setTotal(0)
         setError(null)
         setLoaded(true)
         return
       }
-      if (inFlight.current) return
+      // The next page, while the last one is still coming: the sentinel stays
+      // in view and fires again, and one request per page is enough. A first
+      // page is the opposite case and takes over from whatever is out — the
+      // same rule `paging.ts` states, and the reason a handheld carried out of
+      // range and back used to find this shelf empty, with no spinner and no
+      // error, until the screen was navigated away from and back.
+      if (inFlight.current && offset > 0) return
       inFlight.current = true
       const mine = ++run.current
       // Cleared on the way in, not only set on the way out: a shelf that failed
@@ -114,7 +123,6 @@ function useShelf(query: RomQuery, offline: boolean | null): Shelf {
           offset
         })
         if (mine !== run.current) return
-        setTotal(page.total)
         setMore(hasMorePages(page))
         setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]))
       } catch (cause) {
@@ -135,7 +143,9 @@ function useShelf(query: RomQuery, offline: boolean | null): Shelf {
     if (items.length > 0 && more) void fetchPage(items.length)
   }, [fetchPage, items.length, more])
 
-  return { items, total: total ?? items.length, loaded, error, loadMore }
+  const retry = useCallback(() => void fetchPage(0), [fetchPage])
+
+  return { items, loaded, error, loadMore, retry }
 }
 
 /** How many of the games on disk the shelf shows before Downloads takes over. */
@@ -200,15 +210,6 @@ export function HomeScreen(): JSX.Element {
   const error = continuePlaying.error ?? favourites.error ?? recentlyAdded.error
   const ready = continuePlaying.loaded && favourites.loaded && recentlyAdded.loaded
 
-  if (error) {
-    return (
-      <div className="content">
-        <PageTitle icon="home">{t('home.title')}</PageTitle>
-        <div className="notice notice--error">{error}</div>
-      </div>
-    )
-  }
-
   if (!ready) {
     return (
       <div className="content">
@@ -233,6 +234,28 @@ export function HomeScreen(): JSX.Element {
   return (
     <div className="content">
       {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
+
+      {/* Above the shelves rather than instead of them. One shelf's query
+          failing used to replace the whole screen — including "Ready to play",
+          which is built from the download index and is the one part that works
+          with no server at all — and nothing came back for it: navigating to a
+          section only replaces the history entry, so this screen never
+          remounts and the fetch never runs again. Hence the button. */}
+      {error ? (
+        <div className="notice notice--error">
+          <span>{error}</span>
+          <FocusButton
+            icon="refresh"
+            onSelect={() => {
+              continuePlaying.retry()
+              favourites.retry()
+              recentlyAdded.retry()
+            }}
+          >
+            {t('action.tryAgain')}
+          </FocusButton>
+        </div>
+      ) : null}
 
       {highlight ? (
         <Hero

@@ -34,6 +34,14 @@ export function BiosScreen(): JSX.Element {
   const [report, setReport] = useState<BiosReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  /**
+   * Whether B has put the progress panel away while the install runs on.
+   *
+   * Separate from `busy`, which is what keeps the buttons from starting a
+   * second install: the panel is a report, and a console's firmware is the
+   * longest thing this screen fetches. See `Overlay.onDismiss`.
+   */
+  const [panelPutAway, setPanelPutAway] = useState(false)
   const [rechecking, setRechecking] = useState(false)
   const [progress, setProgress] = useState<BiosProgress | null>(null)
 
@@ -101,6 +109,7 @@ export function BiosScreen(): JSX.Element {
     platform: BiosPlatform
   ): Promise<void> => {
     setBusy(fileName)
+    setPanelPutAway(false)
     setProgress(null)
     try {
       await window.rommix.bios.install(firmwareId)
@@ -118,6 +127,7 @@ export function BiosScreen(): JSX.Element {
   /** Install everything outstanding, for one platform or for all of them. */
   const syncAll = async (platform?: BiosPlatform): Promise<void> => {
     setBusy(platform ? `platform:${platform.platformId}` : 'all')
+    setPanelPutAway(false)
     setProgress(null)
     try {
       const result = await window.rommix.bios.syncAll(platform?.platformId)
@@ -240,8 +250,12 @@ export function BiosScreen(): JSX.Element {
       {/* Over a single file as much as over a run of them: what makes an
           install long is the size of the file, not how many there are, and a
           console's firmware is the longest thing this screen ever fetches. */}
-      {busy ? (
-        <Overlay title={t('bios.installingTitle')} icon="bios">
+      {busy && !panelPutAway ? (
+        <Overlay
+          title={t('bios.installingTitle')}
+          icon="bios"
+          onDismiss={() => setPanelPutAway(true)}
+        >
           <InstallProgress progress={progress} />
         </Overlay>
       ) : null}

@@ -95,13 +95,34 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
       throw new RommError(t('error.assetWrongArch', { asset: asset.name, arch: process.arch }))
     }
 
+    /**
+     * The asset is looked up again rather than taken as sent.
+     *
+     * Everything that arrives on this channel is renderer input, and all three
+     * fields decide something the machine then does: the name becomes a path
+     * under the managed directory, the URL decides which host the bytes come
+     * from, and the digest is the only thing standing between those bytes and
+     * a file this process makes executable. A null digest skips the check
+     * altogether.
+     *
+     * Re-listing costs one request on a button press that is about to download
+     * an emulator, and it makes the release source — not the renderer — the
+     * authority on all three.
+     */
+    const listed = (await fetchReleases(source))
+      .flatMap((release) => release.assets)
+      .find((candidate) => candidate.name === asset.name)
+    if (!listed) {
+      throw new RommError(t('error.assetNotRunnable', { asset: asset.name }))
+    }
+
     log.info('emulator', 'installing a release asset', {
       emulator: id,
-      asset: asset.name,
-      url: asset.url,
-      sizeBytes: asset.sizeBytes
+      asset: listed.name,
+      url: listed.url,
+      sizeBytes: listed.sizeBytes
     })
-    const path = await installAsset(id, asset, (progress) =>
+    const path = await installAsset(id, listed, (progress) =>
       rommix.send('emulators:progress', progress)
     )
     store.updateSettings({

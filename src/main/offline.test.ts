@@ -340,6 +340,30 @@ describe('writing down the games that had nothing', () => {
     assert.equal(back.has(7), true)
     assert.ok(back.assetFile(cover))
   })
+
+  test('a re-save whose new artwork does not arrive keeps the old picture', async () => {
+    const dir = scratch()
+    const cover = '/assets/romm/resources/roms/1/7/cover/small.webp'
+    const restamped = `${cover}?ts=2`
+
+    const cache = new OfflineCache(dir, server({ [cover]: 'a cover' }).client)
+    await cache.save(rom(), 'genesis')
+    assert.ok(cache.assetFile(cover))
+
+    /**
+     * RomM restamps the cover, and the fetch for the new one does not land.
+     *
+     * The record already exists, so this is the case the first-save test does
+     * not reach: deleting what the old record named before fetching the new
+     * files left the game with `has(7)` still true — never written down again —
+     * and its cover gone until the game was uninstalled and downloaded afresh.
+     * `sweep` only ever deletes, so nothing would have come back for it.
+     */
+    const flaky = new OfflineCache(dir, unreachable())
+    await assert.rejects(() => flaky.save(rom({ path_cover_small: restamped }), 'genesis'))
+
+    assert.ok(flaky.assetFile(cover), 'the cover that was there is still there')
+  })
 })
 
 describe('what the server last said it has', () => {

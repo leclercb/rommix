@@ -64,9 +64,13 @@ jobs:
       # about.
       - name: Check the tag against package.json and the changelog
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          # Through the environment rather than spliced into the script, which
+          # GitHub does before the shell ever parses it.
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          version='${{ steps.meta.outputs.version }}'
+          version="$VERSION"
           if [ "$tag" != "$version" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
             exit 1
@@ -192,7 +196,9 @@ jobs:
       # they are not GitHub's generated ones. A tag like v0.2.0-rc1 is a
       # pre-release; v0.2.0 is not.
       - name: Publish the release
-        uses: softprops/action-gh-release@v3
+        # Pinned to a commit rather than a tag: this is the only job holding
+        # `contents: write`, and a moving tag is a third party able to use it.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: |
             dist/*.AppImage

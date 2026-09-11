@@ -1,4 +1,4 @@
-import { type JSX, useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
+import { type JSX, useCallback, useEffect, useMemo, useState, type Ref } from 'react'
 import { resolveSystem } from '@config/systems'
 import type { InstalledRom, RommPlatform } from '@shared/types'
 import {
@@ -14,10 +14,13 @@ import {
   tileFromRom,
   tileInstalled
 } from '../../components'
-import { useAction, useFocusable, useKeyLabel } from '../../input/focus'
+import { useAction, useFocusable, useFocusContext, useKeyLabel } from '../../input/focus'
 import { usePagedRoms } from '../../paging'
 import { useApp, useI18n } from '../../state'
 import { fileNameOf } from '@shared/gamefiles'
+
+/** The search box's name in the focus registry, for the shortcut that jumps to it. */
+const SEARCH_FIELD = 'library-search'
 
 /** What a downloaded game is listed, sorted and searched under. */
 const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.path)
@@ -29,7 +32,7 @@ const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.
  * is local knowledge the server does not have, so it cannot be asked for in a
  * page of results. Filtering the server's pages by it instead would leave the
  * grid showing the handful of downloaded games that happened to fall in the
- * first sixty, and the endless scroll fetching page after page to find more.
+ * first page, and the endless scroll fetching page after page to find more.
  * So that scope is answered from the installed index, which is complete, small
  * and already in hand.
  */
@@ -73,7 +76,6 @@ export function LibraryScreen(): JSX.Element {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const searchRef = useRef<HTMLDivElement | null>(null)
   /**
    * The server's half of the grid.
    *
@@ -155,10 +157,20 @@ export function LibraryScreen(): JSX.Element {
     }
   }, [offline, scope, debouncedSearch, platforms])
 
-  // Y jumps to the search box, as the hint bar advertises.
+  /**
+   * Y jumps to the search box, as the hint bar advertises.
+   *
+   * Both halves, in the order pressing A on the field does them. The ring is
+   * drawn from `[data-focused]` and nothing else, so reaching past the registry
+   * to call `.focus()` on the box put the letters in it and left the highlight
+   * on whatever was focused before — and the two ways into one field must not
+   * disagree. `setFocus` moves the highlight; `activate` runs the field's own
+   * `onSelect`, which is what takes the caret.
+   */
+  const { setFocus, activate } = useFocusContext()
   useAction('search', () => {
-    const input = searchRef.current?.querySelector('input')
-    input?.focus()
+    setFocus(SEARCH_FIELD)
+    activate()
   })
 
   const chosen = useMemo(
@@ -275,8 +287,9 @@ export function LibraryScreen(): JSX.Element {
           </div>
         )}
 
-        <div ref={searchRef}>
+        <div>
           <TextField
+            focusId={SEARCH_FIELD}
             label={t('library.searchLabel')}
             value={search}
             onChange={setSearch}

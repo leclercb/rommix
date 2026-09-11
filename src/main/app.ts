@@ -110,6 +110,35 @@ export class RomMixApp {
   }
 
   /**
+   * Everything that has to happen before this process goes, wherever it is
+   * going from.
+   *
+   * One function because the process has more than one exit: `before-quit`
+   * was reasoned about, and the two restart paths both call `app.exit(0)`,
+   * which does not emit it. Anything that lived only in that handler was
+   * therefore skipped by a restart — leaving the emulator orphaned, RomM still
+   * reporting the game as up, and two starting banners in the log with no
+   * boundary between the sessions.
+   *
+   * Idempotent, since `before-quit` can fire after this has already run.
+   */
+  async shutdown(): Promise<void> {
+    if (this.shuttingDown) return this.shuttingDown
+    this.shuttingDown = (async () => {
+      // So neither a check nor a connection poll can fire into a window that
+      // is closing.
+      this.updates.stop()
+      this.connection.stop()
+      await this.launcher.shutdown()
+      log.info('app', '--- RomMix quitting ---')
+    })()
+    return this.shuttingDown
+  }
+
+  /** The shutdown in progress, so a second exit joins it. See `shutdown`. */
+  private shuttingDown: Promise<void> | null = null
+
+  /**
    * Everything that wants a server and has not had one, in one place.
    *
    * Run at start-up and again whenever RomM comes back, because both halves
@@ -207,6 +236,20 @@ export class RomMixApp {
     const waiting: SavesWaiting[] = []
 
     for (const { romId, since } of this.store.unsentSaves) {
+      /**
+       * Never the game that is up.
+       *
+       * This pass runs when the connection comes back, which is a moment
+       * nothing coordinates with a session: playing out of range while the
+       * watch fires has the drain preview and upload the `.srm` the emulator
+       * has open, and RomM records a torn save as this device's newest copy.
+       * The session's own push sends it properly when the game closes, and the
+       * record is left where it is until then.
+       */
+      if (this.launcher.playing === romId) {
+        log.debug('saves', 'left a session in progress to send its own saves', { romId })
+        continue
+      }
       try {
         const target = await saveContext(this, romId)
         const result = await this.saveSync.drain(target, since, { sendUnasked })
@@ -351,10 +394,30 @@ export class RomMixApp {
     return waiting
   }
 
+  /**
+   * Probe again, and cache the answer unless a later probe has overtaken it.
+   *
+   * `detectEmulators` spawns a `flatpak info` per emulator, so how long it
+   * takes varies by hundreds of milliseconds. Two settings changes in quick
+   * succession could therefore have the earlier probe resolve last and leave
+   * the cache holding a picture computed from settings nobody has any more —
+   * and `activeEmulator` is the synchronous read off that cache, used by the
+   * download manager's hot path and by `saveContext`, so the cost is a
+   * platform resolved to the wrong emulator, which is what decides where a
+   * save is written.
+   *
+   * The caller is still given its own probe's answer. It is the one computed
+   * from the settings as they were when it asked, which is what it is for.
+   */
   async refreshEmulators(): Promise<EmulatorState[]> {
-    this.emulatorCache = await detectEmulators(this.store.settings)
-    return this.emulatorCache
+    const generation = (this.probeGeneration += 1)
+    const states = await detectEmulators(this.store.settings)
+    if (generation === this.probeGeneration) this.emulatorCache = states
+    return states
   }
+
+  /** Counts probes, so an overtaken one does not write the cache. */
+  private probeGeneration = 0
 
   /** The probe, running it first if it has never run. */
   async ensureEmulators(): Promise<EmulatorState[]> {
@@ -568,7 +631,14 @@ export class RomMixApp {
         }
 
         const upstream = await this.client.asset(path)
-        if (!upstream.ok) return new Response('not found', { status: upstream.status })
+        if (!upstream.ok) {
+          // Cancelled rather than dropped: a body left unread is one the HTTP
+          // stack has to reclaim instead of returning the connection to the
+          // pool, and most of the icon candidates are misses by design — so a
+          // library that has just been opened is a few dozen of these.
+          await upstream.body?.cancel().catch(() => undefined)
+          return new Response('not found', { status: upstream.status })
+        }
         return new Response(upstream.body, {
           status: 200,
           headers: {

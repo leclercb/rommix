@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SaveProgress } from '@shared/api'
 import type { SaveAsset, SaveDeleteScope, SavePushPreview } from '@shared/types'
 import { useApp, useI18n } from '../../state'
@@ -66,13 +66,19 @@ export function useGameSaves(
    * This game's saves on both sides, refetched after every pull or push so the
    * list is never one action out of date.
    */
+  /** Which listing this is, so a slower earlier one cannot land last. */
+  const run = useRef(0)
   const reload = useCallback(async (): Promise<void> => {
     // Asked either way: the list falls back to the end that is on this disk,
     // with each row marked as uncompared rather than as absent from the server.
     // See `SaveSync.remoteEnds`. Not before the first connection answer, only
     // because there is no reason to ask twice. See `AppState.offline`.
     if (offline === null) return
-    setAssets(await window.rommix.saves.list(romId).catch(() => []))
+    const mine = (run.current += 1)
+    const listed = await window.rommix.saves.list(romId).catch(() => [])
+    // The same guard the paging hooks have. Two games opened in quick
+    // succession, and this list decides what every save button acts on.
+    if (run.current === mine) setAssets(listed)
   }, [romId, offline])
 
   useEffect(() => {
@@ -121,16 +127,22 @@ export function useGameSaves(
         notify(result.skippedReason, 'warn', to)
       } else if (result.failed > 0) {
         /**
-         * Files that are here and that the server would not take.
+         * Files one end would not give up or the other would not take.
          *
-         * Said before the counts below, because those cannot say it: a push
-         * where every file was refused sends nothing, and "nothing was sent"
-         * reads as "there was nothing here" — the opposite of what happened,
-         * and reported until now as though it had gone well. The file names and
-         * the server's reason are in the log; the count is what fits in a
-         * notification. See `SaveSyncResult.failed`.
+         * Said before the counts below, because those cannot say it: a run
+         * where every file failed moves nothing, and "nothing was sent" or
+         * "nothing newer on RomM" reads as "there was nothing to do" — the
+         * opposite of what happened. The file names and the reason are in the
+         * log; the count is what fits in a notification. See
+         * `SaveSyncResult.failed`.
          */
-        notify(t('error.savesNotSent', { count: result.failed }), 'warn', to)
+        notify(
+          t(direction === 'pull' ? 'error.savesNotFetched' : 'error.savesNotSent', {
+            count: result.failed
+          }),
+          'warn',
+          to
+        )
       } else {
         const moved = result.saves + result.states
         notify(

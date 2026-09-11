@@ -27,5 +27,5 @@ export function registerUpdateIpc(rommix: RomMixApp, handle: Handle): void {
 
   handle('update:download', () => updates.download())
 
-  handle('update:restart', () => updates.restart())
+  handle('update:restart', () => updates.restart(() => rommix.shutdown()))
 }

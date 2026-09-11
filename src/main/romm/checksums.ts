@@ -70,10 +70,12 @@ export function checksumOf(rom: RommRom): Checksum | null {
 /**
  * The hash to hold the game that came out of an archive to.
  *
- * The same digest, against the file it actually describes — so an archived game
- * is checked after it is unpacked rather than not at all. It is the file RomMix
- * keeps and launches, which makes this the better of the two checks: the one
- * before only ever spoke for bytes that were about to be thrown away.
+ * The same digest, against the file it actually describes. It is the file
+ * RomMix keeps and launches, which makes this the better of the two checks:
+ * the one before only ever spoke for bytes that were about to be thrown away.
+ *
+ * Only reached where the archive was opened, which means a zip — see
+ * `noDigestApplies` for the ones that are not.
  *
  * Only where the archive held one game. RomM hashes a multi-entry archive by
  * running its members through one digest in path order, minus the files it
@@ -83,4 +85,20 @@ export function checksumOf(rom: RommRom): Checksum | null {
  */
 export function unpackedChecksumOf(rom: RommRom): Checksum | null {
   return isArchive(rom.fs_name) ? fileDigestOf(rom) : null
+}
+
+/**
+ * Was the wire-side check declined in favour of one after unpacking?
+ *
+ * True for every archive RomM holds a digest for, because that digest
+ * describes what is inside rather than what the endpoint serves. Only the
+ * caller knows whether the unpacking that would redeem it actually happened:
+ * RomMix opens zips and nothing else, so a game RomM keeps as `.7z`, `.rar` or
+ * a tarball is installed exactly as it arrived, with neither check behind it.
+ *
+ * Exists so that the one place which installs such a file can say so rather
+ * than pass over it in the same silence as a game that was checked and passed.
+ */
+export function checkDeferredToUnpacking(rom: RommRom): boolean {
+  return checksumOf(rom) === null && unpackedChecksumOf(rom) !== null
 }

@@ -1,4 +1,4 @@
-import { type JSX, type Ref, useEffect, useState } from 'react'
+import { type JSX, type Ref, useEffect, useRef, useState } from 'react'
 import type { RommCollection } from '@shared/types'
 import { FocusButton, Overlay, Spinner, StatusPill } from '../../components'
 import { Icon } from '../../icons'
@@ -37,6 +37,21 @@ export function CollectionsDialog({
   const [collections, setCollections] = useState<RommCollection[] | null>(null)
   const [members, setMembers] = useState<ReadonlySet<number>>(new Set())
 
+  /**
+   * Held in a ref rather than listed as a dependency.
+   *
+   * `GameScreen` builds this handler inline, so it is a new function on every
+   * render — and it calls `useDownloads()`, so it re-renders on every tick of
+   * the transfer queue. Depending on it asked RomM for the whole collection
+   * list about four times a second with any download running, and each answer
+   * landing overwrote the optimistic toggle below, so the row a person had
+   * just switched on flipped back off under them.
+   */
+  const report = useRef(onError)
+  useEffect(() => {
+    report.current = onError
+  }, [onError])
+
   useEffect(() => {
     void window.rommix.library
       .collections()
@@ -47,9 +62,9 @@ export function CollectionsDialog({
       })
       .catch((cause: Error) => {
         setCollections([])
-        onError(cause.message)
+        report.current(cause.message)
       })
-  }, [romId, onError])
+  }, [romId])
 
   const toggle = async (collection: RommCollection): Promise<void> => {
     const member = !members.has(collection.id)

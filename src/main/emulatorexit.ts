@@ -125,6 +125,22 @@ export function complaint(output: string): string | null {
 }
 
 /**
+ * Signals that mean somebody wanted this stopped.
+ *
+ * `signalled` already covers every stop RomMix itself issues; this arm is for
+ * an external `kill`, a session ended from a desktop, a terminal closing. What
+ * it must not swallow is a *fault* — an emulator dying on `SIGSEGV` or
+ * `SIGABRT` from a missing shared library, a bad ROM or a GPU driver exits with
+ * `code: null` and a signal, and reading that as a deliberate stop reports a
+ * clean session, logs "exited after being asked to stop", and files a
+ * zero-second play session with RomM while the Play button appears to do
+ * nothing at all.
+ */
+function asked(signal: string | null): boolean {
+  return signal === 'SIGTERM' || signal === 'SIGINT' || signal === 'SIGKILL' || signal === 'SIGHUP'
+}
+
+/**
  * Decide what an exit was, and what to tell the user about it.
  *
  * The order of the three questions is the whole of it. Being asked to stop
@@ -137,23 +153,22 @@ export function complaint(output: string): string | null {
 export function readExit({ code, signal, signalled, ranMs, output }: Exit): ExitReading {
   const clean = { startupError: null, warning: null }
 
-  if (signalled || signal) return { kind: 'asked', report: clean, detail: null }
+  if (signalled || asked(signal)) return { kind: 'asked', report: clean, detail: null }
 
   // Long enough to have been a session, so whatever the code meant, the
   // emulator ran and may have written saves.
   if (ranMs >= STARTUP_MS) {
     if (code === 0) return { kind: 'clean', report: clean, detail: null }
     // Anything it flagged is worth passing on; it is not worth throwing the
-    // session away over.
+    // session away over. A fault signal is named where the emulator itself
+    // said nothing, that being the only account of the crash there is.
     const flagged = flaggedLines(output)
-    return {
-      kind: 'complained',
-      detail: flagged,
-      report: {
-        startupError: null,
-        warning: flagged ? t('launch.emulatorReported', { detail: flagged }) : null
-      }
-    }
+    const warning = flagged
+      ? t('launch.emulatorReported', { detail: flagged })
+      : signal
+        ? t('launch.emulatorCrashed', { signal })
+        : null
+    return { kind: 'complained', detail: flagged, report: { startupError: null, warning } }
   }
 
   // Gone before it could have shown the user anything. This is the launch that
@@ -166,11 +181,16 @@ export function readExit({ code, signal, signalled, ranMs, output }: Exit): Exit
     report: {
       startupError: detail
         ? t('launch.quitImmediatelyDetail', { detail })
-        : code === 0
-          ? // Zero is the least informative thing an exit can say, and quoting
-            // it invites the reply that nothing went wrong.
-            t('launch.quitImmediately')
-          : t('launch.quitImmediatelyCode', { code: code ?? 0 }),
+        : signal
+          ? // A process killed by a fault has no exit code at all, and `code ??
+            // 0` would report the one number that reads as "nothing went
+            // wrong".
+            t('launch.quitImmediatelySignal', { signal })
+          : code === 0
+            ? // Zero is the least informative thing an exit can say, and quoting
+              // it invites the reply that nothing went wrong.
+              t('launch.quitImmediately')
+            : t('launch.quitImmediatelyCode', { code: code ?? 0 }),
       warning: null
     }
   }

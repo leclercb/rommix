@@ -59,8 +59,14 @@ export function handler(report: (message: string) => void): Handle {
         log[level]('ipc', `← ${channel}`, { ms: took() })
         return result
       } catch (cause) {
+        // `instanceof Error` rather than reading `.message` off whatever it is:
+        // something rejecting with `null` or `undefined` threw a `TypeError`
+        // inside this catch, so the log line below never ran and `report` never
+        // fired — leaving the channel to fail with Electron's opaque default,
+        // which is the thing this module exists to prevent, and nothing in the
+        // log to say which call it was.
         const message =
-          cause instanceof RommError ? cause.message : ((cause as Error).message ?? String(cause))
+          cause instanceof RommError || cause instanceof Error ? cause.message : String(cause)
         log.error('ipc', `✗ ${channel}`, cause, { ms: took() })
         report(message)
         // The message is what crosses the bridge — Electron serialises nothing

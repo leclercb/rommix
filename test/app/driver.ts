@@ -22,11 +22,26 @@ import { basename, join } from 'node:path'
 /** How long to wait for the debugger to come up before giving up on the run. */
 const READY_TIMEOUT_MS = 30_000
 
-/** How long any one `waitFor` will keep asking. */
-const SETTLE_TIMEOUT_MS = 15_000
+/**
+ * How long an application gets to close after being asked, before it is
+ * killed.
+ *
+ * Only reached by a scenario whose application will not go — the ordinary path
+ * clears the timer the moment the process exits.
+ */
+const FORCE_KILL_MS = 5000
+
+/**
+ * How long any one `waitFor` will keep asking.
+ *
+ * Exported because a scenario file that waits on something the driver has no
+ * verb for — RomM catching up with a press, say — has to wait for the same
+ * length of time, and two copies of this number drift.
+ */
+export const SETTLE_TIMEOUT_MS = 15_000
 
 /** Between polls of the page. Fast enough to feel instant, slow enough to be cheap. */
-const POLL_MS = 100
+export const POLL_MS = 100
 
 /**
  * Where a failure leaves its screenshot. See `capture`.
@@ -130,6 +145,25 @@ async function connect(url: string): Promise<Session> {
     socket.addEventListener('error', () => reject(new Error(`could not connect to ${url}`)), {
       once: true
     })
+  })
+
+  /**
+   * Nothing outstanding survives the socket going away.
+   *
+   * The application crashing mid-scenario is the regression class this suite
+   * exists to catch, and it used to be the one thing the suite could not
+   * report: with nothing rejecting the pending map, the in-flight
+   * `Runtime.evaluate` never settled, so `waitFor`'s bounded loop sat on its
+   * first `await` and never reached its own timeout. `test-app.sh` passes no
+   * `--test-timeout` and Node's default is `Infinity`, so the run stalled until
+   * the CI job was cancelled hours later, with no screenshot and no message.
+   */
+  socket.addEventListener('close', () => {
+    for (const [id, reject] of failed) {
+      reject(new Error('the application closed the debugger connection'))
+      pending.delete(id)
+    }
+    failed.clear()
   })
 
   socket.addEventListener('message', (event: MessageEvent) => {
@@ -340,8 +374,12 @@ export function standInEmulator(options: { stubborn?: boolean } = {}): {
       // tell "the pull left nothing" apart from "the emulator never ran", and
       // waiting for one that is never coming turns a clear failure into a
       // timeout.
-      '  cp "$ROMMIX_STAND_IN_SAVE" "$ROMMIX_STAND_IN_SAVE.found" 2>/dev/null || : > "$ROMMIX_STAND_IN_SAVE.found"',
+      // The folder first: both the copy and the empty file it falls back to
+      // need a parent, so a regression that left the save directory uncreated
+      // used to fail *both* — and the test then timed out on exactly the
+      // ambiguity this guard exists to remove.
       '  mkdir -p "$(dirname "$ROMMIX_STAND_IN_SAVE")"',
+      '  cp "$ROMMIX_STAND_IN_SAVE" "$ROMMIX_STAND_IN_SAVE.found" 2>/dev/null || : > "$ROMMIX_STAND_IN_SAVE.found"',
       '  printf %s "$ROMMIX_STAND_IN_SAVE_CONTENT" > "$ROMMIX_STAND_IN_SAVE"',
       'fi',
       // An emulator that will not take no for an answer, for the scenario about
@@ -507,6 +545,19 @@ export async function startApp(options: StartOptions): Promise<App> {
     env: {
       ...process.env,
       ROMMIX_HOME: home,
+      /**
+       * Electron's profile too, not only RomMix's own root.
+       *
+       * The single-instance lock is taken against `userData`, which hangs off
+       * `XDG_CONFIG_HOME` — so a developer with RomMix or `npm run dev` open
+       * lost the lock in every scenario's first Electron, which quit without
+       * printing a debugger port and failed thirty seconds later as "the
+       * application never printed a debugger port", while their own window was
+       * raised by the `second-instance` event. CONTRIBUTING states the rule for
+       * *second* applications; this is the first one, and it needs the same
+       * thing. Overridable, because those second applications pass their own.
+       */
+      XDG_CONFIG_HOME: join(home, 'xdg-config'),
       // The run must not touch the developer's own RomMix, and must not ask a
       // keyring to encrypt anything it will then be unable to read.
       ROMMIX_LOG: 'debug',
@@ -525,6 +576,12 @@ export async function startApp(options: StartOptions): Promise<App> {
       const found = /DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/.exec(output)
       if (found) {
         clearTimeout(timer)
+        // Off once it has its answer. Left on, it re-ran this regex over the
+        // whole accumulated output on every chunk for the rest of the
+        // scenario — with `ROMMIX_LOG=debug` set, which is a great deal of
+        // output.
+        child.stdout?.off('data', watch)
+        child.stderr?.off('data', watch)
         resolve(Number(found[1]))
       }
     }
@@ -1084,11 +1141,18 @@ export async function startApp(options: StartOptions): Promise<App> {
       session.close()
       child.kill('SIGTERM')
       await new Promise((resolve) => {
-        child.once('exit', resolve)
-        setTimeout(() => {
+        // Cleared on a clean exit. Left running, every `stop` held the event
+        // loop open for the whole of its own deadline after the application
+        // had already gone — several scenarios per file, and the run waits it
+        // out each time.
+        const kill = setTimeout(() => {
           child.kill('SIGKILL')
           resolve(null)
-        }, 5000)
+        }, FORCE_KILL_MS)
+        child.once('exit', () => {
+          clearTimeout(kill)
+          resolve(null)
+        })
       })
       rmSync(home, { recursive: true, force: true })
     }

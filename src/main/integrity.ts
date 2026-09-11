@@ -58,13 +58,31 @@ export async function hashOf(path: string, algorithm: string): Promise<string> {
  * log. That is not a loophole to be closed by refusing: the libretro buildbot
  * publishes nothing to compare against, and a core that cannot be installed is
  * an emulator that cannot run the game at all.
+ *
+ * `required` is for the one download where that trade does not hold — RomMix
+ * replacing its own AppImage. There the publisher is RomMix's own release
+ * workflow, a missing digest is a release that is wrong rather than a source
+ * that never states one, and the cost of refusing is an update that waits for
+ * the next version instead of a program that cannot run a game.
  */
 export async function verifyDownload(
   path: string,
   digest: Digest | null,
-  subject: { kind: string; name: string }
+  subject: { kind: string; name: string; required?: boolean }
 ): Promise<void> {
   if (!digest) {
+    if (subject.required) {
+      await rm(path, { force: true }).catch(() => undefined)
+      log.error(
+        'integrity',
+        'no digest was published for a download that requires one',
+        undefined,
+        {
+          ...subject
+        }
+      )
+      throw new Error(t('error.downloadNotPublished', { name: subject.name }))
+    }
     log.info('integrity', 'no digest was published for this download', subject)
     return
   }

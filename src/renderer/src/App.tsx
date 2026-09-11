@@ -165,8 +165,8 @@ export function App(): JSX.Element {
   /**
    * The new version, on the menu item that leads to it.
    *
-   * The toast that announced it lasts five seconds, and a machine that checked
-   * while nobody was watching has none. This is the part that stays: the version
+   * The toast that announced it is gone in seconds, and a machine that checked
+   * while nobody was watching never showed one. This is the part that stays: the version
    * number itself rather than a count, because "Settings 1" says there is
    * something and not what.
    */

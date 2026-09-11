@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { atHome, standInEmulator, startApp, type App } from './driver.ts'
@@ -28,11 +28,13 @@ let server: FakeRomm
 let app: App
 let emulator: ReturnType<typeof standInEmulator>
 let saveDir: string
+/** The second Electron profile, cleared with the run. */
+let configHome: string
 
 before(async () => {
   server = await startFakeRomm()
   emulator = standInEmulator()
-  const configHome = mkdtempSync(join(tmpdir(), 'rommix-device-xdg-'))
+  configHome = mkdtempSync(join(tmpdir(), 'rommix-device-xdg-'))
   saveDir = join(configHome, 'retroarch', 'saves')
 
   app = await startApp({
@@ -55,9 +57,18 @@ before(async () => {
 after(async () => {
   await app?.stop()
   await server?.close().catch(() => undefined)
+  // `startApp` clears its own temp home; this one is made here, so nothing
+  // else knows it exists.
+  rmSync(configHome, { recursive: true, force: true })
 })
 
-/** Type into one of the sign-in boxes. The caret decides where text lands. */
+/**
+ * Type into one of the sign-in boxes. The caret decides where text lands.
+ *
+ * One press leaves the box and does nothing else: the field consumes Escape,
+ * so the screen's own Back — which at the bottom of the stack offers to quit —
+ * never sees it.
+ */
 async function fill(field: string, text: string): Promise<void> {
   await app.choose(`[data-field="${field}"]`)
   await app.waitFor(`document.activeElement?.tagName === 'INPUT'`, `the caret in ${field}`)
@@ -65,8 +76,7 @@ async function fill(field: string, text: string): Promise<void> {
   await app.type(text)
   await app.press('Escape')
   await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
-  await app.press('Escape')
-  await app.waitFor(`!document.querySelector('.overlay')`, 'the quit question to go')
+  await app.waitFor(`!document.querySelector('.overlay')`, 'and nothing else to have happened')
 }
 
 /** Every request to the devices endpoint so far, by method. */

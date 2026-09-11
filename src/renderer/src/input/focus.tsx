@@ -288,6 +288,24 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   const applyFocus = useCallback((id: string): void => {
     const entry = entries.current.get(id)
     if (!entry) return
+    /**
+     * The highlight and the caret are one thing, and this is where they are
+     * kept that way.
+     *
+     * `TextField` focuses its input when it is selected, and until now nothing
+     * but the field's own Escape handler ever blurred it. So moving the mouse
+     * over a game card or pressing Down on the pad moved the highlight off the
+     * field while the caret stayed in it — and `keyboard.ts` stands down while
+     * an input holds the caret, which left every arrow key and Enter going
+     * nowhere for the rest of the screen with no cause on screen.
+     */
+    const active = document.activeElement
+    if (
+      active instanceof HTMLElement &&
+      active !== entry.element &&
+      !entry.element.contains(active)
+    )
+      active.blur()
     focusedRef.current = id
     zoneMemory.current.set(entry.zone, id)
     lastZone.current = entry.zone
@@ -763,6 +781,16 @@ export function useFocusable(options: {
   autoFocus?: boolean
   /** What selecting this does, for the hint bar. */
   actionLabel?: string
+  /**
+   * A name for this focusable, where something outside has to focus it.
+   *
+   * Generated otherwise. The one reason to give one is a shortcut that jumps
+   * to a particular element — the registry is what the highlight is drawn
+   * from, so reaching past it and calling `.focus()` on the DOM node puts the
+   * caret in one place and leaves the ring in another. Unique per screen, like
+   * any other name.
+   */
+  id?: string
 }): UseFocusableResult {
   const { onSelect, enabled = true, autoFocus = false, actionLabel } = options
   const { register, focusedId, setFocus, reportAction } = useFocusContext()
@@ -771,7 +799,7 @@ export function useFocusable(options: {
   const group = useContext(GroupContext)
   const ref = useRef<HTMLElement | null>(null)
   const idRef = useRef<string>('')
-  if (!idRef.current) idRef.current = `focusable-${nextId++}`
+  if (!idRef.current) idRef.current = options.id ?? `focusable-${nextId++}`
   const id = idRef.current
 
   // Keep the latest callback without re-registering on every render.
@@ -790,8 +818,21 @@ export function useFocusable(options: {
     })
   }, [enabled, id, register, layer, zone, group])
 
+  /**
+   * Autofocus is a thing that happens on arrival, not every time a button is
+   * usable again.
+   *
+   * `FocusButton` passes `disabled` straight through as `enabled`, so listing
+   * it as a dependency fired this on every false→true transition: finishing a
+   * firmware install threw the highlight onto "Install all", and Play took
+   * focus back the moment `working` cleared after a save pull — so a second A
+   * press launched the game instead of repeating what had just been pressed.
+   */
+  const claimed = useRef(false)
   useEffect(() => {
-    if (autoFocus && enabled) setFocus(id)
+    if (claimed.current || !autoFocus || !enabled) return
+    claimed.current = true
+    setFocus(id)
   }, [autoFocus, enabled, id, setFocus])
 
   // Only while focused: an element that has just lost focus must not overwrite
@@ -827,6 +868,11 @@ export function useFocusable(options: {
        */
       onClick: (event: ReactMouseEvent) => {
         event.stopPropagation()
+        // `enabled` the same as the hover above it. An element registered
+        // `enabled: false` is unreachable by the pad and refuses the highlight,
+        // and a click that ran its `onSelect` anyway was the one input that
+        // could still reach it.
+        if (!enabled) return
         selectRef.current?.()
       },
       tabIndex: -1

@@ -8,6 +8,7 @@ import { t } from './i18n.ts'
 import { log } from './log.ts'
 import { Library } from './library.ts'
 import {
+  checkDeferredToUnpacking,
   CorruptDownloadError,
   partialPathOf,
   RommClient,
@@ -42,9 +43,9 @@ import type { Store } from './store.ts'
 /**
  * How often byte progress is reported to the renderer.
  *
- * Four times a second: fast enough that a progress bar moves smoothly at any
- * transfer speed, slow enough that a 4 GB ROM costs a few hundred IPC messages
- * rather than the sixty-odd thousand one-per-chunk produced.
+ * Fast enough that a progress bar moves smoothly at any transfer speed, slow
+ * enough that a large ROM costs a few hundred IPC messages rather than the
+ * tens of thousands one per chunk would produce.
  */
 const PROGRESS_INTERVAL_MS = 250
 
@@ -69,8 +70,13 @@ interface Holding {
 function pathsHeld(holding: Holding): string[] {
   if (holding.files.length === 0) return [holding.targetPath, partialPathOf(holding.targetPath)]
   return holding.files.flatMap((name) => {
-    const path = join(holding.targetPath, name)
-    return [path, partialPathOf(path)]
+    // The names come from RomM, and this list is what the cancel path deletes
+    // and what the resume path measures. The transfer refuses to *write* one
+    // that walks out of the folder — but a name that was refused is still in
+    // the record, so without this a server naming `../../.bashrc` has its size
+    // counted as bytes received and the file removed when the row is cancelled.
+    const path = safeJoin(holding.targetPath, name)
+    return path ? [path, partialPathOf(path)] : []
   })
 }
 
@@ -936,6 +942,22 @@ export class DownloadManager extends EventEmitter {
         await this.client.verifyUnpacked(rom, unpacked.path)
       }
       return unpacked
+    }
+    /**
+     * Kept as it arrived, and for one shape of game that means unchecked.
+     *
+     * A game RomM holds as `.7z`, `.rar` or a tarball is one RomM opened and
+     * hashed the *inside* of, so the digest it publishes does not describe the
+     * archive the endpoint served — and RomMix opens only zips, so there is
+     * nothing to unpack and hold to it either. The transfer's length check is
+     * the whole of what stands behind these. Said out loud here because the
+     * alternative is a silence that reads like a check that passed.
+     */
+    if (checkDeferredToUnpacking(rom)) {
+      log.info('download', 'this archive is one RomMix cannot open, so nothing checked it', {
+        romId: rom.id,
+        fsName: rom.fs_name
+      })
     }
     return {
       path: where.path,

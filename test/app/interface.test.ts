@@ -3,7 +3,7 @@ import { after, before, describe, test } from 'node:test'
 import { dateFormatters } from '@shared/i18n/dates.ts'
 import { en } from '@shared/i18n/en.ts'
 import { fr } from '@shared/i18n/fr.ts'
-import type { App } from './driver.ts'
+import { POLL_MS, SETTLE_TIMEOUT_MS, type App } from './driver.ts'
 import { startScenario, type Scenario } from './harness.ts'
 import type { FakeRomm } from './server.ts'
 
@@ -250,10 +250,42 @@ describe('the buttons that are not on the D-pad', () => {
       'the search box to take the caret'
     )
 
-    // Out again, which the hint under the box promises and which nothing else
-    // here could recover from: while a field holds the caret the keyboard
-    // handler stands down, so a test that walked away leaving it there would
-    // take the menu with it.
+    /**
+     * The highlight and the caret are one thing, or the keyboard dies.
+     *
+     * Two halves that used to be able to disagree. The shortcut reached past
+     * the focus registry and called `.focus()` on the box, so the ring stayed
+     * on whatever was focused before — and moving off the box left the caret
+     * behind it, which makes `keyboard.ts` stand down for the rest of the
+     * screen with nothing on screen to say why.
+     */
+    await app.waitFor(
+      `document.activeElement?.dataset.focused === 'true'`,
+      'the ring to be on the box that has the caret'
+    )
+
+    /**
+     * And the highlight moving off takes the caret with it.
+     *
+     * With the pointer, because that is one of the two inputs that can do it:
+     * while a field holds the caret the keyboard handler stands down by design,
+     * so a key cannot reach the rest of the screen — but a mouse move and a pad
+     * direction both go straight to the focus engine, and either of them used
+     * to leave the caret behind, at which point every key was discarded and a
+     * real keyboard was dead for the rest of the screen.
+     */
+    await app.hover('[data-rom="1"]')
+    await app.waitFor(
+      `document.activeElement?.tagName !== 'INPUT'`,
+      'the caret to be released by the highlight moving off'
+    )
+
+    // Back into it, and out the way the hint under the box promises.
+    await app.press('Search')
+    await app.waitFor(
+      `document.activeElement?.tagName === 'INPUT'`,
+      'the search box to take the caret again'
+    )
     await app.press('Escape')
     await app.waitFor(
       `document.activeElement?.tagName !== 'INPUT'`,
@@ -948,10 +980,6 @@ describe('looking at the screenshots of a game', () => {
   })
 })
 
-/** How long `settles` keeps asking, and how long it waits between asks. */
-const SETTLE_TIMEOUT_MS = 15_000
-const SETTLE_POLL_MS = 50
-
 /**
  * Wait for RomM to have caught up with a press.
  *
@@ -965,7 +993,7 @@ const SETTLE_POLL_MS = 50
 const settles = async (what: string, done: () => boolean): Promise<void> => {
   const until = Date.now() + SETTLE_TIMEOUT_MS
   while (!done() && Date.now() < until) {
-    await new Promise((wait) => setTimeout(wait, SETTLE_POLL_MS))
+    await new Promise((wait) => setTimeout(wait, POLL_MS))
   }
   assert.ok(done(), `timed out waiting for ${what}`)
 }

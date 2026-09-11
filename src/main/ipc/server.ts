@@ -25,6 +25,16 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
   handle('server:connect', async (payload: ConnectPayload): Promise<ConnectionStatus> => {
     const baseUrl = normaliseBaseUrl(payload.baseUrl)
     const previousServer = store.server
+    /**
+     * What was signed in before this attempt, kept whole.
+     *
+     * The rollback below used to clear the credentials outright, which made
+     * mistyping a password for server B a sign-out from server A. That is not
+     * a hypothetical route to the Connect screen: `UnsupportedServerError`
+     * sends a user there with perfectly good credentials on disk, and the
+     * screen's own comment says it leaves the app as it found it.
+     */
+    const previousCredentials = store.credentials
 
     // Confirm it is a RomM instance before we store anything.
     await client.heartbeat(baseUrl)
@@ -58,8 +68,10 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
         baseUrl,
         mode: payload.mode
       })
+      // The server first, so the device id it drops on a changed address is
+      // put back by the credentials below rather than the other way round.
       store.setServer(previousServer)
-      store.clearCredentials()
+      store.setCredentials(previousCredentials)
       throw cause
     }
   })
@@ -72,9 +84,27 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
 
   handle('server:startPairing', async (baseUrl: string) => {
     const normalised = normaliseBaseUrl(baseUrl)
+    const previousServer = store.server
+    const previousCredentials = store.credentials
     await client.heartbeat(normalised)
+    // Repointed before the request rather than after it, because the token
+    // pairing hands back is issued by *this* server and `setServer` drops the
+    // device id whenever the address changes — see `Store.setServer`.
     store.setServer({ baseUrl: normalised, authMode: 'device' })
-    return client.startDevicePairing(normalised)
+    try {
+      return await client.startDevicePairing(normalised)
+    } catch (cause) {
+      // Rolled back for the same reason `server:connect` rolls back. Without
+      // it a pairing that could not be started left RomMix pointed at an
+      // address nothing was signed in to, holding the previous server's
+      // tokens, reporting itself configured and failing every request.
+      log.error('server', 'pairing could not be started, rolling back', cause, {
+        baseUrl: normalised
+      })
+      store.setServer(previousServer)
+      store.setCredentials(previousCredentials)
+      throw cause
+    }
   })
 
   handle('server:pollPairing', async (deviceCode: string, baseUrl: string) =>

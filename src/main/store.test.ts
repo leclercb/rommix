@@ -125,6 +125,32 @@ describe('settings', () => {
 })
 
 describe('credentials', () => {
+  test('a changed server address takes the device id with it', () => {
+    /**
+     * A device id belongs to one server, and only one.
+     *
+     * RomM resolves `device_id` against its own devices table and refuses an
+     * upload naming one that is not in it — so an id carried across to another
+     * server is every pushed save turned down, on a client that looks signed
+     * in. `RommClient.deviceId` registers this machine again the first time a
+     * save has one to name, which is what closes the gap the drop opens.
+     */
+    const dir = scratch()
+    const store = new Store(dir)
+    store.setServer({ baseUrl: 'https://one.example', authMode: 'token' })
+    store.setCredentials({ clientToken: 'rmm_token', deviceId: 'device-9' })
+
+    store.setServer({ baseUrl: 'https://two.example', authMode: 'token' })
+
+    assert.equal(store.credentials.deviceId, null)
+    // And not otherwise: a record rewritten for the same address is a rename or
+    // a change of sign-in method, and re-registering the machine for one of
+    // those is a second device on the server for no reason.
+    store.setCredentials({ deviceId: 'device-10' })
+    store.setServer({ baseUrl: 'https://two.example', authMode: 'password', username: 'player' })
+    assert.equal(store.credentials.deviceId, 'device-10')
+  })
+
   test('with no keyring they are written as plain text, and read back', () => {
     const dir = scratch()
     new Store(dir).setCredentials({ clientToken: 'rmm_token', deviceId: 'device-9' })

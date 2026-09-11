@@ -1,4 +1,4 @@
-import { mkdir, rm, stat } from 'node:fs/promises'
+import { mkdir, rename, rm, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { SaveProgress } from '@shared/api'
@@ -19,7 +19,7 @@ import type {
   SaveSyncResult,
   SaveSyncState
 } from '@shared/types'
-import { refusedUs } from './romm/index.ts'
+import { partialPathOf, refusedUs, verify } from './romm/index.ts'
 import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
@@ -39,7 +39,8 @@ import {
   stemMatches,
   syncStateOf,
   walk,
-  SYNC_TOLERANCE_MS
+  SYNC_TOLERANCE_MS,
+  timesAgree
 } from './savefiles.ts'
 import { extractZip, zipDirectory } from './zip.ts'
 
@@ -131,6 +132,15 @@ export interface SaveTarget {
 interface PullCount {
   written: number
   offered: number
+  /**
+   * How many were meant to arrive and did not.
+   *
+   * One asset failing does not stop a pull — a launch is waiting on it — but
+   * without this a pull that lost every file reports the same zero as a pull
+   * with nothing to do, and the screen says "nothing newer on RomM". The push
+   * side already counts this way.
+   */
+  failed: number
 }
 
 interface LocalAsset {
@@ -245,6 +255,27 @@ function pairsOnSlot(
 ): boolean {
   if (slot !== AUTOSAVE_SLOT || primary === null) return false
   return localName === primary && sameFormat(localName, item.file_name)
+}
+
+/**
+ * Does a copy on the server answer to this file on disk, by name?
+ *
+ * What is left where no slot pairs them, and the question each of the three
+ * callers used to answer for itself. A server holding `SONIC.SRM` against a
+ * local `Sonic.srm` had `listAssets` draw one row and call it synced, while
+ * the push preview found nothing to replace, decided the file was new on RomM
+ * and let the drain send it unasked over a copy it had never compared against;
+ * the pull wrote a second file beside the one the emulator opens.
+ *
+ * Case-insensitively, the way `listAssets` already keyed its map and the other
+ * two did not: a save's name is not the file's identity here — the copy on the
+ * server was written by some other client on some other filesystem, and a name
+ * RomMix would refuse to create twice in one folder is one name. See
+ * `pairsOnSlot`, which this sits beside for the same reason: one rule, so the
+ * next change to it cannot reach two sites out of three.
+ */
+function pairsOnName(localName: string, remoteName: string): boolean {
+  return localName.toLowerCase() === remoteName.toLowerCase()
 }
 
 /**
@@ -526,6 +557,20 @@ export class SaveSync {
    *
    * A folder save is left alone. What the server holds for one is an archive
    * built at upload time, and nothing on this disk hashes to it.
+   *
+   * `synced` is asked too, unless the two stamps actually agree. `syncStateOf`
+   * also reaches that answer by inference — a server copy that is newer and
+   * came from here is read as this file after its own upload — and on a server
+   * whose clock runs ahead of the device's, every save the emulator writes in
+   * the minutes after a push lands *behind* the stamp that push recorded. The
+   * inference then covers a real change, the push dialog files it under
+   * "already up to date", and the drain clears the unsent record. It is the one
+   * branch that overrides a timestamp disagreement rather than confirming one,
+   * so it is the one that has to read the bytes.
+   *
+   * Where the server holds no hash the inference has to stand: there is nothing
+   * to overturn it with, and turning every such pair into a conflict would
+   * report one on every save on a server that records no `content_hash`.
    */
   private async compare(
     local: LocalAsset | undefined,
@@ -533,8 +578,20 @@ export class SaveSync {
     fromThisDevice: boolean | null
   ): Promise<SaveSyncState> {
     const state = syncStateOf(local?.mtimeMs ?? null, item.updated_at, fromThisDevice)
-    if (!local || local.isDirectory || state === 'synced') return state
-    return (await sameContent(local.path, contentHashOf(item))) ? 'synced' : state
+    if (!local || local.isDirectory) return state
+
+    const hash = contentHashOf(item)
+    if (state === 'synced' && (hash === null || timesAgree(local.mtimeMs, item.updated_at))) {
+      return state
+    }
+    if (hash !== null && (await sameContent(local.path, hash))) return 'synced'
+
+    // Different bytes, so the inference does not hold. Asked again without it,
+    // which leaves the clocks — and they say the copy on the server is the
+    // newer one. The recoverable direction as well as the honest one: a pull
+    // puts the file here aside with `keepBackup`, where a push would write over
+    // a copy nothing keeps a backup of.
+    return state === 'synced' ? syncStateOf(local.mtimeMs, item.updated_at, null) : state
   }
 
   /**
@@ -576,7 +633,7 @@ export class SaveSync {
   async pull(target: SaveTarget): Promise<PullCount> {
     if (!this.store.settings.syncSavesDown) {
       log.debug('saves', 'automatic pull is switched off', { romId: target.rom.id })
-      return { written: 0, offered: 0 }
+      return { written: 0, offered: 0, failed: 0 }
     }
     const paths = this.locate(target)
 
@@ -584,7 +641,8 @@ export class SaveSync {
     const states = await this.pullKind(target, paths, 'state')
     return {
       written: saves.written + states.written,
-      offered: saves.offered + states.offered
+      offered: saves.offered + states.offered,
+      failed: saves.failed + states.failed
     }
   }
 
@@ -822,11 +880,14 @@ export class SaveSync {
     const run = progressRun(target.rom.id, 'pull', null, onProgress)
     const saves = await this.pullKind(target, paths, 'save', run)
     const states = await this.pullKind(target, paths, 'state', run)
+    const failed = saves.failed + states.failed
     const result = {
       saves: saves.written,
       states: states.written,
-      failed: 0,
-      skippedReason: this.reasonFor(paths, saves.written + states.written)
+      failed,
+      // A pull that lost files has something to say whatever else it did, and
+      // the renderer's own `failed > 0` branch is what says it.
+      skippedReason: failed > 0 ? null : this.reasonFor(paths, saves.written + states.written)
     }
     // `offered` here and not in the result: what the server held explains the
     // counts above to whoever is reading the log, and says nothing to the
@@ -925,7 +986,7 @@ export class SaveSync {
         const existing =
           shared && pairsOnSlot(asset.fileName, primary, shared, AUTOSAVE_SLOT)
             ? shared
-            : loose.find((item) => item.file_name === asset.fileName)
+            : loose.find((item) => pairsOnName(asset.fileName, item.file_name))
         const originId = existing ? originIdOf(existing) : null
         const fromThisDevice = originId ? thisDevice.has(originId) : null
         const state = existing ? await this.compare(asset, existing, fromThisDevice) : null
@@ -1223,13 +1284,13 @@ export class SaveSync {
     run?: SaveRun
   ): Promise<PullCount> {
     const location = this.locationFor(paths, kind)
-    if (!location) return { written: 0, offered: 0 }
+    if (!location) return { written: 0, offered: 0, failed: 0 }
 
     const remote =
       kind === 'save'
         ? await this.client.saves(target.rom.id)
         : await this.client.states(target.rom.id)
-    if (remote.length === 0) return { written: 0, offered: 0 }
+    if (remote.length === 0) return { written: 0, offered: 0, failed: 0 }
 
     /**
      * Whether the tag on the server decides what may come down.
@@ -1278,7 +1339,7 @@ export class SaveSync {
     }
 
     const wanted = this.toPull(kind, usable)
-    if (wanted.length === 0) return { written: 0, offered: remote.length }
+    if (wanted.length === 0) return { written: 0, offered: remote.length, failed: 0 }
 
     const stem = romStemOf(target.rom, target.romPath)
     const local = await this.findLocal(location, target.rom, target.romPath, kind)
@@ -1299,12 +1360,13 @@ export class SaveSync {
      */
     const claimed = new Set<string>()
     let written = 0
+    let failed = 0
 
     for (const { item, slot } of wanted) {
       const remoteTime = Date.parse(item.updated_at)
       const match =
         slot === null
-          ? local.find((entry) => entry.fileName === item.file_name)
+          ? local.find((entry) => pairsOnName(entry.fileName, item.file_name))
           : local.find((entry) => pairsOnSlot(entry.fileName, primary, item, slot))
       /**
        * Where the download lands when this device has no copy of it yet.
@@ -1389,7 +1451,7 @@ export class SaveSync {
         if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {
           await this.restoreArchive(location.dir, backups, download, remoteTime)
         } else {
-          await this.restoreFile(destination, backups, download, remoteTime)
+          await this.restoreFile(destination, backups, download, remoteTime, contentHashOf(item))
         }
         written += 1
         log.info('saves', `${kind} pulled`, {
@@ -1406,8 +1468,9 @@ export class SaveSync {
         })
       } catch (cause) {
         // A single failed asset should not block the launch — but it is the
-        // user's save, and until now nothing anywhere recorded that it did not
-        // arrive.
+        // user's save, and counted, so a run that lost everything cannot be
+        // reported as a run with nothing to do.
+        failed += 1
         log.error('saves', `could not pull a ${kind}`, cause, {
           romId: target.rom.id,
           id: item.id,
@@ -1418,7 +1481,7 @@ export class SaveSync {
         run?.moved()
       }
     }
-    return { written, offered: remote.length }
+    return { written, offered: remote.length, failed }
   }
 
   /**
@@ -1435,19 +1498,48 @@ export class SaveSync {
     destination: string,
     backups: string,
     download: (to: string) => Promise<void>,
-    remoteTime: number
+    remoteTime: number,
+    contentHash: string | null
   ): Promise<void> {
     await mkdir(join(destination, '..'), { recursive: true })
 
-    // Never clobber a local save without keeping a copy. Asked of the path
-    // rather than of the match, because a file can be sitting there without
-    // this game having claimed it: the server holds names under a game that
-    // `stemMatches` reads as another game's — a save uploaded by a version
-    // that matched on a prefix, or by a client that names its ROMs otherwise —
-    // and the download lands on that file whether or not anything matched it.
-    if (await stat(destination).catch(() => null)) await keepBackup(destination, backups)
-    await download(destination)
-    await stampMtime(destination, remoteTime)
+    /**
+     * Beside the save rather than onto it, and only renamed once it is whole.
+     *
+     * This is the file the emulator opens. Streaming the download straight
+     * into it makes a connection that drops part-way a live save truncated to
+     * however many bytes arrived — and because the rest of the function never
+     * runs, its mtime is left at now, which is ahead of the server's stamp. So
+     * every later pull skips it and the Saves tab offers to push the truncated
+     * copy over the good one. A backup is taken, but nothing reads it back.
+     *
+     * The hash is the same check a ROM gets on the way in. RomM states it as
+     * md5 on the asset; where it states none the length is all there is, which
+     * is what `verify` was already doing for firmware.
+     */
+    const partial = partialPathOf(destination)
+    try {
+      await download(partial)
+      if (contentHash) {
+        await verify(
+          partial,
+          { algorithm: 'md5', expected: contentHash },
+          { kind: 'save', fileName: basename(destination) }
+        )
+      }
+      // Never clobber a local save without keeping a copy. Asked of the path
+      // rather than of the match, because a file can be sitting there without
+      // this game having claimed it: the server holds names under a game that
+      // `stemMatches` reads as another game's — a save uploaded by a version
+      // that matched on a prefix, or by a client that names its ROMs otherwise
+      // — and the download lands on that file whether or not anything matched
+      // it.
+      if (await stat(destination).catch(() => null)) await keepBackup(destination, backups)
+      await rename(partial, destination)
+      await stampMtime(destination, remoteTime)
+    } finally {
+      await rm(partial, { force: true }).catch(() => undefined)
+    }
   }
 
   /**
@@ -1469,11 +1561,19 @@ export class SaveSync {
       await download(staging)
       await mkdir(dir, { recursive: true })
       await keepBackup(dir, backups, true)
-      await extractZip(staging, dir)
-      // Every file, not just the extracted ones: `findLocal` reads a directory
-      // save's age as the newest mtime anywhere under it, so one file the
-      // archive did not carry would keep the whole folder reading as newer.
-      for (const file of await walk(dir)) await stampMtime(file, remoteTime)
+      const extracted = await extractZip(staging, dir)
+      /**
+       * Only what came out of the archive.
+       *
+       * `findLocal` reads a directory save's age as the newest mtime anywhere
+       * under it, so a file the archive did not carry keeps the whole folder
+       * reading as newer — which is the truth: it holds something the server
+       * does not, and the next push is what settles that. Stamping those too
+       * made the folder read as synced and the local-only file never left this
+       * machine. A second player's profile that exists on one device alone is
+       * exactly that file.
+       */
+      for (const file of extracted) await stampMtime(file, remoteTime)
     } finally {
       await rm(staging, { force: true })
     }

@@ -17,6 +17,13 @@ cd "$(dirname "$0")/.."
 # it is the one step here that a machine which cannot run one still completes.
 npm run build
 
+# A backstop, not a budget. Node's own default is `Infinity`, so anything that
+# gets stuck below the driver's own waits — a debugger that never answers, an
+# emulator stand-in that will not close — is a run that hangs until the CI job
+# is cancelled, with no screenshot and no message. Generously above the longest
+# scenario, which is the one that runs an emulator.
+TEST_TIMEOUT_MS=${TEST_TIMEOUT_MS:-300000}
+
 # One file at a time on purpose. There is a real window being driven, and a
 # second suite competing for the machine changes how long a list takes to draw.
 #
@@ -34,4 +41,5 @@ exec ./scripts/headless.sh node \
   --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
   --test \
   --test-concurrency=1 \
+  --test-timeout="$TEST_TIMEOUT_MS" \
   "test/app/**/*.test.ts"

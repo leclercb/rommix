@@ -17,6 +17,15 @@ import { pipeline } from 'node:stream/promises'
  * URLs that need none of that.
  */
 
+/**
+ * How often a transfer reports its progress by default.
+ *
+ * On a clock rather than per chunk: every one of these is a whole program or a
+ * core, so each is tens of thousands of chunks, and a renderer told about each
+ * of them spends the download redrawing instead of drawing.
+ */
+const PROGRESS_EVERY_MS = 250
+
 /** How much of a transfer has arrived, and how much is expected in total. */
 export interface Fetched {
   receivedBytes: number
@@ -29,7 +38,7 @@ export async function fetchToFile(
   destination: string,
   {
     sizeHint = 0,
-    everyMs = 0,
+    everyMs = PROGRESS_EVERY_MS,
     refused,
     onProgress
   }: {
@@ -44,8 +53,9 @@ export async function fetchToFile(
     /**
      * The shortest gap between two reports. Zero reports every chunk.
      *
-     * A hundred-megabyte download is tens of thousands of chunks, and a
-     * renderer told about each of them spends the transfer redrawing.
+     * Everything fetched through here is a whole program or a core — tens of
+     * thousands of chunks — and a renderer told about each of them spends the
+     * transfer redrawing. See `PROGRESS_EVERY_MS`.
      */
     everyMs?: number
     /**

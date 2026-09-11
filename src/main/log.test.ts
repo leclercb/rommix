@@ -182,6 +182,30 @@ test('a file past the size limit is rolled over, and the live name starts again'
   assert.match(readFileSync(join(root, 'logs', rolled[0]), 'utf8'), /before the rollover/)
 })
 
+test('a second rollover in the same second keeps the first one', () => {
+  log.info('test', 'the first session')
+  pastTheLimit('a')
+  log.info('test', 'the second session')
+  pastTheLimit('b')
+  log.info('test', 'the third session')
+
+  // Two rollovers inside one second, and both files still there. The real
+  // trigger is `ROMMIX_LOG=debug` through a large download — which is exactly
+  // the state of someone who has been asked for a log, and the rename used to
+  // replace without a word.
+  const holding = (line: string): string[] =>
+    readdirSync(join(root, 'logs'))
+      .filter((name) => /^app-.*\.log$/.test(name))
+      .filter((name) => readFileSync(join(root, 'logs', name), 'utf8').includes(line))
+
+  const [first] = holding('the first session')
+  const [second] = holding('the second session')
+  assert.ok(first, 'the first session is still on disk')
+  assert.ok(second, 'the second session is still on disk')
+  assert.notEqual(first, second, 'the second rollover did not overwrite the first')
+  assert.match(written(), /the third session/)
+})
+
 test('a file left over from yesterday is rolled over on the first line of today', () => {
   log.info('test', 'yesterday evening')
   // The file as RomMix would find it after a night switched off. Nothing is

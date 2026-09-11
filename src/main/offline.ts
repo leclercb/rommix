@@ -156,18 +156,27 @@ export class OfflineCache {
      * is gone for good, and nothing else will ever name the file it left here —
      * `forget` deletes what the *current* record points at, so a copy that fell
      * out of the record before the game was uninstalled is a copy nothing can
-     * reach. And a cover RomM has restamped is the same path under a new
-     * `?ts=`, which the cache keys alike on purpose: the file has to go before
-     * it can be fetched again, or the loop below would find it already here and
-     * keep serving the old picture.
+     * reach. And a cover RomM has restamped is a different path, `?ts=` and
+     * all, so the fetch below brings the new picture down under a name of its
+     * own and this only takes away the one nothing points at any more.
      */
     const current = artworkOf(rom)
-    for (const path of previous ? artworkOf(previous) : []) {
-      if (!current.includes(path)) await rm(this.assetPath(path), { force: true })
-    }
 
+    /**
+     * Fetched first, and the old files removed only once they are here.
+     *
+     * The other order loses a cover permanently. A fetch that throws part-way
+     * leaves the previous record still naming files that have just been
+     * deleted, and `has(romId)` stays true — so every later start skips this
+     * game, `sweep` only ever deletes, and the picture is gone until the game
+     * is uninstalled and downloaded again.
+     */
     for (const path of [...current, ...iconsFor(rom.platform_slug, system)]) {
       await this.fetchAsset(path)
+    }
+
+    for (const path of previous ? artworkOf(previous) : []) {
+      if (!current.includes(path)) await rm(this.assetPath(path), { force: true })
     }
 
     /**
@@ -215,7 +224,20 @@ export class OfflineCache {
       }
 
       const rom = await this.game(romId)
-      if (!rom) continue
+      /**
+       * Unreadable, so nothing can say what it points at.
+       *
+       * Left in place it was the worst of both: `has(romId)` stays true, so
+       * the game is never written down again, while the loop below deletes its
+       * artwork for want of anything naming it. A record truncated by a crash
+       * mid-write is the case this whole function exists for, so it goes with
+       * the rest and the next start fetches the game afresh.
+       */
+      if (!rom) {
+        await rm(join(this.games, file), { force: true })
+        games += 1
+        continue
+      }
       for (const path of artworkOf(rom)) wanted.add(fileNameFor(path))
       // The console's icon belongs to the platform rather than to this game, so
       // it survives as long as any one game on the platform does.

@@ -436,7 +436,31 @@ const SAVES: SaveAsset[] = [
  * into, belong to the Switch and the PS3 and are not reachable from here. They
  * are worth seeing in the real app rather than inventing a platform for.
  */
-const biosPlatforms = (): BiosPlatform[] => [
+/**
+ * Firmware the demo has been told is installed, by id.
+ *
+ * `biosPlatforms` is a function because every note in it is translated, and
+ * the demo's Settings can change the language underneath — so it hands back
+ * fresh objects every call, and marking one installed used to mark a throwaway.
+ * Firmware → GBA → Install therefore succeeded and left the row still saying
+ * the file was missing, which is the "button looks broken" outcome `install`
+ * exists to avoid. This is the state that has to survive the rebuild; nothing
+ * is written anywhere and a reload puts it all back.
+ */
+const installedFirmware = new Set<number>()
+
+const biosPlatforms = (): BiosPlatform[] =>
+  biosReport().map((platform) => ({
+    ...platform,
+    items: platform.items.map((item) => ({
+      ...item,
+      installed:
+        item.installed || (item.firmwareId !== null && installedFirmware.has(item.firmwareId))
+    }))
+  }))
+
+/** The report as this library actually stands, before anything was installed. */
+const biosReport = (): BiosPlatform[] => [
   {
     platformId: 6,
     platformSlug: 'gba',
@@ -847,7 +871,7 @@ const bridge: RomMixBridge = {
         .flatMap((platform) => platform.items)
         .find((candidate) => candidate.firmwareId === firmwareId)
       if (!item) return refuse('demo.noFirmware')
-      item.installed = true
+      installedFirmware.add(firmwareId)
       return later(`${item.dir}/${item.fileName}`, 500)
     },
     syncAll: (platformId?: number | null) => {
@@ -856,7 +880,9 @@ const bridge: RomMixBridge = {
       const items = platforms.flatMap((platform) => platform.items)
       const outstanding = items.filter((item) => !item.installed)
       const fetchable = outstanding.filter((item) => item.firmwareId !== null)
-      for (const item of fetchable) item.installed = true
+      for (const item of fetchable) {
+        if (item.firmwareId !== null) installedFirmware.add(item.firmwareId)
+      }
       return later(
         {
           installed: fetchable.length,

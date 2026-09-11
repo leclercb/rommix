@@ -153,7 +153,7 @@ export async function connectionStatus(
  * The same question on a timer, announcing only the answers that changed.
  *
  * Only the change: the status is what the interface is built around while it
- * lasts, and pushing the same one every half minute would redraw the screen
+ * lasts, and pushing the same one on every tick would redraw the screen
  * somebody is reading for nothing.
  */
 export class ConnectionWatch {

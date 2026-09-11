@@ -6,19 +6,6 @@ import { ensureRoot } from './root.ts'
 
 /** RomMix main process bootstrap. */
 
-// The root has to exist before the Store reads from it. Electron's own userData
-// is deliberately left alone: it holds Chromium's caches, cookies, GPU state and
-// singleton locks, none of which belong in a folder meant to hold the handful of
-// files RomMix itself writes.
-ensureRoot()
-
-logSession({
-  version: app.getVersion(),
-  electron: process.versions.electron,
-  chrome: process.versions.chrome,
-  node: process.versions.node
-})
-
 /**
  * Anything that escaped everywhere else.
  *
@@ -66,10 +53,29 @@ applyDisplayFlags()
 
 // Only one instance may own the ROM tree and the download queue.
 if (!app.requestSingleInstanceLock()) {
-  log.info('app', 'another instance already holds the lock, quitting')
+  // Nothing is written here and nothing is read: everything below touches the
+  // *running* instance's files. A duplicate launch used to append a full
+  // starting banner to the live log and then run the sweep and the rollover
+  // against a file the first process was appending to — splitting one session
+  // across two files with no marker in either.
   app.quit()
 } else {
+  // The root has to exist before the Store reads from it. Electron's own
+  // userData is deliberately left alone: it holds Chromium's caches, cookies,
+  // GPU state and singleton locks, none of which belong in a folder meant to
+  // hold the handful of files RomMix itself writes.
+  ensureRoot()
+
+  logSession({
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node
+  })
+
   const rommix = new RomMixApp()
+  /** Set by the first quit, so the second one is let through. See below. */
+  let quitting = false
 
   void app.whenReady().then(async () => {
     const took = log.since()
@@ -112,11 +118,20 @@ if (!app.requestSingleInstanceLock()) {
     app.quit()
   })
 
-  app.on('before-quit', () => {
-    // So neither a check nor a connection poll can fire into a window that is
-    // closing.
-    rommix.updates.stop()
-    rommix.connection.stop()
-    log.info('app', '--- RomMix quitting ---')
+  /**
+   * The quit waits for the shutdown, which is why it has to be stopped once.
+   *
+   * `before-quit` is synchronous and `app.quit()` does not wait for anything
+   * started in it — but closing the emulator and sending the session's saves
+   * up cannot be done synchronously. So the first quit is turned down, the
+   * work is done, and the quit is asked for again: `shutdown` has already run
+   * by then and returns the same promise, so the second pass falls straight
+   * through.
+   */
+  app.on('before-quit', (event) => {
+    if (quitting) return
+    quitting = true
+    event.preventDefault()
+    void rommix.shutdown().finally(() => app.quit())
   })
 }

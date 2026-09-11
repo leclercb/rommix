@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useMemo, useState } from 'react'
+import { type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import { emulatorsForSystem, resolveEmulator } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import {
@@ -200,21 +200,38 @@ export function GameScreen({
    * on this same response, and asking for it separately would be a second round
    * trip for something already in hand. See `useGameMarks`.
    */
+  const run = useRef(0)
   useEffect(() => {
     setRom(null)
+    // Cleared with the game it belonged to. The `if (error)` branch below is
+    // tested before `!rom`, so one failed sibling fetch otherwise sat over
+    // every game opened afterwards in the same mount, with nothing on screen
+    // but a Back button.
+    setError(null)
     // Back to the top for a game arrived at from anywhere else — but straight
     // to the versions list for one opened from another's. Walking a game's
     // versions is a comparison, and being put back on Details at every step
     // means finding the tab again to take one step more. A game that turns out
     // to have no versions falls back on its own; see `activeTab`.
     setTab(fromVersions ? 'versions' : 'details')
+    /**
+     * Which fetch this is, so a slower earlier one cannot land last.
+     *
+     * The same guard both paging hooks have. Opening version B and then C in
+     * quick succession could otherwise draw B's metadata while `romId` — what
+     * Play, Uninstall and every save action act on — is C.
+     */
+    const mine = (run.current += 1)
     void window.rommix.library
       .rom(romId)
       .then((fetched) => {
+        if (run.current !== mine) return
         setRom(fetched)
         setStatus(fetched.rom_user.status)
       })
-      .catch((cause: Error) => setError(cause.message))
+      .catch((cause: Error) => {
+        if (run.current === mine) setError(cause.message)
+      })
   }, [romId, fromVersions, setStatus])
 
   /**

@@ -3,10 +3,9 @@ import { afterEach, describe, test } from 'node:test'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { emulatorById } from '@config/emulators'
-import type { EmulatorDescriptor, EmulatorState, ResolvedInstall } from '@config/emulators'
+import type { EmulatorState } from '@config/emulators'
 import type { Settings } from '@shared/types'
-import { detectEmulators, expandShell, prepareRomFolders, usableVariants } from './emulators.ts'
+import { detectEmulators, expandShell, prepareRomFolders } from './emulators.ts'
 
 /**
  * Probing the machine for the emulators in the registry.
@@ -459,53 +458,6 @@ describe('an emulator packaged as a flatpak, which keeps its files in its own tr
     // Neither a number nor an empty string is a path.
     assert.equal(found.paths.saves, null)
     assert.equal(found.paths.bios, null)
-  })
-})
-
-describe('the ways an emulator can really run a system', () => {
-  const descriptor = emulatorById('emudeck') as EmulatorDescriptor
-  const system = descriptor.systems[0]
-
-  test('a scripts install offers only the launchers that are on disk', () => {
-    const dir = home()
-    const launchers = join(dir, 'launchers')
-    mkdirSync(launchers, { recursive: true })
-
-    const install: ResolvedInstall = { kind: 'scripts', ref: launchers }
-    const declared = usableVariants(descriptor, system, null)
-    assert.ok(declared.length > 0, 'this system needs declared variants to be worth testing')
-
-    // Nothing installed: a row naming a script that is not there describes an
-    // emulator this user does not have, and offering it is a launch that fails
-    // with nothing on screen explaining why.
-    assert.deepEqual(usableVariants(descriptor, system, install), [])
-
-    // Now put the first one's script where it belongs.
-    const wanted = declared[0].requires
-    assert.ok(wanted, 'a scripts variant has to name what it needs')
-    write(join(launchers, wanted), '')
-    const usable = usableVariants(descriptor, system, install)
-    assert.deepEqual(
-      usable.map((variant) => variant.id),
-      [declared[0].id]
-    )
-  })
-
-  test('every other install kind passes through untouched', () => {
-    // A flatpak or an AppImage is one program, and its variants are facts about
-    // it rather than about the folder it was found in.
-    const declared = usableVariants(descriptor, system, null)
-    for (const install of [
-      { kind: 'appimage', ref: '/nowhere/x.AppImage' },
-      { kind: 'flatpak', ref: 'org.example.App', location: '/nowhere' },
-      { kind: 'binary', ref: '/usr/bin/x' }
-    ] as ResolvedInstall[]) {
-      assert.deepEqual(usableVariants(descriptor, system, install), declared)
-    }
-  })
-
-  test('a system this emulator does not run has no variants at all', () => {
-    assert.deepEqual(usableVariants(descriptor, 'not-a-system', null), [])
   })
 })
 

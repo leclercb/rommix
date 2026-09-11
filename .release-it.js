@@ -30,7 +30,15 @@ export default {
       'npm run lint',
       'npm run typecheck',
       'npm test',
-      'npm run test:app'
+      'npm run test:app',
+      // The one thing none of the above runs. `test:app` drives `out/` with a
+      // bare `electron .`, so `electron-builder.yml` and
+      // `scripts/after-pack.mjs` were unexercised until the tag was already
+      // public — and a failure that only happens at pack time then turned both
+      // release legs red, leaving a pushed tag with no release behind it to be
+      // deleted by hand. `pack:dir` is the cheap variant and still runs
+      // `after-pack.mjs`.
+      'npm run pack:dir'
     ],
 
     // Runs after package.json is bumped and before the release commit, so what

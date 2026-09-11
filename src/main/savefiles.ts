@@ -289,11 +289,29 @@ export function syncStateOf(
 ): SaveSyncState {
   if (localMtimeMs === null) return 'remote-only'
 
+  if (timesAgree(localMtimeMs, remoteUpdatedAt)) return 'synced'
+
   const remote = Date.parse(remoteUpdatedAt)
-  if (!Number.isFinite(remote)) return 'synced'
-  if (Math.abs(localMtimeMs - remote) <= SYNC_TOLERANCE_MS) return 'synced'
   if (localMtimeMs > remote) return 'local-newer'
   return fromThisDevice === true ? 'synced' : 'remote-newer'
+}
+
+/**
+ * Do the two stamps say the same moment, give or take what a filesystem
+ * rounds away?
+ *
+ * The one `synced` no other evidence can improve on, which is why it is worth
+ * asking separately: every other route to that answer is an inference, and an
+ * inference is something the bytes can overturn. See `SaveSyncState.compare`.
+ *
+ * A server whose `updated_at` cannot be parsed agrees with everything. Nothing
+ * can be concluded from a date that is not one, and offering to overwrite a
+ * save on the strength of it is the worse of the two mistakes.
+ */
+export function timesAgree(localMtimeMs: number, remoteUpdatedAt: string): boolean {
+  const remote = Date.parse(remoteUpdatedAt)
+  if (!Number.isFinite(remote)) return true
+  return Math.abs(localMtimeMs - remote) <= SYNC_TOLERANCE_MS
 }
 
 /**

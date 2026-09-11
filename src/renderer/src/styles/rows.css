@@ -3,9 +3,12 @@
    -------------------------------------------------------------------------- */
 
 .row {
-  /* Overflow is visible so the focus scale is not clipped. */
   display: flex;
   gap: 18px;
+  /* `overflow-y: visible` beside an `overflow-x` that is not computes to
+     `auto`, so a row clips vertically whatever this says — which is what takes
+     the drop shadow off a focused card. The padding below is what makes room
+     for the focus scale instead. */
   overflow-x: auto;
   overflow-y: visible;
   padding: 10px 4px 16px;

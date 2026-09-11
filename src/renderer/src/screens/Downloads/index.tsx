@@ -66,6 +66,14 @@ export function DownloadsScreen(): JSX.Element {
   const { installed, navigate, notify, offline, refreshInstalled, settings } = useApp()
   const downloads = useDownloads()
   const [syncing, setSyncing] = useState(false)
+  /**
+   * Whether B has put the progress panel away while the check runs on.
+   *
+   * Separate from `syncing`, which is what keeps the button from starting a
+   * second one: the panel is a report, and nothing behind it was ever blocked
+   * — only covered. See `Overlay.onDismiss`.
+   */
+  const [panelPutAway, setPanelPutAway] = useState(false)
   const [progress, setProgress] = useState<{ checked: number; total: number } | null>(null)
   const [confirming, setConfirming] = useState<InstalledRom | null>(null)
   // Whatever is moving right now is why the screen was opened; with nothing in
@@ -89,6 +97,7 @@ export function DownloadsScreen(): JSX.Element {
    */
   const sync = async (): Promise<void> => {
     setSyncing(true)
+    setPanelPutAway(false)
     setProgress(null)
     try {
       const result = await window.rommix.library.sync()
@@ -279,8 +288,12 @@ export function DownloadsScreen(): JSX.Element {
         onChange={setTab}
       />
 
-      {syncing ? (
-        <Overlay title={t('downloads.checkingTitle')} icon="refresh">
+      {syncing && !panelPutAway ? (
+        <Overlay
+          title={t('downloads.checkingTitle')}
+          icon="refresh"
+          onDismiss={() => setPanelPutAway(true)}
+        >
           <p className="muted">
             {progress
               ? t('downloads.checkedOf', { checked: progress.checked, total: progress.total })

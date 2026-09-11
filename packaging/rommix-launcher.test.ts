@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { describe, test } from 'node:test'
+import { after, describe, test } from 'node:test'
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   chmodSync,
@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -40,6 +41,24 @@ interface Launch {
 }
 
 /**
+ * A temporary directory that goes when the run does.
+ *
+ * Each of these holds an executable copy of the launcher, and the suite makes
+ * one per case — so without this every `npm test` left a dozen of them behind
+ * in the system temp directory, for nothing to ever clear away.
+ */
+const scratches: string[] = []
+after(() => {
+  for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
+function scratch(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix))
+  scratches.push(dir)
+  return dir
+}
+
+/**
  * Run the launcher with a stand-in for the binary, and read back what happened.
  *
  * The stand-in writes its own arguments down: what the launcher decides is a
@@ -47,7 +66,7 @@ interface Launch {
  * it.
  */
 function launch(env: Record<string, string>, args: string[] = []): Launch {
-  const dir = mkdtempSync(join(tmpdir(), 'rommix-launcher-'))
+  const dir = scratch('rommix-launcher-')
   const home = join(dir, 'home')
   mkdirSync(home, { recursive: true })
   const runtime = join(dir, 'run')
@@ -83,7 +102,7 @@ describe('the backend it chooses', () => {
   })
 
   test('and leaves a session with a compositor alone', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-compositor-'))
+    const dir = scratch('rommix-compositor-')
     writeFileSync(join(dir, 'wayland-0'), '')
     const { argv } = launch({
       XDG_SESSION_TYPE: 'wayland',
@@ -161,14 +180,14 @@ describe('what it writes down', () => {
 
 describe('the root it writes under', () => {
   test('ROMMIX_HOME, before anything else', () => {
-    const elsewhere = mkdtempSync(join(tmpdir(), 'rommix-elsewhere-'))
+    const elsewhere = scratch('rommix-elsewhere-')
     const run = launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: elsewhere })
     assert.equal(run.logged(elsewhere).length, 1)
   })
 
   test('then the pointer file, newline or no newline', () => {
-    const pointed = mkdtempSync(join(tmpdir(), 'rommix-pointed-'))
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-pointer-'))
+    const pointed = scratch('rommix-pointed-')
+    const dir = scratch('rommix-pointer-')
     mkdirSync(join(dir, '.config', 'rommix'), { recursive: true })
     // Written without one, which is the shape a hand-edited pointer takes.
     writeFileSync(join(dir, '.config', 'rommix', 'root'), pointed)
@@ -190,7 +209,7 @@ describe('the root it writes under', () => {
 describe('what it refuses to let stop a launch', () => {
   /** Run with the named commands replaced by ones that fail. */
   function without(missing: string[], env: Record<string, string>): string[] {
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-missing-'))
+    const dir = scratch('rommix-missing-')
     for (const name of missing) {
       writeFileSync(join(dir, name), '#!/bin/sh\nexit 127\n')
       chmodSync(join(dir, name), 0o755)
@@ -221,7 +240,7 @@ describe('what it refuses to let stop a launch', () => {
   test('and a console nobody is reading any more', () => {
     // A reader that has gone delivers SIGPIPE, which ends a shell before any
     // status can be tested — so the write is made under an ignored one.
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-pipe-'))
+    const dir = scratch('rommix-pipe-')
     writeFileSync(join(dir, 'rommix'), readFileSync(LAUNCHER))
     chmodSync(join(dir, 'rommix'), 0o755)
     writeFileSync(join(dir, 'rommix.bin'), `#!/bin/sh\nprintf '%s\\n' "$@" > ${dir}/argv\n`)
@@ -247,7 +266,7 @@ describe('what it refuses to let stop a launch', () => {
     // The two together, which is the pair that used to be fatal: the shell's
     // own complaint about the unwritable file went to a pipe whose reader had
     // gone, and SIGPIPE ended it before the exec.
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-both-'))
+    const dir = scratch('rommix-both-')
     writeFileSync(join(dir, 'rommix'), readFileSync(LAUNCHER))
     chmodSync(join(dir, 'rommix'), 0o755)
     writeFileSync(join(dir, 'rommix.bin'), `#!/bin/sh\nprintf '%s\\n' "$@" > ${dir}/argv\n`)
@@ -284,7 +303,7 @@ describe('what it refuses to let stop a launch', () => {
   test('and it leaves the binary the signals it expects', () => {
     // An ignored disposition survives `exec`, and Chromium is entitled to the
     // default one.
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-signals-'))
+    const dir = scratch('rommix-signals-')
     writeFileSync(join(dir, 'rommix'), readFileSync(LAUNCHER))
     chmodSync(join(dir, 'rommix'), 0o755)
     writeFileSync(
@@ -310,7 +329,7 @@ describe('what it refuses to let stop a launch', () => {
 
 describe('the history it keeps', () => {
   test('launches accumulate rather than replacing each other', () => {
-    const root = mkdtempSync(join(tmpdir(), 'rommix-history-'))
+    const root = scratch('rommix-history-')
     for (let at = 0; at < 3; at += 1) launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: root })
     assert.equal(
       readFileSync(join(root, 'logs', 'launcher.log'), 'utf8')
@@ -321,7 +340,7 @@ describe('the history it keeps', () => {
   })
 
   test('and it is trimmed back to the cap once it is over it', () => {
-    const root = mkdtempSync(join(tmpdir(), 'rommix-trim-'))
+    const root = scratch('rommix-trim-')
     mkdirSync(join(root, 'logs'), { recursive: true })
     const seeded = Array.from({ length: 400 }, (_, at) => `seeded line ${at}`).join('\n')
     writeFileSync(join(root, 'logs', 'launcher.log'), `${seeded}\n`)
@@ -337,7 +356,7 @@ describe('the history it keeps', () => {
   })
 
   test('and left alone while it is under the cap', () => {
-    const root = mkdtempSync(join(tmpdir(), 'rommix-untrimmed-'))
+    const root = scratch('rommix-untrimmed-')
     mkdirSync(join(root, 'logs'), { recursive: true })
     writeFileSync(join(root, 'logs', 'launcher.log'), 'an older launch\n')
 
@@ -351,12 +370,12 @@ describe('the history it keeps', () => {
     // to be two, the launcher in front of it cannot. Two of them trimming
     // through one shared name emptied the file outright; through a name each,
     // the worst a lost race costs is the line it was adding.
-    const root = mkdtempSync(join(tmpdir(), 'rommix-concurrent-'))
+    const root = scratch('rommix-concurrent-')
     mkdirSync(join(root, 'logs'), { recursive: true })
     const seeded = Array.from({ length: 400 }, (_, at) => `seeded line ${at}`).join('\n')
     writeFileSync(join(root, 'logs', 'launcher.log'), `${seeded}\n`)
 
-    const dir = mkdtempSync(join(tmpdir(), 'rommix-racing-'))
+    const dir = scratch('rommix-racing-')
     writeFileSync(join(dir, 'rommix'), readFileSync(LAUNCHER))
     chmodSync(join(dir, 'rommix'), 0o755)
     writeFileSync(join(dir, 'rommix.bin'), '#!/bin/sh\nexit 0\n')

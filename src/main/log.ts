@@ -1,4 +1,12 @@
-import { appendFileSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync
+} from 'node:fs'
 import { join } from 'node:path'
 import { rootPaths } from './root.ts'
 
@@ -30,7 +38,11 @@ const ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 
 function configuredLevel(): LogLevel | 'off' {
   const wanted = process.env.ROMMIX_LOG?.trim().toLowerCase()
   if (wanted === 'off' || wanted === 'none') return 'off'
-  if (wanted && wanted in ORDER) return wanted as LogLevel
+  // `hasOwn` rather than `in`: `ROMMIX_LOG=constructor` is a key on every
+  // object's prototype, so `in` accepts it as a level, every comparison
+  // against it then yields false, and RomMix runs with no log at all and
+  // nothing to say why.
+  if (wanted && Object.hasOwn(ORDER, wanted)) return wanted as LogLevel
   return 'info'
 }
 
@@ -115,8 +127,14 @@ function filePath(): string | null {
  * midnight files yesterday's lines under yesterday. And a stamp rather than a
  * number, because numbers have to be shuffled along on every rotation — with
  * several files kept, `.1` becoming `.2` becoming `.3` is a rename per file per
- * rollover, and a crash half way through renames one log over another. A name
- * nothing else will ever take needs no shuffling.
+ * rollover, and a crash half way through renames one log over another.
+ *
+ * Seconds as well as minutes, and still not a name nothing else can take: a
+ * debug run through a large download fills the file more than once in the same
+ * second. Which is why the caller asks `freeRolledName` rather than this —
+ * `renameSync` replaces without a word, and one file would be left holding the
+ * later session with a "rolled the previous file over" line naming a path that
+ * no longer holds what it says.
  */
 function rolledName(path: string, until: Date): string {
   const at = [
@@ -124,9 +142,33 @@ function rolledName(path: string, until: Date): string {
     String(until.getMonth() + 1).padStart(2, '0'),
     String(until.getDate()).padStart(2, '0'),
     String(until.getHours()).padStart(2, '0'),
-    String(until.getMinutes()).padStart(2, '0')
+    String(until.getMinutes()).padStart(2, '0'),
+    String(until.getSeconds()).padStart(2, '0')
   ].join('-')
   return path.replace(/\.log$/, `-${at}.log`)
+}
+
+/**
+ * The first name under that stamp nothing is using, or null where there is
+ * none.
+ *
+ * The one thing a rollover must never do is destroy a log, and `renameSync`
+ * overwrites without a word. A counter rather than a finer stamp because there
+ * is no resolution that cannot be reached twice, and because the sweep already
+ * reads any run of digits and dashes as one of these.
+ *
+ * Null rather than a name to overwrite. The live file then goes on growing
+ * past the limit until the next second frees a name, which is the cheaper of
+ * the two failures by a long way.
+ */
+function freeRolledName(path: string, until: Date): string | null {
+  const base = rolledName(path, until)
+  if (!existsSync(base)) return base
+  for (let index = 1; index < 100; index += 1) {
+    const candidate = base.replace(/\.log$/, `-${index}.log`)
+    if (!existsSync(candidate)) return candidate
+  }
+  return null
 }
 
 /** The local day a moment falls on, which is the one a person means. */
@@ -146,7 +188,8 @@ function rotate(path: string): void {
     const info = statSync(path)
     const wrote = new Date(info.mtimeMs)
     if (info.size < MAX_BYTES && dayOf(wrote) === dayOf(new Date())) return
-    const rolled = rolledName(path, wrote)
+    const rolled = freeRolledName(path, wrote)
+    if (!rolled) return
     renameSync(path, rolled)
     if (enabled('info')) {
       pending.push(
@@ -230,10 +273,18 @@ const SECRET_KEY = /token|password|secret|authorization|credential|cookie|api[-_
 
 /** Anything that looks like a credential in free text, whatever it was called. */
 function scrubText(value: string): string {
-  return value
-    .replace(/\brmm_[A-Za-z0-9._-]+/g, 'rmm_***')
-    .replace(/\beyJ[A-Za-z0-9._-]{20,}/g, 'jwt_***')
-    .replace(/([?&](?:token|access_token|refresh_token|password)=)[^&\s]+/gi, '$1***')
+  return (
+    value
+      .replace(/\brmm_[A-Za-z0-9._-]+/g, 'rmm_***')
+      .replace(/\beyJ[A-Za-z0-9._-]{20,}/g, 'jwt_***')
+      .replace(/([?&](?:token|access_token|refresh_token|password)=)[^&\s]+/gi, '$1***')
+      // A URL's userinfo. RomM accepts HTTP basic, so `https://bob:hunter2@romm`
+      // is something a person pastes into the address field — and every line
+      // about a request carries the base URL. `normaliseBaseUrl` strips it
+      // before anything is stored, which leaves whatever reached a log line by
+      // another route.
+      .replace(/(\bhttps?:\/\/)[^/@\s]+@/gi, '$1***@')
+  )
 }
 
 /** The same, for the structured half of a line. */

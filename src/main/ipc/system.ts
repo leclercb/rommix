@@ -187,8 +187,13 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     return { current: target, fallback: defaultRoot(), fromEnvironment: false }
   })
 
-  handle('system:restart', () => {
+  handle('system:restart', async () => {
     log.info('app', "restarting at the interface's request")
+    // `app.exit` does not emit `before-quit`, so the shutdown has to be asked
+    // for here rather than left to it — otherwise a restart orphans the
+    // emulator and leaves RomM reporting a game that is no longer up. See
+    // `RomMixApp.shutdown`.
+    await rommix.shutdown()
     app.relaunch()
     app.exit(0)
   })

@@ -15,12 +15,12 @@
 }
 
 /*
- * Three quarters of the screen, not a fixed 620px.
+ * A share of the screen rather than a fixed width.
  *
  * What a dialog holds here is mostly file names — release assets, saves about
  * to be pushed, the folder a game will be deleted from — and those are long,
- * unbreakable and the whole reason the dialog is on screen. At 620px they
- * ellipsised, which turns "confirm this" into "confirm something".
+ * unbreakable and the whole reason the dialog is on screen. Anything narrow
+ * enough to ellipsise them turns "confirm this" into "confirm something".
  *
  * A share of the viewport rather than a wider fixed number because the viewport
  * is not a fixed thing: `applyUiScale` renders at 2× on a 4K panel, so the page
@@ -190,10 +190,10 @@
 }
 
 /*
- * A pill rather than a fixed circle. The chip has to hold `A` and `Shift+Tab`
- * alike now that it names keyboard keys as well as controller buttons, and a
- * fixed 22px circle simply let the longer ones spill over the label next to it.
- * `min-width` equal to the height keeps a single character perfectly round.
+ * A pill rather than a circle. The chip has to hold `A` and `Shift+Tab` alike,
+ * naming keyboard keys as well as controller buttons, and a fixed circle lets
+ * the longer ones spill over the label next to it. `min-width` equal to the
+ * height keeps a single character perfectly round.
  */
 .hint__key {
   display: inline-flex;
@@ -259,7 +259,7 @@
 
 .kv--columns .kv__row {
   display: grid;
-  /* Narrower than the single-column list's 210px: every label here is one or
+  /* Narrower than the single-column `.kv` above: every label here is one or
      two words, and what is left over goes to the value, which is not. */
   grid-template-columns: 150px minmax(0, 1fr);
   gap: 20px;

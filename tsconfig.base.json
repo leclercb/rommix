@@ -1,0 +1,35 @@
+{
+  /*
+   * What both projects hold in common.
+   *
+   * Extended rather than repeated: `tsconfig.node.json` and
+   * `tsconfig.web.json` carried twelve identical options and the two shared
+   * path aliases apiece, so a strictness flag added to one and not the other
+   * typechecked green. What stays in each of them is what genuinely differs —
+   * which libraries and types are available, whether there is JSX, and which
+   * tree is being checked.
+   */
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // Shared code is imported both by a bundler and by Node's TypeScript
+    // stripping in the tests, and the latter requires explicit .ts specifiers
+    // on relative imports. Vite resolves them fine.
+    "allowImportingTsExtensions": true,
+    // No baseUrl: `paths` resolves relative to this file, and baseUrl is
+    // deprecated as of TypeScript 7.
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "@config/*": ["./src/config/*"]
+    }
+  }
+}

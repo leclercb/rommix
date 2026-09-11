@@ -15,6 +15,7 @@ import { realHome } from './xdg.ts'
 import { log } from './log.ts'
 import type { RommClient } from './romm/index.ts'
 import type { SaveSync } from './saves.ts'
+import { SYNC_TOLERANCE_MS } from './savefiles.ts'
 import type { Store } from './store.ts'
 import { t } from './i18n.ts'
 
@@ -129,6 +130,41 @@ async function forceQuit(child: ChildProcess, install: ResolvedInstall | null): 
  */
 const OPEN_SETTLE_MS = 2500
 
+/**
+ * How long a quit waits for the session in progress to be accounted for.
+ *
+ * Long enough for the emulator to go down and for the push that follows it to
+ * reach a server on a home network; short enough that a quit still feels like
+ * one when the emulator ignores being closed. See `Launcher.shutdown`.
+ */
+const SHUTDOWN_GRACE_MS = 8000
+
+/**
+ * How much of an emulator's output is kept for the failure report.
+ *
+ * The tail rather than all of it: emulators are chatty — RetroArch logs its
+ * whole run — and what a report needs is the last thing it said before it went.
+ */
+const OUTPUT_TAIL_BYTES = 8000
+
+/**
+ * Watch both of a process's streams, and hand back what they have said.
+ *
+ * Both, because which one carries the reason is not something the emulator
+ * agrees with us about: RetroArch logs its whole run — including the `[ERROR]`
+ * line naming the fatal problem — to stdout, and reading stderr alone means
+ * watching it die and reporting nothing.
+ */
+function watchOutput(child: ChildProcess): () => string {
+  let output = ''
+  const collect = (chunk: Buffer): void => {
+    output = (output + chunk.toString()).slice(-OUTPUT_TAIL_BYTES)
+  }
+  child.stdout?.on('data', collect)
+  child.stderr?.on('data', collect)
+  return () => output
+}
+
 export class Launcher {
   /**
    * An emulator started on its own and still up, so the overlay in front of it
@@ -154,7 +190,22 @@ export class Launcher {
     /** Close it outright. Null until there is a process to send it to. */
     forceKill: (() => void) | null
     stopped: boolean
+    /** Resolves when `launch` has finished accounting for this session. */
+    settled: Promise<void>
+    finish: () => void
   } | null = null
+
+  /**
+   * The game being played right now, or null.
+   *
+   * For anything that must not touch a save file while an emulator has it
+   * open — the catch-up drain is the one that does. Read rather than the
+   * session itself, so nothing outside this class can act on the handles in
+   * it.
+   */
+  get playing(): number | null {
+    return this.current?.romId ?? null
+  }
 
   constructor(
     private readonly store: Store,
@@ -227,6 +278,10 @@ export class Launcher {
     // Claimed before the first await, so a second launch is refused for the
     // whole session rather than only once the emulator is up. Until there is a
     // process, stopping can only be recorded as an intention.
+    let finish = (): void => {}
+    const settled = new Promise<void>((resolve) => {
+      finish = resolve
+    })
     const session = {
       romId: rom.id,
       kill: (): void => {
@@ -235,7 +290,9 @@ export class Launcher {
       // Assigned once there is a process. Before that there is nothing to
       // force: `kill` above only marks the session abandoned.
       forceKill: null,
-      stopped: false
+      stopped: false,
+      settled,
+      finish
     }
     this.current = session
 
@@ -282,10 +339,19 @@ export class Launcher {
       if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
 
       const startedAt = new Date()
-      // Anything the emulator writes after this instant is part of this
-      // session. One second of slack absorbs clock/filesystem timestamp
-      // granularity.
-      const since = startedAt.getTime() - 1000
+      /**
+       * Anything the emulator writes after this instant is part of this
+       * session.
+       *
+       * The slack is `SYNC_TOLERANCE_MS`, imported rather than restated so the
+       * two cannot drift apart: it is the same filesystem granularity both are
+       * about. A handheld's SD card is FAT32 or exFAT, which records mtimes to
+       * the nearest two seconds and rounds *down* — so a save written a
+       * fraction of a second after the launch is stamped before it, and with
+       * less slack than that falls outside both the push and the dialog that
+       * would have offered it.
+       */
+      const since = startedAt.getTime() - SYNC_TOLERANCE_MS
 
       // What RomM answers with when asked what is being played, for as long as
       // it is. Raised here rather than when the launch was asked for, so that a
@@ -294,6 +360,12 @@ export class Launcher {
       markedPlaying = await this.tellRomm('now playing', () =>
         this.client.setNowPlaying(rom.id, true)
       )
+
+      // Asked again after it, because it is an await against a server: until
+      // `run` repoints `session.kill` at a real process, a stop pressed in here
+      // sets a flag against a kill that does nothing, and the game starts after
+      // it was cancelled.
+      if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
 
       const exit = await this.run(argv, session, emulator.install, emulatorById(emulator.id)?.env)
       const playSeconds = Math.round((Date.now() - startedAt.getTime()) / 1000)
@@ -420,6 +492,7 @@ export class Launcher {
       // Released only once the saves are back on the server, not when the
       // emulator exits: until then the session still owns the save files.
       this.current = null
+      session.finish()
     }
   }
 
@@ -491,19 +564,7 @@ export class Launcher {
         env: { ...process.env, ...env }
       })
 
-      /**
-       * Both streams, because which one carries the reason is not something
-       * the emulator agrees with us about: RetroArch logs its whole run —
-       * including the `[ERROR]` line naming the fatal problem — to stdout, and
-       * reading stderr alone means watching it die and reporting nothing.
-       */
-      let output = ''
-      const collect = (chunk: Buffer): void => {
-        // Keep only the tail; emulators are chatty and we just want the reason.
-        output = (output + chunk.toString()).slice(-8000)
-      }
-      child.stdout?.on('data', collect)
-      child.stderr?.on('data', collect)
+      const tail = watchOutput(child)
 
       log.info('emulator', 'process spawned', { pid: child.pid ?? null, command: argv.join(' ') })
 
@@ -529,6 +590,7 @@ export class Launcher {
         // signal are what an emulator's own bug tracker asks for, and the
         // reading below deliberately discards most of that distinction.
         const exit = { pid: child.pid ?? null, code, signal, ms: ranMs, signalled }
+        const output = tail()
         const { kind, report, detail } = readExit({ code, signal, signalled, ranMs, output })
 
         if (kind === 'asked') log.info('emulator', 'exited after being asked to stop', exit)
@@ -584,6 +646,44 @@ export class Launcher {
   }
 
   /**
+   * Close whatever is up, and wait for the session to be accounted for.
+   *
+   * What RomMix quitting has to do before the process goes. The launch child
+   * is `detached`, so nothing about closing RomMix reaches it and it outlives
+   * the application that started it — with `launch`'s `finally` never running,
+   * which means RomM is never told the game stopped (and nothing on the server
+   * ever lowers that flag by itself) and the session's saves are neither
+   * pushed nor written down as unsent, so the catch-up has no record to act
+   * on.
+   *
+   * Bounded, because an emulator that ignores being asked to close must not be
+   * able to hold a quit open: past the deadline the process goes anyway, which
+   * is no worse than what happened before and no better than it has to be. The
+   * force kill is what `RunningOverlay` offers a person, used here without
+   * asking — the alternative is a window that will not close.
+   */
+  async shutdown(timeoutMs = SHUTDOWN_GRACE_MS): Promise<void> {
+    const session = this.current
+    this.stop(true)
+    if (!session) return
+    await Promise.race([
+      session.settled,
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          log.warn('launch', 'the session did not settle before the deadline; quitting anyway', {
+            romId: session.romId
+          })
+          resolve()
+        }, timeoutMs)
+        // Nothing else keeps the loop alive for this: the quit is already
+        // under way, and a timer that outlives the wait is five seconds of a
+        // process that has nothing left to do.
+        timer.unref()
+      })
+    ])
+  }
+
+  /**
    * Start an emulator with no game, from the button beside it in Settings.
    *
    * Detached, unlike a launch: this is for the setup work that only the
@@ -622,12 +722,7 @@ export class Launcher {
       env: { ...process.env, ...(descriptor.env ?? {}) }
     })
 
-    let output = ''
-    const collect = (chunk: Buffer): void => {
-      output = (output + chunk.toString()).slice(-8000)
-    }
-    child.stdout?.on('data', collect)
-    child.stderr?.on('data', collect)
+    const tail = watchOutput(child)
 
     return new Promise<string>((resolvePromise, rejectPromise) => {
       // Cleared by whichever of the three outcomes happens first, so a settled
@@ -693,14 +788,14 @@ export class Launcher {
           // flagged, or failing that the last thing it said. An emulator that
           // exits this fast showed the user nothing, whatever its exit code —
           // RetroDECK reports its own success rather than the game's.
-          const detail = complaint(output)
+          const detail = complaint(tail())
           log.error('emulator', 'quit immediately when started on its own', undefined, {
             emulator: emulator.id,
             command,
             code,
             signal,
             detail,
-            output: output.slice(-2000)
+            output: tail().slice(-2000)
           })
           rejectPromise(
             new Error(

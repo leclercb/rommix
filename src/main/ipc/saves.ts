@@ -9,37 +9,11 @@ import type {
 import type { RomMixApp } from '../app.ts'
 import { saveContext } from './context.ts'
 import type { Handle } from './handler.ts'
+import { throttledProgress } from './progress.ts'
 
-/**
- * How often the bytes of the file in flight are reported to the renderer.
- *
- * The same reasoning as the BIOS install's own throttle: a chunk lands
- * thousands of times over a directory save, the bar cannot show the difference
- * between one and the next, and every message crosses IPC and redraws the
- * screen. See `PROGRESS_INTERVAL_MS` in `ipc/bios.ts`.
- */
-const PROGRESS_INTERVAL_MS = 250
-
-/**
- * One transfer's progress, on its way to the game screen.
- *
- * Anything that moves the run along — a new file, a file finished — goes
- * straight out, so the count and the name are never stale. Only the byte
- * counter inside one file is held back.
- */
-function saveProgress(rommix: RomMixApp): (progress: SaveProgress) => void {
-  let sentAt = 0
-  let sentFor: string | null = null
-
-  return (progress) => {
-    const step = `${progress.done}:${progress.fileName}`
-    const now = Date.now()
-    if (step === sentFor && now - sentAt < PROGRESS_INTERVAL_MS) return
-    sentAt = now
-    sentFor = step
-    rommix.send('saves:progress', progress)
-  }
-}
+/** One transfer's progress, on its way to the game screen. */
+const saveProgress = (rommix: RomMixApp): ((progress: SaveProgress) => void) =>
+  throttledProgress<SaveProgress>(rommix, 'saves:progress')
 
 /** Moving saves and states between this device and RomM, in either direction. */
 export function registerSaveIpc(rommix: RomMixApp, handle: Handle): void {

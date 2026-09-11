@@ -116,7 +116,8 @@ export function TextField({
   type = 'text',
   hint,
   field,
-  autoFocus = false
+  autoFocus = false,
+  focusId
 }: {
   label: string
   value: string
@@ -127,12 +128,15 @@ export function TextField({
   /** Which box this is, for `npm run test:app`. See CONTRIBUTING. */
   field?: string
   autoFocus?: boolean
+  /** A name for the focusable, for a shortcut that jumps here. */
+  focusId?: string
 }): JSX.Element {
   const { t } = useI18n()
   const { ref, props } = useFocusable({
     onSelect: () => (ref.current as HTMLInputElement | null)?.focus(),
     autoFocus,
-    actionLabel: t('action.type')
+    actionLabel: t('action.type'),
+    id: focusId
   })
 
   /** The last character inserted, and when — see the note on this component. */
@@ -175,7 +179,14 @@ export function TextField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') (event.target as HTMLInputElement).blur()
+          if (event.key !== 'Escape') return
+          // One press, one action. The window listener reads Escape as Back,
+          // and it fires whatever this does — so leaving a "Home folder" field
+          // also threw the highlight into the nav bar with the draft form still
+          // open behind it. Handing control back to the spatial navigator is
+          // the whole of what Escape means in here.
+          event.stopPropagation()
+          ;(event.target as HTMLInputElement).blur()
         }}
         {...props}
       />

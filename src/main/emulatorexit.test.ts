@@ -34,6 +34,29 @@ describe('an exit somebody asked for', () => {
     assert.equal(reading.report.startupError, null)
   })
 
+  test('a fault signal is a crash, not a stop', () => {
+    /**
+     * The arm above exists for an external `kill`, and it used to take any
+     * signal at all.
+     *
+     * An emulator dying on `SIGSEGV` or `SIGABRT` — a missing shared library, a
+     * bad ROM, a GPU driver — closes with `code: null` and a signal, and
+     * reading that as a deliberate stop reported a clean session, logged
+     * "exited after being asked to stop", and filed a zero-second play session
+     * with RomM. On screen the Play button did nothing and RomMix said nothing.
+     */
+    const crashed = readExit(exit({ signal: 'SIGSEGV', code: null, ranMs: 10 }))
+    assert.notEqual(crashed.kind, 'asked')
+    assert.ok(crashed.report.startupError, 'the failure has to reach the screen')
+    assert.match(crashed.report.startupError ?? '', /SIGSEGV/)
+
+    // And the same part-way through a session that really ran, where what is
+    // lost is not the launch but the game.
+    const midSession = readExit(exit({ signal: 'SIGABRT', code: null }))
+    assert.equal(midSession.kind, 'complained')
+    assert.match(midSession.report.warning ?? '', /SIGABRT/)
+  })
+
   test('being asked outranks the clock: an immediate stop is not a crash', () => {
     // The close button pressed on a game still loading. Read by the clock alone
     // this is the shape of a launch that never started, and the user would be

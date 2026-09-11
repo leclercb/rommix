@@ -338,7 +338,15 @@ export async function findMatchingFile(
   } catch {
     return null
   }
-  const hit = entries.find((entry) => matchers.some((matcher) => matcher.test(entry)))
+  // Sorted, so which of several matches wins is a decision rather than
+  // whatever order the filesystem happened to hand the entries back in. Two
+  // versions of one emulator side by side in `~/Applications` is the ordinary
+  // result of downloading an update, and adopting the older build
+  // non-deterministically is the kind of thing nobody can reproduce.
+  const hit = entries
+    .filter((entry) => matchers.some((matcher) => matcher.test(entry)))
+    .sort((a, b) => a.localeCompare(b))
+    .at(-1)
   return hit ? join(dir, hit) : null
 }
 

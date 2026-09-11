@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, rename, rm } from 'node:fs/promises'
+import { access, copyFile, mkdir, mkdtemp, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { emulatorById } from '@config/emulators'
@@ -148,7 +148,16 @@ export async function installCore(
 
   log.info('core', 'downloading', { core: core.fileName, url })
 
-  const staging = join(tmpdir(), `rommix-core-${core.id}-${process.pid}`)
+  /**
+   * Made rather than named, so nothing can be waiting in it.
+   *
+   * A predictable path under a world-writable temp directory is one another
+   * local user can create first: the extraction then writes into a directory
+   * they own, the check below passes on a `.so` they planted rather than on
+   * one the archive carried, and RomMix copies it to where RetroArch will
+   * `dlopen` it. `mkdtemp` refuses to reuse a directory that already exists.
+   */
+  const staging = await mkdtemp(join(tmpdir(), 'rommix-core-'))
   const archive = `${staging}.zip`
   // Beside the core rather than in the temp directory, because the last step
   // has to be a rename and a rename cannot cross filesystems — /tmp is

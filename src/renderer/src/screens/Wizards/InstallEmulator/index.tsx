@@ -23,9 +23,9 @@ import { AssetRow, EmulatorRow, MethodRow, ReleaseRow } from './rows'
  * first page.
  *
  * A screen rather than the stack of dialogs this was, because of how long it
- * takes: choosing a build among twenty releases and then waiting for several
- * hundred megabytes is not something to do in a panel over the page that raised
- * it. The game screen and the Emulators screen both come here, and the only
+ * takes: choosing a build out of a release list and then waiting for a whole
+ * emulator to come down is not something to do in a panel over the page that
+ * raised it. The game screen and the Emulators screen both come here, and the only
  * difference between them is whether the first page is asked at all.
  */
 

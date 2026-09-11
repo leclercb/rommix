@@ -122,8 +122,8 @@
 
 @keyframes sweep {
   to {
-    /* Its own width, not the track's: 35% of the track travels 185% of itself
-       to arrive at the far end. */
+    /* Its own width, not the track's: the bar is a fraction of the track, so
+       what carries it to the far end is a multiple of itself. */
     transform: translateX(185%);
   }
 }

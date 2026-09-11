@@ -1,6 +1,6 @@
 import { createWriteStream } from 'node:fs'
-import { mkdir, open, readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { deflateRaw } from 'node:zlib'
+import { mkdir, open, readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { crc32, deflateRaw } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
@@ -36,17 +36,22 @@ const deflate = promisify(deflateRaw)
  * Reject absolute paths and `..` segments from zip entries (zip-slip).
  *
  * Belt and braces, and known to be: yauzl validates entry names as it reads the
- * central directory and refuses backslashes, drive letters, a leading `/` and
- * any `..` segment — so in practice a hostile archive is rejected before this
- * is reached, and the whole extraction fails rather than one entry being
- * skipped. This stays because it is the only guard that does not depend on
- * yauzl's defaults staying as they are, and because "the reader happens to
- * check" is not where a path traversal defence belongs.
+ * central directory and refuses drive letters, a leading `/` and any `..`
+ * segment — so in practice a hostile archive is rejected before this is
+ * reached, and the whole extraction fails rather than one entry being skipped.
+ * This stays because it is the only guard that does not depend on yauzl's
+ * defaults staying as they are, and because "the reader happens to check" is
+ * not where a path traversal defence belongs.
  */
 function entryTarget(root: string, entryName: string): string | null {
   // Only an archive's names need this: a backslash is a separator inside a zip
   // written on Windows and an ordinary character in a Linux filename, so the
   // substitution belongs here rather than in the containment rule.
+  //
+  // Unreachable while yauzl is left on its default `strictFileNames: false`,
+  // which makes the same substitution itself before validating — turning what
+  // would otherwise be a refusal into an entry that arrives here already
+  // separated by `/`. Kept for the same reason as the containment check below.
   const cleaned = entryName.replace(/\\/g, '/').replace(/^\/+/, '')
   return safeJoin(root, cleaned)
 }
@@ -68,18 +73,36 @@ export async function isZip(path: string): Promise<boolean> {
   }
 }
 
-/** Extract a zip archive into `destDir`, creating directories as needed. */
-export async function extractZip(zipPath: string, destDir: string): Promise<void> {
+/**
+ * Extract a zip archive into `destDir`, creating directories as needed.
+ *
+ * Returns the files it wrote, as absolute paths. A caller that has to tell
+ * what came out of the archive from what was already in the folder needs that
+ * list and cannot rebuild it afterwards — see `SaveSync.restoreArchive`.
+ */
+export async function extractZip(zipPath: string, destDir: string): Promise<string[]> {
   const root = resolve(destDir)
   await mkdir(root, { recursive: true })
   const took = log.since()
-  let written = 0
+  const written: string[] = []
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
     yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (err, zipfile) => {
       if (err || !zipfile) return rejectPromise(err ?? new Error(t('error.cannotOpenArchive')))
 
-      zipfile.on('error', rejectPromise)
+      // yauzl's `autoClose` fires when `readEntry` runs off the end of the
+      // archive or when yauzl itself raises — neither of which happens when a
+      // `mkdir` or a `pipeline` below is what failed. Without this an
+      // extraction into a directory that cannot be written leaves the archive
+      // open, so the `rm` that follows unlinks the name and not the bytes, and
+      // a game retried a few times leaks a descriptor and its disk space each
+      // attempt.
+      const fail = (cause: unknown): void => {
+        zipfile.close()
+        rejectPromise(cause)
+      }
+
+      zipfile.on('error', fail)
       zipfile.on('end', () => resolvePromise())
 
       zipfile.readEntry()
@@ -101,55 +124,36 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
         if (entry.fileName.endsWith('/')) {
           mkdir(target, { recursive: true })
             .then(() => zipfile.readEntry())
-            .catch(rejectPromise)
+            .catch(fail)
           return
         }
 
         zipfile.openReadStream(entry, (streamErr, stream) => {
-          if (streamErr || !stream)
-            return rejectPromise(streamErr ?? new Error(t('error.badZipEntry')))
+          if (streamErr || !stream) return fail(streamErr ?? new Error(t('error.badZipEntry')))
           mkdir(dirname(target), { recursive: true })
             .then(() => pipeline(stream, createWriteStream(target)))
             .then(() => {
-              written += 1
+              written.push(target)
               zipfile.readEntry()
             })
-            .catch(rejectPromise)
+            .catch(fail)
         })
       })
     })
   })
 
-  log.debug('zip', 'extracted', { archive: zipPath, into: root, files: written, ms: took() })
+  log.debug('zip', 'extracted', {
+    archive: zipPath,
+    into: root,
+    files: written.length,
+    ms: took()
+  })
+  return written
 }
 
 // ---------------------------------------------------------------------------
 // Writing
 // ---------------------------------------------------------------------------
-
-/**
- * CRC-32, as the zip format defines it.
- *
- * Node has `zlib.crc32`, but only from 20.15 — new enough to be a version
- * constraint the rest of this project does not have, for ten lines of table.
- */
-const CRC_TABLE = (() => {
-  const table = new Uint32Array(256)
-  for (let index = 0; index < 256; index += 1) {
-    let value = index
-    for (let bit = 0; bit < 8; bit += 1) {
-      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1
-    }
-    table[index] = value >>> 0
-  }
-  return table
-})()
-
-function crc32(data: Buffer): number {
-  let crc = 0xffffffff
-  for (const byte of data) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
-  return (crc ^ 0xffffffff) >>> 0
-}
 
 interface PendingEntry {
   /** Path inside the archive, always with forward slashes. */
@@ -166,8 +170,22 @@ interface PendingEntry {
  * Symlinks are followed as whatever they point at, which is what makes this
  * work at all under EmuDeck: every directory it gathers under `Emulation/saves`
  * is a symlink into the emulator's real tree.
+ *
+ * Which means a link pointing back at a directory already on the way down is a
+ * walk with no end. `seen` holds the real path of every directory descended
+ * into, so a loop is one that is stepped over rather than one that fills the
+ * stack — the save is archived without the second copy of itself, which is the
+ * outcome a person would have wanted anyway.
  */
-async function entryNamesUnder(dir: string, prefix = ''): Promise<string[]> {
+async function entryNamesUnder(dir: string, prefix = '', seen?: Set<string>): Promise<string[]> {
+  const visited = seen ?? new Set<string>()
+  const here = await realpath(dir).catch(() => dir)
+  if (visited.has(here)) {
+    log.warn('zip', 'a link points back into a folder already being archived', { dir })
+    return []
+  }
+  visited.add(here)
+
   let entries
   try {
     entries = await readdir(dir, { withFileTypes: true })
@@ -185,7 +203,7 @@ async function entryNamesUnder(dir: string, prefix = ''): Promise<string[]> {
         .then((info) => info.isDirectory())
         .catch(() => false)
     }
-    if (isDirectory) found.push(...(await entryNamesUnder(child, relative)))
+    if (isDirectory) found.push(...(await entryNamesUnder(child, relative, visited)))
     else found.push(relative)
   }
   return found

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, before, describe, test } from 'node:test'
 import { app } from 'electron'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -24,6 +25,8 @@ import { Store } from './store.ts'
  */
 
 const realFetch = globalThis.fetch
+/** What every test here serves as the image, so one digest describes it. */
+const BODY = 'new bytes'
 const scratches: string[] = []
 const heldAppImage = process.env.APPIMAGE
 // Electron's, and undefined out here — the launcher refresh reads the copy the
@@ -66,8 +69,24 @@ function serve(reply: (url: string) => Response): string[] {
   return asked
 }
 
-/** The release payload GitHub answers with, as far as RomMix reads it. */
-function release(tag: string, assets: string[] = []): Response {
+/** What the bytes a test serves hash to, in the form GitHub states a digest. */
+function digestOf(body: string): string {
+  return `sha256:${createHash('sha256').update(body).digest('hex')}`
+}
+
+/**
+ * The release payload GitHub answers with, as far as RomMix reads it.
+ *
+ * `digest` is what the bytes below hash to unless a test says otherwise —
+ * including `null`, which is a release that states none. The self-update is
+ * the one download RomMix refuses without one, so a fixture that quietly left
+ * the field out would have run every test down the path the check is not on.
+ */
+function release(
+  tag: string,
+  assets: string[] = [],
+  digest: string | null = digestOf(BODY)
+): Response {
   return new Response(
     JSON.stringify({
       tag_name: tag,
@@ -76,7 +95,8 @@ function release(tag: string, assets: string[] = []): Response {
       assets: assets.map((name) => ({
         name,
         browser_download_url: `https://github.example/${name}`,
-        size: 12
+        size: 12,
+        ...(digest === null ? {} : { digest })
       }))
     })
   )
@@ -262,16 +282,53 @@ describe('downloading it', () => {
     const running = join(scratch(), image)
     process.env.APPIMAGE = running
     const { updater: subject } = updater()
-    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response('new bytes')))
+    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response(BODY)))
 
     await subject.check()
     const status = await subject.download()
 
     assert.equal(status.state, 'ready')
     assert.equal(status.readyPath, running)
-    assert.equal(readFileSync(running, 'utf8'), 'new bytes')
+    assert.equal(readFileSync(running, 'utf8'), BODY)
     assert.equal((statSync(running).mode & 0o100) !== 0, true)
     // The path RomMix is wired into never gains a version or a suffix.
+    assert.equal(existsSync(`${running}.part`), false)
+  })
+
+  test('an image that is not what was published is deleted rather than installed', async () => {
+    const running = join(scratch(), image)
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    serve((url) =>
+      url.includes('api') ? release('v1.2.0', [image]) : new Response('something else')
+    )
+
+    await subject.check()
+
+    // The one download that becomes the program doing the downloading. TLS
+    // says who the bytes came from; the digest is what says they are the ones
+    // the release meant to publish, which a proxy, a mirror or a truncated
+    // response can each break without the connection looking wrong.
+    await assert.rejects(() => subject.download())
+    assert.equal(existsSync(running), false)
+    assert.equal(existsSync(`${running}.part`), false)
+  })
+
+  test('a release that publishes no digest is refused', async () => {
+    const running = join(scratch(), image)
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    serve((url) => (url.includes('api') ? release('v1.2.0', [image], null) : new Response(BODY)))
+
+    await subject.check()
+
+    // Elsewhere a missing digest is downloaded without one — the libretro
+    // buildbot publishes nothing to compare against, and a core that cannot be
+    // installed is a game that cannot be played. Here the publisher is RomMix's
+    // own release workflow, so a release stating no digest is a release that is
+    // wrong, and waiting for the next one costs nothing but the wait.
+    await assert.rejects(() => subject.download())
+    assert.equal(existsSync(running), false)
     assert.equal(existsSync(`${running}.part`), false)
   })
 
@@ -294,7 +351,7 @@ describe('downloading it', () => {
     const running = join(scratch(), image)
     process.env.APPIMAGE = running
     const { updater: subject } = updater()
-    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response('new bytes')))
+    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response(BODY)))
     await subject.check()
     await subject.download()
 
@@ -385,7 +442,7 @@ describe('with updates left on automatic', () => {
     const running = join(scratch(), image)
     process.env.APPIMAGE = running
     const { updater: subject } = updater('auto')
-    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response('new bytes')))
+    serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response(BODY)))
 
     await subject.check()
     // Started rather than awaited: the check answers the version question as
@@ -393,7 +450,7 @@ describe('with updates left on automatic', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     assert.equal(subject.status.state, 'ready')
-    assert.equal(readFileSync(running, 'utf8'), 'new bytes')
+    assert.equal(readFileSync(running, 'utf8'), BODY)
   })
 })
 

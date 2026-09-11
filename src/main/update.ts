@@ -63,9 +63,6 @@ export const RELEASES_PAGE = 'https://github.com/leclercb/rommix/releases'
 const FIRST_CHECK_MS = 10_000
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 
-/** Progress is emitted on a clock rather than per chunk: this is a 100 MB file. */
-const PROGRESS_EVERY_MS = 250
-
 /** The subset of GitHub's release payload RomMix reads. */
 interface GithubRelease {
   tag_name?: string
@@ -565,7 +562,6 @@ export class Updater {
 
       const { receivedBytes, totalBytes } = await fetchToFile(asset.url, partial, {
         sizeHint: asset.sizeBytes,
-        everyMs: PROGRESS_EVERY_MS,
         refused: (status) => new Error(t('update.downloadFailed', { url: asset.url, status })),
         onProgress: (progress) => this.update(progress)
       })
@@ -574,7 +570,11 @@ export class Updater {
       // is the one download that becomes the program doing the downloading, so
       // it is the last thing that should be taken on trust. A mismatch deletes
       // the part-file and fails the update, leaving the running version alone.
-      await verifyDownload(partial, asset.digest, { kind: 'update', name: asset.name })
+      await verifyDownload(partial, asset.digest, {
+        kind: 'update',
+        name: asset.name,
+        required: true
+      })
 
       // Executable before the rename, so the path never exists in a state where
       // it looks like RomMix and cannot be run.
@@ -616,10 +616,15 @@ export class Updater {
    * `execPath` is the image rather than Electron's own: `process.execPath` is
    * the binary *inside* the AppImage, at the mount point this session unpacked —
    * still there, still the old version, and still running from the inode the new
-   * file replaced. Relaunching the default way would start 0.5.1 again and look
-   * like an update that did not take.
+   * file replaced. Relaunching the default way starts the version that is
+   * already running, and looks like an update that did not take.
+   *
+   * `beforeExit` is everything a quit would do, because `app.exit` does not
+   * emit `before-quit` and nothing here can reach it. Run after the refusals
+   * below and before the relaunch: a restart that is going to be turned down
+   * must not close the emulator first. See `RomMixApp.shutdown`.
    */
-  restart(): void {
+  async restart(beforeExit: () => Promise<void>): Promise<void> {
     if (this.current.state !== 'ready' || !this.current.readyPath) {
       throw new Error(t('update.nothingToRestartInto'))
     }
@@ -630,6 +635,7 @@ export class Updater {
       version: this.current.latest,
       path: this.current.readyPath
     })
+    await beforeExit()
     app.relaunch({ execPath: this.current.readyPath })
     app.exit(0)
   }
@@ -663,8 +669,8 @@ export class Updater {
  * The two that are not RomMix's fault and not the network's are worth naming:
  * an image kept somewhere its owner cannot write — `/opt`, or a folder that
  * belongs to root — and a disk with nothing left on it. Both otherwise arrive as
- * `EACCES: permission denied, open '/opt/RomMix-0.6.0-x86_64.AppImage.part'`,
- * which says where but never what to do.
+ * `EACCES: permission denied, open '<the image>.part'`, which says where but
+ * never what to do.
  */
 function explain(cause: unknown, dir: string): string {
   const code = (cause as NodeJS.ErrnoException).code

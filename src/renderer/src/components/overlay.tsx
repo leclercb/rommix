@@ -45,6 +45,7 @@ export function Spinner(): JSX.Element {
 export function Overlay({
   title,
   icon,
+  onDismiss,
   children
 }: {
   title: string
@@ -57,6 +58,17 @@ export function Overlay({
    * along; the heading over them had nothing.
    */
   icon?: IconName
+  /**
+   * What B does, where the panel has nothing to press.
+   *
+   * A panel claims the focus layer whether or not anything in it is focusable,
+   * and `fireAction` only runs handlers on the top layer — so a progress
+   * overlay over work that has stopped answering leaves B, Start, the D-pad
+   * and A all dead for as long as that work takes. This is the way out. It
+   * puts the panel away and leaves the work running, which is the honest
+   * offer: what is behind it was never blocked, only covered.
+   */
+  onDismiss?: () => void
   children: ReactNode
 }): JSX.Element {
   return (
@@ -66,10 +78,25 @@ export function Overlay({
           {icon ? <Icon name={icon} size={22} /> : null}
           {title}
         </h2>
-        <FocusLayer>{children}</FocusLayer>
+        <FocusLayer>
+          <OverlayBack onDismiss={onDismiss} />
+          {children}
+        </FocusLayer>
       </div>
     </div>
   )
+}
+
+/**
+ * B, bound inside the panel's own layer.
+ *
+ * A component rather than a hook call in `Overlay`, because the layer the
+ * action has to be registered on is the one `FocusLayer` opens — and that is
+ * only in scope below it.
+ */
+function OverlayBack({ onDismiss }: { onDismiss?: () => void }): null {
+  useAction('back', () => onDismiss?.(), onDismiss !== undefined)
+  return null
 }
 
 /**
