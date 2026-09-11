@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { en } from '@shared/i18n/en.ts'
-import { atHome, standInEmulator, startApp, type App } from './driver.ts'
+import { atHome, downloadAnyway, standInEmulator, startApp, type App } from './driver.ts'
 import { startScenario, type Scenario } from './harness.ts'
 import type { FakeRomm } from './server.ts'
 
@@ -117,7 +117,7 @@ describe('downloading a game', () => {
     await app.choose('[data-rom="1"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'a game screen')
 
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
 
     // Asked of the main process over IPC rather than read off the screen: the
     // index is the answer that matters — a row that says "Done" over a file
@@ -271,7 +271,7 @@ describe('downloading a game of several files', () => {
     await app.choose('[data-rom="4"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
 
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
     await app.waitFor(
       `(await window.rommix.library.installed()).some((one) => one.romId === 4)`,
       'the disc set to arrive'
@@ -396,7 +396,7 @@ describe('pausing a download and picking it up again', () => {
     await app.goTo('library')
     await app.choose('[data-rom="5"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
 
     // Part-way, and not finished: pausing something already done proves
     // nothing, and pausing before a byte has landed leaves nothing to resume
@@ -428,7 +428,7 @@ describe('pausing a download and picking it up again', () => {
     // The same button, which is what the screen offers: what the player wants
     // is the game, and whether that means starting or finishing a transfer is
     // not a second decision to make.
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
     await app.waitFor(
       `(await window.rommix.library.installed()).some((one) => one.romId === 5)`,
       'the transfer to finish'
@@ -708,7 +708,7 @@ describe('driving the queue from the activity tab', () => {
       'the slow game to leave the disk'
     )
 
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
     await app.waitFor(`(await window.rommix.downloads.list()).length > 0`, 'the transfer to start')
 
     // And a second game behind it. One transfer at a time is what makes a queue
@@ -716,7 +716,7 @@ describe('driving the queue from the activity tab', () => {
     await app.goTo('library')
     await app.choose('[data-rom="4"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the other game')
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
 
     await app.goTo('downloads')
     await app.waitFor(`document.querySelector('[data-download="5"]')`, 'the transfer rows')

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
+import { downloadAnyway } from './driver.ts'
 import { startScenario, type Scenario } from './harness.ts'
 
 /**
@@ -33,7 +34,7 @@ describe('when the server goes out of reach', () => {
   test('a game is downloaded first, so there is something to be offline with', async () => {
     await app.goTo('library')
     await app.choose('[data-rom="1"]')
-    await app.choose('[data-action="download"]')
+    await downloadAnyway(app)
     await app.waitFor(
       `(await window.rommix.library.installed()).some((one) => one.romId === 1)`,
       'the game to arrive'

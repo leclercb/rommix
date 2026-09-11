@@ -99,11 +99,22 @@ export function NoEmulatorDialog({
             needs, and the transfer below it can be started from this same
             screen at any point afterwards. */}
         {canInstall ? (
-          <FocusButton icon="install" variant="primary" onSelect={onInstall} autoFocus>
+          <FocusButton
+            icon="install"
+            action="install-emulator-first"
+            variant="primary"
+            onSelect={onInstall}
+            autoFocus
+          >
             {t('game.installEmulator')}
           </FocusButton>
         ) : null}
-        <FocusButton icon="download" onSelect={onDownload} autoFocus={!canInstall}>
+        <FocusButton
+          icon="download"
+          action="download-anyway"
+          onSelect={onDownload}
+          autoFocus={!canInstall}
+        >
           {t('game.downloadAnyway')}
         </FocusButton>
         <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>

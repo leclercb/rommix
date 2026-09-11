@@ -474,6 +474,21 @@ export async function atHome(app: App): Promise<void> {
   )
 }
 
+/**
+ * Press Download on a game with nothing on the machine to run it, and answer
+ * the question that raises.
+ *
+ * Only the emulator a scenario installs itself is here — see `startScenario` —
+ * so every game on any other platform is one this machine cannot start, and the
+ * download button asks whether an emulator should be installed before it
+ * fetches anything. These scenarios are about the transfer, so they say no and
+ * carry on. The question itself is `interface.test.ts`.
+ */
+export async function downloadAnyway(app: App): Promise<void> {
+  await app.choose('[data-action="download"]')
+  await app.choose('[data-action="download-anyway"]')
+}
+
 /** Start the built application against a fake server, and wait for its window. */
 export async function startApp(options: StartOptions): Promise<App> {
   const home = mkdtempSync(join(tmpdir(), 'rommix-app-test-'))
