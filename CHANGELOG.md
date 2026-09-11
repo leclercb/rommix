@@ -4,6 +4,18 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.15.0-rc.1 — 2026-09-11
+
+- docs: shorten CONTRIBUTING.md (afa9027)
+- test(unit): add useRomPages coverage (4a74b68)
+- chore: update the dependencies (34837cf)
+- refactor: split the focus context and unify the two paging hooks (9b60608)
+- test(unit): cover the refusals and the cleanups nothing ran (3e35343)
+- refactor: move the navigation history and tile rules out of components (499ef60)
+- fix: close the findings a re-read of the review confirmed (5520624)
+- fix: say why a rejected server sent the user back to the form (a14b8bb)
+- fix: work through a full code review of the codebase (befd3a7)
+
 ## 0.15.0-rc.0 — 2026-09-11
 
 - fix: keep a press sideways inside its own row (63bf084)
