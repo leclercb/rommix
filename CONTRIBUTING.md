@@ -73,7 +73,7 @@ which showed up as the focus scan giving up on a library that was still filling.
 A GUI under test is not a thing to parallelise.
 
 Several scenario files, and a file exists where an application cannot be shared.
-`connect.test.ts` starts signed out and signs out again at the end;
+`setup.test.ts` starts signed out and signs out again at the end;
 `running.test.ts` runs an emulator that ignores being asked to quit;
 `offline.test.ts` takes the server away and brings it back on the same address;
 `launch.test.ts` needs a machine with two ways to run one system, which is a
@@ -290,6 +290,12 @@ its banner, its dialogs and its save hook, and its four tabs in `tabs/`. A
 screen that is still one file gets the folder anyway, so growing one is a new
 file rather than a move. The folder is named for the screen's subject, which is
 also the route it answers to (`Game/`, `{ name: 'game', romId }`).
+
+`Wizards/` is the one folder holding screens rather than being one. Both of them
+walk a player through a sequence of pages with a pad — first-run setup, and
+installing an emulator — and both draw those pages with the `WizardPage` beside
+them, which is what keeps the line over the heading, the place Back sits and
+what B does the same in either.
 
 Styles follow the same shape: `styles/index.css` imports one file per area of
 the interface, and the import order there is the cascade.

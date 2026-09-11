@@ -8,9 +8,9 @@ import type {
   EmulatorInstallProgress,
   EmulatorRelease
 } from '@shared/types'
-import { Filled, Spinner, TransferProgress } from '../../components'
-import { useApp, useI18n } from '../../state'
-import { WizardPage } from './WizardPage'
+import { Filled, Spinner, TransferProgress } from '../../../components'
+import { useApp, useI18n } from '../../../state'
+import { WizardPage, type WizardPageProps } from '../WizardPage'
 import { AssetRow, EmulatorRow, MethodRow, ReleaseRow } from './rows'
 
 /**
@@ -57,6 +57,12 @@ function openingOf(
   if (changeVersion && download) return { step: 'version', method: download }
 
   return { step: methods.length === 0 ? 'manual' : 'method', method: null }
+}
+
+/** Every page of this flow, under the one line that names it. */
+function InstallPage(props: Omit<WizardPageProps, 'eyebrow'>): JSX.Element {
+  const { t } = useI18n()
+  return <WizardPage eyebrow={t('install.flow')} icon="install" {...props} />
 }
 
 export function InstallEmulatorScreen({
@@ -113,10 +119,10 @@ export function InstallEmulatorScreen({
   if (step === 'emulator') {
     const candidates = system ? emulatorsForSystem(system, settings?.emulatorPriority ?? []) : []
     return (
-      <WizardPage
+      <InstallPage
         title={t('install.whichEmulator')}
         subtitle={t('install.whichEmulatorFor', { platform: platform ?? system ?? '' })}
-        onBack={leave}
+        back={{ name: 'install-back', onSelect: leave }}
       >
         {candidates.length === 0 ? <div className="empty">{t('platforms.noneCovers')}</div> : null}
         <div className="release-list">
@@ -131,20 +137,26 @@ export function InstallEmulatorScreen({
             />
           ))}
         </div>
-      </WizardPage>
+      </InstallPage>
     )
   }
 
   // Every page below is about one emulator, and none of them is reached
   // without one: the step above is where the flow opens with nothing chosen.
-  if (!chosen) return <WizardPage title={t('install.whichEmulator')} onBack={leave} />
+  if (!chosen)
+    return (
+      <InstallPage
+        title={t('install.whichEmulator')}
+        back={{ name: 'install-back', onSelect: leave }}
+      />
+    )
 
   if (step === 'method') {
     return (
-      <WizardPage
+      <InstallPage
         title={t('emulator.installTitle', { name: chosen.name })}
         subtitle={t('install.whichMethod')}
-        onBack={backFromMethod}
+        back={{ name: 'install-back', onSelect: backFromMethod }}
       >
         <div className="release-list">
           {installMethods(chosen).map((spec, index) => (
@@ -161,16 +173,21 @@ export function InstallEmulatorScreen({
             />
           ))}
         </div>
-      </WizardPage>
+      </InstallPage>
     )
   }
 
   if (step === 'manual') {
     return (
-      <WizardPage
+      <InstallPage
         title={t('emulator.installTitle', { name: chosen.name })}
-        onBack={backFromMethod}
-        action={{ label: t('action.close'), icon: 'confirm', onSelect: leave }}
+        back={{ name: 'install-back', onSelect: backFromMethod }}
+        action={{
+          name: 'install-done',
+          label: t('action.close'),
+          icon: 'confirm',
+          onSelect: leave
+        }}
       >
         <p className="muted">
           {chosen.homepage ? (
@@ -184,7 +201,7 @@ export function InstallEmulatorScreen({
             t('emulator.manualInstall', { name: chosen.name })
           )}
         </p>
-      </WizardPage>
+      </InstallPage>
     )
   }
 
@@ -203,10 +220,10 @@ export function InstallEmulatorScreen({
 
   if (step === 'build' && release) {
     return (
-      <WizardPage
+      <InstallPage
         title={`${chosen.name} ${release.name || release.tag}`}
         subtitle={t('install.whichBuild')}
-        onBack={() => setStep('version')}
+        back={{ name: 'install-back', onSelect: () => setStep('version') }}
       >
         <div className="release-list">
           {release.assets.map((next, index) => (
@@ -222,7 +239,7 @@ export function InstallEmulatorScreen({
             />
           ))}
         </div>
-      </WizardPage>
+      </InstallPage>
     )
   }
 
@@ -231,22 +248,26 @@ export function InstallEmulatorScreen({
     // from being tried again, and the build that failed is the page behind.
     if (failure) {
       return (
-        <WizardPage
+        <InstallPage
           title={t('install.failedTitle', { name: chosen.name })}
-          onBack={() => setStep(method.kind === 'appimage' ? 'build' : 'method')}
+          back={{
+            name: 'install-back',
+            onSelect: () => setStep(method.kind === 'appimage' ? 'build' : 'method')
+          }}
           action={{
+            name: 'install-retry',
             label: t('action.tryAgain'),
             icon: 'install',
             onSelect: () => setFailure(null)
           }}
         >
           <div className="notice notice--error">{failure}</div>
-        </WizardPage>
+        </InstallPage>
       )
     }
 
     return (
-      <WizardPage title={t('install.installing', { name: chosen.name })}>
+      <InstallPage title={t('install.installing', { name: chosen.name })}>
         <InstallRun
           descriptor={chosen}
           method={method}
@@ -254,20 +275,20 @@ export function InstallEmulatorScreen({
           onDone={() => setStep('notes')}
           onFailed={setFailure}
         />
-      </WizardPage>
+      </InstallPage>
     )
   }
 
   // The last page, which is the one every path through this screen ends on.
   return (
-    <WizardPage
+    <InstallPage
       title={t('emulator.installedTitle', { name: chosen.name })}
       subtitle={
         chosen.setupNotes.length > 0
           ? t('emulator.setupIntro', { name: chosen.name })
           : t('install.nothingElse', { name: chosen.name })
       }
-      action={{ label: t('action.close'), icon: 'confirm', onSelect: leave }}
+      action={{ name: 'install-done', label: t('action.close'), icon: 'confirm', onSelect: leave }}
     >
       {/* The steps, at the moment the emulator arrives. This is when the user
           is already thinking about it and has nothing else in flight, which is
@@ -279,7 +300,7 @@ export function InstallEmulatorScreen({
           <li key={typeof note === 'string' ? note : note.key}>{localize(note, i18n)}</li>
         ))}
       </ul>
-    </WizardPage>
+    </InstallPage>
   )
 }
 
@@ -315,10 +336,10 @@ function VersionPage({
   }, [descriptor.id])
 
   return (
-    <WizardPage
+    <InstallPage
       title={t('install.title', { name: descriptor.name })}
       subtitle={t('install.whichVersion')}
-      onBack={onBack}
+      back={{ name: 'install-back', onSelect: onBack }}
     >
       {error ? <div className="notice notice--error">{error}</div> : null}
       {!releases && !error ? <Spinner /> : null}
@@ -340,7 +361,7 @@ function VersionPage({
       <p className="faint" style={{ fontSize: 13 }}>
         {t('install.publishedAt', { url: descriptor.homepage ?? '' })}
       </p>
-    </WizardPage>
+    </InstallPage>
   )
 }
 

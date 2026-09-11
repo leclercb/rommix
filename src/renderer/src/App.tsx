@@ -10,13 +10,14 @@ import {
 import { Icon, type IconName } from './icons'
 import { useApp, useDownloads, useI18n, type Route } from './state'
 import { BiosScreen } from './screens/Bios'
-import { ConnectScreen } from './screens/Connect'
+
 import { GameScreen } from './screens/Game'
 import { CollectionScreen } from './screens/Collections/CollectionScreen'
 import { CollectionsScreen } from './screens/Collections'
 import { DownloadsScreen } from './screens/Downloads'
 import { EmulatorsScreen } from './screens/Emulators'
-import { InstallEmulatorScreen } from './screens/InstallEmulator'
+import { InstallEmulatorScreen } from './screens/Wizards/InstallEmulator'
+import { SetupScreen } from './screens/Wizards/Setup'
 import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
 import { SettingsScreen } from './screens/Settings'
@@ -66,7 +67,7 @@ function barFits(header: HTMLElement): boolean {
 function useBarFit(drawn: boolean): Ref<HTMLElement | null> {
   const ref = useRef<HTMLElement | null>(null)
 
-  // `drawn` is what brings the bar into reach: the connect screen has none, so
+  // `drawn` is what brings the bar into reach: the setup screen has none, so
   // on the pass that ran while it was up there was nothing to measure.
   useLayoutEffect(() => {
     const header = ref.current
@@ -111,7 +112,7 @@ export function App(): JSX.Element {
   } = useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
-  const barRef = useBarFit(route.name !== 'connect')
+  const barRef = useBarFit(route.name !== 'setup')
 
   /**
    * B / Escape, and what it means once there is nothing above.
@@ -133,12 +134,12 @@ export function App(): JSX.Element {
     setConfirmingQuit(true)
   }, [canGoBack, goBack, enterZone])
 
-  // Everywhere except the two screens that walk a player through a sequence of
-  // pages: the connect screen, which has neither a history nor a menu bar to
-  // climb into, and the install flow, where B is a page back until there are no
-  // pages left. Both bind it themselves, and a handler registered on a screen
-  // cannot shadow one registered here — see `useAction`.
-  useAction('back', back, route.name !== 'connect' && route.name !== 'install-emulator')
+  // Everywhere except the two wizards, which walk a player through a sequence
+  // of pages: setup, which has neither a history nor a menu bar to climb into,
+  // and the install flow, where B is a page back until there are no pages left.
+  // Both bind it themselves, and a handler registered on a screen cannot shadow
+  // one registered here — see `useAction`.
+  useAction('back', back, route.name !== 'setup' && route.name !== 'install-emulator')
 
   // X / Start opens Settings: on a console this button is the menu, and
   // Settings is where every switch in RomMix lives.
@@ -151,10 +152,10 @@ export function App(): JSX.Element {
   const covered = runningRomId !== null || runningEmulator !== null
   useSuspendGamepad(covered)
 
-  if (route.name === 'connect') {
+  if (route.name === 'setup') {
     return (
       <div className="app" data-screen={route.name}>
-        <ConnectScreen />
+        <SetupScreen />
         {covered ? <RunningOverlay /> : null}
         <Toasts />
       </div>
@@ -346,8 +347,8 @@ function Screen({ route }: { route: Route }): JSX.Element {
       )
     case 'settings':
       return <SettingsScreen />
-    case 'connect':
-      return <ConnectScreen />
+    case 'setup':
+      return <SetupScreen />
   }
 }
 

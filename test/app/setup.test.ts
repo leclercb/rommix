@@ -7,7 +7,8 @@ import { atHome, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
- * Getting signed in, which is the one screen a working RomMix cannot reach.
+ * Setup, which is the one screen a working RomMix cannot reach: the three
+ * questions a fresh installation is asked, and the sign-in they end on.
  *
  * Its own file because it is the only scenario that starts from nothing: every
  * other one is handed credentials so that what is under test is everything
@@ -37,7 +38,7 @@ after(async () => {
 
 describe('signing in for the first time', () => {
   test('it comes up asking for a server rather than showing a library', async () => {
-    await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the connect screen')
+    await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the setup screen')
 
     // The address is empty, which is the state the button below is disabled by.
     assert.equal(
@@ -137,7 +138,7 @@ describe('signing out again', () => {
 
     // Back at the beginning, not merely one screen behind: every screen in the
     // stack was a view of a library there is no longer a server for.
-    await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the connect screen')
+    await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the setup screen')
     assert.equal(
       await app.read<boolean>(`(await window.rommix.server.status()).configured`),
       false,
@@ -204,12 +205,12 @@ async function signOut(): Promise<void> {
   await app.goTo('settings')
   await app.waitFor(`document.querySelector('[data-action="disconnect"]')`, 'the way out')
   await app.choose('[data-action="disconnect"]')
-  await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the sign-in screen')
+  await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the sign-in screen')
 }
 
 describe('signing in with a token instead', () => {
   test('the token typed in is what every later request carries', async () => {
-    await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the sign-in screen')
+    await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the sign-in screen')
     await fill('server', server.baseUrl)
 
     // The mode is a control rather than a screen, so the box for the answer
@@ -276,7 +277,7 @@ describe('and with a username and password', () => {
     // nobody knows what to do with.
     await app.waitFor(`document.querySelector('.notice--error')`, 'the refusal')
     await app.waitFor(
-      `document.querySelector('[data-screen="connect"]')`,
+      `document.querySelector('[data-screen="setup"]')`,
       'the screen to stay where it is'
     )
     assert.equal(
@@ -314,7 +315,7 @@ describe('the first run', () => {
       // starts a second application pins this too.
       env: { XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), 'rommix-first-run-')) }
     })
-    await fresh.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the first page')
+    await fresh.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the first page')
   })
 
   after(async () => {

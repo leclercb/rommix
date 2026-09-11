@@ -231,10 +231,13 @@
   margin: 0 0 26px;
 }
 
-/* "Step 2 of 3", above the question rather than beside it: it is a position in
-   a sequence, not part of what is being asked. Same treatment as the hero's
-   reason line, which does the same job over the same kind of title. */
-.setup__step {
+/* "Step 2 of 3", or the name of the flow it counts through.
+ *
+ * A line of its own above the heading, because it is where the page sits in a
+ * sequence rather than part of what the page asks. Outside `.page-title` for
+ * that reason too: that is a flex row holding the mark and the words, and a
+ * third child of it lands beside them however it declares itself. */
+.wizard__step {
   display: block;
   font-size: 13px;
   font-weight: 700;

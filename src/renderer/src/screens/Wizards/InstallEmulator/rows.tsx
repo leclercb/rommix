@@ -1,11 +1,11 @@
 import { type JSX, type ReactNode, type Ref } from 'react'
 import { installMethods, systemCount } from '@config/emulators'
 import type { EmulatorAsset, EmulatorDescriptor, EmulatorRelease } from '@shared/types'
-import { StatusPill } from '../../components'
-import { Icon, type IconName } from '../../icons'
-import { useFocusable } from '../../input/focus'
-import { useI18n } from '../../state'
-import { INSTALL_KIND } from '../Emulators/EmulatorList'
+import { StatusPill } from '../../../components'
+import { Icon, type IconName } from '../../../icons'
+import { useFocusable } from '../../../input/focus'
+import { useI18n } from '../../../state'
+import { INSTALL_KIND } from '../../Emulators/EmulatorList'
 
 /**
  * The rows the flow's four questions are answered from.

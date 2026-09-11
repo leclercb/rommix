@@ -27,7 +27,10 @@ import { fileNameOf } from '@shared/gamefiles'
 /** Application-wide state: connection, settings, downloads and navigation. */
 
 export type Route =
-  | { name: 'connect' }
+  /**
+   * First-run setup, and the sign-in form it ends on. See `SetupScreen`.
+   */
+  | { name: 'setup' }
   | { name: 'home' }
   | { name: 'library' }
   /**
@@ -355,7 +358,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const canGoBack = history.length > 1
 
-  // Initial load: decide between the connect screen and the library.
+  // Initial load: decide between setup and the library.
   useEffect(() => {
     void (async () => {
       const [nextStatus, nextSettings] = await Promise.all([
@@ -373,7 +376,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       // form again: the credentials are fine, the games are on the disk, and
       // Home shows them. Anything else — never set up, or credentials RomM
       // refuses — has nowhere to go but Connect.
-      if (!nextStatus.connected && !nextStatus.offline) setHistory([{ name: 'connect' }])
+      if (!nextStatus.connected && !nextStatus.offline) setHistory([{ name: 'setup' }])
     })()
   }, [])
 

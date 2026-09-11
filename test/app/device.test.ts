@@ -93,7 +93,7 @@ async function aSaveWaitingToGoUp(content: string): Promise<void> {
 
 describe('a client that signed in with a token', () => {
   test('it registers nothing on the way in', async () => {
-    await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the sign-in screen')
+    await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the sign-in screen')
     await fill('server', server.baseUrl)
     await app.choose('[data-option="token"]')
     await fill('token', server.token)
@@ -166,7 +166,7 @@ describe('and one that signed in with a username and password', () => {
     await app.goTo('settings')
     await app.waitFor(`document.querySelector('[data-action="disconnect"]')`, 'the way out')
     await app.choose('[data-action="disconnect"]')
-    await app.waitFor(`document.querySelector('[data-screen="connect"]')`, 'the sign-in screen')
+    await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the sign-in screen')
 
     // The device belongs to the account rather than to the machine, so it
     // cannot outlive the credentials it was issued against — a saved id reused

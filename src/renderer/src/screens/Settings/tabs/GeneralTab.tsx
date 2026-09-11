@@ -53,7 +53,7 @@ export function GeneralTab(): JSX.Element {
     notify(t('settings.disconnected'))
     // The end of a session, so the screens behind this one go with it: every
     // one of them is a view of a library there is no longer a server for.
-    replace({ name: 'connect' })
+    replace({ name: 'setup' })
   }
 
   /**

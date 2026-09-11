@@ -1,6 +1,6 @@
 import { type JSX, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { AuthMode, RomStorage, RommDeviceAuthInit } from '@shared/types'
-import { useAction } from '../../input/focus'
+import { useAction } from '../../../input/focus'
 import {
   Choice,
   FocusButton,
@@ -15,8 +15,9 @@ import {
   uiScaleChoice,
   type UiScaleChoice,
   uiScaleOptions
-} from '../../components'
-import { useApp, useI18n } from '../../state'
+} from '../../../components'
+import { useApp, useI18n } from '../../../state'
+import { WizardPage } from '../WizardPage'
 
 /**
  * The steps of first-run setup, in order.
@@ -37,8 +38,11 @@ type SetupStep = 'scale' | 'storage' | 'server'
 const SETUP_STEPS: readonly SetupStep[] = ['scale', 'storage', 'server']
 
 /**
- * The server connection screen, and — on a fresh installation — the two
- * questions in front of it.
+ * First-run setup, which ends on the server and is mostly about reaching it.
+ *
+ * Named for the whole of what it does rather than for its last page: two of the
+ * three questions here are not about RomM at all, and a screen called Connect
+ * described only the part of itself a returning user ever sees.
  *
  * Three ways in, in the order they suit a controller:
  *
@@ -47,7 +51,7 @@ const SETUP_STEPS: readonly SetupStep[] = ['scale', 'storage', 'server']
  *  - API token: a long-lived `rmm_...` client token from RomM's admin page.
  *  - Username and password: the OAuth2 password grant.
  */
-export function ConnectScreen(): JSX.Element {
+export function SetupScreen(): JSX.Element {
   const { t } = useI18n()
   const { refreshStatus, replace, notify, status, settings, saveSettings } = useApp()
 
@@ -149,7 +153,7 @@ export function ConnectScreen(): JSX.Element {
         step={stepNumber}
         title={t('setup.scaleTitle')}
         subtitle={t('setup.scaleSubtitle')}
-        onNext={() => at('storage')}
+        next={() => at('storage')}
       >
         <Choice<UiScaleChoice>
           label={t('control.scale')}
@@ -168,8 +172,8 @@ export function ConnectScreen(): JSX.Element {
         step={stepNumber}
         title={t('setup.storageTitle')}
         subtitle={t('setup.storageSubtitle')}
-        onBack={() => at('scale')}
-        onNext={() => at('server')}
+        previous={() => at('scale')}
+        next={() => at('server')}
       >
         <RomStorageChoice
           value={settings.romStorage}
@@ -181,14 +185,15 @@ export function ConnectScreen(): JSX.Element {
 
   return (
     <div className="content">
-      <PageTitle>
-        {wizard ? (
-          <span className="setup__step">
-            {t('setup.stepOf', { step: stepNumber, total: SETUP_STEPS.length })}
-          </span>
-        ) : null}
-        {t('connect.title')}
-      </PageTitle>
+      {/* The same line the two pages before this one carry, and in the same
+          place — see `WizardPage`. Only during setup: outside it this screen is
+          the sign-in form and belongs to no sequence. */}
+      {wizard ? (
+        <span className="wizard__step">
+          {t('setup.stepOf', { step: stepNumber, total: SETUP_STEPS.length })}
+        </span>
+      ) : null}
+      <PageTitle>{t('connect.title')}</PageTitle>
       <p className="page-subtitle">{t('connect.subtitle')}</p>
 
       <div className="form">
@@ -311,62 +316,37 @@ export function ConnectScreen(): JSX.Element {
 /**
  * One page of first-run setup: a question, its control, and the way onwards.
  *
- * The two ends of the button row are deliberately the same shape as every other
- * screen's — back on the left, the thing you came to press on the right — so a
- * wizard does not become a fourth navigation model to learn. There is no Skip:
- * both questions have a default already selected, so Next *is* the skip.
+ * A wizard page like the install flow's — see `WizardPage` — with the line over
+ * the heading counting the three. There is no Skip: both questions have a
+ * default already selected, so Next *is* the skip.
  */
 function SetupPage({
   step,
   title,
   subtitle,
-  onBack,
-  onNext,
+  previous,
+  next,
   children
 }: {
   step: number
   title: string
   subtitle: string
-  onBack?: () => void
-  onNext: () => void
+  previous?: () => void
+  next: () => void
   children: ReactNode
 }): JSX.Element {
   const { t } = useI18n()
-  // B goes back a page rather than out of the app: on the first page there is
-  // nowhere behind, which is what leaving it unbound means.
-  useAction('back', () => onBack?.(), Boolean(onBack))
 
   return (
-    <div className="content">
-      <PageTitle>
-        <span className="setup__step">
-          {t('setup.stepOf', { step, total: SETUP_STEPS.length })}
-        </span>
-        {title}
-      </PageTitle>
-      <p className="page-subtitle">{subtitle}</p>
-
+    <WizardPage
+      eyebrow={t('setup.stepOf', { step, total: SETUP_STEPS.length })}
+      title={title}
+      subtitle={subtitle}
+      back={previous ? { name: 'setup-back', onSelect: previous } : undefined}
+      action={{ name: 'setup-next', label: t('action.next'), icon: 'next', onSelect: next }}
+    >
       {children}
-
-      <div className="btn-row">
-        {onBack ? (
-          <FocusButton icon="previous" action="setup-back" variant="ghost" onSelect={onBack}>
-            {t('action.back')}
-          </FocusButton>
-        ) : null}
-        <FocusButton icon="next" action="setup-next" variant="primary" onSelect={onNext} autoFocus>
-          {t('action.next')}
-        </FocusButton>
-      </div>
-
-      <Hints
-        items={[
-          { key: 'A', label: t('action.select') },
-          { key: '↕', label: t('action.navigate') },
-          ...(onBack ? [{ key: 'B', label: t('action.back') }] : [])
-        ]}
-      />
-    </div>
+    </WizardPage>
   )
 }
 
