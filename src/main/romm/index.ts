@@ -22,7 +22,7 @@ export {
   answered,
   refusedUs
 } from './errors.ts'
-export { checkDeferredToUnpacking } from './checksums.ts'
+export { checkDeferredToUnpacking, checksumOf } from './checksums.ts'
 export { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 export { partialPathOf, verify } from './transfer.ts'
 export type { DownloadProgress, TransferOptions } from './transfer.ts'

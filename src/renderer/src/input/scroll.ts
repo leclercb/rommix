@@ -33,30 +33,46 @@ function scrollBehavior(): ScrollBehavior {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
 }
 
-/** The nearest ancestor that actually scrolls, if there is one. */
-function scrollParentOf(element: HTMLElement): HTMLElement | null {
+/**
+ * The nearest scrolling ancestor on each axis, found in one walk.
+ *
+ * One walk because `revealElement` wants both, and two of them meant
+ * `getComputedStyle` twice per ancestor plus a layout-forcing scroll dimension
+ * read twice — on every press, for the whole depth of the tree above a card.
+ *
+ * Both answers rather than the first one found: the two axes are different
+ * elements. A card sits in a shelf that scrolls sideways, inside a page that
+ * scrolls down, and each of them is what the other's pass has to walk past.
+ */
+function scrollParentsOf(element: HTMLElement): {
+  vertical: HTMLElement | null
+  horizontal: HTMLElement | null
+} {
+  let vertical: HTMLElement | null = null
+  let horizontal: HTMLElement | null = null
   let node = element.parentElement
-  while (node) {
-    const overflow = getComputedStyle(node).overflowY
-    if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight) {
-      return node
+
+  while (node && !(vertical && horizontal)) {
+    const style = getComputedStyle(node)
+    if (!vertical && scrolls(style.overflowY) && node.scrollHeight > node.clientHeight) {
+      vertical = node
+    }
+    if (!horizontal && scrolls(style.overflowX) && node.scrollWidth > node.clientWidth) {
+      horizontal = node
     }
     node = node.parentElement
   }
-  return null
+  return { vertical, horizontal }
 }
 
-/** The same, for the sideways axis: the shelf a card sits in. */
-function horizontalScrollParentOf(element: HTMLElement): HTMLElement | null {
-  let node = element.parentElement
-  while (node) {
-    const overflow = getComputedStyle(node).overflowX
-    if ((overflow === 'auto' || overflow === 'scroll') && node.scrollWidth > node.clientWidth) {
-      return node
-    }
-    node = node.parentElement
-  }
-  return null
+/** Does this `overflow` value make an element a scroller? */
+function scrolls(overflow: string): boolean {
+  return overflow === 'auto' || overflow === 'scroll'
+}
+
+/** The nearest ancestor that actually scrolls, if there is one. */
+function scrollParentOf(element: HTMLElement): HTMLElement | null {
+  return scrollParentsOf(element).vertical
 }
 
 /**
@@ -68,8 +84,7 @@ function horizontalScrollParentOf(element: HTMLElement): HTMLElement | null {
  * them then moved the highlight onto cards off the right-hand edge and never
  * scrolled to them, which reads as focus simply disappearing.
  */
-function revealAcross(element: HTMLElement): void {
-  const shelf = horizontalScrollParentOf(element)
+function revealAcross(element: HTMLElement, shelf: HTMLElement | null): void {
   if (!shelf) return
 
   const card = element.getBoundingClientRect()
@@ -91,9 +106,10 @@ function revealAcross(element: HTMLElement): void {
  * thousand rows, and this runs on every press of a held direction.
  */
 export function revealElement(element: HTMLElement): void {
-  revealAcross(element)
+  // One walk for both axes, this being the caller that wants both.
+  const { vertical: scroller, horizontal: shelf } = scrollParentsOf(element)
+  revealAcross(element, shelf)
 
-  const scroller = scrollParentOf(element)
   if (scroller) {
     // Where the element sits inside the scrolled content, not the viewport.
     const top =

@@ -35,6 +35,50 @@ export function keyboardLabel(key: string, t: I18n['t']): string | undefined {
   }
 }
 
+/**
+ * What one key press means, or null where it means nothing here.
+ *
+ * Split out of the handler so it can be tested, the same reason `geometry.ts`
+ * was split out of `focus.tsx`: the rule worth pinning is that every key
+ * `keyboardLabel` advertises is one this answers for — the hint bar drew `M`
+ * uppercase while the switch tested `'m'`, so with Caps Lock on the press that
+ * matched the label did nothing, and nothing anywhere could have caught it.
+ *
+ * Letters are lower-cased for that reason. `event.key` is what the shift state
+ * produced, and which case a letter arrives in says nothing about what was
+ * meant by it.
+ */
+export function intentOf(
+  key: string,
+  shiftKey = false
+): { move: Direction } | { action: Action } | { activate: true } | null {
+  switch (key.length === 1 ? key.toLowerCase() : key) {
+    case 'ArrowUp':
+      return { move: 'up' }
+    case 'ArrowDown':
+      return { move: 'down' }
+    case 'ArrowLeft':
+      return { move: 'left' }
+    case 'ArrowRight':
+      return { move: 'right' }
+    case 'Enter':
+    // Everyone tries the space bar on a button, controller UI or not.
+    case ' ':
+      return { activate: true }
+    case 'Escape':
+    case 'Backspace':
+      return { action: 'back' }
+    case 'Tab':
+      return { action: shiftKey ? 'tabLeft' : 'tabRight' }
+    case '/':
+      return { action: 'search' }
+    case 'm':
+      return { action: 'menu' }
+    default:
+      return null
+  }
+}
+
 export function useKeyboard(
   move: (direction: Direction) => void,
   fireAction: (action: Action) => void,
@@ -49,45 +93,15 @@ export function useKeyboard(
         target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable
       if (typing && event.key !== 'Escape') return
 
-      // Lower-cased for the letters below: `keyboardLabel` advertises `M` and
-      // the hint bar draws it uppercase, so Caps Lock or a held Shift is a
-      // press that matches the label and does nothing.
-      switch (event.key.length === 1 ? event.key.toLowerCase() : event.key) {
-        case 'ArrowUp':
-          move('up')
-          break
-        case 'ArrowDown':
-          move('down')
-          break
-        case 'ArrowLeft':
-          move('left')
-          break
-        case 'ArrowRight':
-          move('right')
-          break
-        case 'Enter':
-        // Everyone tries the space bar on a button, controller UI or not.
-        case ' ':
-          activate()
-          break
-        case 'Escape':
-        case 'Backspace':
-          fireAction('back')
-          break
-        case 'Tab':
-          fireAction(event.shiftKey ? 'tabLeft' : 'tabRight')
-          break
-        case '/':
-          fireAction('search')
-          break
-        case 'm':
-          fireAction('menu')
-          break
-        default:
-          return
-      }
-      // Only past the switch: an unhandled key is someone typing somewhere
-      // else, not a statement that the keyboard is now driving the UI.
+      const intent = intentOf(event.key, event.shiftKey)
+      // An unhandled key is someone typing somewhere else, not a statement that
+      // the keyboard is now driving the UI.
+      if (!intent) return
+
+      if ('move' in intent) move(intent.move)
+      else if ('activate' in intent) activate()
+      else fireAction(intent.action)
+
       noteInput('keyboard')
       event.preventDefault()
     }

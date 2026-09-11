@@ -82,6 +82,24 @@ async function sandboxPids(appId: string): Promise<number[]> {
  */
 const KILL_SETTLE_MS = 400
 
+/**
+ * The roots and everything under them, from one snapshot of the process table.
+ *
+ * What all three signalling paths actually want, and what all three wrote out
+ * for themselves: read `ps`, expand the roots into their descendants, and fold
+ * the roots back in. Splitting that three ways left the reading of the table
+ * and the ordering of the result to be got right three times.
+ *
+ * The roots last, because a parent signalled before its children can take the
+ * tree down before they are reached — the reason `stopFlatpakApp` puts the
+ * sandbox after its descendants, and the ordering the other two were
+ * inconsistent about.
+ */
+export async function processTreeOf(roots: readonly number[]): Promise<number[]> {
+  const ps = await run(['ps', '-eo', 'pid=,ppid='])
+  return [...descendantsOf(ps ?? '', roots), ...roots]
+}
+
 /** Every process descended from `roots`, from one snapshot of the process table. */
 export function descendantsOf(psOutput: string, roots: readonly number[]): number[] {
   const children = new Map<number, number[]>()
@@ -200,8 +218,7 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
   // signal, and the grace period would expire into a kill for no reason.
   // Signalling bubblewrap when it is not the application is harmless: it does
   // not forward, which is the whole reason the descendants are listed.
-  const ps = await run(['ps', '-eo', 'pid=,ppid='])
-  const targets = [...descendantsOf(ps ?? '', sandboxes), ...sandboxes]
+  const targets = await processTreeOf(sandboxes)
   log.info('host', 'asking a flatpak app to quit', { appId, sandboxes, targets })
   signal(targets)
 
@@ -242,8 +259,7 @@ export async function stopFlatpakApp(appId: string): Promise<boolean> {
  * written. See `forceQuit`.
  */
 export async function killProcessTree(pid: number): Promise<void> {
-  const ps = await run(['ps', '-eo', 'pid=,ppid='])
-  const targets = [pid, ...descendantsOf(ps ?? '', [pid])]
+  const targets = await processTreeOf([pid])
   log.warn('host', 'killing a process tree on request — unsaved data is lost', { pid, targets })
   signal(targets, 'SIGKILL')
 }
@@ -272,8 +288,7 @@ export async function killFlatpakApp(appId: string): Promise<boolean> {
   const left = await sandboxPids(appId)
   if (left.length === 0) return true
 
-  const ps = await run(['ps', '-eo', 'pid=,ppid='])
-  const targets = [...descendantsOf(ps ?? '', left), ...left]
+  const targets = await processTreeOf(left)
   log.warn('host', 'it outlived flatpak kill, signalling the sandbox directly', { appId, targets })
   signal(targets, 'SIGKILL')
 

@@ -141,4 +141,25 @@ describe('and when it comes back', () => {
     await app.goTo('library')
     await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the games only RomM has')
   })
+
+  test('and the home screen fills itself back in', async () => {
+    /**
+     * The screen the offline pass empties, and the one nothing opened.
+     *
+     * A shelf stands its request down when the connection goes, and it used to
+     * refuse the first page afterwards on behalf of a request it had already
+     * stopped listening to — leaving the row with no games, no spinner and no
+     * error until the screen was navigated away from and back. `paging.ts`
+     * exempts offset 0 for exactly this reason and says so; the shelves did
+     * not.
+     *
+     * Home rather than the library because only Home is built this way, and
+     * because the library check above passes either way.
+     */
+    await app.goTo('home')
+    await app.waitFor(
+      `document.querySelector('[data-shelf="recent"] [data-rom]')`,
+      'a shelf that asks the server to have games on it again'
+    )
+  })
 })

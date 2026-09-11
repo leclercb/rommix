@@ -18,7 +18,13 @@ import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
 import { OfflineCache } from './offline.ts'
-import { CorruptDownloadError, RommClient, RommError, UnreachableError } from './romm/index.ts'
+import {
+  checksumOf,
+  CorruptDownloadError,
+  RommClient,
+  RommError,
+  UnreachableError
+} from './romm/index.ts'
 import { resolveRoot, rootPaths } from './root.ts'
 import { Store } from './store.ts'
 import { zipDirectory } from './zip.ts'
@@ -177,9 +183,19 @@ function fakeClient(
       // The real client renames the partial onto the ROM, so it is gone either
       // way once the transfer finishes.
       await rm(`${destination}.part`, { force: true })
-      // Said where the real transfer would say it: a game RomM holds a digest
-      // for is read back off the disk before it is allowed to stand.
-      if (game.md5_hash) opts.onChecking?.()
+      /**
+       * Said where the real transfer says it, which is not wherever there is a
+       * hash.
+       *
+       * `fetchToFile` raises this only when it was handed something to verify,
+       * and what it is handed is `checksumOf(rom)` — which declines for an
+       * archive, RomM having hashed what is inside rather than what the
+       * endpoint serves. A fake that announced it anyway put a state in the
+       * asserted sequence that the real code never emits for a zipped game,
+       * and hid the fact that the check which *does* run for one — after
+       * unpacking — left the row saying "Extracting" throughout.
+       */
+      if (checksumOf(game)) opts.onChecking?.()
       if (options.zip) {
         const inside = scratch()
         for (const [name, body] of Object.entries(options.zip)) {
@@ -558,17 +574,44 @@ describe('a game RomM holds zipped', () => {
     downloads.enqueue(zipped())
     await settled(downloads, 1)
 
-    // A full bar and the word "Downloading" over a game being checked, unpacked
-    // and indexed is a transfer that reads as stuck. Each of those says so, in
-    // the order they happen, and none of them comes round twice.
+    /**
+     * A full bar and the word "Downloading" over a game being checked, unpacked
+     * and indexed is a transfer that reads as stuck. Each of those says so, in
+     * the order they happen, and none of them comes round twice.
+     *
+     * Checked *after* extracting, for an archive. RomM hashes what is inside
+     * one rather than the archive the endpoint serves, so the wire-side check
+     * declines and the digest only has the file it describes in front of it
+     * once the game is unpacked — which is a read of the whole ROM back off the
+     * disk, and minutes of it on a large game. The order here is the one thing
+     * that says which of the two checks a zipped game actually gets.
+     */
     assert.deepEqual(seen, [
       'queued',
       'downloading',
-      'checking',
       'extracting',
+      'checking',
       'installing',
       'done'
     ])
+  })
+
+  test('a game served as a plain file is checked on the way in instead', async () => {
+    // The other side of the order above, and the reason it is worth asserting:
+    // for a game RomM did not have to open, the digest describes the bytes on
+    // the wire, so the check happens before anything is unpacked — there being
+    // nothing to unpack.
+    const { downloads } = manager()
+    const seen: string[] = []
+    downloads.on('update', (items: DownloadItem[]) => {
+      const row = items.find((item) => item.romId === 1)
+      if (row && seen.at(-1) !== row.state) seen.push(row.state)
+    })
+
+    downloads.enqueue(rom({ md5_hash: '781e5e245d69b566979b86e28d23f2c7' }))
+    await settled(downloads, 1)
+
+    assert.deepEqual(seen, ['queued', 'downloading', 'checking', 'installing', 'done'])
   })
 
   test('one that unpacks to bytes RomM does not hold is refused, and goes', async () => {

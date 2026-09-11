@@ -939,6 +939,12 @@ export class DownloadManager extends EventEmitter {
        * set where several came out, and those have no digest to be held to.
        */
       if (!unpacked.isDirectory && unpacked.files === undefined) {
+        // Said before it starts, for the same reason `onChecking` exists on the
+        // way in: this reads the whole game back off the disk, which on a large
+        // one is minutes of a row that would otherwise still say "Extracting"
+        // — the state it was in for the second or two the unpacking took.
+        item.state = 'checking'
+        this.emitUpdate()
         await this.client.verifyUnpacked(rom, unpacked.path)
       }
       return unpacked

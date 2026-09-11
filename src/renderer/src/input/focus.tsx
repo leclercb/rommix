@@ -11,7 +11,7 @@ import {
   type ReactNode,
   type RefObject
 } from 'react'
-import { measure, rectOf, SAME_STEP_PX, type Measure } from './geometry'
+import { measure, rectOf, SAME_STEP_PX, type Measure, type Rect } from './geometry'
 import { gamepadPresent, useGamepad } from './gamepad'
 import { keyboardLabel, useKeyboard } from './keyboard'
 import { revealElement, scrollToEnd } from './scroll'
@@ -429,7 +429,26 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
         return
       }
 
-      const from = rectOf(current.element)
+      /**
+       * Every element measured at most once for this press.
+       *
+       * `pick` asks `nearest` twice — once for what is on screen, and at a dead
+       * end again for the whole field, which contains the first set. Without
+       * this, holding Down at the bottom of a paged grid re-measures several
+       * hundred cards on every repeat, and `getBoundingClientRect` is a layout
+       * read apiece. A press is synchronous, so nothing can move between the
+       * two passes and the second is entitled to the first's answer.
+       */
+      const rects = new Map<HTMLElement, Rect>()
+      const rectFor = (element: HTMLElement): Rect => {
+        const held = rects.get(element)
+        if (held) return held
+        const rect = rectOf(element)
+        rects.set(element, rect)
+        return rect
+      }
+
+      const from = rectFor(current.element)
       const vertical = direction === 'down' || direction === 'up'
       // A vertical run keeps the column it started in; anything else starts a
       // new line of travel from where focus is now.
@@ -448,7 +467,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
 
         for (const candidate of pool) {
           if (candidate.id === current.id) continue
-          const at = measure(from, rectOf(candidate.element), direction, line)
+          const at = measure(from, rectFor(candidate.element), direction, line)
           if (!at) continue
           measured.push({ id: candidate.id, at })
         }

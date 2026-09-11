@@ -102,6 +102,8 @@ function setUp(
     uploadFails?: boolean
     /** What a download hands back as an archive, for a directory save. */
     archive?: Record<string, string>
+    /** How many bytes arrive before the connection drops. See `download`. */
+    breakAfter?: number
   } = {}
 ): {
   sync: SaveSync
@@ -125,6 +127,20 @@ function setUp(
 
   /** What the server hands over: a file's contents, or a zip of a folder. */
   const download = async (to: string): Promise<void> => {
+    /**
+     * Some bytes, then the connection goes.
+     *
+     * The shape that matters, and the one nothing exercised: a fake that throws
+     * before writing anything cannot produce the failure this is about. A pull
+     * that streams straight onto the file the emulator opens leaves it
+     * truncated to however many bytes arrived, with an mtime of now — which is
+     * ahead of the server's stamp, so every later pull skips it and the Saves
+     * tab offers to push the truncated copy over the good one.
+     */
+    if (options.breakAfter !== undefined) {
+      await writeFile(to, 'from the server'.slice(0, options.breakAfter))
+      throw new Error('the transfer from RomM broke off')
+    }
     if (!options.archive) return writeFile(to, 'from the server')
     const staging = scratch()
     for (const [name, contents] of Object.entries(options.archive)) {
@@ -1527,6 +1543,40 @@ describe('pairing on the slot rather than the name', () => {
     // And the disagreement is settled rather than skipped over, so the next
     // launch answers without reading the file at all.
     assert.equal(statSync(local).mtime.toISOString(), '2026-08-05T12:00:00.000Z')
+  })
+
+  test('a pull that breaks part-way leaves the save that was here alone', async () => {
+    /**
+     * The one file in RomMix that cannot be fetched again from anywhere.
+     *
+     * Streamed straight onto the destination, a dropped connection truncated
+     * the save the emulator opens — and because the stamping never ran, its
+     * mtime was left at now, ahead of the server's. Every later pull then
+     * skipped it, and the Saves tab offered to push the truncated copy over the
+     * good one. `keepBackup` kept a copy, and nothing ever read it back.
+     */
+    const { sync, target, saveDir } = setUp({
+      saves: [elsewhere()],
+      breakAfter: 4
+    })
+    const local = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(local, 'the save that is here')
+    const old = new Date('2026-08-01T12:00:00.000Z')
+    utimesSync(local, old, old)
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 0)
+    // Counted rather than passed over in silence — see `PullCount.failed`.
+    assert.equal(result.failed, 1)
+    assert.equal(
+      readFileSync(local, 'utf8'),
+      'the save that is here',
+      'the local save must be untouched, not half a download'
+    )
+    // And nothing left beside it for the next pull to find or the emulator to
+    // open by mistake.
+    assert.equal(existsSync(`${local}.part`), false)
   })
 
   test('bytes that really differ are still pulled', async () => {
