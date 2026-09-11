@@ -4,12 +4,9 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
-## 0.15.0-rc.2 — 2026-09-11
+## 0.15.0 — 2026-09-12
 
 - test(app): wait for the state before reading it off the disk (3bb8360)
-
-## 0.15.0-rc.1 — 2026-09-11
-
 - docs: shorten CONTRIBUTING.md (afa9027)
 - test(unit): add useRomPages coverage (4a74b68)
 - chore: update the dependencies (34837cf)
@@ -19,9 +16,6 @@ before releasing if you want prose instead. See [Releasing](README.md#releasing)
 - fix: close the findings a re-read of the review confirmed (5520624)
 - fix: say why a rejected server sent the user back to the form (a14b8bb)
 - fix: work through a full code review of the codebase (befd3a7)
-
-## 0.15.0-rc.0 — 2026-09-11
-
 - fix: keep a press sideways inside its own row (63bf084)
 - fix: let a server with an unnumbered version connect (5224d5a)
 - fix: reword the interface copy (f4f9b30)
