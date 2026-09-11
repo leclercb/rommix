@@ -143,11 +143,12 @@ and are covered by running the application.
 
 Components are left out of it — every `.tsx` under `src/renderer/`. A component
 is drawn, and what it draws is `npm run test:app`'s to prove against a real
-window; a unit test that renders one is asking a different question, and
-`focus.test.tsx` asks the only one worth asking here — how much of the interface
-wakes up when the highlight moves. Holding that file to the same floor as a
-module of pure rules would mean either a number nothing can honestly raise or a
-floor low enough to stop meaning anything.
+window; a unit test that renders one is asking a different question, and the two
+`.test.tsx` files here ask the two worth asking — how much of the interface
+wakes up when the highlight moves, and what a paged query holds while its
+answers are still out. Holding those to the same floor as a module of pure rules
+would mean either a number nothing can honestly raise or a floor low enough to
+stop meaning anything.
 
 By extension rather than by name, so the rule needs no list kept up to date: a
 new component is covered by it the day it is written, and a module of rules
@@ -291,11 +292,14 @@ can be stated without a screen belongs where `npm test` can reach it, and the
 component keeps the drawing. That is the cheapest kind of test here by a wide
 margin.
 
-A test that genuinely has to render is a `.test.tsx`, and there is one:
+A test that genuinely has to render is a `.test.tsx`, and there are two:
 `input/focus.test.tsx`, which counts how much of the interface wakes up when the
-highlight moves. It calls `installDom` from `src/renderer/src/test/dom.ts` before
-importing React, and imports everything after that dynamically, because a window
-has to exist first. `scripts/test-resolve.mjs` compiles JSX with esbuild on the
+highlight moves, and `paging.test.tsx`, which is the only thing that reaches
+`useRomPages` at all — what pages is a hook inside components, and the library
+the fake server holds is smaller than a page, so no `npm run test:app` scenario
+has ever asked for a second one. Both call `installDom` from
+`src/renderer/src/test/dom.ts` before importing React, and import everything
+after that dynamically, because a window has to exist first. `scripts/test-resolve.mjs` compiles JSX with esbuild on the
 way in — Node's own type stripping refuses `.tsx` — and resolves the
 extensionless relative imports the renderer is written with, which the bundler
 otherwise does.

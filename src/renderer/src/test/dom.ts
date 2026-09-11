@@ -5,8 +5,10 @@ import { Window } from 'happy-dom'
  *
  * Most of the renderer's logic has been lifted into plain modules so it can be
  * tested without one — `geometry.ts`, `history.ts`, `tiles.ts`. What that
- * cannot reach is a question about *rendering*, and the focus engine asks one:
- * what a directional press costs is how many components React wakes up.
+ * cannot reach is a question about *rendering*, and two are asked here: what a
+ * directional press costs is how many components React wakes up, and what a
+ * paged query is holding is what its effects and its answers did in the order
+ * they arrived.
  *
  * happy-dom rather than a full browser because nothing here needs layout.
  * There is none: `getBoundingClientRect` answers zero for everything and
