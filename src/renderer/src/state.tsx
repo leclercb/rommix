@@ -15,104 +15,21 @@ import {
   type ConnectionStatus,
   type DownloadItem,
   type DownloadState,
-  type EmulatorId,
   type InstalledRom,
   type SavesWaiting,
   type Settings,
   type UpdateStatus
 } from '@shared/types'
 import { setSoundEnabled } from './input/sound'
+import { popRoute, prunedForOffline, pushRoute, type Route } from './history'
 import { fileNameOf } from '@shared/gamefiles'
 
 /** Application-wide state: connection, settings, downloads and navigation. */
 
-export type Route =
-  /**
-   * First-run setup, and the sign-in form it ends on. See `SetupScreen`.
-   */
-  | { name: 'setup' }
-  | { name: 'home' }
-  | { name: 'library' }
-  /**
-   * One game. `fromVersions` says it was opened from another dump's versions
-   * list, which is where the highlight belongs when it arrives: the pad is on a
-   * tab strip and stepping to the next version should leave it there.
-   */
-  | { name: 'game'; romId: number; fromVersions?: true }
-  | { name: 'downloads' }
-  /**
-   * One shelf on RomM. The name travels with the id: it was on screen in the
-   * list that was pressed to get here, so refetching it would put a spinner
-   * where the title goes.
-   *
-   * A number is a collection the user made and a string is one RomM derived —
-   * which is the distinction the server itself draws, right down to the query
-   * parameter each is passed as.
-   */
-  | { name: 'collection'; collectionId: number | string; title: string }
-  | { name: 'collections' }
-  | { name: 'bios' }
-  | { name: 'emulators' }
-  /**
-   * Installing an emulator, page by page.
-   *
-   * `emulatorId` is one already settled on — the row pressed on the Emulators
-   * screen — and its absence is what puts the choice of emulator in front: a
-   * game's platform is covered by several, and which of them is the first
-   * question. `system` is the list that choice is drawn from and `platform`
-   * what to call it on screen.
-   */
-  | {
-      name: 'install-emulator'
-      emulatorId?: EmulatorId
-      system?: string
-      platform?: string
-      /** Straight to the builds, for an install RomMix already manages. */
-      changeVersion?: true
-    }
-  | { name: 'settings' }
-
-/**
- * The screens that are a place rather than a thing: what the menu bar offers.
- *
- * Going to one of these starts a path instead of continuing one — see
- * `navigate` — which is what keeps B a way *out* rather than a replay of the
- * evening. Everything not named here is something looked at inside a place: a
- * game, a collection's contents.
- */
-const SECTIONS: readonly Route['name'][] = [
-  'home',
-  'library',
-  'collections',
-  'downloads',
-  'bios',
-  'emulators',
-  'settings'
-]
-
-/**
- * The screens with no local half, and so nothing to show while RomM is away.
- *
- * Only the shelves the server keeps. Every other screen narrows instead of
- * disappearing — Home to the games on this disk, the Library to the ones
- * downloaded, BIOS to what is in place — which is what keeps the menu the same
- * shape offline as on, rather than swapping it for a different application.
- */
-const NEEDS_SERVER: readonly Route['name'][] = ['collections', 'collection']
-
-/**
- * Is this the same screen, rather than one of the same kind?
- *
- * What decides whether a move continues the path or returns along it. Opening
- * the game already two steps back is going back to it, and pushing a second
- * copy would make the next B press look like it did nothing.
- */
-function sameRoute(a: Route, b: Route): boolean {
-  if (a.name !== b.name) return false
-  if (a.name === 'game' && b.name === 'game') return a.romId === b.romId
-  if (a.name === 'collection' && b.name === 'collection') return a.collectionId === b.collectionId
-  return true
-}
+// Where RomMix is, and the rules for moving between screens, live in
+// `history.ts` — pure, and testable for it. Re-exported because this is where
+// every screen already reaches for the type.
+export type { Route } from './history'
 
 export interface Toast {
   id: number
@@ -272,7 +189,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [runningRomId, setRunningRomId] = useState<number | null>(null)
   const [runningEmulator, setRunningEmulator] = useState<string | null>(null)
   const [runningStage, setRunningStage] = useState<string | null>(null)
-  const [history, setHistory] = useState<Route[]>([{ name: 'home' }])
+  const [history, setHistory] = useState<readonly Route[]>([{ name: 'home' }])
   const [toasts, setToasts] = useState<Toast[]>([])
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
   const [unsentSaves, setUnsentSaves] = useState<SavesWaiting[]>([])
@@ -341,11 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [])
 
   const navigate = useCallback((next: Route): void => {
-    setHistory((current) => {
-      if (SECTIONS.includes(next.name)) return [next]
-      const at = current.findIndex((step) => sameRoute(step, next))
-      return at >= 0 ? current.slice(0, at + 1) : [...current, next]
-    })
+    setHistory((current) => pushRoute(current, next))
   }, [])
 
   const replace = useCallback((next: Route): void => {
@@ -353,7 +266,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [])
 
   const goBack = useCallback((): void => {
-    setHistory((current) => (current.length > 1 ? current.slice(0, -1) : current))
+    setHistory(popRoute)
   }, [])
 
   const canGoBack = history.length > 1
@@ -473,10 +386,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
    */
   useEffect(() => {
     if (!offline) return
-    setHistory((current) => {
-      const kept = current.filter((step) => !NEEDS_SERVER.includes(step.name))
-      return kept.length === current.length ? current : [{ name: 'home' }, ...kept]
-    })
+    setHistory(prunedForOffline)
   }, [offline])
 
   /**
