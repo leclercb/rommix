@@ -1178,6 +1178,15 @@ describe('saves either side of a session', () => {
        )`,
       'the save to land on this disk'
     )
+    // A wait for each kind, the two being fetched one after the other: the
+    // save is on the disk while the state is still on its way, so a run that
+    // reads the state folder on the first wait alone finds it empty.
+    await saved.waitFor(
+      `(await window.rommix.saves.list(1)).some(
+         (one) => one.fileName === 'cavestory.state1' && one.localPath
+       )`,
+      'the state to land on this disk'
+    )
     assert.equal(readFileSync(join(saveDir, 'cavestory.srm'), 'utf8'), 'brought down by hand')
 
     // Each kind in the folder its own emulator reads it from — the save beside
