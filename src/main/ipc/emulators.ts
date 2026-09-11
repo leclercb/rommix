@@ -1,5 +1,5 @@
 import { emulatorById, isInstallableAsset, releaseSource } from '@config/emulators'
-import type { EmulatorAsset, EmulatorRelease } from '@shared/types'
+import type { EmulatorAsset, EmulatorRelease, EmulatorState } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { prepareRomFolders } from '../emulators.ts'
 import { installFlatpak } from '../host.ts'
@@ -26,6 +26,16 @@ async function settleRomFolders(rommix: RomMixApp, id: string): Promise<void> {
 /** Putting an emulator on the machine, and running one on its own. */
 export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
   const { store, launcher } = rommix
+
+  /**
+   * What the last probe found, without re-running it.
+   *
+   * Separate from `system:diagnostics`, which probes afresh and asks the host
+   * about flatpak and about every ROM folder it can write to. A screen that
+   * only wants to know whether anything here can run a platform would be
+   * paying for all of that every time a game is opened.
+   */
+  handle('emulators:states', (): Promise<EmulatorState[]> => rommix.ensureEmulators())
 
   /**
    * Start an emulator on its own, with no game.

@@ -459,6 +459,15 @@ export const de: Catalog = {
   'game.pullSaves': 'Spielstände holen',
   'game.pushSaves': 'Spielstände senden',
   'game.openBios': 'BIOS öffnen',
+  'game.noEmulatorTitle': 'Kein Emulator für {platform}',
+  'game.noEmulatorBody':
+    'Nichts hier Installiertes führt {platform}-Spiele aus. Installieren Sie jetzt einen Emulator, ' +
+    'oder laden Sie das Spiel herunter und installieren Sie später einen.',
+  'game.noEmulatorNone':
+    'RomMix hat keinen Emulator für {platform} und kann dieses Spiel deshalb nicht starten. Der ' +
+    'Download funktioniert trotzdem.',
+  'game.installEmulator': 'Emulator installieren',
+  'game.downloadAnyway': 'Trotzdem herunterladen',
   'setup.dontShowAgain': 'Nicht mehr anzeigen',
   'game.readMore': 'Mehr lesen',
   'game.showLess': 'Weniger anzeigen',

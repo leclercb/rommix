@@ -13,7 +13,7 @@ import { PushPreviewList } from './PushPreviewList'
 import { deleteScopeLabel, deleteScopesOf } from './tabs'
 
 /**
- * The four questions this screen asks before doing something it cannot undo.
+ * The questions this screen asks before it acts.
  *
  * Presentational, and here rather than in the screen: each is a title, a
  * sentence of consequence and two or three buttons, and stacked inline at the
@@ -55,6 +55,57 @@ export function LaunchVariantDialog({
         ))}
       </div>
       <div className="btn-row">
+        <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
+          {t('action.cancel')}
+        </FocusButton>
+      </div>
+    </Overlay>
+  )
+}
+
+/**
+ * Nothing on this machine can run the game that is about to be downloaded.
+ *
+ * Asked by the download button rather than left to the launch, because the gap
+ * between the two is the length of a transfer: a player told at the end of it
+ * has already waited for a game they cannot start.
+ *
+ * The download is offered all the same. A game is worth having on the disk for
+ * the emulator that arrives next week, and which of the two to do first is the
+ * player's call.
+ */
+export function NoEmulatorDialog({
+  platform,
+  canInstall,
+  onInstall,
+  onDownload,
+  onCancel
+}: {
+  platform: string
+  /** False where RomMix knows no emulator for the platform at all. */
+  canInstall: boolean
+  onInstall: () => void
+  onDownload: () => void
+  onCancel: () => void
+}): JSX.Element {
+  const { t } = useI18n()
+  return (
+    <Overlay title={t('game.noEmulatorTitle', { platform })} icon="emulator">
+      <p className="muted">
+        {t(canInstall ? 'game.noEmulatorBody' : 'game.noEmulatorNone', { platform })}
+      </p>
+      <div className="btn-row">
+        {/* First and focused where it exists: an emulator is what the game
+            needs, and the transfer below it can be started from this same
+            screen at any point afterwards. */}
+        {canInstall ? (
+          <FocusButton icon="install" variant="primary" onSelect={onInstall} autoFocus>
+            {t('game.installEmulator')}
+          </FocusButton>
+        ) : null}
+        <FocusButton icon="download" onSelect={onDownload} autoFocus={!canInstall}>
+          {t('game.downloadAnyway')}
+        </FocusButton>
         <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
           {t('action.cancel')}
         </FocusButton>

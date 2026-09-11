@@ -940,6 +940,7 @@ const bridge: RomMixBridge = {
       if ('language' in patch) describePage()
       return later(SETTINGS)
     },
+    emulatorStates: () => later([]),
     emulatorReleases: () => later([]),
     installEmulator: () => refuse(),
     installEmulatorFlatpak: () => refuse(),

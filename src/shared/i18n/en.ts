@@ -452,6 +452,14 @@ export const en = {
   'game.pullSaves': 'Pull saves',
   'game.pushSaves': 'Push saves',
   'game.openBios': 'Open BIOS',
+  'game.noEmulatorTitle': 'No emulator for {platform}',
+  'game.noEmulatorBody':
+    'Nothing installed here runs {platform} games. Install an emulator now, or download the game ' +
+    'and install one later.',
+  'game.noEmulatorNone':
+    'RomMix has no emulator for {platform}, so it cannot start this game. The download still works.',
+  'game.installEmulator': 'Install an emulator',
+  'game.downloadAnyway': 'Download anyway',
   'setup.dontShowAgain': "Don't show this again",
   'game.readMore': 'Read more',
   'game.showLess': 'Show less',

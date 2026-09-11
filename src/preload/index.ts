@@ -133,6 +133,7 @@ const bridge: RomMixBridge = {
     settings: () => ipcRenderer.invoke('system:settings'),
     updateSettings: (patch: Partial<Settings>) =>
       ipcRenderer.invoke('system:updateSettings', patch),
+    emulatorStates: () => ipcRenderer.invoke('emulators:states'),
     emulatorReleases: (id: string) => ipcRenderer.invoke('emulators:releases', id),
     installEmulator: (id: string, asset: EmulatorAsset) =>
       ipcRenderer.invoke('emulators:install', id, asset),

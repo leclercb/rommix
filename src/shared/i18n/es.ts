@@ -445,6 +445,15 @@ export const es: Catalog = {
   'game.pullSaves': 'Traer las partidas',
   'game.pushSaves': 'Enviar las partidas',
   'game.openBios': 'Abrir BIOS',
+  'game.noEmulatorTitle': 'Sin emulador para {platform}',
+  'game.noEmulatorBody':
+    'Nada de lo instalado aquí ejecuta juegos de {platform}. Instala un emulador ahora, o descarga ' +
+    'el juego e instala uno más tarde.',
+  'game.noEmulatorNone':
+    'RomMix no tiene ningún emulador para {platform}, así que no puede iniciar este juego. La ' +
+    'descarga sigue funcionando.',
+  'game.installEmulator': 'Instalar un emulador',
+  'game.downloadAnyway': 'Descargar de todos modos',
   'setup.dontShowAgain': 'No mostrar esto otra vez',
   'game.readMore': 'Leer más',
   'game.showLess': 'Mostrar menos',

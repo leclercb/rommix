@@ -20,6 +20,7 @@ import type {
   EmulatorAsset,
   EmulatorInstallProgress,
   EmulatorRelease,
+  EmulatorState,
   RootLocation,
   UpdateStatus,
   SaveAsset,
@@ -356,6 +357,11 @@ export interface RomMixBridge {
   system: {
     settings(): Promise<Settings>
     updateSettings(patch: Partial<Settings>): Promise<Settings>
+    /**
+     * What the last probe found, without probing again — see the
+     * `emulators:states` handler.
+     */
+    emulatorStates(): Promise<EmulatorState[]>
     /** Releases RomMix could install for an emulator that ships as a download. */
     emulatorReleases(id: string): Promise<EmulatorRelease[]>
     /** Download an asset and adopt it as that emulator's executable. */

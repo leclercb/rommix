@@ -1,6 +1,13 @@
 import { type JSX, useEffect, useMemo, useState } from 'react'
+import { emulatorsForSystem, resolveEmulator } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
-import { isStopped, type BiosPlatform, type InstalledRom, type RommRom } from '@shared/types'
+import {
+  isStopped,
+  type BiosPlatform,
+  type EmulatorState,
+  type InstalledRom,
+  type RommRom
+} from '@shared/types'
 import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
 import { Icon } from '../../icons'
 import { useApp, useDownloads, useI18n } from '../../state'
@@ -11,6 +18,7 @@ import { SaveTransfer } from './SaveTransfer'
 import {
   DeleteAssetDialog,
   LaunchVariantDialog,
+  NoEmulatorDialog,
   PushConfirmDialog,
   UninstallDialog
 } from './dialogs'
@@ -55,6 +63,24 @@ export function GameScreen({
   const [bios, setBios] = useState<BiosPlatform | null>(null)
   /** True while the shelves this game is on are being looked at or changed. */
   const [choosingCollections, setChoosingCollections] = useState(false)
+  /** True while the download button's question about emulators is on screen. */
+  const [askingEmulator, setAskingEmulator] = useState(false)
+
+  /**
+   * What this machine can run, for the one question this screen puts to it:
+   * whether anything here runs this game's platform.
+   *
+   * The last probe rather than a fresh one — see the `emulators:states`
+   * handler. Null until it has answered, which is deliberately not the same as
+   * an empty list: the download button asks nothing until there is an answer.
+   */
+  const [emulators, setEmulators] = useState<EmulatorState[] | null>(null)
+  useEffect(() => {
+    void window.rommix.system
+      .emulatorStates()
+      .then(setEmulators)
+      .catch(() => setEmulators(null))
+  }, [])
 
   /**
    * The BIOS situation for this game's platform.
@@ -258,6 +284,24 @@ export function GameScreen({
   const system =
     entry?.system ??
     resolveSystem(rom.platform_slug, rom.platform_fs_slug, settings?.systemOverrides)
+  /**
+   * Whether the game would have nothing to run in once it is here.
+   *
+   * Resolved the way the launcher resolves it, so the answer is the one the
+   * Play button would reach: a platform pointed at an emulator that is not
+   * installed has none, rather than falling through to whatever else covers it.
+   *
+   * A platform RomMix cannot name a system for is left alone. There is no list
+   * of emulators to check it against, and nothing to offer installing.
+   */
+  const noEmulator =
+    emulators !== null &&
+    system !== null &&
+    resolveEmulator(emulators, system, settings?.systemEmulators ?? {}) === null
+  /** Whether RomMix ships an emulator for this platform at all. */
+  const canInstallEmulator =
+    system !== null && emulatorsForSystem(system, settings?.emulatorPriority ?? []).length > 0
+
   const progress =
     download && download.totalBytes > 0
       ? Math.round((download.receivedBytes / download.totalBytes) * 100)
@@ -356,7 +400,7 @@ export function GameScreen({
             icon="download"
             action="download"
             variant="primary"
-            onSelect={() => void startDownload()}
+            onSelect={() => (noEmulator ? setAskingEmulator(true) : void startDownload())}
             disabled={working}
             autoFocus={!focusTabs}
           >
@@ -667,6 +711,22 @@ export function GameScreen({
           romId={romId}
           onClose={() => setChoosingCollections(false)}
           onError={(message) => notify(message, 'error')}
+        />
+      ) : null}
+
+      {askingEmulator ? (
+        <NoEmulatorDialog
+          platform={rom.platform_display_name}
+          canInstall={canInstallEmulator}
+          onInstall={() => {
+            setAskingEmulator(false)
+            navigate({ name: 'emulators' })
+          }}
+          onDownload={() => {
+            setAskingEmulator(false)
+            void startDownload()
+          }}
+          onCancel={() => setAskingEmulator(false)}
         />
       ) : null}
 
