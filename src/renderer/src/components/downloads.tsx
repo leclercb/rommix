@@ -63,6 +63,13 @@ export function ProgressBar({
   colour,
   waiting = false
 }: {
+  /**
+   * How far along, 0 to 100.
+   *
+   * Out of a hundred rather than out of one because it is written straight
+   * into a CSS width, and a share of one is a legal percent — so a caller
+   * that hands over `done / total` draws a sliver and is told nothing.
+   */
   percent: number
   colour?: string
   /**

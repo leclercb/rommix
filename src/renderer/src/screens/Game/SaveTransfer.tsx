@@ -19,7 +19,7 @@ export function SaveTransfer({ progress }: { progress: SaveProgress }): JSX.Elem
   const { t, formatBytes } = useI18n()
   const { direction, fileName, done, total, receivedBytes, totalBytes } = progress
 
-  /** How far into the file in flight, where its size is known. */
+  /** How far into the file in flight, as a share of it, where its size is known. */
   const share = totalBytes > 0 ? receivedBytes / totalBytes : null
   /**
    * How far into the run, where there is a run to measure.
@@ -34,6 +34,7 @@ export function SaveTransfer({ progress }: { progress: SaveProgress }): JSX.Elem
    * file that has just landed twice.
    */
   const run = total !== null && total > 1 ? done / total : null
+  /** A share of the whole, which the bar takes as a percentage. */
   const percent = run ?? share
 
   return (
@@ -72,7 +73,7 @@ export function SaveTransfer({ progress }: { progress: SaveProgress }): JSX.Elem
           upload is handed over whole and nothing is heard until the server
           answers, and a bar stuck at nothing for that whole time is what a
           stalled transfer looks like. */}
-      <ProgressBar percent={percent ?? 0} waiting={percent === null} />
+      <ProgressBar percent={(percent ?? 0) * 100} waiting={percent === null} />
     </div>
   )
 }
