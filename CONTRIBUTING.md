@@ -2,8 +2,8 @@
 
 Thanks for looking. RomMix is a front end for [RomM](https://romm.app) that runs
 on a television and is driven with a controller, and most of what makes it hard
-is other people's software: five emulators, each packaged more than one way,
-with a different folder layout behind every combination.
+is other people's software: every emulator it drives is packaged more than one
+way, with a different folder layout behind every combination.
 
 ## Getting set up
 
