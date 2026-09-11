@@ -147,21 +147,18 @@ export const en = {
 
   'setup.stepOf': 'Step {step} of {total}',
   'setup.scaleTitle': 'How big should RomMix be?',
-  'setup.scaleSubtitle':
-    'Auto follows the screen — twice the size on a 4K television. Pick a size you can read from ' +
-    'wherever you sit; you can change it later in Settings.',
+  'setup.scaleSubtitle': 'Pick a size you can read from where you sit. Auto follows the screen.',
   'setup.scaleHint': 'The whole interface, not just the text.',
   'setup.storageTitle': 'Where should downloaded games go?',
   'setup.storageSubtitle':
-    'This decides where every ROM lands, so it is far easier to answer now than once there are ' +
-    'games on disk in the other place.',
+    'Where every ROM lands. Easier to answer now than with games already on disk.',
 
   // -- settings rows shared with the wizard ---------------------------------
 
   'control.scale': 'Scale',
   'storage.label': 'Where downloaded games go',
   'storage.hintShared':
-    'One folder for everything, which each emulator has to be pointed at once. Changing emulator ' +
+    'One folder for everything. Each emulator has to be pointed at it once. Changing emulator ' +
     'moves nothing, and a game can be downloaded before anything that runs it is installed.',
   'storage.hintPerEmulator':
     "Each emulator's own ROM folder, so games show up in its list when you start it yourself. " +
@@ -201,7 +198,7 @@ export const en = {
   // -- connect --------------------------------------------------------------
 
   'connect.title': 'Connect to RomM',
-  'connect.subtitle': 'Point RomMix at your RomM server to browse and download your library.',
+  'connect.subtitle': 'Point RomMix at your RomM server.',
   'connect.serverAddress': 'Server address',
   'connect.serverAddressHint': 'The same address you use for the RomM web interface.',
   'connect.howSignIn': 'How would you like to sign in?',
@@ -209,8 +206,8 @@ export const en = {
   'connect.modeToken': 'API token',
   'connect.modePassword': 'Username & password',
   'connect.deviceExplainer':
-    'RomMix shows a short code that you approve from RomM in any browser — no password typed on ' +
-    'the couch.',
+    'RomMix shows a short code you approve from RomM in any browser. No password typed on the ' +
+    'TV.',
   'connect.tokenHint': 'Create one in RomM under Administration → Client tokens.',
   'connect.username': 'Username',
   'connect.password': 'Password',
@@ -243,7 +240,7 @@ export const en = {
   // -- library --------------------------------------------------------------
 
   'library.title': 'Library',
-  'library.browseAll': 'Browse everything on your RomM server',
+  'library.browseAll': 'Everything on your RomM server.',
   'library.count_one': '{count} game',
   'library.count_other': '{count} games',
   'library.countOnPlatform_one': '{count} game on {platform}',
@@ -259,7 +256,7 @@ export const en = {
   'library.noneDownloaded': 'No games downloaded yet.',
   'library.platformChip': '{name} ({count})',
   'library.noMatches': 'No games match that search.',
-  'library.thatIsAll_one': 'That is all {count} of them.',
+  'library.thatIsAll_one': 'That is the only one.',
   'library.thatIsAll_other': 'That is all {count} of them.',
   'library.downloadedMark': 'Downloaded',
   'library.versions_one': '{count} version',
@@ -356,9 +353,8 @@ export const en = {
   'bios.missingSummary_one': '{count} file missing, {fetchable} of them on your RomM server',
   'bios.missingSummary_other': '{count} files missing, {fetchable} of them on your RomM server',
   'bios.explainer':
-    'BIOS files come from your own RomM server — upload them there under a platform, and RomMix ' +
-    'copies them into whichever emulator runs that platform. Nothing is downloaded from anywhere ' +
-    'else.',
+    'BIOS files come from your RomM server. Upload them there under a platform and RomMix ' +
+    'copies them into the emulator that runs it. Nothing comes from anywhere else.',
   'bios.nothingToInstall': 'Nothing to install',
   'bios.recheck': 'Re-check',
   'bios.noPlatforms': 'No platforms on your RomM server yet.',
@@ -434,7 +430,7 @@ export const en = {
 
   'bios.blockedNoMapping':
     'RomMix has no folder mapping for {platform}, so it does not know which emulator runs it. ' +
-    'Add one in settings.systemOverrides.',
+    'Add one to systemOverrides in settings.json.',
   'bios.blockedNoEmulator': 'No installed emulator runs {system}.',
   'bios.blockedNoFolder': 'RomMix does not know where {name} keeps its BIOS files.',
 
@@ -677,9 +673,7 @@ export const en = {
   'settings.date.iso': 'ISO 8601',
   'settings.date.language': 'Match the language',
   'settings.support': 'Support RomMix',
-  'settings.supportBody':
-    'RomMix is free and always will be. If it saved you an afternoon of wiring emulators ' +
-    'together, you can buy me a coffee.',
+  'settings.supportBody': 'RomMix is free and always will be. You can buy me a coffee.',
   'settings.buyCoffee': 'Buy me a coffee',
   'settings.scanOrOpen': 'Scan this with your phone, or open it in a browser on this machine.',
   'settings.application': 'Application',
@@ -700,18 +694,16 @@ export const en = {
   'settings.confirmPush': 'Ask before sending saves to RomM',
   'settings.confirmPushHint': 'Shows what will be sent before sending it.',
   'settings.confirmUninstall': 'Ask before deleting a downloaded game',
-  'settings.confirmUninstallHint': 'Uninstall is one A press from deleting a multi-gigabyte file.',
+  'settings.confirmUninstallHint': 'Without this, one press deletes the download.',
 
   'emulators.explainer':
-    'What RomMix found on this machine, and how many platforms each one covers. The order is the ' +
-    'preference: a platform with no choice of its own is run by the first emulator here that is ' +
-    'installed and covers it, so moving one up makes it the default for everything it can run. ' +
-    'Platforms you have chosen for individually below are unaffected.',
+    'What RomMix found here, and how many platforms each one covers. The order is the ' +
+    'preference: a platform you have not chosen for goes to the first installed emulator that ' +
+    'covers it. Your choices below win.',
   'emulators.platforms': 'Platforms',
   'emulators.platformsExplainer':
-    'Which emulator runs each platform in your library. Every platform starts on a default taken ' +
-    'from what these emulators normally handle; change one and RomMix uses your choice for that ' +
-    'platform only, and says so rather than quietly substituting if it is missing.',
+    'Which emulator runs each platform in your library. Change one and RomMix uses your choice ' +
+    'for that platform only — and says so if it is missing, rather than substituting.',
 
   // -- one emulator ---------------------------------------------------------
 
@@ -775,8 +767,7 @@ export const en = {
   'install.title': 'Install {name}',
   'install.flow': 'Installing an emulator',
   'install.whichEmulator': 'Which emulator?',
-  'install.whichEmulatorFor':
-    '{platform} games run in any of these. RomMix installs the one you pick.',
+  'install.whichEmulatorFor': '{platform} games run in any of these.',
   'install.chooseEmulator': 'Choose this emulator',
   'install.whichMethod': 'How should it be installed?',
   'install.chooseMethod': 'Install it this way',
@@ -793,8 +784,8 @@ export const en = {
   'install.chooseVersion': 'Choose this version',
   'install.chooseBuild': 'Install this build',
   'install.whichBuild':
-    'Which build? Pick the one that matches your hardware — when in doubt, the plainest name is ' +
-    'the general-purpose one.',
+    'Pick the build that matches your hardware. In doubt, the plainest name is the ' +
+    'general-purpose one.',
   'install.otherVersions': 'Other versions',
 
   // -- RomMix's own updates -------------------------------------------------
@@ -809,8 +800,8 @@ export const en = {
   'update.hintOff': 'RomMix never looks on its own. The button below still does.',
   'update.prereleases': 'Release candidates',
   'update.prereleasesHint':
-    'Also offer versions published for testing, tagged like 1.0.0-rc.1. They arrive ' +
-    'before a finished release and have had less use.',
+    'Test builds, tagged like 1.0.0-rc.1. They come before a finished release and have had ' +
+    'less use.',
   'update.installed': 'Installed',
   'update.newestPublished': 'Newest published',
   'update.checking': 'checking…',
@@ -858,7 +849,8 @@ export const en = {
   'system.folder': 'Folder',
   'system.folderHintEnv': 'Set by ROMMIX_HOME, which wins over anything chosen here.',
   'system.folderHint':
-    'Settings are copied to the new folder; emulators and ROMs stay where they are.',
+    'Settings, saves and the offline library are copied. Games and installed emulators are not ' +
+    'moved.',
   'system.moveAndRestart': 'Move and restart',
   'system.folderMoved': 'RomMix folder moved — restarting',
   'system.preflight': 'Pre-flight check',
@@ -900,9 +892,8 @@ export const en = {
     'flatpak remote-add --user --if-not-exists flathub ' +
     'https://dl.flathub.org/repo/flathub.flatpakrepo',
   'diagnostics.noEmulatorSuggest':
-    'No emulator found. Install {name}, which covers most systems, from the Emulators section ' +
-    'above.',
-  'diagnostics.noEmulator': 'No emulator found. Install one from the Emulators section above.',
+    'No emulator found. Install {name}, which covers most systems, from the Emulators screen.',
+  'diagnostics.noEmulator': 'No emulator found. Install one from the Emulators screen.',
   'diagnostics.romsNotWritable':
     "{name}'s ROM folder {path} is not writable. Check its permissions, or that the drive it is " +
     'on is mounted.',
@@ -926,7 +917,7 @@ export const en = {
   'error.wrongCredentials': 'Wrong username or password',
   'error.sessionExpired': 'Session expired — sign in again',
   'error.downloadInterrupted':
-    'The transfer from RomM kept breaking off, after {received} of {total}',
+    'The transfer from RomM kept breaking off after {received} of {total}.',
   'error.unsafeName': '{name} is not a name RomMix will write to disk.',
   'error.downloadNotPublished':
     '{name} is not the file that was published. It has been deleted rather than installed.',
@@ -947,8 +938,8 @@ export const en = {
   'error.noEmulatorInstallOne':
     'No installed emulator can run "{system}". Install {name}, then try again.',
   'error.noFolderMapping':
-    'RomMix does not know which folder "{platform}" maps to. Add a mapping for "{slug}" to ' +
-    'settings.systemOverrides.',
+    'RomMix does not know which folder "{platform}" maps to. Add "{slug}" to systemOverrides ' +
+    'in settings.json.',
   'error.noRomFolder': 'RomMix does not know where {name} keeps its games',
 
   'error.unknownEmulator': 'RomMix does not know an emulator called {id}',
@@ -984,11 +975,11 @@ export const en = {
   'launch.installingCorePercent': 'Installing the {core} core… {percent}%',
   'launch.alreadyRunning': 'A game is already running',
   'launch.cannotRunSystem':
-    '{emulator} cannot run "{system}". Choose a different emulator for this platform in ' +
-    'Settings, or install one that covers it.',
+    '{emulator} cannot run "{system}". Pick another emulator for this platform on the ' +
+    'Emulators screen, or install one that covers it.',
   'launch.launcherMissing':
-    '{emulator} has no launcher installed for "{system}". Add one from {emulator}, or choose a ' +
-    'different emulator for this platform in Settings.',
+    '{emulator} has no launcher installed for "{system}". Add one from {emulator}, or pick ' +
+    'another emulator for this platform on the Emulators screen.',
   'launch.stoppedBeforeStart': 'Stopped before the game started',
   'launch.syncWarning': 'Save sync warning: {details}',
   'launch.couldNotStartEmulator': 'Could not start the emulator: {reason}',
@@ -1008,7 +999,7 @@ export const en = {
 
   'host.addingFlathub': 'Adding the Flathub remote…',
   'host.flathubFailed':
-    'Could not add the Flathub remote. Add it by hand with:  flatpak remote-add --user ' +
+    'Could not add the Flathub remote. Add it by hand with: flatpak remote-add --user ' +
     '--if-not-exists {remote} {repo}',
   'host.suspiciousAppId': 'Refusing to install a suspicious app id: {appId}',
   'host.flatpakFailed': 'Could not run flatpak: {reason}'

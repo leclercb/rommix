@@ -141,23 +141,22 @@ export const de: Catalog = {
   'setup.stepOf': 'Schritt {step} von {total}',
   'setup.scaleTitle': 'Wie groß soll RomMix sein?',
   'setup.scaleSubtitle':
-    'Auto richtet sich nach dem Bildschirm — doppelt so groß auf einem 4K-Fernseher. Wählen Sie ' +
-    'eine Größe, die Sie von Ihrem Platz aus lesen können; ändern lässt sie sich später in den ' +
-    'Einstellungen.',
+    'Wählen Sie eine Größe, die Sie von Ihrem Platz aus lesen können. Auto folgt dem ' +
+    'Bildschirm.',
   'setup.scaleHint': 'Die ganze Oberfläche, nicht nur der Text.',
   'setup.storageTitle': 'Wohin sollen heruntergeladene Spiele?',
   'setup.storageSubtitle':
-    'Das entscheidet, wo jede ROM landet — jetzt zu antworten ist weit einfacher, als wenn schon ' +
-    'Spiele am anderen Ort auf der Platte liegen.',
+    'Wohin jede ROM landet. Jetzt leichter zu beantworten als mit Spielen, die schon auf der ' +
+    'Platte liegen.',
 
   // -- Einstellungen, die der Assistent mitbenutzt --------------------------
 
   'control.scale': 'Skalierung',
   'storage.label': 'Wohin heruntergeladene Spiele kommen',
   'storage.hintShared':
-    'Ein Ordner für alles, auf den jeder Emulator einmal gezeigt werden muss. Ein Wechsel des ' +
-    'Emulators verschiebt nichts, und ein Spiel kann heruntergeladen werden, bevor überhaupt ' +
-    'etwas installiert ist, das es startet.',
+    'Ein Ordner für alles. Jeder Emulator muss einmal darauf gezeigt werden. Ein ' +
+    'Emulatorwechsel verschiebt nichts, und ein Spiel kann geladen werden, bevor etwas ' +
+    'installiert ist, das es ausführt.',
   'storage.hintPerEmulator':
     'Der eigene ROM-Ordner jedes Emulators, damit Spiele in seiner Liste auftauchen, wenn Sie ihn ' +
     'selbst starten. Ein Emulatorwechsel für eine Plattform bedeutet, ihre Spiele erneut ' +
@@ -199,9 +198,7 @@ export const de: Catalog = {
   // -- Verbinden ------------------------------------------------------------
 
   'connect.title': 'Mit RomM verbinden',
-  'connect.subtitle':
-    'Zeigen Sie RomMix auf Ihren RomM-Server, um Ihre Bibliothek zu durchsuchen und ' +
-    'herunterzuladen.',
+  'connect.subtitle': 'Richten Sie RomMix auf Ihren RomM-Server.',
   'connect.serverAddress': 'Serveradresse',
   'connect.serverAddressHint': 'Dieselbe Adresse wie für die Weboberfläche von RomM.',
   'connect.howSignIn': 'Wie möchten Sie sich anmelden?',
@@ -209,8 +206,8 @@ export const de: Catalog = {
   'connect.modeToken': 'API-Token',
   'connect.modePassword': 'Benutzername und Passwort',
   'connect.deviceExplainer':
-    'RomMix zeigt einen kurzen Code, den Sie in RomM in einem beliebigen Browser bestätigen — kein ' +
-    'Passwort, das auf dem Sofa getippt werden muss.',
+    'RomMix zeigt einen kurzen Code, den Sie in RomM in einem Browser bestätigen. Kein ' +
+    'Passwort am Fernseher.',
   'connect.tokenHint': 'Legen Sie eines in RomM unter Administration → Client tokens an.',
   'connect.username': 'Benutzername',
   'connect.password': 'Passwort',
@@ -245,7 +242,7 @@ export const de: Catalog = {
   // -- Bibliothek -----------------------------------------------------------
 
   'library.title': 'Bibliothek',
-  'library.browseAll': 'Alles durchsuchen, was auf Ihrem RomM-Server liegt',
+  'library.browseAll': 'Alles auf Ihrem RomM-Server.',
   'library.count_one': '{count} Spiel',
   'library.count_other': '{count} Spiele',
   'library.countOnPlatform_one': '{count} Spiel auf {platform}',
@@ -261,7 +258,7 @@ export const de: Catalog = {
   'library.noneDownloaded': 'Noch keine Spiele heruntergeladen.',
   'library.platformChip': '{name} ({count})',
   'library.noMatches': 'Kein Spiel passt zu dieser Suche.',
-  'library.thatIsAll_one': 'Das war alles: {count} insgesamt.',
+  'library.thatIsAll_one': 'Das ist das einzige.',
   'library.thatIsAll_other': 'Das war alles: {count} insgesamt.',
   'library.downloadedMark': 'Heruntergeladen',
   'library.versions_one': '{count} Fassung',
@@ -361,9 +358,8 @@ export const de: Catalog = {
   'bios.missingSummary_one': '{count} Datei fehlt, {fetchable} davon auf Ihrem RomM-Server',
   'bios.missingSummary_other': '{count} Dateien fehlen, {fetchable} davon auf Ihrem RomM-Server',
   'bios.explainer':
-    'BIOS-Dateien kommen von Ihrem eigenen RomM-Server — laden Sie sie dort unter einer Plattform ' +
-    'hoch, und RomMix kopiert sie in den Emulator, der diese Plattform ausführt. Von anderswo wird ' +
-    'nichts heruntergeladen.',
+    'BIOS-Dateien kommen von Ihrem RomM-Server. Laden Sie sie dort unter einer Plattform hoch, ' +
+    'und RomMix kopiert sie in den Emulator, der sie ausführt. Von anderswo kommt nichts.',
   'bios.nothingToInstall': 'Nichts zu installieren',
   'bios.recheck': 'Erneut prüfen',
   'bios.noPlatforms': 'Noch keine Plattformen auf Ihrem RomM-Server.',
@@ -440,8 +436,8 @@ export const de: Catalog = {
   // Warum das BIOS einer Plattform überhaupt nicht abgelegt werden kann.
 
   'bios.blockedNoMapping':
-    'RomMix hat keine Ordnerzuordnung für {platform} und weiß deshalb nicht, welcher Emulator sie ' +
-    'ausführt. Legen Sie eine in settings.systemOverrides an.',
+    'RomMix hat keine Ordnerzuordnung für {platform} und weiß daher nicht, welcher Emulator ' +
+    'sie ausführt. Fügen Sie eine zu systemOverrides in settings.json hinzu.',
   'bios.blockedNoEmulator': 'Kein installierter Emulator führt {system} aus.',
   'bios.blockedNoFolder': 'RomMix weiß nicht, wo {name} seine BIOS-Dateien ablegt.',
 
@@ -688,8 +684,7 @@ export const de: Catalog = {
   'settings.date.language': 'Der Sprache folgen',
   'settings.support': 'RomMix unterstützen',
   'settings.supportBody':
-    'RomMix ist kostenlos und bleibt es. Wenn es Ihnen einen Nachmittag Emulator-Verkabelung ' +
-    'erspart hat, können Sie mir einen Kaffee ausgeben.',
+    'RomMix ist kostenlos und bleibt es. Sie können mir einen Kaffee ausgeben.',
   'settings.buyCoffee': 'Kaffee ausgeben',
   'settings.scanOrOpen':
     'Scannen Sie das mit Ihrem Telefon oder öffnen Sie es in einem Browser auf diesem Rechner.',
@@ -714,22 +709,17 @@ export const de: Catalog = {
   'settings.confirmPush': 'Vor dem Senden von Spielständen an RomM fragen',
   'settings.confirmPushHint': 'Zeigt vor dem Senden, was gesendet wird.',
   'settings.confirmUninstall': 'Vor dem Löschen eines heruntergeladenen Spiels fragen',
-  'settings.confirmUninstallHint':
-    'Deinstallieren ist einen Druck auf A davon entfernt, eine mehrere Gigabyte große Datei zu ' +
-    'löschen.',
+  'settings.confirmUninstallHint': 'Ohne dies löscht ein Druck den Download.',
 
   'emulators.explainer':
-    'Was RomMix auf diesem Rechner gefunden hat und wie viele Plattformen jeder abdeckt. Die ' +
-    'Reihenfolge ist die Präferenz: eine Plattform ohne eigene Wahl wird vom ersten Emulator ' +
-    'dieser Liste ausgeführt, der installiert ist und sie abdeckt — einen nach oben zu schieben ' +
-    'macht ihn also zur Vorgabe für alles, was er kann. Plattformen, die Sie unten einzeln ' +
-    'festgelegt haben, bleiben davon unberührt.',
+    'Was RomMix hier gefunden hat und wie viele Plattformen jeder abdeckt. Die Reihenfolge ist ' +
+    'die Präferenz: Eine Plattform, für die Sie nichts gewählt haben, bekommt den ersten ' +
+    'installierten Emulator, der sie abdeckt. Ihre Wahl unten hat Vorrang.',
   'emulators.platforms': 'Plattformen',
   'emulators.platformsExplainer':
-    'Welcher Emulator jede Plattform Ihrer Bibliothek ausführt. Jede Plattform startet mit einer ' +
-    'Vorgabe daraus, was diese Emulatoren üblicherweise übernehmen; ändern Sie eine, verwendet ' +
-    'RomMix Ihre Wahl nur für diese Plattform — und sagt es, statt stillschweigend etwas anderes ' +
-    'einzusetzen, wenn sie fehlt.',
+    'Welcher Emulator jede Plattform Ihrer Bibliothek ausführt. Ändern Sie einen, und RomMix ' +
+    'verwendet Ihre Wahl nur für diese Plattform — und sagt es, wenn er fehlt, statt ihn zu ' +
+    'ersetzen.',
 
   // -- ein Emulator ---------------------------------------------------------
 
@@ -795,8 +785,7 @@ export const de: Catalog = {
   'install.title': '{name} installieren',
   'install.flow': 'Emulator installieren',
   'install.whichEmulator': 'Welcher Emulator?',
-  'install.whichEmulatorFor':
-    '{platform}-Spiele laufen in jedem davon. RomMix installiert den, den Sie wählen.',
+  'install.whichEmulatorFor': '{platform}-Spiele laufen in jedem davon.',
   'install.chooseEmulator': 'Diesen Emulator wählen',
   'install.whichMethod': 'Wie soll er installiert werden?',
   'install.chooseMethod': 'Auf diese Weise installieren',
@@ -813,8 +802,8 @@ export const de: Catalog = {
   'install.chooseVersion': 'Diese Version wählen',
   'install.chooseBuild': 'Diesen Build installieren',
   'install.whichBuild':
-    'Welcher Build? Nehmen Sie den, der zu Ihrer Hardware passt — im Zweifel ist der schlichteste ' +
-    'Name der für den allgemeinen Gebrauch.',
+    'Wählen Sie den Build, der zu Ihrer Hardware passt. Im Zweifel ist der schlichteste Name ' +
+    'der allgemeine.',
   'install.otherVersions': 'Andere Versionen',
 
   // -- RomMix' eigene Updates -----------------------------------------------
@@ -831,8 +820,8 @@ export const de: Catalog = {
   'update.hintOff': 'RomMix sieht nie von selbst nach. Die Schaltfläche unten schon.',
   'update.prereleases': 'Testversionen',
   'update.prereleasesHint':
-    'Auch Versionen anbieten, die zum Testen veröffentlicht werden, gekennzeichnet wie ' +
-    '1.0.0-rc.1. Sie kommen vor einer fertigen Version und sind weniger erprobt.',
+    'Testversionen, gekennzeichnet wie 1.0.0-rc.1. Sie kommen vor einer fertigen Version und ' +
+    'waren weniger im Einsatz.',
   'update.installed': 'Installiert',
   'update.newestPublished': 'Neueste veröffentlichte',
   'update.checking': 'wird geprüft…',
@@ -884,8 +873,8 @@ export const de: Catalog = {
   'system.folder': 'Ordner',
   'system.folderHintEnv': 'Durch ROMMIX_HOME gesetzt, was Vorrang vor allem hier Gewählten hat.',
   'system.folderHint':
-    'Die Einstellungen werden in den neuen Ordner kopiert; Emulatoren und ROMs bleiben, wo sie ' +
-    'sind.',
+    'Einstellungen, Spielstände und die Offline-Bibliothek werden kopiert. Spiele und ' +
+    'installierte Emulatoren werden nicht verschoben.',
   'system.moveAndRestart': 'Verschieben und neu starten',
   'system.folderMoved': 'RomMix-Ordner verschoben — Neustart',
   'system.preflight': 'Startklar-Prüfung',
@@ -931,10 +920,10 @@ export const de: Catalog = {
     'fügen sie selbst hinzu mit: flatpak remote-add --user --if-not-exists flathub ' +
     'https://dl.flathub.org/repo/flathub.flatpakrepo',
   'diagnostics.noEmulatorSuggest':
-    'Kein Emulator gefunden. Installieren Sie {name}, der die meisten Systeme abdeckt, im ' +
-    'Abschnitt Emulatoren oben.',
+    'Kein Emulator gefunden. Installieren Sie {name}, der die meisten Systeme abdeckt, vom ' +
+    'Emulatoren-Bildschirm.',
   'diagnostics.noEmulator':
-    'Kein Emulator gefunden. Installieren Sie einen im Abschnitt Emulatoren oben.',
+    'Kein Emulator gefunden. Installieren Sie einen vom Emulatoren-Bildschirm.',
   'diagnostics.romsNotWritable':
     'Der ROM-Ordner von {name}, {path}, ist nicht beschreibbar. Prüfen Sie seine Rechte oder ob ' +
     'das Laufwerk, auf dem er liegt, eingehängt ist.',
@@ -958,7 +947,7 @@ export const de: Catalog = {
   'error.wrongCredentials': 'Falscher Benutzername oder falsches Passwort',
   'error.sessionExpired': 'Sitzung abgelaufen — melden Sie sich erneut an',
   'error.downloadInterrupted':
-    'Die Übertragung von RomM brach immer wieder ab, nach {received} von {total}',
+    'Die Übertragung von RomM brach nach {received} von {total} immer wieder ab.',
   'error.unsafeName': '{name} ist kein Name, den RomMix auf die Platte schreibt.',
   'error.downloadNotPublished':
     '{name} ist nicht die veröffentlichte Datei. Sie wurde gelöscht statt installiert.',
@@ -981,8 +970,8 @@ export const de: Catalog = {
     'Kein installierter Emulator kann „{system}“ ausführen. Installieren Sie {name} und ' +
     'versuchen Sie es erneut.',
   'error.noFolderMapping':
-    'RomMix weiß nicht, welchem Ordner „{platform}“ entspricht. Legen Sie eine Zuordnung für ' +
-    '„{slug}“ in settings.systemOverrides an.',
+    'RomMix weiß nicht, welchem Ordner „{platform}“ entspricht. Fügen Sie „{slug}“ zu ' +
+    'systemOverrides in settings.json hinzu.',
   'error.noRomFolder': 'RomMix weiß nicht, wo {name} seine Spiele ablegt',
 
   'error.unknownEmulator': 'RomMix kennt keinen Emulator namens {id}',
@@ -1018,11 +1007,12 @@ export const de: Catalog = {
   'launch.installingCorePercent': 'Der Core {core} wird installiert… {percent} %',
   'launch.alreadyRunning': 'Es läuft bereits ein Spiel',
   'launch.cannotRunSystem':
-    '{emulator} kann „{system}“ nicht ausführen. Wählen Sie in den Einstellungen einen anderen ' +
-    'Emulator für diese Plattform oder installieren Sie einen, der sie abdeckt.',
+    '{emulator} kann „{system}“ nicht ausführen. Wählen Sie auf dem Emulatoren-Bildschirm ' +
+    'einen anderen Emulator für diese Plattform, oder installieren Sie einen, der sie abdeckt.',
   'launch.launcherMissing':
-    '{emulator} hat für „{system}“ keinen Starter installiert. Fügen Sie einen über {emulator} ' +
-    'hinzu oder wählen Sie in den Einstellungen einen anderen Emulator für diese Plattform.',
+    '{emulator} hat keinen Launcher für „{system}“ installiert. Fügen Sie einen in {emulator} ' +
+    'hinzu, oder wählen Sie auf dem Emulatoren-Bildschirm einen anderen Emulator für diese ' +
+    'Plattform.',
   'launch.stoppedBeforeStart': 'Vor dem Start des Spiels abgebrochen',
   'launch.syncWarning': 'Warnung beim Spielstand-Abgleich: {details}',
   'launch.couldNotStartEmulator': 'Der Emulator ließ sich nicht starten: {reason}',
@@ -1042,8 +1032,8 @@ export const de: Catalog = {
 
   'host.addingFlathub': 'Die Flathub-Quelle wird hinzugefügt…',
   'host.flathubFailed':
-    'Die Flathub-Quelle ließ sich nicht hinzufügen. Fügen Sie sie von Hand hinzu mit:  flatpak ' +
-    'remote-add --user --if-not-exists {remote} {repo}',
+    'Das Flathub-Remote konnte nicht hinzugefügt werden. Fügen Sie es von Hand hinzu mit: ' +
+    'flatpak remote-add --user --if-not-exists {remote} {repo}',
   'host.suspiciousAppId': 'Installation einer verdächtigen App-ID verweigert: {appId}',
   'host.flatpakFailed': 'flatpak ließ sich nicht ausführen: {reason}'
 }
