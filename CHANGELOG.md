@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.16.0-rc.2 — 2026-09-12
+
+- test(app): spend each direction once per standing place (8663d9a)
+
 ## 0.16.0-rc.1 — 2026-09-12
 
 - feat: pick a platform's emulator from a list (98f9a65)
