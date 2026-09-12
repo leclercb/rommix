@@ -4,6 +4,15 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.16.0-rc.0 — 2026-09-12
+
+- feat: add BIOS requirements for three more systems (0480eaa)
+- fix: correct BIOS file names and add six systems (f8bfc9a)
+- feat: route twenty-one more platforms to RetroArch (3cc7555)
+- fix: stop unpacking arcade romsets (33d44cd)
+- docs: describe emulator support without counting it (a06319b)
+- fix: scale the save transfer bar to percent (c522fdd)
+
 ## 0.15.0 — 2026-09-12
 
 - test(app): wait for the state before reading it off the disk (3bb8360)
