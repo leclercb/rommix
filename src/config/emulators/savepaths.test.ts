@@ -842,7 +842,7 @@ test('the core a system needs is named from the system table', () => {
 test('a system with no core mapped asks for nothing', () => {
   // The same condition `launch` returns null for. Promising an install here
   // would download nothing and then fail at the spawn anyway.
-  assert.equal(coreFor('n64dd'), null)
+  assert.equal(coreFor('switch'), null)
 })
 
 test('the core goes where the config says cores are read from', () => {
