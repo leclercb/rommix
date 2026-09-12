@@ -4,6 +4,12 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.16.0-rc.1 — 2026-09-12
+
+- feat: pick a platform's emulator from a list (98f9a65)
+- feat: collapse the rows of the emulator list (153dae4)
+- feat: collapse the BIOS screen's platform sections (522ce0b)
+
 ## 0.16.0-rc.0 — 2026-09-12
 
 - feat: add BIOS requirements for three more systems (0480eaa)
