@@ -191,6 +191,7 @@
    somewhere to go, not something to read. */
 .group {
   margin-bottom: 10px;
+  border-radius: var(--radius);
 }
 
 .group__header {
@@ -209,12 +210,48 @@
   border-color: var(--accent);
 }
 
-/* Open, the header is the lid of the list below it: square off the join so the
-   two read as one block rather than two stacked cards. */
+/* Open, the ring goes round the whole box. The heading is the lid of what is
+   below it rather than a card in front of it, and a ring drawn on the lid
+   alone says the opposite — that the rows under it are somewhere else. */
+.group:has(.group__header[data-open='true'][data-focused='true']) {
+  box-shadow: var(--focus-ring);
+}
+
+.group__header[data-open='true'][data-focused='true'] {
+  box-shadow: none;
+}
+
+.group:has(.group__header[data-focused='true']) .group__body {
+  border-color: var(--accent);
+}
+
+/* Open, the header is the lid of the box below it: square off the join, sit on
+   it, and drop the edge between them, so the two read as one thing rather than
+   two stacked cards. */
 .group__header[data-open='true'] {
+  border-bottom: 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  margin-bottom: 10px;
+  margin-bottom: 0;
+}
+
+/* What the lid covers, inside the box rather than loose under it. Drawn as
+   siblings of their own header, the rows of an open group read as a card
+   followed by some cards, with nothing but position saying which belongs to
+   which — and on a page of several groups that is the one thing they have to
+   say. */
+.group__body {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--bg-raised);
+}
+
+/* The rows inside carry the spacing between them; the last of them must not
+   add it to the box's own padding. */
+.group__body > :last-child {
+  margin-bottom: 0;
 }
 
 .group__chevron {

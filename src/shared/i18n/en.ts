@@ -370,6 +370,8 @@ export const en = {
   'bios.syncFailed_other': '{count} failed',
   'bios.syncUnavailable_one': '{count} not on the server',
   'bios.syncUnavailable_other': '{count} not on the server',
+  'bios.groupMeta_one': '{installed} of {count} file in place',
+  'bios.groupMeta_other': '{installed} of {count} files in place',
   'bios.statusUnknown': 'Unknown',
   'bios.statusMissing_one': '{count} missing',
   'bios.statusMissing_other': '{count} missing',

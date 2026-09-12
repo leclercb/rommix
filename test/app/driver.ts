@@ -972,9 +972,15 @@ export async function startApp(options: StartOptions): Promise<App> {
            const vertical = down > 0 ? 'Down' : 'Up'
            const sideways = across > 0 ? 'Right' : 'Left'
            if (target.bottom <= 0 || target.top >= window.innerHeight) return [vertical]
-           return Math.abs(down) >= Math.abs(across)
-             ? [vertical, sideways]
-             : [sideways, vertical]
+           // Which axis to press first is decided edge to edge, the way the
+           // focus engine measures. Centres make a wide element's own width
+           // count as distance: a row spanning the page reads as half a screen
+           // to the right of a button drawn within its span, so the walk
+           // presses Left into a wall and turns down the list to get round it.
+           const apart = (a, b, c, d) => Math.max(0, a - b, c - d)
+           const acrossGap = apart(target.left, here.right, here.left, target.right)
+           const downGap = apart(target.top, here.bottom, here.top, target.bottom)
+           return downGap >= acrossGap ? [vertical, sideways] : [sideways, vertical]
          })()`
       )
 

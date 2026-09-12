@@ -57,8 +57,9 @@ export function PlatformGroup({
         </span>
       </div>
 
-      {open
-        ? entries.map((entry) => (
+      {open ? (
+        <div className="group__body">
+          {entries.map((entry) => (
             <InstalledRow
               key={entry.romId}
               entry={entry}
@@ -68,8 +69,9 @@ export function PlatformGroup({
               // turned confirmation off.
               onRemove={() => onRemove(entry)}
             />
-          ))
-        : null}
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }

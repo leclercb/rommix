@@ -2,23 +2,6 @@
    BIOS
    -------------------------------------------------------------------------- */
 
-.bios {
-  margin-bottom: 26px;
-}
-
-.bios__title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* Pushed to the end of the heading row, away from the console's name and
-   status, so the two things that read as labels stay together. */
-.bios__install-all {
-  margin-left: auto;
-}
-
 /* The exact file, so "where did that go?" never needs asking. Wraps rather
    than truncates: half a path is worse than a long one. */
 .bios__path {
@@ -33,11 +16,29 @@
   color: var(--warning);
 }
 
-.bios__where {
+/* Name, status and folder in one heading: what a console is on and where its
+   files land are two halves of the same answer, and the heading is the one row
+   a shut section has to give it in. */
+.bios__head {
+  flex: 1;
+  min-width: 0;
+}
+
+.bios__head-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Ellipsised rather than wrapped: the heading is one row whatever the path,
+   and the whole of it is on every file in the section. */
+.bios__head-where {
+  margin-top: 2px;
   font-size: 13px;
   color: var(--text-faint);
-  word-break: break-all;
-  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bios__item {

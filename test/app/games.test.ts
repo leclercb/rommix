@@ -1427,8 +1427,14 @@ describe('installing the BIOS a platform needs', () => {
     await bios.goTo('bios')
     await bios.waitFor(`document.querySelector('[data-screen="bios"]')`, 'the BIOS screen')
 
-    // Drawn only once the screen has worked out what each platform needs and
-    // what the server holds, which is a request per platform.
+    // Every console starts shut, so the files are a heading away. Drawn only
+    // once the screen has worked out what each platform needs and what the
+    // server holds, which is a request per platform.
+    await bios.waitFor(
+      `document.querySelector('[data-bios-platform="segacd"]')`,
+      'the heading for the platform'
+    )
+    await bios.choose('[data-bios-platform="segacd"]')
     await bios.waitFor(
       `document.querySelector('[data-bios="bios_CD_U.bin"] [data-action="install-bios"]')`,
       'the row for one file'
@@ -1500,7 +1506,9 @@ describe('installing the BIOS a platform needs', () => {
 
     // Back on the BIOS screen, which is where the scenario below starts: it
     // reads the row this one drew, and then takes the file away behind it.
+    // Shut again, the screen having been left and come back to.
     await bios.goTo('bios')
+    await bios.choose('[data-bios-platform="segacd"]')
     await bios.waitFor(
       `document.querySelector('[data-bios="bios_CD_U.bin"] .status')?.dataset.state === 'ok'`,
       'the BIOS screen again'

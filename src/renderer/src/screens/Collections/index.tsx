@@ -164,14 +164,16 @@ function CollectionGroup({
       </div>
 
       {open ? (
-        <div className="grid">
-          {collections.map((collection) => (
-            <CollectionCard
-              key={collection.id}
-              collection={collection}
-              onSelect={() => onOpen(collection)}
-            />
-          ))}
+        <div className="group__body">
+          <div className="grid">
+            {collections.map((collection) => (
+              <CollectionCard
+                key={collection.id}
+                collection={collection}
+                onSelect={() => onOpen(collection)}
+              />
+            ))}
+          </div>
         </div>
       ) : null}
     </section>

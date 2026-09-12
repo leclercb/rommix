@@ -1,4 +1,4 @@
-import { type JSX, useCallback, useEffect, useState } from 'react'
+import { type JSX, type Ref, useCallback, useEffect, useState } from 'react'
 import type { BiosProgress } from '@shared/api'
 import type { BiosPlatform, BiosReport } from '@shared/types'
 import {
@@ -13,6 +13,8 @@ import {
   TransferProgress,
   type Tone
 } from '../../components'
+import { Icon } from '../../icons'
+import { useFocusable } from '../../input/focus'
 import { useApp, useI18n, type ToastSubject } from '../../state'
 
 /**
@@ -44,6 +46,16 @@ export function BiosScreen(): JSX.Element {
   const [panelPutAway, setPanelPutAway] = useState(false)
   const [rechecking, setRechecking] = useState(false)
   const [progress, setProgress] = useState<BiosProgress | null>(null)
+  /**
+   * The sections the user has opened. Every one of them starts shut.
+   *
+   * The heading answers what the screen is asked — what this console needs,
+   * and how much of it is there — so opening one is for reading the files
+   * themselves. Opening the ones with something missing would be most of the
+   * page on a machine set up this afternoon, which is the page this is meant
+   * to save.
+   */
+  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set())
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -239,8 +251,16 @@ export function BiosScreen(): JSX.Element {
           <PlatformBios
             key={platform.platformId}
             platform={platform}
+            open={opened.has(platform.platformId)}
             busy={busy}
             offline={offline}
+            onToggle={() =>
+              setOpened((current) => {
+                const next = new Set(current)
+                if (!next.delete(platform.platformId)) next.add(platform.platformId)
+                return next
+              })
+            }
             onInstall={install}
             onInstallAll={syncAll}
           />
@@ -337,21 +357,37 @@ function InstallProgress({ progress }: { progress: BiosProgress | null }): JSX.E
   )
 }
 
+/**
+ * One console, behind a lid.
+ *
+ * A server with forty platforms drew forty open sections, every file of every
+ * one of them a row with a button — and on a D-pad the only way past a row is
+ * through it. Shut, a console is a heading carrying the answer it exists to
+ * give: what it needs, and how much of that is already there.
+ */
 function PlatformBios({
   platform,
+  open,
   busy,
   offline,
+  onToggle,
   onInstall,
   onInstallAll
 }: {
   platform: BiosPlatform
+  open: boolean
   busy: string | null
   /** No button that fetches anything, because there is nothing to fetch from. */
   offline: boolean | null
+  onToggle: () => void
   onInstall: (firmwareId: number, fileName: string, platform: BiosPlatform) => void
   onInstallAll: (platform: BiosPlatform) => void
 }): JSX.Element | null {
   const { t, formatBytes } = useI18n()
+  const { ref, props } = useFocusable({
+    onSelect: onToggle,
+    actionLabel: open ? t('action.collapse') : t('action.expand')
+  })
   // A platform with nothing needed, nothing on the server and no problem to
   // report has nothing to say. Showing it anyway would bury the handful that
   // matter under thirty rows of "fine".
@@ -388,103 +424,143 @@ function PlatformBios({
   const fetchable = platform.items.filter(
     (item) => !item.installed && item.firmwareId != null
   ).length
+  const where =
+    platform.emulatorName && platform.biosDir
+      ? `${platform.emulatorName} · ${platform.biosDir}`
+      : null
 
   return (
-    <section className="bios">
-      <h2 className="section-title bios__title">
+    <section className="group">
+      <div
+        ref={ref as Ref<HTMLDivElement>}
+        className="group__header"
+        data-bios-platform={platform.platformSlug}
+        data-open={open}
+        {...props}
+      >
+        <span className="group__chevron">
+          <Icon name={open ? 'collapse' : 'expand'} size={16} />
+        </span>
         <PlatformIcon
           slug={platform.platformSlug}
           system={platform.system}
           size={28}
           label={platform.platformName}
         />
-        {platform.platformName}
-        <StatusPill tone={status.state}>{status.label}</StatusPill>
-        {/* Only where it can do something: a console that is ready, or whose
-            missing files are not on the server, would offer a button that
-            installs nothing. */}
-        {fetchable > 0 ? (
-          <span className="bios__install-all">
-            <FocusButton
-              icon="install"
-              variant="ghost"
-              onSelect={() => onInstallAll(platform)}
-              disabled={busy !== null || platform.biosDir === null || offline === true}
-            >
-              {t('action.installAll')}
-            </FocusButton>
+        <div className="bios__head">
+          <div className="bios__head-name">
+            <span className="group__name">{platform.platformName}</span>
+            <StatusPill tone={status.state}>{status.label}</StatusPill>
+          </div>
+          {/* Which emulator answers for this console, and the folder its files
+              go to. Ellipsised where a path is longer than the row, the whole
+              of it being on every file below — this line is which of several
+              emulators the console is on, and that is its first half. */}
+          {where ? (
+            <div className="bios__head-where" title={where}>
+              {where}
+            </div>
+          ) : null}
+        </div>
+        {/* How much of what this console needs is already there — the count the
+            shut row is worth reading for. Left off where there is nothing to
+            count: a platform listed for its setup note alone has no files to
+            have a fraction of. */}
+        {platform.items.length > 0 ? (
+          <span className="group__meta">
+            {t('bios.groupMeta', {
+              installed: platform.items.length - outstanding,
+              count: platform.items.length
+            })}
           </span>
         ) : null}
-      </h2>
-
-      <div className="bios__where">
-        {platform.emulatorName && platform.biosDir
-          ? `${platform.emulatorName} · ${platform.biosDir}`
-          : null}
+        {/* In the heading, the section being what it fills. Focusables nest, so
+            the heading still opens on A and the button is a press to the right
+            of it. Only where it can do something: a console that is ready, or
+            whose missing files are not on the server, would offer a button that
+            installs nothing. */}
+        {fetchable > 0 ? (
+          <FocusButton
+            icon="install"
+            variant="ghost"
+            onSelect={() => onInstallAll(platform)}
+            disabled={busy !== null || platform.biosDir === null || offline === true}
+          >
+            {t('action.installAll')}
+          </FocusButton>
+        ) : null}
       </div>
 
-      {platform.blockedReason ? (
-        <div className="notice notice--warn">{platform.blockedReason}</div>
-      ) : null}
-      {platform.setupNote ? <div className="notice notice--warn">{platform.setupNote}</div> : null}
-      {/* Files RomMix can fetch but not install: it says where it put them and
-          what the user has to do with them. */}
-      {platform.stagingNote ? (
-        <div className="notice notice--warn">{platform.stagingNote}</div>
-      ) : null}
+      {open ? (
+        <div className="group__body">
+          {platform.blockedReason ? (
+            <div className="notice notice--warn">{platform.blockedReason}</div>
+          ) : null}
+          {platform.setupNote ? (
+            <div className="notice notice--warn">{platform.setupNote}</div>
+          ) : null}
+          {/* Files RomMix can fetch but not install: it says where it put them
+              and what the user has to do with them. */}
+          {platform.stagingNote ? (
+            <div className="notice notice--warn">{platform.stagingNote}</div>
+          ) : null}
 
-      {platform.items.map((item) => (
-        <div className="bios__item" data-bios={item.fileName} key={item.fileName}>
-          <div className="bios__body">
-            <div className="bios__name">
-              {item.fileName}
-              <StatusPill tone={item.installed ? 'ok' : item.required ? 'warn' : 'off'}>
-                {item.installed
-                  ? t('bios.itemInstalled')
-                  : item.required
-                    ? t('bios.itemRequired')
-                    : t('bios.itemOptional')}
-              </StatusPill>
-              {/* RomM checks uploads against known-good hashes, and a BIOS that
+          {platform.items.map((item) => (
+            <div className="bios__item" data-bios={item.fileName} key={item.fileName}>
+              <div className="bios__body">
+                <div className="bios__name">
+                  {item.fileName}
+                  <StatusPill tone={item.installed ? 'ok' : item.required ? 'warn' : 'off'}>
+                    {item.installed
+                      ? t('bios.itemInstalled')
+                      : item.required
+                        ? t('bios.itemRequired')
+                        : t('bios.itemOptional')}
+                  </StatusPill>
+                  {/* RomM checks uploads against known-good hashes, and a BIOS that
                   is subtly the wrong dump fails in ways that look like a broken
                   emulator, so it is worth saying when the server has vouched
                   for the file. */}
-              {item.verified ? <StatusPill tone="ok">{t('bios.itemVerified')}</StatusPill> : null}
-            </div>
-            <div className="bios__meta">
-              {item.note ?? t('bios.uploadedForPlatform')}
-              {item.sizeBytes > 0 ? ` · ${formatBytes(item.sizeBytes)}` : ''}
-            </div>
-            {/* Named per file rather than once per platform: on a row where
+                  {item.verified ? (
+                    <StatusPill tone="ok">{t('bios.itemVerified')}</StatusPill>
+                  ) : null}
+                </div>
+                <div className="bios__meta">
+                  {item.note ?? t('bios.uploadedForPlatform')}
+                  {item.sizeBytes > 0 ? ` · ${formatBytes(item.sizeBytes)}` : ''}
+                </div>
+                {/* Named per file rather than once per platform: on a row where
                 some files go to the emulator and the rest are staged, one
                 folder at the top would be wrong for half of them. */}
-            {item.dir ? (
-              <div className="bios__path" data-staged={item.staged}>
-                {item.dir}/{item.fileName}
+                {item.dir ? (
+                  <div className="bios__path" data-staged={item.staged}>
+                    {item.dir}/{item.fileName}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-          <div className="bios__actions">
-            {item.firmwareId == null ? (
-              <span className="faint">{t('bios.notOnServer')}</span>
-            ) : (
-              <FocusButton
-                icon="install"
-                action="install-bios"
-                variant="ghost"
-                disabled={busy !== null || platform.biosDir === null || offline === true}
-                onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
-              >
-                {busy === item.fileName
-                  ? t('action.installing')
-                  : item.installed
-                    ? t('action.reinstall')
-                    : t('action.install')}
-              </FocusButton>
-            )}
-          </div>
+              <div className="bios__actions">
+                {item.firmwareId == null ? (
+                  <span className="faint">{t('bios.notOnServer')}</span>
+                ) : (
+                  <FocusButton
+                    icon="install"
+                    action="install-bios"
+                    variant="ghost"
+                    disabled={busy !== null || platform.biosDir === null || offline === true}
+                    onSelect={() => onInstall(item.firmwareId as number, item.fileName, platform)}
+                  >
+                    {busy === item.fileName
+                      ? t('action.installing')
+                      : item.installed
+                        ? t('action.reinstall')
+                        : t('action.install')}
+                  </FocusButton>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      ) : null}
     </section>
   )
 }

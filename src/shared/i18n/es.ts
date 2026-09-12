@@ -362,6 +362,8 @@ export const es: Catalog = {
   'bios.syncFailed_other': '{count} fallidos',
   'bios.syncUnavailable_one': '{count} que no está en el servidor',
   'bios.syncUnavailable_other': '{count} que no están en el servidor',
+  'bios.groupMeta_one': '{installed} de {count} archivo en su sitio',
+  'bios.groupMeta_other': '{installed} de {count} archivos en su sitio',
   'bios.statusUnknown': 'Desconocido',
   'bios.statusMissing_one': 'Falta {count}',
   'bios.statusMissing_other': 'Faltan {count}',

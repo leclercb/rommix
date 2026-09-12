@@ -375,6 +375,8 @@ export const de: Catalog = {
   'bios.syncFailed_other': '{count} fehlgeschlagen',
   'bios.syncUnavailable_one': '{count} nicht auf dem Server',
   'bios.syncUnavailable_other': '{count} nicht auf dem Server',
+  'bios.groupMeta_one': '{installed} von {count} Datei an ihrem Platz',
+  'bios.groupMeta_other': '{installed} von {count} Dateien an ihrem Platz',
   'bios.statusUnknown': 'Unbekannt',
   'bios.statusMissing_one': '{count} fehlt',
   'bios.statusMissing_other': '{count} fehlen',
