@@ -186,6 +186,19 @@ describe('handing a platform to another emulator', () => {
       `(await window.rommix.system.settings()).systemEmulators['genesis'] ?? null`
     )
 
+  /**
+   * Open the list on the Sega Mega Drive row and take something else.
+   *
+   * The first candidate that is not the one it is on, whichever that is: what
+   * these scenarios are about is the question asked on the way, not which
+   * emulator comes out of it.
+   */
+  const repoint = async (): Promise<void> => {
+    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
+    await app.waitFor(`document.querySelector('.overlay [data-choice]')`, 'the emulators listed')
+    await app.choose('.overlay [data-choice]:not([data-current="true"])')
+  }
+
   test('it asks before it changes anything', async () => {
     // The scenario above left a game running, and while one is up it owns the
     // screen — there is no menu to walk to underneath it.
@@ -195,8 +208,8 @@ describe('handing a platform to another emulator', () => {
     await app.waitFor(`document.querySelector('[data-platform="genesis"]')`, 'the platforms')
     assert.equal(await chosen(), null, 'it should start on whatever the default is')
 
-    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
-    await app.waitFor(`document.querySelector('.overlay')`, 'the question')
+    await repoint()
+    await app.waitFor(`document.querySelector('[data-action="emulator-keep"]')`, 'the question')
 
     // Asked before it is done, like the storage question: a download under the
     // old emulator's folder stops counting the moment this is agreed to, and
@@ -211,8 +224,11 @@ describe('handing a platform to another emulator', () => {
   })
 
   test('and agreeing hands it over', async () => {
-    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
-    await app.waitFor(`document.querySelector('.overlay')`, 'the question again')
+    await repoint()
+    await app.waitFor(
+      `document.querySelector('[data-action="emulator-change"]')`,
+      'the question again'
+    )
     await app.choose('[data-action="emulator-change"]')
 
     await app.waitFor(
@@ -222,8 +238,11 @@ describe('handing a platform to another emulator', () => {
   })
 
   test('and the third answer stops it being asked at all', async () => {
-    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
-    await app.waitFor(`document.querySelector('.overlay')`, 'the question once more')
+    await repoint()
+    await app.waitFor(
+      `document.querySelector('[data-action="emulator-change-quiet"]')`,
+      'the question once more'
+    )
     const wasOn = await chosen()
     await app.choose('[data-action="emulator-change-quiet"]')
 
@@ -240,12 +259,12 @@ describe('handing a platform to another emulator', () => {
       'the notice to be written off'
     )
 
-    // And the proof of it: the same press, one step further round the cycle,
-    // with nothing in the way. Unlike the storage question, this one is asked
-    // every time a platform is repointed — which on a machine being set up is
-    // once per console — so it is the one that has to be silenceable.
+    // And the proof of it: the same pair of presses, with nothing in the way.
+    // Unlike the storage question, this one is asked every time a platform is
+    // repointed — which on a machine being set up is once per console — so it
+    // is the one that has to be silenceable.
     const wasOnAgain = await chosen()
-    await app.choose('[data-platform="genesis"] [data-action="choose-emulator"]')
+    await repoint()
     await app.waitFor(
       `(await window.rommix.system.settings()).systemEmulators['genesis'] !== ${JSON.stringify(
         wasOnAgain

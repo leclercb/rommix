@@ -731,9 +731,8 @@ export const fr: Catalog = {
   'settings.confirmUninstallHint': 'Sans cela, une pression supprime le téléchargement.',
 
   'emulators.explainer':
-    'Ce que RomMix a trouvé ici, et combien de plateformes chacun couvre. L’ordre est la ' +
-    'préférence : une plateforme pour laquelle vous n’avez rien choisi revient au premier ' +
-    'émulateur installé qui la couvre. Vos choix ci-dessous priment.',
+    'Ce que RomMix a trouvé ici, par ordre de préférence. Une plateforme laissée sur Par ' +
+    'défaut revient au premier émulateur installé qui la couvre.',
   'emulators.platforms': 'Plateformes',
   'emulators.platformsExplainer':
     'Quel émulateur fait tourner chaque plateforme de votre bibliothèque. Changez-en un et ' +
@@ -796,6 +795,9 @@ export const fr: Catalog = {
   'platforms.meta_one': '{system} · {count} jeu',
   'platforms.meta_other': '{system} · {count} jeux',
   'platforms.default': '(par défaut)',
+  'platforms.dialogTitle': 'Qu’est-ce qui fait tourner {platform} ?',
+  'platforms.useDefault': 'Par défaut',
+  'platforms.inUse': 'Utilisé',
 
   // -- choisir une version à installer --------------------------------------
 

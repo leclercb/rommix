@@ -725,9 +725,8 @@ export const en = {
   'settings.confirmUninstallHint': 'Without this, one press deletes the download.',
 
   'emulators.explainer':
-    'What RomMix found here, and how many platforms each one covers. The order is the ' +
-    'preference: a platform you have not chosen for goes to the first installed emulator that ' +
-    'covers it. Your choices below win.',
+    'What RomMix found here, in preference order. A platform left on Default goes to the first ' +
+    'installed emulator that covers it.',
   'emulators.platforms': 'Platforms',
   'emulators.platformsExplainer':
     'Which emulator runs each platform in your library. Change one and RomMix uses your choice ' +
@@ -788,6 +787,9 @@ export const en = {
   'platforms.meta_one': '{system} · {count} game',
   'platforms.meta_other': '{system} · {count} games',
   'platforms.default': '(default)',
+  'platforms.dialogTitle': 'What runs {platform}?',
+  'platforms.useDefault': 'Default',
+  'platforms.inUse': 'In use',
 
   // -- picking a build to install -------------------------------------------
 

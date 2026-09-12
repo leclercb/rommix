@@ -4,6 +4,7 @@ import { resolveSystem, systemLabel } from '@config/systems'
 import type { DiagnosticsReport, EmulatorId, RommPlatform } from '@shared/types'
 import { FocusButton, PlatformIcon, StatusPill } from '../../components'
 import { useApp, useI18n } from '../../state'
+import { EmulatorDialog } from './EmulatorDialog'
 import { Status } from './EmulatorList'
 
 /**
@@ -13,9 +14,10 @@ import { Status } from './EmulatorList'
  * screen of rows for consoles the user does not own would bury the handful
  * that matter.
  *
- * The control cycles rather than opening a menu: candidates are usually two or
- * three, and a single button that advances on A is the least awkward thing to
- * drive from a gamepad.
+ * The control opens a list rather than cycling through the candidates: a
+ * platform both frontends and a standalone cover has five of them, and a button
+ * that advances by one is five presses, a question at every step and no way
+ * back. See `EmulatorDialog`.
  */
 export function PlatformList({
   chosen,
@@ -37,6 +39,8 @@ export function PlatformList({
   const { settings } = useApp()
   const priority = settings?.emulatorPriority ?? []
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
+  /** The platform whose emulator is being picked, with nothing chosen yet. */
+  const [picking, setPicking] = useState<{ platform: RommPlatform; system: string } | null>(null)
 
   useEffect(() => {
     void window.rommix.library
@@ -56,54 +60,47 @@ export function PlatformList({
     }))
     .filter((row): row is { platform: RommPlatform; system: string } => row.system !== null)
 
+  /**
+   * The default is the first *installed* emulator that covers the platform,
+   * which is what the launcher will pick too.
+   *
+   * Naming one that is not installed describes an arrangement that cannot
+   * happen: RomMix would fall through to the next available emulator and put
+   * the games in a different folder than the row claims. With none of them
+   * installed there is no default to name, and the row says so instead of
+   * pointing at an emulator that is not there.
+   */
+  const installed = new Set(
+    (diagnostics?.emulators ?? []).filter((e) => e.available).map((e) => e.id)
+  )
+  const defaultFor = (system: string): EmulatorId | null =>
+    emulatorsForSystem(system, priority).find((c) => installed.has(c.id))?.id ?? null
+
+  /**
+   * Give a platform to one emulator, or hand it back to the default.
+   *
+   * Asked about first, and only where the answer moves the platform: choosing
+   * the emulator the default already resolves to writes a preference and moves
+   * no files, which is nothing to warn anybody about.
+   */
+  const pick = async (system: string, next: EmulatorId | null): Promise<void> => {
+    setPicking(null)
+    const updated = { ...chosen }
+    if (next === null) delete updated[system]
+    else updated[system] = next
+
+    const fallback = defaultFor(system)
+    const after = next ?? fallback
+    if (after !== (chosen[system] ?? fallback) && !(await confirmChange())) return
+    onChoose(updated)
+  }
+
   return (
     <div>
       {rows.map(({ platform, system }) => {
         const candidates = emulatorsForSystem(system, priority)
-        /**
-         * The default is the first *installed* emulator that covers the
-         * platform, which is what the launcher will pick too.
-         *
-         * Naming one that is not installed describes an arrangement that
-         * cannot happen: RomMix would fall through to the next available
-         * emulator and put the games in a different folder than this row
-         * claims. With none of them installed there is no default to name, and
-         * the row says so instead of pointing at an emulator that is not there.
-         */
-        const installed = new Set(
-          (diagnostics?.emulators ?? []).filter((e) => e.available).map((e) => e.id)
-        )
-        const fallback = candidates.find((c) => installed.has(c.id))?.id ?? null
-        const current = chosen[system]
-        const effective = current ?? fallback
+        const effective = chosen[system] ?? defaultFor(system)
         const state = diagnostics?.emulators.find((emulator) => emulator.id === effective)
-
-        // 'default' first, then every emulator that runs this system.
-        const cycle: (EmulatorId | null)[] = [null, ...candidates.map((c) => c.id)]
-
-        /**
-         * Step to the next candidate, asking first.
-         *
-         * Only once per run of presses: the cycle is how this control is
-         * driven, and a dialog between every step would make walking past
-         * "Default" to the third emulator three confirmations of the same
-         * change. The question is asked when the platform leaves the emulator
-         * it is on now, and the answer holds for as long as the cycling lasts.
-         */
-        const advance = async (): Promise<void> => {
-          const index = cycle.indexOf(current ?? null)
-          const next = cycle[(index + 1) % cycle.length]
-          const updated = { ...chosen }
-          if (next === null) delete updated[system]
-          else updated[system] = next
-
-          // Nothing to warn about when the emulator does not actually change —
-          // stepping from "Default" onto the emulator that was already the
-          // default writes a preference and moves no files.
-          const after = next ?? fallback
-          if (after !== effective && !(await confirmChange())) return
-          onChoose(updated)
-        }
 
         return (
           <div className="emulator" data-platform={system} key={platform.id}>
@@ -136,15 +133,27 @@ export function PlatformList({
                 action="choose-emulator"
                 variant="ghost"
                 disabled={candidates.length === 0}
-                onSelect={() => void advance()}
+                onSelect={() => setPicking({ platform, system })}
               >
                 {effective ? (emulatorById(effective)?.name ?? effective) : t('value.none')}
-                {current == null && effective ? ` ${t('platforms.default')}` : ''}
+                {chosen[system] == null && effective ? ` ${t('platforms.default')}` : ''}
               </FocusButton>
             </div>
           </div>
         )
       })}
+
+      {picking ? (
+        <EmulatorDialog
+          platformName={picking.platform.display_name}
+          candidates={emulatorsForSystem(picking.system, priority)}
+          chosen={chosen[picking.system]}
+          fallback={defaultFor(picking.system)}
+          diagnostics={diagnostics}
+          onPick={(next) => void pick(picking.system, next)}
+          onClose={() => setPicking(null)}
+        />
+      ) : null}
     </div>
   )
 }
