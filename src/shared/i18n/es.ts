@@ -378,6 +378,7 @@ export const es: Catalog = {
   'bios.note.scph5500': 'BIOS de PlayStation — Japón',
   'bios.note.scph5501': 'BIOS de PlayStation — Norteamérica',
   'bios.note.scph5502': 'BIOS de PlayStation — Europa',
+  'bios.note.saturnBios': 'BIOS de Saturn, con el nombre que leen la mayoría de los núcleos',
   'bios.note.sega101': 'BIOS de Saturn — Japón',
   'bios.note.mpr17933': 'BIOS de Saturn — Norteamérica y Europa',
   'bios.note.segaCdU': 'BIOS de Sega CD — Norteamérica',
@@ -387,7 +388,7 @@ export const es: Catalog = {
   'bios.note.dcFlash': 'Flash de Dreamcast, guarda el reloj y la región',
   'bios.note.syscard3': 'PC Engine CD System Card 3',
   'bios.note.neogeo': 'Conjunto de BIOS de Neo Geo',
-  'bios.note.neocd': 'BIOS de Neo Geo CD — modelo de carga superior',
+  'bios.note.neocd': 'BIOS de Neo Geo CD — modelo CDZ',
   'bios.note.disksys': 'BIOS del Famicom Disk System',
   'bios.note.gbaBios': 'BIOS de Game Boy Advance — mejora la precisión',
   'bios.note.ndsBios7': 'BIOS ARM7 de Nintendo DS',
@@ -396,16 +397,27 @@ export const es: Catalog = {
   'bios.note.prodKeys': 'Claves maestras de la consola — sin ellas no se descifra nada',
   'bios.note.titleKeys': 'Claves por título, para juegos instalados, actualizaciones y DLC',
   'bios.note.panafz10': 'BIOS de 3DO — Panasonic FZ-10',
+  'bios.note.cdimono1': 'ROM de arranque del CD-i, en un solo archivo',
   'bios.note.lynxboot': 'ROM de arranque de Atari Lynx',
   'bios.note.atari5200': 'BIOS de Atari 5200',
   'bios.note.atari7800': 'BIOS de Atari 7800 — Norteamérica',
+  'bios.note.tos': 'Imagen TOS de Atari ST',
   'bios.note.colecovision': 'BIOS de ColecoVision',
   'bios.note.pcfx': 'BIOS de PC-FX',
+  'bios.note.n88': 'BIOS de PC-8801',
+  'bios.note.n88Ext': 'BIOS de extensión de PC-8801',
+  'bios.note.n88Disk': 'BIOS de disco de PC-8801 — sin él no carga ninguna imagen de disco',
+  'bios.note.n88Kanji': 'Fuente kanji de PC-8801',
+  'bios.note.np2Bios': 'BIOS de PC-9801 — sin él, el núcleo recurre al suyo',
+  'bios.note.np2Font': 'Fuente de PC-9801, para mostrar el texto',
+  'bios.note.np2Sound': 'ROM de la tarjeta de sonido de PC-9801',
   'bios.note.x68000Ipl': 'ROM IPL de X68000',
   'bios.note.x68000Cgrom': 'ROM del generador de caracteres de X68000',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
   'bios.note.kickstart31A1200': 'Kickstart 3.1 — Amiga 1200',
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
+  'bios.note.kickstart31Cd32Ext': 'ROM extendida de CD32',
+  'bios.note.macIIRom': 'ROM de Macintosh II',
 
   // Sistemas cuyo BIOS es más que un archivo que copiar.
 
@@ -419,6 +431,18 @@ export const es: Catalog = {
   'bios.setup.switch':
     'La Switch necesita prod.keys y un volcado de firmware sacados de una consola.',
   'bios.setup.wiiu': 'La Wii U necesita claves y un volcado OTP sacados de una consola.',
+  'bios.setup.saturn': 'Los núcleos de Saturn no coinciden en cómo se llama el archivo de BIOS.',
+  'bios.setup.colecovision':
+    'La ColecoVision usa un núcleo que lee una carpeta de máquina entera, no un solo archivo.',
+  'bios.setup.x68000':
+    'El núcleo de X68000 lee sus ROM de una carpeta keropi dentro de la carpeta de BIOS.',
+  'bios.setup.n64dd':
+    'El 64DD necesita su ROM IPL, que cada núcleo que lo ejecuta espera con un nombre distinto.',
+  'bios.setup.pc98':
+    'El núcleo de PC-98 lee su BIOS de una carpeta np2kai dentro de la carpeta de BIOS.',
+  'bios.setup.cdimono1':
+    'El núcleo de CD-i lee sus ROM de arranque de una carpeta same_cdi/bios dentro de la carpeta ' +
+    'de BIOS.',
 
   // Por qué el BIOS de una plataforma no puede colocarse en absoluto.
 

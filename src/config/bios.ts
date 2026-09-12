@@ -65,9 +65,11 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   psvita: { files: [], setupNote: 'bios.setup.psvita' },
   saturn: {
     files: [
+      { name: 'saturn_bios.bin', note: 'bios.note.saturnBios', required: false },
       { name: 'sega_101.bin', note: 'bios.note.sega101', required: false },
-      { name: 'mpr-17933.bin', note: 'bios.note.mpr17933', required: true }
-    ]
+      { name: 'mpr-17933.bin', note: 'bios.note.mpr17933', required: false }
+    ],
+    setupNote: 'bios.setup.saturn'
   },
   segacd: {
     files: [
@@ -89,8 +91,9 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
     files: [{ name: 'neogeo.zip', note: 'bios.note.neogeo', required: true }]
   },
   neogeocd: {
-    files: [{ name: 'neocd_z.rom', note: 'bios.note.neocd', required: true }]
+    files: [{ name: 'neocdz.zip', note: 'bios.note.neocd', required: true }]
   },
+  n64dd: { files: [], setupNote: 'bios.setup.n64dd' },
   fds: {
     files: [{ name: 'disksys.rom', note: 'bios.note.disksys', required: true }]
   },
@@ -139,6 +142,10 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   '3do': {
     files: [{ name: 'panafz10.bin', note: 'bios.note.panafz10', required: true }]
   },
+  cdimono1: {
+    files: [{ name: 'cdimono1.zip', note: 'bios.note.cdimono1', required: true }],
+    setupNote: 'bios.setup.cdimono1'
+  },
   atarilynx: {
     files: [{ name: 'lynxboot.img', note: 'bios.note.lynxboot', required: true }]
   },
@@ -148,26 +155,53 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   atari7800: {
     files: [{ name: '7800 BIOS (U).rom', note: 'bios.note.atari7800', required: false }]
   },
+  atarist: {
+    files: [{ name: 'tos.img', note: 'bios.note.tos', required: true }]
+  },
   colecovision: {
-    files: [{ name: 'colecovision.rom', note: 'bios.note.colecovision', required: true }]
+    files: [{ name: 'colecovision.rom', note: 'bios.note.colecovision', required: false }],
+    setupNote: 'bios.setup.colecovision'
   },
   pcfx: {
     files: [{ name: 'pcfx.rom', note: 'bios.note.pcfx', required: true }]
+  },
+  pc88: {
+    files: [
+      { name: 'n88.rom', note: 'bios.note.n88', required: true },
+      { name: 'n88_0.rom', note: 'bios.note.n88Ext', required: true },
+      { name: 'disk.rom', note: 'bios.note.n88Disk', required: true },
+      { name: 'n88knj1.rom', note: 'bios.note.n88Kanji', required: false }
+    ]
+  },
+  pc98: {
+    files: [
+      { name: 'bios.rom', note: 'bios.note.np2Bios', required: false },
+      { name: 'font.bmp', note: 'bios.note.np2Font', required: false },
+      { name: 'sound.rom', note: 'bios.note.np2Sound', required: false }
+    ],
+    setupNote: 'bios.setup.pc98'
   },
   x68000: {
     files: [
       { name: 'iplrom.dat', note: 'bios.note.x68000Ipl', required: true },
       { name: 'cgrom.dat', note: 'bios.note.x68000Cgrom', required: true }
-    ]
+    ],
+    setupNote: 'bios.setup.x68000'
   },
   amiga: {
     files: [
-      { name: 'kick34005.A500.rom', note: 'bios.note.kickstart13', required: true },
-      { name: 'kick40068.A1200.rom', note: 'bios.note.kickstart31A1200', required: false }
+      { name: 'kick34005.A500', note: 'bios.note.kickstart13', required: true },
+      { name: 'kick40068.A1200', note: 'bios.note.kickstart31A1200', required: false }
     ]
   },
   amigacd32: {
-    files: [{ name: 'kick40060.CD32.rom', note: 'bios.note.kickstart31Cd32', required: true }]
+    files: [
+      { name: 'kick40060.CD32', note: 'bios.note.kickstart31Cd32', required: true },
+      { name: 'kick40060.CD32.ext', note: 'bios.note.kickstart31Cd32Ext', required: true }
+    ]
+  },
+  macintosh: {
+    files: [{ name: 'MacII.ROM', note: 'bios.note.macIIRom', required: true }]
   }
 }
 

@@ -391,6 +391,7 @@ export const de: Catalog = {
   'bios.note.scph5500': 'PlayStation-BIOS — Japan',
   'bios.note.scph5501': 'PlayStation-BIOS — Nordamerika',
   'bios.note.scph5502': 'PlayStation-BIOS — Europa',
+  'bios.note.saturnBios': 'Saturn-BIOS, unter dem Namen, den die meisten Kerne lesen',
   'bios.note.sega101': 'Saturn-BIOS — Japan',
   'bios.note.mpr17933': 'Saturn-BIOS — Nordamerika und Europa',
   'bios.note.segaCdU': 'Sega-CD-BIOS — Nordamerika',
@@ -400,7 +401,7 @@ export const de: Catalog = {
   'bios.note.dcFlash': 'Dreamcast-Flash, enthält Uhr und Region',
   'bios.note.syscard3': 'PC Engine CD System Card 3',
   'bios.note.neogeo': 'Neo-Geo-BIOS-Satz',
-  'bios.note.neocd': 'Neo-Geo-CD-BIOS — Modell mit Deckelöffnung',
+  'bios.note.neocd': 'Neo-Geo-CD-BIOS — CDZ-Modell',
   'bios.note.disksys': 'Famicom-Disk-System-BIOS',
   'bios.note.gbaBios': 'Game-Boy-Advance-BIOS — erhöht die Genauigkeit',
   'bios.note.ndsBios7': 'Nintendo-DS-ARM7-BIOS',
@@ -409,16 +410,27 @@ export const de: Catalog = {
   'bios.note.prodKeys': 'Hauptschlüssel der Konsole — ohne sie wird nichts entschlüsselt',
   'bios.note.titleKeys': 'Schlüssel je Titel, für installierte Spiele, Updates und DLC',
   'bios.note.panafz10': '3DO-BIOS — Panasonic FZ-10',
+  'bios.note.cdimono1': 'CD-i-Boot-ROMs, als ein Archiv',
   'bios.note.lynxboot': 'Atari-Lynx-Boot-ROM',
   'bios.note.atari5200': 'Atari-5200-BIOS',
   'bios.note.atari7800': 'Atari-7800-BIOS — Nordamerika',
+  'bios.note.tos': 'Atari-ST-TOS-Abbild',
   'bios.note.colecovision': 'ColecoVision-BIOS',
   'bios.note.pcfx': 'PC-FX-BIOS',
+  'bios.note.n88': 'PC-8801-BIOS',
+  'bios.note.n88Ext': 'PC-8801-Erweiterungs-BIOS',
+  'bios.note.n88Disk': 'PC-8801-Disketten-BIOS — ohne es lädt kein Diskettenabbild',
+  'bios.note.n88Kanji': 'PC-8801-Kanji-Schrift',
+  'bios.note.np2Bios': 'PC-9801-BIOS — ohne es greift der Kern auf sein eigenes zurück',
+  'bios.note.np2Font': 'PC-9801-Schrift, für die Textanzeige',
+  'bios.note.np2Sound': 'ROM der PC-9801-Soundkarte',
   'bios.note.x68000Ipl': 'X68000-IPL-ROM',
   'bios.note.x68000Cgrom': 'X68000-Zeichengenerator-ROM',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
   'bios.note.kickstart31A1200': 'Kickstart 3.1 — Amiga 1200',
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
+  'bios.note.kickstart31Cd32Ext': 'Erweiterungs-ROM der CD32',
+  'bios.note.macIIRom': 'Macintosh-II-ROM',
 
   // Systeme, deren BIOS mehr ist als eine Datei zum Kopieren.
 
@@ -432,6 +444,17 @@ export const de: Catalog = {
     'Der 3DS braucht seine gemeinsamen Schriftarten und AES-Schlüssel aus einer Konsole.',
   'bios.setup.switch': 'Die Switch braucht prod.keys und einen Firmware-Dump aus einer Konsole.',
   'bios.setup.wiiu': 'Die Wii U braucht Schlüssel und einen OTP-Dump aus einer Konsole.',
+  'bios.setup.saturn': 'Saturn-Kerne sind sich nicht einig, wie die BIOS-Datei heißt.',
+  'bios.setup.colecovision':
+    'Die ColecoVision läuft auf einem Kern, der einen ganzen Maschinenordner liest, keine ' +
+    'einzelne Datei.',
+  'bios.setup.x68000': 'Der X68000-Kern liest seine ROMs aus einem keropi-Ordner im BIOS-Ordner.',
+  'bios.setup.n64dd':
+    'Das 64DD braucht sein IPL-ROM, das jeder Kern, der es ausführt, unter einem anderen Namen ' +
+    'erwartet.',
+  'bios.setup.pc98': 'Der PC-98-Kern liest sein BIOS aus einem np2kai-Ordner im BIOS-Ordner.',
+  'bios.setup.cdimono1':
+    'Der CD-i-Kern liest seine Boot-ROMs aus einem same_cdi/bios-Ordner im BIOS-Ordner.',
 
   // Warum das BIOS einer Plattform überhaupt nicht abgelegt werden kann.
 

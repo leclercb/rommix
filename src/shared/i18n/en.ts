@@ -386,6 +386,7 @@ export const en = {
   'bios.note.scph5500': 'PlayStation BIOS — Japan',
   'bios.note.scph5501': 'PlayStation BIOS — North America',
   'bios.note.scph5502': 'PlayStation BIOS — Europe',
+  'bios.note.saturnBios': 'Saturn BIOS, under the name most cores read',
   'bios.note.sega101': 'Saturn BIOS — Japan',
   'bios.note.mpr17933': 'Saturn BIOS — North America and Europe',
   'bios.note.segaCdU': 'Sega CD BIOS — North America',
@@ -395,7 +396,7 @@ export const en = {
   'bios.note.dcFlash': 'Dreamcast flash, holds the clock and region',
   'bios.note.syscard3': 'PC Engine CD System Card 3',
   'bios.note.neogeo': 'Neo Geo BIOS set',
-  'bios.note.neocd': 'Neo Geo CD BIOS — top-loading model',
+  'bios.note.neocd': 'Neo Geo CD BIOS — CDZ model',
   'bios.note.disksys': 'Famicom Disk System BIOS',
   'bios.note.gbaBios': 'Game Boy Advance BIOS — improves accuracy',
   'bios.note.ndsBios7': 'Nintendo DS ARM7 BIOS',
@@ -404,16 +405,27 @@ export const en = {
   'bios.note.prodKeys': 'Console master keys — nothing decrypts without them',
   'bios.note.titleKeys': 'Per-title keys, for installed games, updates and DLC',
   'bios.note.panafz10': '3DO BIOS — Panasonic FZ-10',
+  'bios.note.cdimono1': 'CD-i boot ROMs, as one archive',
   'bios.note.lynxboot': 'Atari Lynx boot ROM',
   'bios.note.atari5200': 'Atari 5200 BIOS',
   'bios.note.atari7800': 'Atari 7800 BIOS — North America',
+  'bios.note.tos': 'Atari ST TOS image',
   'bios.note.colecovision': 'ColecoVision BIOS',
   'bios.note.pcfx': 'PC-FX BIOS',
+  'bios.note.n88': 'PC-8801 BIOS',
+  'bios.note.n88Ext': 'PC-8801 extension BIOS',
+  'bios.note.n88Disk': 'PC-8801 disk BIOS — no disk image loads without it',
+  'bios.note.n88Kanji': 'PC-8801 kanji font',
+  'bios.note.np2Bios': 'PC-9801 BIOS — the core falls back on its own without it',
+  'bios.note.np2Font': 'PC-9801 font, for the text display',
+  'bios.note.np2Sound': 'PC-9801 sound board ROM',
   'bios.note.x68000Ipl': 'X68000 IPL ROM',
   'bios.note.x68000Cgrom': 'X68000 character generator ROM',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
   'bios.note.kickstart31A1200': 'Kickstart 3.1 — Amiga 1200',
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
+  'bios.note.kickstart31Cd32Ext': 'CD32 extended ROM',
+  'bios.note.macIIRom': 'Macintosh II ROM',
 
   // Systems whose BIOS is more than a file to copy.
 
@@ -425,6 +437,16 @@ export const en = {
   'bios.setup.n3ds': 'The 3DS needs its shared fonts and AES keys dumped from a console.',
   'bios.setup.switch': 'The Switch needs prod.keys and a firmware dump from a console.',
   'bios.setup.wiiu': 'Wii U needs keys and an OTP dump from a console.',
+  'bios.setup.saturn': 'Saturn cores disagree on what the BIOS file is called.',
+  'bios.setup.colecovision':
+    'ColecoVision runs on a core that reads a whole machine folder, not one file.',
+  'bios.setup.x68000':
+    'The X68000 core reads its ROMs from a keropi folder inside the BIOS folder.',
+  'bios.setup.n64dd':
+    'The 64DD needs its IPL ROM, which every core that runs it expects under a different name.',
+  'bios.setup.pc98': 'The PC-98 core reads its BIOS from an np2kai folder inside the BIOS folder.',
+  'bios.setup.cdimono1':
+    'The CD-i core reads its boot ROMs from a same_cdi/bios folder inside the BIOS folder.',
 
   // Why a platform's BIOS cannot be placed at all.
 

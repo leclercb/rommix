@@ -381,6 +381,7 @@ export const fr: Catalog = {
   'bios.note.scph5500': 'BIOS PlayStation — Japon',
   'bios.note.scph5501': 'BIOS PlayStation — Amérique du Nord',
   'bios.note.scph5502': 'BIOS PlayStation — Europe',
+  'bios.note.saturnBios': 'BIOS Saturn, sous le nom que lisent la plupart des cœurs',
   'bios.note.sega101': 'BIOS Saturn — Japon',
   'bios.note.mpr17933': 'BIOS Saturn — Amérique du Nord et Europe',
   'bios.note.segaCdU': 'BIOS Sega CD — Amérique du Nord',
@@ -390,7 +391,7 @@ export const fr: Catalog = {
   'bios.note.dcFlash': 'Flash Dreamcast, contient l’horloge et la région',
   'bios.note.syscard3': 'PC Engine CD System Card 3',
   'bios.note.neogeo': 'Jeu de BIOS Neo Geo',
-  'bios.note.neocd': 'BIOS Neo Geo CD — modèle à chargement par le dessus',
+  'bios.note.neocd': 'BIOS Neo Geo CD — modèle CDZ',
   'bios.note.disksys': 'BIOS Famicom Disk System',
   'bios.note.gbaBios': 'BIOS Game Boy Advance — améliore la précision',
   'bios.note.ndsBios7': 'BIOS ARM7 Nintendo DS',
@@ -399,16 +400,27 @@ export const fr: Catalog = {
   'bios.note.prodKeys': 'Clés maîtresses de la console — rien ne se déchiffre sans elles',
   'bios.note.titleKeys': 'Clés par titre, pour les jeux installés, les mises à jour et les DLC',
   'bios.note.panafz10': 'BIOS 3DO — Panasonic FZ-10',
+  'bios.note.cdimono1': 'ROM d’amorçage CD-i, en une archive',
   'bios.note.lynxboot': 'ROM de démarrage Atari Lynx',
   'bios.note.atari5200': 'BIOS Atari 5200',
   'bios.note.atari7800': 'BIOS Atari 7800 — Amérique du Nord',
+  'bios.note.tos': 'Image TOS Atari ST',
   'bios.note.colecovision': 'BIOS ColecoVision',
   'bios.note.pcfx': 'BIOS PC-FX',
+  'bios.note.n88': 'BIOS PC-8801',
+  'bios.note.n88Ext': 'BIOS d’extension PC-8801',
+  'bios.note.n88Disk': 'BIOS disque PC-8801 — aucune image disque ne se charge sans lui',
+  'bios.note.n88Kanji': 'Police kanji PC-8801',
+  'bios.note.np2Bios': 'BIOS PC-9801 — sans lui, le cœur se rabat sur le sien',
+  'bios.note.np2Font': 'Police PC-9801, pour l’affichage du texte',
+  'bios.note.np2Sound': 'ROM de la carte son PC-9801',
   'bios.note.x68000Ipl': 'ROM IPL X68000',
   'bios.note.x68000Cgrom': 'ROM du générateur de caractères X68000',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
   'bios.note.kickstart31A1200': 'Kickstart 3.1 — Amiga 1200',
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
+  'bios.note.kickstart31Cd32Ext': 'ROM étendue CD32',
+  'bios.note.macIIRom': 'ROM Macintosh II',
 
   // Les systèmes dont le BIOS ne se résume pas à un fichier à copier.
 
@@ -422,6 +434,19 @@ export const fr: Catalog = {
   'bios.setup.switch':
     'La Switch a besoin de prod.keys et d’un dump de firmware issus d’une console.',
   'bios.setup.wiiu': 'La Wii U a besoin de clés et d’un dump OTP issus d’une console.',
+  'bios.setup.saturn': 'Les cœurs Saturn ne s’accordent pas sur le nom du fichier BIOS.',
+  'bios.setup.colecovision':
+    'La ColecoVision tourne sur un cœur qui lit un dossier de machine entier, pas un fichier.',
+  'bios.setup.x68000':
+    'Le cœur X68000 lit ses ROM dans un dossier keropi placé dans le dossier BIOS.',
+  'bios.setup.n64dd':
+    'Le 64DD a besoin de sa ROM IPL, que chaque cœur qui le fait tourner attend sous un nom ' +
+    'différent.',
+  'bios.setup.pc98':
+    'Le cœur PC-98 lit son BIOS dans un dossier np2kai placé dans le dossier BIOS.',
+  'bios.setup.cdimono1':
+    'Le cœur CD-i lit ses ROM d’amorçage dans un dossier same_cdi/bios placé dans le dossier ' +
+    'BIOS.',
 
   // Pourquoi le BIOS d'une plateforme ne peut pas être placé du tout.
 
