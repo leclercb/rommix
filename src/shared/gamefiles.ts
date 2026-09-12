@@ -1,7 +1,12 @@
 // Relative, with the extension: this module is imported both by the bundler
 // and by Node's TypeScript stripping in the tests, and the latter resolves no
 // aliases. `shared/types/` reaches into config the same way.
-import { CONTAINER_SYSTEMS, DESCRIPTOR_EXTENSIONS, SIDECAR_EXTENSIONS } from '../config/romfiles.ts'
+import {
+  CONTAINER_SYSTEMS,
+  DESCRIPTOR_EXTENSIONS,
+  ROMSET_SYSTEMS,
+  SIDECAR_EXTENSIONS
+} from '../config/romfiles.ts'
 import type { ContainerFormat } from '../config/romfiles.ts'
 
 /**
@@ -47,6 +52,25 @@ export interface GameFile {
 }
 
 const SIDECARS: ReadonlySet<string> = new Set(SIDECAR_EXTENSIONS)
+const ROMSETS: ReadonlySet<string> = new Set(ROMSET_SYSTEMS)
+
+/**
+ * Does this system take an archive as the game itself?
+ *
+ * The question a downloaded archive has to be asked before it is opened. A zip
+ * arriving from RomM is usually transport — RomM zips a lone ROM to serve it,
+ * and builds one out of a game of several files — and unpacking it is what puts
+ * the game where an emulator can find it. On the systems listed in
+ * `ROMSET_SYSTEMS` it is the game, and unpacking it destroys it.
+ *
+ * Nothing in the bytes tells the two apart; both are a zip. The system is the
+ * only thing that does, which is why this is asked of it rather than of the
+ * file. Without one the answer is no, since every other system's archive is
+ * transport.
+ */
+export function archiveIsTheRom(system?: string): boolean {
+  return system !== undefined && ROMSETS.has(system)
+}
 
 /** Lowercase extension including the dot, or '' when there is none. */
 function extensionOf(name: string): string {

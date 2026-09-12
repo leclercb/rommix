@@ -629,6 +629,58 @@ describe('a game RomM holds zipped', () => {
   })
 })
 
+describe('an arcade game', () => {
+  /**
+   * A romset, as RomM holds one: a zip named after the set, and the hashes of
+   * the chip dumps inside it.
+   *
+   * The archive is the game here — MAME and FinalBurn Neo are handed it whole —
+   * so it is the one zip RomMix downloads and does not open.
+   */
+  const romset = (): RommRom =>
+    rom({
+      fs_name: 'mslug.zip',
+      fs_name_no_ext: 'mslug',
+      fs_extension: 'zip',
+      platform_slug: 'arcade',
+      platform_fs_slug: 'arcade',
+      platform_display_name: 'Arcade',
+      md5_hash: '781e5e245d69b566979b86e28d23f2c7',
+      files: [{ file_name: 'mslug.zip' }]
+    } as Partial<RommRom>)
+
+  test('the archive is installed as it arrived rather than unpacked', async () => {
+    const { downloads, store, root } = manager({
+      zip: { '201-c1.c1': 'the graphics rom' }
+    })
+
+    downloads.enqueue(romset())
+    const item = await settled(downloads, 1)
+
+    assert.equal(item.state, 'done')
+    // The name an arcade emulator looks the set up by, still a file.
+    assert.equal(store.getInstalled(1)?.path, join(root, 'roms', 'arcade', 'mslug.zip'))
+    assert.equal(store.getInstalled(1)?.isDirectory, false)
+    assert.deepEqual(await readdir(join(root, 'roms', 'arcade')), ['mslug.zip'])
+  })
+
+  test('the row never says it is extracting one', async () => {
+    const { downloads } = manager({ zip: { '201-c1.c1': 'the graphics rom' } })
+    const seen: string[] = []
+    downloads.on('update', (items: DownloadItem[]) => {
+      const row = items.find((item) => item.romId === 1)
+      if (row && seen.at(-1) !== row.state) seen.push(row.state)
+    })
+
+    downloads.enqueue(romset())
+    await settled(downloads, 1)
+
+    // Nor checking: RomM hashed the dumps inside the archive, and the archive
+    // is what is kept, so there is nothing the digest describes.
+    assert.deepEqual(seen, ['queued', 'downloading', 'installing', 'done'])
+  })
+})
+
 describe('a download that is interrupted', () => {
   test('what arrived is kept, and the row waits to be finished rather than failing', async () => {
     const { downloads, store, root } = manager({ contents: '0123456789', breakAfter: 4 })

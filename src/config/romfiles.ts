@@ -51,6 +51,50 @@ export const ARCHIVE_EXTENSIONS: readonly string[] = [
 ]
 
 /**
+ * Systems where the archive is the game rather than the wrapper round it.
+ *
+ * An arcade game is a romset: an archive holding one dump per chip of the
+ * board, named after the set. MAME, FinalBurn and Flycast are handed the
+ * archive and read the set out of it — the dumps inside are named after the
+ * chips and carry nothing that says which board they came off, so a romset
+ * unpacked is a folder every one of them refuses.
+ *
+ * ES-DE system names, and read out of the `es_systems.xml` they come from:
+ * these are the systems whose extension list accepts an archive and no loose
+ * ROM beside it, which is the checkable form of the question. `cps2` takes
+ * `.zip` and `.7z` and nothing else; `neogeocd` takes `.cue` and `.chd`, being
+ * a disc rather than a board, and is not here. The ones that also list a
+ * launcher script or a single-file alternative — `arcade` and `.cmd`, `neogeo`
+ * and `.neo`, `lcdgames` and `.mgw` — are here all the same: a file that is
+ * not an archive is not what this decides.
+ */
+export const ROMSET_SYSTEMS: readonly string[] = [
+  // MAME and FinalBurn, and the boards ES-DE splits out from under them.
+  'arcade',
+  'mame',
+  'mame-advmame',
+  'mess',
+  'fba',
+  'fbneo',
+  'neogeo',
+  'cps',
+  'cps1',
+  'cps2',
+  'cps3',
+  'stv',
+  'model2',
+  'model3',
+  'astrocde',
+  'lcdgames',
+  'consolearcade',
+  // Flycast, which is handed the romsets MAME builds.
+  'naomi',
+  'naomi2',
+  'naomigd',
+  'atomiswave'
+]
+
+/**
  * Disc descriptors, in the order they should be preferred.
  *
  * These must win over the tracks they reference. Handing an emulator the `.bin`

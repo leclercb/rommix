@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chooseLaunchFile, fileNameOf, folderOf, isLaunchable } from './gamefiles.ts'
+import {
+  archiveIsTheRom,
+  chooseLaunchFile,
+  fileNameOf,
+  folderOf,
+  isLaunchable
+} from './gamefiles.ts'
 
 const file = (name: string, sizeBytes = 1024): { name: string; sizeBytes: number } => ({
   name,
@@ -163,6 +169,27 @@ test('a playlist is not launchable on a container system', () => {
   assert.equal(isLaunchable('Metroid Dread.nsp', 'switch'), true)
   assert.equal(isLaunchable('Final Fantasy VII.m3u', 'psx'), true)
   assert.equal(isLaunchable('Sonic.md'), true)
+})
+
+test('an arcade archive is the game rather than something to open', () => {
+  // The failure this prevents: a romset unpacked into the chip dumps inside it,
+  // which every arcade emulator refuses — the archive is what carries the name
+  // of the set.
+  assert.equal(archiveIsTheRom('arcade'), true)
+  assert.equal(archiveIsTheRom('fbneo'), true)
+})
+
+test('an archive on any other system is transport and gets opened', () => {
+  assert.equal(archiveIsTheRom('gba'), false)
+  // A Neo Geo CD game is a disc image — ES-DE gives that system `.cue` and
+  // `.chd` and no archive at all — whatever the Neo Geo beside it is.
+  assert.equal(archiveIsTheRom('neogeocd'), false)
+  // Triforce is Dolphin and a disc, however arcade the cabinet was.
+  assert.equal(archiveIsTheRom('triforce'), false)
+})
+
+test('with no system named the archive is transport', () => {
+  assert.equal(archiveIsTheRom(), false)
 })
 
 test('a path is reduced to the file at the end of it', () => {

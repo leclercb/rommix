@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { chooseLaunchFile } from '@shared/gamefiles'
+import { archiveIsTheRom, chooseLaunchFile } from '@shared/gamefiles'
 import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
 import { unpack, type InstallResult } from './install.ts'
 import { t } from './i18n.ts'
@@ -915,7 +915,19 @@ export class DownloadManager extends EventEmitter {
     // at 98% until the state change redraws it.
     this.emitUpdate()
 
-    if (where.asDirectory || (await isZip(downloadTo))) {
+    /**
+     * Opened where the archive is transport, kept where it is the game.
+     *
+     * Nothing in the bytes separates the two — RomM zips a lone ROM to serve
+     * it, and an arcade romset is a zip the emulator is handed whole — so the
+     * system is what answers. See `archiveIsTheRom`.
+     *
+     * `asDirectory` is never in question: the archive it names is one RomM
+     * built for this request out of a game of several files, and the files are
+     * what the game is.
+     */
+    const romset = archiveIsTheRom(where.system)
+    if (where.asDirectory || (!romset && (await isZip(downloadTo)))) {
       item.state = 'extracting'
       this.emitUpdate()
       log.info('download', 'extracting the archive', { romId: rom.id, from: downloadTo })
@@ -952,17 +964,20 @@ export class DownloadManager extends EventEmitter {
     /**
      * Kept as it arrived, and for one shape of game that means unchecked.
      *
-     * A game RomM holds as `.7z`, `.rar` or a tarball is one RomM opened and
-     * hashed the *inside* of, so the digest it publishes does not describe the
-     * archive the endpoint served — and RomMix opens only zips, so there is
-     * nothing to unpack and hold to it either. The transfer's length check is
-     * the whole of what stands behind these. Said out loud here because the
-     * alternative is a silence that reads like a check that passed.
+     * An archive RomM recognises is one it opened and hashed the *inside* of,
+     * so the digest it publishes does not describe what the endpoint served.
+     * Where the archive stays shut there is nothing left for that digest to be
+     * held against: a `.7z`, a `.rar` or a tarball because RomMix opens only
+     * zips, a romset because opening it would destroy the game. The transfer's
+     * length check is the whole of what stands behind these. Said out loud
+     * here because the alternative is a silence that reads like a check that
+     * passed.
      */
     if (checkDeferredToUnpacking(rom)) {
-      log.info('download', 'this archive is one RomMix cannot open, so nothing checked it', {
+      log.info('download', 'this archive was not opened, so nothing checked it', {
         romId: rom.id,
-        fsName: rom.fs_name
+        fsName: rom.fs_name,
+        romset
       })
     }
     return {
