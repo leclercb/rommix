@@ -1,5 +1,5 @@
 /* --------------------------------------------------------------------------
-   Emulator list (Settings)
+   Emulators and platforms
    -------------------------------------------------------------------------- */
 
 .emulator {
@@ -42,7 +42,6 @@
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
   gap: 12px 28px;
-  margin-top: 8px;
 }
 
 /* One column under the other where there is no room for two — the same lines
@@ -57,7 +56,11 @@
   min-width: 0;
 }
 
+/* Its own margin only: a heading brings one of the browser's on top, and under
+   a box's padding that reads as the block having started somewhere above the
+   words it starts with. */
 .emulator__group-title {
+  margin-top: 0;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -92,9 +95,9 @@
   white-space: nowrap;
 }
 
-/* Home folder, Change version, Run/Install, up, down. Wrapping and right
-   aligned, so a row that runs out of width breaks against the edge the buttons
-   end on rather than sliding away from them. */
+/* What a platform's row can be told to do. Wrapping and right aligned, so a row
+   that runs out of width breaks against the edge the buttons end on rather than
+   sliding away from them. */
 .emulator__actions {
   display: flex;
   flex-wrap: wrap;

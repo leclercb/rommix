@@ -972,6 +972,16 @@ export async function startApp(options: StartOptions): Promise<App> {
            const vertical = down > 0 ? 'Down' : 'Up'
            const sideways = across > 0 ? 'Right' : 'Left'
            if (target.bottom <= 0 || target.top >= window.innerHeight) return [vertical]
+           // Focusables nest — a section heading, and the buttons drawn inside
+           // it — and the way into one is across. The engine measures these by
+           // containment rather than by distance, so a press towards a target
+           // the highlight already encloses has to be the sideways one.
+           const within = (outer, inner) =>
+             inner.left >= outer.left &&
+             inner.right <= outer.right &&
+             inner.top >= outer.top &&
+             inner.bottom <= outer.bottom
+           if (within(here, target) || within(target, here)) return [sideways]
            // Which axis to press first is decided edge to edge, the way the
            // focus engine measures. Centres make a wide element's own width
            // count as distance: a row spanning the page reads as half a screen

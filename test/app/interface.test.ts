@@ -205,7 +205,13 @@ describe('the emulators screen', () => {
 
     // And the path it names is the one that was configured, not a guess at
     // where Eden usually lives: a screen that reported the default while the
-    // launch used the override would agree with nothing.
+    // launch used the override would agree with nothing. Behind the row's own
+    // lid, every emulator starting shut.
+    await app.choose('[data-emulator="eden"] .group__header')
+    await app.waitFor(
+      `document.querySelector('[data-emulator="eden"] .emulator__line-text')`,
+      'the paths Eden was found at'
+    )
     const paths = await app.read<string[]>(
       `[...document.querySelectorAll('[data-emulator="eden"] .emulator__line-text')].map((one) => one.textContent)`
     )
@@ -1723,6 +1729,7 @@ describe('the emulators themselves', () => {
     // Eden asks for several things to be done inside it, and every one of them
     // makes RomMix look broken when it has not been: the download is there and
     // named, and Eden's own list is empty.
+    await app.choose('[data-emulator="eden"] .group__header')
     await app.choose('[data-emulator="eden"] [data-action="setup-steps"]')
     await app.waitFor(`document.querySelector('.overlay .notice__list li')`, 'the steps')
     assert.ok(
@@ -1742,6 +1749,7 @@ describe('the emulators themselves', () => {
     // looks for it in the usual places and nowhere else; a library it cannot
     // find is one the user has to name. Offered whether or not the emulator was
     // detected, which is the state that most needs it.
+    await app.choose('[data-emulator="retrodeck"] .group__header')
     await app.choose('[data-emulator="retrodeck"] [data-action="emulator-root"]')
     await app.waitFor(
       `document.querySelector('[data-emulator="retrodeck"] .field__input')`,
@@ -1791,7 +1799,9 @@ describe('the emulators themselves', () => {
   test('and the button is off, not missing, for one that needs nothing', async () => {
     // Disabled rather than hidden on purpose: "there is nothing to set up" is
     // worth being able to read off the row, and a button that comes and goes
-    // moves every row below it.
+    // moves every row below it. Behind RetroArch's own lid, like the rest of
+    // what a row can say.
+    await app.choose('[data-emulator="retroarch"] .group__header')
     await app.waitFor(
       `document.querySelector('[data-emulator="retroarch"] [data-action="setup-steps"]')
          ?.dataset.disabled === 'true'`,
