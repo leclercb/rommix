@@ -410,6 +410,7 @@ export const en = {
   'bios.note.atari5200': 'Atari 5200 BIOS',
   'bios.note.atari7800': 'Atari 7800 BIOS — North America',
   'bios.note.tos': 'Atari ST TOS image',
+  'bios.note.jaguarCd': 'Jaguar CD boot ROM — replaces the core’s own',
   'bios.note.colecovision': 'ColecoVision BIOS',
   'bios.note.pcfx': 'PC-FX BIOS',
   'bios.note.n88': 'PC-8801 BIOS',
@@ -419,6 +420,7 @@ export const en = {
   'bios.note.np2Bios': 'PC-9801 BIOS — the core falls back on its own without it',
   'bios.note.np2Font': 'PC-9801 font, for the text display',
   'bios.note.np2Sound': 'PC-9801 sound board ROM',
+  'bios.note.x1Ipl': 'Sharp X1 IPL ROM',
   'bios.note.x68000Ipl': 'X68000 IPL ROM',
   'bios.note.x68000Cgrom': 'X68000 character generator ROM',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
@@ -426,6 +428,7 @@ export const en = {
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
   'bios.note.kickstart31Cd32Ext': 'CD32 extended ROM',
   'bios.note.macIIRom': 'Macintosh II ROM',
+  'bios.note.vircon32Bios': 'Vircon32 BIOS — replaces the one the core ships',
 
   // Systems whose BIOS is more than a file to copy.
 
@@ -440,6 +443,7 @@ export const en = {
   'bios.setup.saturn': 'Saturn cores disagree on what the BIOS file is called.',
   'bios.setup.colecovision':
     'ColecoVision runs on a core that reads a whole machine folder, not one file.',
+  'bios.setup.x1': 'The X1 core reads its IPL ROM from an xmil folder inside the BIOS folder.',
   'bios.setup.x68000':
     'The X68000 core reads its ROMs from a keropi folder inside the BIOS folder.',
   'bios.setup.n64dd':

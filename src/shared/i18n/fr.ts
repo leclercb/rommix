@@ -405,6 +405,7 @@ export const fr: Catalog = {
   'bios.note.atari5200': 'BIOS Atari 5200',
   'bios.note.atari7800': 'BIOS Atari 7800 — Amérique du Nord',
   'bios.note.tos': 'Image TOS Atari ST',
+  'bios.note.jaguarCd': 'ROM d’amorçage Jaguar CD — remplace celle du cœur',
   'bios.note.colecovision': 'BIOS ColecoVision',
   'bios.note.pcfx': 'BIOS PC-FX',
   'bios.note.n88': 'BIOS PC-8801',
@@ -414,6 +415,7 @@ export const fr: Catalog = {
   'bios.note.np2Bios': 'BIOS PC-9801 — sans lui, le cœur se rabat sur le sien',
   'bios.note.np2Font': 'Police PC-9801, pour l’affichage du texte',
   'bios.note.np2Sound': 'ROM de la carte son PC-9801',
+  'bios.note.x1Ipl': 'ROM IPL Sharp X1',
   'bios.note.x68000Ipl': 'ROM IPL X68000',
   'bios.note.x68000Cgrom': 'ROM du générateur de caractères X68000',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
@@ -421,6 +423,7 @@ export const fr: Catalog = {
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
   'bios.note.kickstart31Cd32Ext': 'ROM étendue CD32',
   'bios.note.macIIRom': 'ROM Macintosh II',
+  'bios.note.vircon32Bios': 'BIOS Vircon32 — remplace celui fourni par le cœur',
 
   // Les systèmes dont le BIOS ne se résume pas à un fichier à copier.
 
@@ -437,6 +440,7 @@ export const fr: Catalog = {
   'bios.setup.saturn': 'Les cœurs Saturn ne s’accordent pas sur le nom du fichier BIOS.',
   'bios.setup.colecovision':
     'La ColecoVision tourne sur un cœur qui lit un dossier de machine entier, pas un fichier.',
+  'bios.setup.x1': 'Le cœur X1 lit sa ROM IPL dans un dossier xmil placé dans le dossier BIOS.',
   'bios.setup.x68000':
     'Le cœur X68000 lit ses ROM dans un dossier keropi placé dans le dossier BIOS.',
   'bios.setup.n64dd':

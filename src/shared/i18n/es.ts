@@ -402,6 +402,7 @@ export const es: Catalog = {
   'bios.note.atari5200': 'BIOS de Atari 5200',
   'bios.note.atari7800': 'BIOS de Atari 7800 — Norteamérica',
   'bios.note.tos': 'Imagen TOS de Atari ST',
+  'bios.note.jaguarCd': 'ROM de arranque de Jaguar CD — sustituye a la del núcleo',
   'bios.note.colecovision': 'BIOS de ColecoVision',
   'bios.note.pcfx': 'BIOS de PC-FX',
   'bios.note.n88': 'BIOS de PC-8801',
@@ -411,6 +412,7 @@ export const es: Catalog = {
   'bios.note.np2Bios': 'BIOS de PC-9801 — sin él, el núcleo recurre al suyo',
   'bios.note.np2Font': 'Fuente de PC-9801, para mostrar el texto',
   'bios.note.np2Sound': 'ROM de la tarjeta de sonido de PC-9801',
+  'bios.note.x1Ipl': 'ROM IPL de Sharp X1',
   'bios.note.x68000Ipl': 'ROM IPL de X68000',
   'bios.note.x68000Cgrom': 'ROM del generador de caracteres de X68000',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
@@ -418,6 +420,7 @@ export const es: Catalog = {
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
   'bios.note.kickstart31Cd32Ext': 'ROM extendida de CD32',
   'bios.note.macIIRom': 'ROM de Macintosh II',
+  'bios.note.vircon32Bios': 'BIOS de Vircon32 — sustituye a la que trae el núcleo',
 
   // Sistemas cuyo BIOS es más que un archivo que copiar.
 
@@ -434,6 +437,8 @@ export const es: Catalog = {
   'bios.setup.saturn': 'Los núcleos de Saturn no coinciden en cómo se llama el archivo de BIOS.',
   'bios.setup.colecovision':
     'La ColecoVision usa un núcleo que lee una carpeta de máquina entera, no un solo archivo.',
+  'bios.setup.x1':
+    'El núcleo de X1 lee su ROM IPL de una carpeta xmil dentro de la carpeta de BIOS.',
   'bios.setup.x68000':
     'El núcleo de X68000 lee sus ROM de una carpeta keropi dentro de la carpeta de BIOS.',
   'bios.setup.n64dd':

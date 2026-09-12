@@ -158,6 +158,11 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   atarist: {
     files: [{ name: 'tos.img', note: 'bios.note.tos', required: true }]
   },
+  atarijaguarcd: {
+    files: [
+      { name: '[BIOS] Atari Jaguar CD (World).j64', note: 'bios.note.jaguarCd', required: false }
+    ]
+  },
   colecovision: {
     files: [{ name: 'colecovision.rom', note: 'bios.note.colecovision', required: false }],
     setupNote: 'bios.setup.colecovision'
@@ -181,6 +186,10 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
     ],
     setupNote: 'bios.setup.pc98'
   },
+  x1: {
+    files: [{ name: 'IPLROM.X1', note: 'bios.note.x1Ipl', required: true }],
+    setupNote: 'bios.setup.x1'
+  },
   x68000: {
     files: [
       { name: 'iplrom.dat', note: 'bios.note.x68000Ipl', required: true },
@@ -202,6 +211,9 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
   },
   macintosh: {
     files: [{ name: 'MacII.ROM', note: 'bios.note.macIIRom', required: true }]
+  },
+  vircon32: {
+    files: [{ name: 'Vircon32Bios.v32', note: 'bios.note.vircon32Bios', required: false }]
   }
 }
 

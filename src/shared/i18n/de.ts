@@ -415,6 +415,7 @@ export const de: Catalog = {
   'bios.note.atari5200': 'Atari-5200-BIOS',
   'bios.note.atari7800': 'Atari-7800-BIOS — Nordamerika',
   'bios.note.tos': 'Atari-ST-TOS-Abbild',
+  'bios.note.jaguarCd': 'Jaguar-CD-Boot-ROM — ersetzt das des Kerns',
   'bios.note.colecovision': 'ColecoVision-BIOS',
   'bios.note.pcfx': 'PC-FX-BIOS',
   'bios.note.n88': 'PC-8801-BIOS',
@@ -424,6 +425,7 @@ export const de: Catalog = {
   'bios.note.np2Bios': 'PC-9801-BIOS — ohne es greift der Kern auf sein eigenes zurück',
   'bios.note.np2Font': 'PC-9801-Schrift, für die Textanzeige',
   'bios.note.np2Sound': 'ROM der PC-9801-Soundkarte',
+  'bios.note.x1Ipl': 'Sharp-X1-IPL-ROM',
   'bios.note.x68000Ipl': 'X68000-IPL-ROM',
   'bios.note.x68000Cgrom': 'X68000-Zeichengenerator-ROM',
   'bios.note.kickstart13': 'Kickstart 1.3 — Amiga 500',
@@ -431,6 +433,7 @@ export const de: Catalog = {
   'bios.note.kickstart31Cd32': 'Kickstart 3.1 — CD32',
   'bios.note.kickstart31Cd32Ext': 'Erweiterungs-ROM der CD32',
   'bios.note.macIIRom': 'Macintosh-II-ROM',
+  'bios.note.vircon32Bios': 'Vircon32-BIOS — ersetzt das mitgelieferte des Kerns',
 
   // Systeme, deren BIOS mehr ist als eine Datei zum Kopieren.
 
@@ -448,6 +451,7 @@ export const de: Catalog = {
   'bios.setup.colecovision':
     'Die ColecoVision läuft auf einem Kern, der einen ganzen Maschinenordner liest, keine ' +
     'einzelne Datei.',
+  'bios.setup.x1': 'Der X1-Kern liest sein IPL-ROM aus einem xmil-Ordner im BIOS-Ordner.',
   'bios.setup.x68000': 'Der X68000-Kern liest seine ROMs aus einem keropi-Ordner im BIOS-Ordner.',
   'bios.setup.n64dd':
     'Das 64DD braucht sein IPL-ROM, das jeder Kern, der es ausführt, unter einem anderen Namen ' +
