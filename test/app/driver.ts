@@ -876,20 +876,26 @@ export async function startApp(options: StartOptions): Promise<App> {
     )
 
   /**
-   * What the highlight is on, as something two reads can be compared by.
+   * Where the highlight is standing, as one place the walk can tell from
+   * another.
    *
-   * The label is part of it, not decoration. A row of icon-only buttons — the
-   * heart and the progress mark on a game — are the same tag with the same
-   * class and no text between them, so a walk comparing tag, class and words
-   * alone reads a move from one to the next as a press that went nowhere, and
-   * turns aside to get round a wall that is not there. `aria-label` is what
-   * those buttons say about themselves, and it is what tells them apart.
+   * Its position in the tree, because nothing an element says about itself is
+   * unique. Every row of the emulator list draws the same Install button, same
+   * tag and same class and the same word inside it, and the walk remembers
+   * which directions it has already pressed from where it stands: told apart
+   * by their words alone, one row's Install is credited with the presses spent
+   * on another's, and the walk gives up on a target it has not tried to reach.
+   * Indices from the root answer that for anything on the screen, and cost one
+   * read.
+   *
+   * The rest is what makes a failure readable — see the message `choose`
+   * throws, which is the only other thing that asks.
    *
    * Waited for rather than read once. A list that is still filling — the
    * library, as its first page arrives — re-renders with nothing focused for a
-   * frame, and a scan that read that moment would see two identical empty
-   * answers and conclude it had hit a wall. Which it does, reliably, only when
-   * the machine is busy enough: exactly the conditions of a CI runner.
+   * frame, and a walk that read that moment would take an empty answer for a
+   * place and press on from it. Which it does, reliably, only when the machine
+   * is busy enough: exactly the conditions of a CI runner.
    */
   const highlight = async (): Promise<string> => {
     const until = Date.now() + SETTLE_TIMEOUT_MS
@@ -898,7 +904,12 @@ export async function startApp(options: StartOptions): Promise<App> {
         `(() => {
            const one = document.querySelector('[data-focused="true"]')
            if (!one) return ''
+           const path = []
+           for (let node = one; node.parentElement; node = node.parentElement) {
+             path.unshift([...node.parentElement.children].indexOf(node))
+           }
            return [
+             path.join('.'),
              one.tagName,
              one.className,
              one.getAttribute('aria-label') ?? '',
@@ -919,13 +930,13 @@ export async function startApp(options: StartOptions): Promise<App> {
    * things worth knowing still works — a click would go straight to the handler
    * and prove nothing about how anybody actually reaches the button.
    *
-   * An exploration that remembers where it has been, rather than a scan in one
-   * direction. Neither of the two shapes on screen is a grid a raster would
-   * cross: the library's filters wrap — Down off the last of them returns to
-   * the first — so a walk that only pressed Down and Right went round the
-   * toolbar until it ran out of patience and never once looked at a game.
-   * Preferring a square it has not stood on turns that loop into a dead end,
-   * which is a thing the walk can back out of.
+   * Homing on where the target is, and remembering which directions it has
+   * already pressed from where it stands. Neither of the two shapes on screen
+   * is a grid a raster would cross: the library's filters wrap — Down off the
+   * last of them returns to the first — so a walk that only pressed Down and
+   * Right went round the toolbar until it ran out of patience and never once
+   * looked at a game. Spending each direction once per place turns a loop like
+   * that into a dead end, which is a thing the walk can back out of.
    */
   const choose = async (selector: string): Promise<void> => {
     // Drawn *and* registered with the focus engine, which is a later moment:
@@ -994,73 +1005,34 @@ export async function startApp(options: StartOptions): Promise<App> {
          })()`
       )
 
-    // Where the highlight stood before the press that has just been made.
-    // Homing works the direction out afresh every time and remembers nothing,
-    // so a pair of squares whose answers point at each other — down to the
-    // control on the next row, left to the one this row started with — is a
-    // loop it takes in turn until it runs out of steps.
-    let previous = ''
-
-    for (let step = 0; step < 40; step += 1) {
-      if (await there()) return press('Enter')
-      const [key, other] = await towards()
-      if (!key) break
-      const before = await highlight()
-      await press(key)
-      const after = await highlight()
-      // A wall in the direction it wanted. The other axis is the way round it —
-      // a game two rows down and one column left is not reachable by pressing
-      // Down alone once the column has run out.
-      if (after === before) {
-        const sideways: Key =
-          key === 'Up' || key === 'Down'
-            ? (await towards())[0] === 'Left'
-              ? 'Left'
-              : 'Right'
-            : (await towards())[0] === 'Up'
-              ? 'Up'
-              : 'Down'
-        await press(sideways)
-        if ((await highlight()) === before) break
-      } else if (after === previous && other) {
-        // Straight back where it came from, which is the loop. One press along
-        // the other axis leaves the pair, and the homing carries on from
-        // wherever that lands.
-        await press(other)
-      }
-      previous = before
-    }
-
     /**
-     * Failing that, a walk that remembers where it has been.
+     * Which directions have already been pressed from a given standing place.
      *
-     * Homing assumes the highlight can be moved towards what is on screen, and
-     * that is not true across a zone boundary — where the geometry says one
-     * thing and the focus engine another. This covers that: it takes whatever a
-     * press gives it and prefers somewhere it has not stood, which gets out of
-     * a corner homing would press into for ever.
+     * The one thing homing cannot do without. Where the direction it wants is a
+     * wall, or lands somewhere whose own answer points straight back — the lone
+     * button of a row and the tab strip above it each reading as the nearest
+     * thing to the other — the walk presses that pair in turn until it runs out
+     * of steps. A key spent from a place is never spent there again, so every
+     * return to it tries something else and the pair is left on the third
+     * press.
      */
-    const seen = new Set<string>()
-    const keys: Key[] = ['Right', 'Down', 'Left', 'Up']
+    const spent = new Map<string, Set<Key>>()
+    const every: Key[] = ['Right', 'Down', 'Left', 'Up']
 
-    for (let step = 0; step < 60; step += 1) {
+    for (let step = 0; step < 100; step += 1) {
       if (await there()) return press('Enter')
-      const before = await highlight()
-      seen.add(before)
-
-      // The order rotates with the step, which is what stops a corner the walk
-      // keeps returning to from being a corner it keeps leaving the same way.
-      const order = keys.map((_, at) => keys[(at + step) % keys.length])
-      let landed = ''
-      for (const key of order) {
-        await press(key)
-        const after = await highlight()
-        if (await there()) return press('Enter')
-        if (after === before) continue
-        landed = after
-        if (!seen.has(after)) break
-      }
-      if (!landed) break
+      const here = await highlight()
+      const keys = spent.get(here) ?? new Set<Key>()
+      spent.set(here, keys)
+      // Towards the target first, and failing that anywhere at all: homing
+      // assumes the highlight can be moved towards what is on screen, and that
+      // is not true across a zone boundary — where the geometry says one thing
+      // and the focus engine another. The press that crosses one is a press no
+      // direction asked for.
+      const key = [...(await towards()), ...every].find((one) => !keys.has(one))
+      if (!key) break
+      keys.add(key)
+      await press(key)
     }
 
     throw new Error(
