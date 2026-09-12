@@ -1,6 +1,6 @@
 {
   "name": "rommix",
-  "version": "0.16.0-rc.2",
+  "version": "0.16.0",
   "description": "Big Picture style front end for your own RomM server on Linux: browse your library, download a game, play it, and your saves go back to RomM",
   "license": "MIT",
   "author": "Benjamin Leclerc",
