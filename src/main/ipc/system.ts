@@ -1,8 +1,15 @@
 import { app, shell } from 'electron'
 import { EMULATORS } from '@config/emulators'
-import type { DiagnosticsReport, DriveSpace, RootLocation, Settings } from '@shared/types'
+import type {
+  DiagnosticsReport,
+  DriveSpace,
+  PowerAction,
+  RootLocation,
+  Settings
+} from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { drivesOf } from '../disk.ts'
+import { power, powerActions } from '../power.ts'
 import { flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
@@ -226,6 +233,19 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
 
   handle('system:toggleFullscreen', () => rommix.toggleFullscreen())
   handle('system:quit', () => app.quit())
+
+  /**
+   * What this machine can be asked to do with itself, or nothing where it
+   * cannot be asked. The quit dialog offers exactly what comes back.
+   */
+  handle('system:powerActions', (): Promise<PowerAction[]> => powerActions())
+
+  handle('system:power', async (action: PowerAction): Promise<void> => {
+    // Checked against the table rather than trusted: this crosses the bridge,
+    // and the value goes to a command.
+    if (!(await powerActions()).includes(action)) throw new Error(t('error.powerUnavailable'))
+    await power(action)
+  })
 
   /**
    * Hand a web address to whatever the desktop opens links with.

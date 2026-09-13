@@ -95,6 +95,10 @@ export const en = {
   'app.version': 'v{version}',
   'app.quitTitle': 'Quit RomMix?',
   'app.stay': 'Stay',
+  'app.thisMachine': 'This machine',
+  'app.sleep': 'Sleep',
+  'app.restartMachine': 'Restart',
+  'app.turnOff': 'Turn off',
   'app.quit': 'Quit',
   'app.quitRomMix': 'Quit RomMix',
   'app.gettingReady': 'Getting ready',
@@ -973,6 +977,8 @@ export const en = {
   'error.sessionExpired': 'Session expired — sign in again',
   'error.downloadInterrupted':
     'The transfer from RomM kept breaking off after {received} of {total}.',
+  'error.power': 'The machine refused: {reason}',
+  'error.powerUnavailable': 'This machine cannot be asked to do that.',
   'error.noRoom': 'Not enough room: {needed} needed, {free} free in {path}.',
   'error.unsafeName': '{name} is not a name RomMix will write to disk.',
   'error.downloadNotPublished':

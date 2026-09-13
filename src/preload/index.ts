@@ -13,6 +13,7 @@ import type {
   InstalledRom,
   EmulatorAsset,
   EmulatorInstallProgress,
+  PowerAction,
   RomQuery,
   RomUserStatus,
   SaveDeleteScope,
@@ -152,6 +153,8 @@ const bridge: RomMixBridge = {
       path ? `rommix-img://asset/?p=${encodeURIComponent(path)}` : null,
     toggleFullscreen: () => ipcRenderer.invoke('system:toggleFullscreen'),
     quit: () => ipcRenderer.invoke('system:quit'),
+    powerActions: () => ipcRenderer.invoke('system:powerActions'),
+    power: (action: PowerAction) => ipcRenderer.invoke('system:power', action),
     openExternal: (url: string) => ipcRenderer.invoke('system:openExternal', url),
     onError: (listener: (message: string) => void) => subscribe<string>('app:error', listener)
   }

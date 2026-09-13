@@ -161,6 +161,12 @@ readable only by you where no keyring is reachable.
 | Previous / next tab | LB / RB            | Shift-Tab / Tab  |
 | Back from a game    | Start, held        | —                |
 
+Back at the top of a section asks whether to quit. Where the machine can be
+asked — anything with `systemctl`, which is most desktop Linux — that dialog
+also offers **Sleep**, **Restart** and **Turn off**, for the sessions where
+RomMix is the whole of what is on screen and there is no desktop behind it to
+quit to.
+
 ---
 
 ## 🧭 Using it

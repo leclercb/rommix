@@ -41,12 +41,14 @@ import {
   LogOut,
   Maximize,
   MonitorCog,
+  Moon,
   Package,
   Palette,
   Pause,
   Play,
   Plug,
   Power,
+  PowerOff,
   RefreshCw,
   RotateCcw,
   Save,
@@ -166,6 +168,16 @@ export const ICONS = {
   details: Info,
   /** The colours the interface is drawn in. */
   theme: Palette,
+  /** The machine, asleep rather than off. */
+  sleep: Moon,
+  /**
+   * The machine going off, as opposed to `quit`, which is RomMix going away.
+   *
+   * Two marks for two scopes: they sit in the same dialog, one row apart, and a
+   * single power symbol on both would make the row that turns the computer off
+   * look like the row that closes a program.
+   */
+  powerOff: PowerOff,
   screenshots: Images,
   /** This machine's own copy of something, as opposed to the server's. */
   device: HardDrive

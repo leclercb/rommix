@@ -86,6 +86,10 @@ export const de: Catalog = {
   'app.version': 'v{version}',
   'app.quitTitle': 'RomMix beenden?',
   'app.stay': 'Bleiben',
+  'app.thisMachine': 'Dieser Rechner',
+  'app.sleep': 'Ruhezustand',
+  'app.restartMachine': 'Neu starten',
+  'app.turnOff': 'Ausschalten',
   'app.quit': 'Beenden',
   'app.quitRomMix': 'RomMix beenden',
   'app.gettingReady': 'Wird vorbereitet',
@@ -1002,6 +1006,8 @@ export const de: Catalog = {
   'error.sessionExpired': 'Sitzung abgelaufen — melden Sie sich erneut an',
   'error.downloadInterrupted':
     'Die Übertragung von RomM brach nach {received} von {total} immer wieder ab.',
+  'error.power': 'Der Rechner hat abgelehnt: {reason}',
+  'error.powerUnavailable': 'Dieser Rechner kann darum nicht gebeten werden.',
   'error.noRoom': 'Nicht genug Platz: {needed} nötig, {free} frei in {path}.',
   'error.unsafeName': '{name} ist kein Name, den RomMix auf die Platte schreibt.',
   'error.downloadNotPublished':

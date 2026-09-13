@@ -5,6 +5,15 @@
 
 import type { EmulatorState } from '../../config/emulators/types.ts'
 
+/**
+ * What RomMix can ask the machine to do with itself, beyond quitting.
+ *
+ * For the session where RomMix is the whole of it — a television with no
+ * desktop behind it — where the alternative to these is the power button on the
+ * case. See `power`.
+ */
+export type PowerAction = 'suspend' | 'reboot' | 'poweroff'
+
 /** Where RomMix keeps everything it owns. */
 export interface RootLocation {
   current: string

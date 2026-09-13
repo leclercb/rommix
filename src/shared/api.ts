@@ -5,6 +5,7 @@ import type {
   ConnectionStatus,
   DiagnosticsReport,
   DriveSpace,
+  PowerAction,
   DownloadItem,
   InstalledRom,
   LaunchChoice,
@@ -389,6 +390,12 @@ export interface RomMixBridge {
     imageUrl(path: string | null): string | null
     toggleFullscreen(): Promise<boolean>
     quit(): Promise<void>
+    /**
+     * What the machine can be asked to do with itself: sleep, restart, turn
+     * off. Empty where there is nothing to ask — see `powerActions`.
+     */
+    powerActions(): Promise<PowerAction[]>
+    power(action: PowerAction): Promise<void>
     /** Open an http(s) address in the desktop's browser. Nothing else is allowed. */
     openExternal(url: string): Promise<void>
     /**

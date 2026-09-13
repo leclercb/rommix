@@ -1020,6 +1020,10 @@ const bridge: RomMixBridge = {
     imageUrl: (path: string | null) => artFor(path),
     toggleFullscreen: () => later(false),
     quit: () => refuse(),
+    // Nothing to offer: a browser tab has no machine to put to sleep, and the
+    // dialog draws only what comes back from here.
+    powerActions: () => later([]),
+    power: () => refuse(),
     // The preview is already in a browser, so the desktop's link handler is
     // simply a new tab.
     openExternal: (url: string) => {

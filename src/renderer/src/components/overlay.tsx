@@ -1,5 +1,7 @@
-import { type JSX, type ReactNode } from 'react'
+import { useEffect, useState, type JSX, type ReactNode } from 'react'
 import { FocusLayer, useAction, useFocusedAction, useKeyLabel } from '../input/focus'
+import type { MessageKey } from '@shared/i18n'
+import type { PowerAction } from '@shared/types'
 import { useApp, useI18n } from '../state'
 import { Icon, type IconName } from '../icons'
 import { FocusButton } from './controls'
@@ -129,27 +131,73 @@ export function QuitOverlay({ onCancel }: { onCancel: () => void }): JSX.Element
   )
 }
 
+/** What each machine action is called and drawn as, in the order offered. */
+const POWER: { action: PowerAction; label: MessageKey; icon: IconName }[] = [
+  { action: 'suspend', label: 'app.sleep', icon: 'sleep' },
+  { action: 'reboot', label: 'app.restartMachine', icon: 'restart' },
+  { action: 'poweroff', label: 'app.turnOff', icon: 'powerOff' }
+]
+
 /**
- * The two answers.
+ * The answers: leaving RomMix, and leaving the machine.
  *
  * A child of the overlay rather than part of it: `useAction` registers on the
  * layer it is *called* from, and only inside `Overlay` is that the layer the
  * dialog is on. B here means "no" — the same button that opened the dialog
  * closes it, so a press too many lands back where it started.
+ *
+ * The machine's own answers are here because this is where somebody who is
+ * finished arrives, and on the sessions RomMix is built for there is nothing
+ * behind it to arrive at instead: gamescope on a television has no desktop, and
+ * quitting leaves a black screen whose only remaining control is the button on
+ * the case. They are a second row rather than four buttons in one, so that the
+ * question the dialog asks still reads as a question with two answers.
  */
 function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
   const { t } = useI18n()
+  const [actions, setActions] = useState<PowerAction[]>([])
   useAction('back', onCancel)
 
+  // Asked when the dialog opens: the answer is a probe of the machine, and the
+  // machine cannot grow a systemctl while this is on screen. Nothing on a
+  // failure — a dialog that cannot say what the machine can do simply offers
+  // what it can say, which is Stay and Quit.
+  useEffect(() => {
+    void window.rommix.system
+      .powerActions()
+      .then(setActions)
+      .catch(() => setActions([]))
+  }, [])
+
   return (
-    <div className="btn-row">
-      <FocusButton icon="keep" onSelect={onCancel} autoFocus>
-        {t('app.stay')}
-      </FocusButton>
-      <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
-        {t('app.quitRomMix')}
-      </FocusButton>
-    </div>
+    <>
+      <div className="btn-row">
+        <FocusButton icon="keep" onSelect={onCancel} autoFocus>
+          {t('app.stay')}
+        </FocusButton>
+        <FocusButton icon="quit" variant="danger" onSelect={() => void window.rommix.system.quit()}>
+          {t('app.quitRomMix')}
+        </FocusButton>
+      </div>
+
+      {actions.length > 0 ? (
+        <>
+          <p className="muted">{t('app.thisMachine')}</p>
+          <div className="btn-row">
+            {POWER.filter((entry) => actions.includes(entry.action)).map((entry) => (
+              <FocusButton
+                key={entry.action}
+                icon={entry.icon}
+                action={`power-${entry.action}`}
+                onSelect={() => void window.rommix.system.power(entry.action)}
+              >
+                {t(entry.label)}
+              </FocusButton>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </>
   )
 }
 

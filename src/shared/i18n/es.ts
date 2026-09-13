@@ -86,6 +86,10 @@ export const es: Catalog = {
   'app.version': 'v{version}',
   'app.quitTitle': '¿Salir de RomMix?',
   'app.stay': 'Quedarse',
+  'app.thisMachine': 'Esta máquina',
+  'app.sleep': 'Suspender',
+  'app.restartMachine': 'Reiniciar',
+  'app.turnOff': 'Apagar',
   'app.quit': 'Salir',
   'app.quitRomMix': 'Salir de RomMix',
   'app.gettingReady': 'Preparando',
@@ -978,6 +982,8 @@ export const es: Catalog = {
   'error.sessionExpired': 'Sesión caducada — inicia sesión otra vez',
   'error.downloadInterrupted':
     'La transferencia desde RomM se interrumpió una y otra vez tras {received} de {total}.',
+  'error.power': 'La máquina lo rechazó: {reason}',
+  'error.powerUnavailable': 'No se puede pedir eso a esta máquina.',
   'error.noRoom': 'No hay espacio suficiente: {needed} necesarios, {free} libres en {path}.',
   'error.unsafeName': '{name} no es un nombre que RomMix vaya a escribir en el disco.',
   'error.downloadNotPublished':
