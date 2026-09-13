@@ -4,7 +4,7 @@ import { FocusButton, Overlay } from './components'
 import { useApp, useI18n } from './state'
 
 /**
- * Said once, to somebody who had RomMix before it had palettes.
+ * Said once, to somebody who had RomMix before it had themes.
  *
  * A setting nobody knows about is a setting nobody has, and this one is three
  * levels down a menu that most people open twice. The alternative — a badge, or
@@ -44,7 +44,7 @@ export function ThemesNotice(): JSX.Element | null {
           autoFocus
           onSelect={() => {
             void dismiss()
-            navigate({ name: 'settings' })
+            navigate({ name: 'settings', open: 'theme' })
           }}
         >
           {t('themes.noticeChoose')}

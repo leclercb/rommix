@@ -30,7 +30,7 @@ import { fileNameOf } from '@shared/gamefiles'
 // Where RomMix is, and the rules for moving between screens, live in
 // `history.ts` — pure, and testable for it. Re-exported because this is where
 // every screen already reaches for the type.
-export type { Route } from './history'
+export type { Route, SettingsTarget } from './history'
 
 export interface Toast {
   id: number
@@ -214,7 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   }, [i18n])
 
   // On the root element, where `themes.css` looks for it — and set from here
-  // rather than written into the markup, so choosing a palette in Settings
+  // rather than written into the markup, so choosing a theme in Settings
   // repaints the interface with nothing reloaded. Midnight until the settings
   // have arrived, which is what `base.css` already draws.
   useEffect(() => {

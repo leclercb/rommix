@@ -1,7 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
 import { Hints, PageTitle, Spinner, Tabs } from '../../components'
-import { useApp, useI18n } from '../../state'
+import { useApp, useI18n, type SettingsTarget } from '../../state'
 import { GamesTab, GeneralTab, SystemTab } from './tabs'
 
 /**
@@ -27,10 +27,23 @@ import { GamesTab, GeneralTab, SystemTab } from './tabs'
 
 type SettingsTab = 'general' | 'games' | 'system'
 
-export function SettingsScreen(): JSX.Element {
+/**
+ * Which tab holds each thing a route can arrive with open.
+ *
+ * The mapping is here because the tabs are: a caller says what it wants opened,
+ * and this screen is what knows where that lives — so a setting moving between
+ * tabs is one line here rather than a hunt through whatever navigates to it.
+ */
+const TAB_OF: Record<SettingsTarget, SettingsTab> = {
+  theme: 'general'
+}
+
+export function SettingsScreen({ open }: { open?: SettingsTarget }): JSX.Element {
   const { t } = useI18n()
   const { settings, update } = useApp()
-  const [tab, setTab] = useState<SettingsTab>('general')
+  // Whichever tab holds what was asked for, and the first otherwise. Initial
+  // state rather than an effect, so the tabs answer normally from then on.
+  const [tab, setTab] = useState<SettingsTab>(open ? TAB_OF[open] : 'general')
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
   const [root, setRoot] = useState<RootLocation | null>(null)
 
@@ -89,7 +102,7 @@ export function SettingsScreen(): JSX.Element {
         />
 
         <div className="panel__body">
-          {tab === 'general' ? <GeneralTab /> : null}
+          {tab === 'general' ? <GeneralTab open={open} /> : null}
           {tab === 'games' ? <GamesTab root={root} /> : null}
           {tab === 'system' ? (
             <SystemTab diagnostics={diagnostics} root={root} onRecheck={refreshDiagnostics} />

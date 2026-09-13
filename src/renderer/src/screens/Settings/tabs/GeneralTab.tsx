@@ -12,7 +12,7 @@ import {
   uiScaleOptions,
   type UiScaleChoice
 } from '../../../components'
-import { useApp, useI18n } from '../../../state'
+import { useApp, useI18n, type SettingsTarget } from '../../../state'
 
 /**
  * The account, the size of the interface, and the two things done to RomMix
@@ -34,7 +34,7 @@ import { useApp, useI18n } from '../../../state'
  */
 const SUPPORT_URL = 'https://buymeacoffee.com/leclercb'
 
-export function GeneralTab(): JSX.Element {
+export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
   const { t, locale } = useI18n()
   const { status, offline, settings, saveSettings, replace, notify } = useApp()
   const [supporting, setSupporting] = useState(false)
@@ -93,7 +93,7 @@ export function GeneralTab(): JSX.Element {
         value={settings?.language ?? 'auto'}
         onChange={(next) => void saveSettings({ language: next })}
       />
-      <ThemeChoice />
+      <ThemeChoice open={open === 'theme'} />
       <Choice<DateFormat>
         label={t('settings.dateFormat')}
         hint={t('settings.dateFormatHint', { example: dateFormatSample(locale, dateFormat) })}

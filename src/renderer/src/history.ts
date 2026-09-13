@@ -10,6 +10,14 @@ import type { EmulatorId } from '@shared/types'
  * described.
  */
 
+/**
+ * What a route can ask the settings screen to open on arrival.
+ *
+ * Named for the thing rather than for the tab holding it: which tab that is is
+ * the screen's business, and settings have moved between them before.
+ */
+export type SettingsTarget = 'theme'
+
 export type Route =
   /**
    * First-run setup, and the sign-in form it ends on. See `SetupScreen`.
@@ -54,7 +62,17 @@ export type Route =
       /** Straight to the builds, for an install RomMix already manages. */
       changeVersion?: true
     }
-  | { name: 'settings' }
+  /**
+   * `open` names something on the screen to arrive with already open.
+   *
+   * For a button elsewhere that is about one setting rather than about
+   * Settings: the notice announcing the themes leads to a row three levels
+   * into a screen, and leaving the reader to find it is half of what the button
+   * said. One field holding a name rather than a flag per destination, so the
+   * next thing worth arriving at is a member of `SettingsTarget` and not a
+   * second parameter. See `SettingsScreen`, which decides what each one means.
+   */
+  | { name: 'settings'; open?: SettingsTarget }
 
 /**
  * The screens that are a place rather than a thing: what the menu bar offers.

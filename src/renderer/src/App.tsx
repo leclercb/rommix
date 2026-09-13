@@ -352,7 +352,7 @@ function Screen({ route }: { route: Route }): JSX.Element {
         />
       )
     case 'settings':
-      return <SettingsScreen />
+      return <SettingsScreen open={route.open} />
     case 'setup':
       return <SetupScreen />
   }
