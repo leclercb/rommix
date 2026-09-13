@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { THEMES_NOTICE } from '@shared/types'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -440,6 +441,22 @@ export function standInEmulator(options: { stubborn?: boolean } = {}): {
  * test start at the library instead of driving a pairing flow whose codes it
  * would have to approve on a web UI that is not there.
  */
+/**
+ * Notices a seeded installation is treated as having seen.
+ *
+ * `setupComplete` is written true below so that a scenario starts at the
+ * library rather than in the first-run wizard — which is also, and correctly,
+ * how RomMix recognises an installation that was in use before an update. The
+ * themes notice is drawn for exactly that installation, so without this every
+ * scenario in every file would open behind a dialog and walk into it: `choose`
+ * moves the highlight, and a modal is a focus layer nothing below can be
+ * reached through.
+ *
+ * A scenario that wants the notice passes `dismissedNotices: []` of its own,
+ * which the spread below lets it do.
+ */
+const SEEN = [THEMES_NOTICE]
+
 function seed(home: string, options: StartOptions): void {
   const config = join(home, 'config')
   mkdirSync(config, { recursive: true })
@@ -452,6 +469,7 @@ function seed(home: string, options: StartOptions): void {
           setupComplete: true,
           updates: 'off',
           navigationSounds: false,
+          dismissedNotices: SEEN,
           ...options.settings
         }
       })
@@ -483,6 +501,7 @@ function seed(home: string, options: StartOptions): void {
         // Nothing here should reach for a network that is not the fake one.
         updates: 'off',
         navigationSounds: false,
+        dismissedNotices: SEEN,
         ...options.settings
       }
     })
