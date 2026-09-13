@@ -4,6 +4,17 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.17.0-rc.0 — 2026-09-13
+
+- fix: apply the interface scale in the demo (a823aee)
+- fix: draw the arcade theme's scan lines as a tube would (ba5ab4a)
+- feat: open the theme picker from the notice (8a3c177)
+- test(app): seed a dismissed themes notice (1c0aff7)
+- feat: offer the machine's own power actions when quitting (7f1b1b7)
+- feat: say how much room is left where games go (3a00b9e)
+- feat: add a theme setting with nine palettes (0afd872)
+- fix: keep a dialog's heading and buttons in view (0c6addb)
+
 ## 0.16.0 — 2026-09-12
 
 - test(app): spend each direction once per standing place (8663d9a)
