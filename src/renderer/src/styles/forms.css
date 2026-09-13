@@ -12,7 +12,7 @@
 
 .field__label {
   display: block;
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   font-weight: 650;
   color: var(--text-dim);
   margin-bottom: 7px;
@@ -34,7 +34,7 @@
 }
 
 .field__hint {
-  font-size: 13px;
+  font-size: calc(13px * var(--type-scale));
   color: var(--text-faint);
   margin-top: 6px;
 }
@@ -74,7 +74,7 @@
 .filters .filter__label,
 .filters .field__label {
   margin: 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--type-scale));
   font-weight: 650;
   color: var(--text-dim);
 }
@@ -186,7 +186,7 @@
 
 /* The dot in front of a theme's name, drawn in that theme: the element carries
    its own `data-theme`, so the tokens named there apply to it and stop there.
-   Half ground and half accent, which is what separates one palette from the
+   Half ground and half accent, which is what separates one theme from the
    next at a glance. Sized in `em`, so it grows with the label it is beside
    wherever that is — a button, or a row of the dialog. See `Swatch`. */
 .swatch {

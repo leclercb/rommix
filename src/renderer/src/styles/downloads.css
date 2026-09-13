@@ -58,14 +58,14 @@
    with the words above it rather than starting under the artwork. */
 .download__state {
   grid-column: 2 / -1;
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-dim);
   min-width: 0;
 }
 
 /* Never wrapped, never re-laid-out as it counts up. */
 .download__size {
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-dim);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -142,7 +142,7 @@
   align-items: center;
   gap: 16px;
   min-width: 0;
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-dim);
 }
 
@@ -219,7 +219,7 @@
 .drive__total,
 .drive__path {
   color: var(--text-dim);
-  font-size: 15px;
+  font-size: calc(15px * var(--type-scale));
 }
 
 /* Last, and allowed to be cut: the folder is the least of the three and the

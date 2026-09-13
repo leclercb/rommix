@@ -718,7 +718,7 @@ export const de: Catalog = {
   'settings.date.language': 'Der Sprache folgen',
   'settings.theme': 'Design',
   'settings.themeHint': 'Die Farben, in denen alles gezeichnet wird.',
-  'settings.themeBody': 'Der Bildschirm dahinter wird in der markierten Palette gezeichnet.',
+  'settings.themeBody': 'Der Bildschirm dahinter wird im markierten Design gezeichnet.',
   'settings.themeCurrent': 'In Verwendung',
   'settings.theme.midnight': 'Mitternacht',
   'settings.theme.daylight': 'Tageslicht',
@@ -731,7 +731,7 @@ export const de: Catalog = {
   'settings.theme.paper': 'Papier',
   'themes.noticeTitle': 'RomMix hat jetzt Designs',
   'themes.noticeBody':
-    'Die Oberfläche kann in einer anderen Palette gezeichnet werden – einer hellen oder einer von einer Konsole übernommenen. Jede wird auf dem Bildschirm gezeigt, bevor sie bleibt.',
+    'Die Oberfläche kann in anderen Farben gezeichnet werden – ein helles Design oder eines von einer Konsole. Jedes wird auf dem Bildschirm gezeigt, bevor es bleibt.',
   'themes.noticeChoose': 'Design wählen',
   'themes.noticeLater': 'Später',
   'settings.support': 'RomMix unterstützen',

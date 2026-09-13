@@ -1,28 +1,28 @@
 /*
- * The palettes, one file each. See `Theme`.
+ * The themes, one file each. See `Theme`.
  *
  * A theme is mostly colour: the tokens `base.css` names, said again in another
  * set of them, and every section of the stylesheet reads its colours through
  * `var()`. That is the contract — a section reaching for a literal colour is a
- * section no palette can reach, which is why there are none left to find.
+ * section no theme can reach, which is why there are none left to find.
  *
- * One file per palette so that adding one is adding a file: copy the nearest
+ * One file per theme so that adding one is adding a file: copy the nearest
  * of these, rename the selector, add the name to `THEMES` and a line to each
  * catalogue, and add the import below. Anything a file leaves out keeps the
  * value `:root` gave it, which is midnight.
  *
  * Two tokens are worth understanding before writing one. `--bg-sunken` is below
- * the ground rather than darker than it, because a light palette has to name
+ * the ground rather than darker than it, because a light theme has to name
  * its own veil. And `--accent-contrast` is the text drawn *on* the accent,
  * which is what a focused control fills with — get it wrong and the highlight
  * is the one thing on the screen that cannot be read.
  *
- * Status colours stay recognisable as red, amber and green wherever a palette
- * allows it. A palette that has no room for them — a console that shipped with
+ * Status colours stay recognisable as red, amber and green wherever a theme
+ * allows it. A theme that has no room for them — a console that shipped with
  * four colours — keeps them apart from each other instead, which is what they
  * are actually for.
  *
- * A palette may go further than colour, and two of these do: `--font` is the
+ * A theme may go further than colour, and two of these do: `--font` is the
  * face everything is set in, and a file may carry rules of its own as long as
  * every one of them is under its own `[data-theme]`. That is what keeps a
  * theme removable — deleting the file and its import takes all of it.

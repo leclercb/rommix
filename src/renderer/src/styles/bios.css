@@ -6,7 +6,7 @@
    than truncates: half a path is worse than a long one. */
 .bios__path {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: calc(12px * var(--type-scale));
   color: var(--text-faint);
   word-break: break-all;
 }
@@ -34,7 +34,7 @@
    and the whole of it is on every file in the section. */
 .bios__head-where {
   margin-top: 2px;
-  font-size: 13px;
+  font-size: calc(13px * var(--type-scale));
   color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -68,7 +68,7 @@
 }
 
 .bios__meta {
-  font-size: 13px;
+  font-size: calc(13px * var(--type-scale));
   color: var(--text-dim);
   margin-top: 4px;
 }

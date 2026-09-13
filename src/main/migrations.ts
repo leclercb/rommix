@@ -53,7 +53,7 @@ export interface Migration {
  */
 export const MIGRATIONS: readonly Migration[] = [
   /**
-   * Decide who is told that the interface has palettes now.
+   * Decide who is told that the interface has themes now.
    *
    * The notice is drawn for anyone whose `dismissedNotices` does not carry the
    * key, which by itself would mean everybody — including somebody opening

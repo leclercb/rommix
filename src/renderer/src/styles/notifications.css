@@ -46,7 +46,7 @@
 }
 
 .toast__message {
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   opacity: 0.85;
 }
 

@@ -546,7 +546,7 @@ const SETTINGS: Settings = {
   confirmUninstall: true,
   confirmSavePush: true,
   // The themes notice among them: it is there to tell somebody who had RomMix
-  // before the palettes existed, and nothing in the demo is older than the
+  // before the themes existed, and nothing in the demo is older than the
   // demo. See `ThemesNotice`.
   dismissedNotices: [THEMES_NOTICE],
   // The browser's own language, so the published demo reads in whatever the

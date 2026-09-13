@@ -3,7 +3,7 @@
  */
 
 /**
- * A palette, by name.
+ * A theme, by name.
  *
  * Every one of these is a file under `styles/themes/`, which is what makes a
  * theme a stylesheet rather than a feature: nothing outside that folder knows
@@ -11,7 +11,7 @@
  * file, a name here and a line in each catalogue.
  *
  * Each entry is a place rather than a preference — a console somebody owned,
- * the light in a room, a cabinet. A palette nobody can name is one nobody picks
+ * the light in a room, a cabinet. A theme nobody can name is one nobody picks
  * from a sofa.
  */
 export const THEMES = [
@@ -35,7 +35,7 @@ export const THEMES = [
 export type Theme = (typeof THEMES)[number]
 
 /**
- * Midnight, which is the palette every screenshot and every description of
+ * Midnight, which is the theme every screenshot and every description of
  * RomMix was made in.
  */
 export const DEFAULT_THEME: Theme = 'midnight'

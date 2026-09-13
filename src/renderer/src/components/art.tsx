@@ -133,10 +133,10 @@ export function ArtBackdrop({
  * The same drawing as the app icon (packaging/icon.svg) minus its dark
  * plate — the rail already supplies the ground, and a second rounded square
  * inside the chrome would read as a floating badge. Colours come from the
- * palette rather than the icon's literals, so the mark follows the theme.
+ * theme rather than the icon's literals, so the mark follows the theme.
  */
 export function Logo({ className }: { className?: string }): JSX.Element {
-  // Palette tokens have to arrive as CSS declarations: a var() sitting in an SVG
+  // Theme tokens have to arrive as CSS declarations: a var() sitting in an SVG
   // presentation attribute (fill="var(--accent)") is never substituted, and the
   // shape silently renders black.
   const body = { fill: 'url(#rommix-mark)' }
@@ -188,9 +188,9 @@ export function Logo({ className }: { className?: string }): JSX.Element {
 /**
  * The dot standing for one theme, drawn in that theme's own colours.
  *
- * The element carries the `data-theme` it is offering, so the palette applies
+ * The element carries the `data-theme` it is offering, so the theme applies
  * to this dot and to nothing around it — a picker where every option is drawn
- * in the palette it would switch to, without a colour being named outside
+ * in the theme it would switch to, without a colour being named outside
  * `themes.css`.
  *
  * Decorative, and hidden from a screen reader: the theme's name is beside it.

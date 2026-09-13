@@ -2,7 +2,7 @@
  * The faces RomMix carries with it.
  *
  * Only the ones no machine can be assumed to have, which is the two the pixel
- * palettes are set in. Everything else is whatever the desktop provides — see
+ * themes are set in. Everything else is whatever the desktop provides — see
  * `--font`, whose default names the faces to try in order — because a font file
  * is bytes in every AppImage, and a television RomMix is offline on has no
  * network to fetch one from.
@@ -15,14 +15,14 @@
  * Both are under the SIL Open Font License 1.1, and the text of each sits
  * beside the files.
  *
- * `font-display: block` on both: the face is the palette, so a fallback drawn
+ * `font-display: block` on both: the face is the theme, so a fallback drawn
  * first is the interface visibly changing font a moment after it is opened.
  * The files are local and tens of kilobytes, so the wait being paid for is not
  * one anybody sees.
  */
 
 /*
- * VT323, a terminal's face, for the dark pixel palette.
+ * VT323, a terminal's face, for the dark pixel theme.
  *
  * Narrow, which is what makes it usable here: the labels are long in four
  * languages, and a square face with a glyph per cell wraps "Nintendo
@@ -39,11 +39,11 @@
 }
 
 /*
- * Silkscreen, a bitmap face on an even grid, for the light pixel palette.
+ * Silkscreen, a bitmap face on an even grid, for the light pixel theme.
  *
  * It has no lowercase — the small letters are drawn as small capitals — which
  * is a choice rather than a gap: it is the face a manual's headings were set
- * in, and the palette that uses it is a printed page.
+ * in, and the theme that uses it is a printed page.
  */
 @font-face {
   font-family: 'Silkscreen';

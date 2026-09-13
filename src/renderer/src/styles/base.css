@@ -1,4 +1,4 @@
-/* Sizing tokens and the handful of element resets. The palette is in
+/* Sizing tokens and the handful of element resets. The theme is in
    `themes.css`, which holds every one of them including the default. */
 
 :root {
@@ -12,17 +12,32 @@
   /*
    * The face everything is set in.
    *
-   * A token because a palette may replace it — two of them are drawn in
+   * A token because a theme may replace it — two of them are drawn in
    * pixels — and a stack rather than a file because the faces named here are
    * ones a desktop already has. See `fonts.css` for the one exception.
    */
   --font: 'Inter', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /*
-   * How big that face is set, which is part of choosing one: the pixel faces
-   * are drawn on a smaller body than the rest and come out a size down at the
-   * same number. Everything else on the page is sized against this.
+   * How big everything is set, as a multiple of the sizes this stylesheet is
+   * written in.
+   *
+   * One knob rather than a size per theme, because a face is small or large as
+   * a whole: the pixel faces draw a smaller glyph inside the same em than the
+   * one the interface is written for, and a theme that fixed only the body size
+   * left every heading, chip and hint — each a number of pixels — at the size
+   * that suits a different face. Every `font-size` in these files is a multiple
+   * of this, so one number moves all of them together and 1 is the stylesheet
+   * exactly as written.
    */
-  --font-size: 17px;
+  --type-scale: 1;
+  --font-size: calc(17px * var(--type-scale));
+  /*
+   * And how tall a line of it is, which a theme that changes the size has to be
+   * able to change with it: the line box is the multiplier times the size, so a
+   * face asking for four points more at the same multiplier makes every row of
+   * the interface taller and pushes the whole page down.
+   */
+  --line-height: 1.5;
 
   --radius: 12px;
   --radius-lg: 18px;
@@ -64,7 +79,7 @@ body {
   color: var(--text);
   font-family: var(--font);
   font-size: var(--font-size);
-  line-height: 1.5;
+  line-height: var(--line-height);
   overflow: hidden;
   /* A controller drives this UI; a stray text selection only gets in the way. */
   user-select: none;

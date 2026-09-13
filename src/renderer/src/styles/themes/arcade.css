@@ -16,8 +16,10 @@
   --border: rgba(180, 160, 255, 0.18);
   --border-strong: rgba(180, 160, 255, 0.3);
   --text: #f4e9ff;
-  --text-dim: #b09ad0;
-  --text-faint: #7b6aa0;
+  /* Lifted for the lines: this is the theme drawn through an effect, and the
+     two quiet text colours are what it takes first. */
+  --text-dim: #c9b8e8;
+  --text-faint: #9787c2;
   --kind-save: #7ae7ff;
   --kind-state: #ff9de2;
   --accent: #ff2e97;
@@ -29,8 +31,11 @@
   --warning: #ffd029;
 
   --font: 'VT323', 'Inter', system-ui, sans-serif;
-  /* Drawn tall and narrow on a small body, so it needs the size back. */
-  --font-size: 21px;
+  /* Drawn tall and narrow on a small body, so it needs the size back — and the
+     line height down to match, or the rows it is set in grow with it and the
+     interface sits lower here than in every other theme. */
+  --type-scale: 1.24;
+  --line-height: 1.2;
 
   color-scheme: dark;
 }
@@ -44,11 +49,17 @@
  * is behind the glass too — and `pointer-events: none`, or the whole interface
  * would be under a sheet nothing could be clicked through.
  *
- * A light line and a dark one, alternating. A tube's lines are gaps between
- * lit rows, so drawing them dark is the honest version and it disappears over
- * a palette this close to black — which is most of the screen. The pair shows
- * on both: the dark line does the work over artwork and anything else bright,
- * the light one over the ground.
+ * A dark line every few pixels over a faint lit wash, which is the shape of the
+ * thing rather than two lines drawn in turn: a tube's lines are the gaps
+ * between lit rows, so the rows are what carries the light and the gaps are
+ * what is drawn. The wash is also what makes the gaps visible at all on a theme
+ * this close to black — dark on dark is nothing.
+ *
+ * Fine and close together, because that is what reads as a tube. Spaced out and
+ * drawn harder they read as stripes across the screen, and they start crossing
+ * a stroke of every glyph: this theme is set in a pixel face, and the words
+ * have to be read under the effect rather than through it. The two quiet text
+ * colours are lifted for the same reason.
  */
 [data-theme='arcade'] body::after {
   content: '';
@@ -56,11 +67,11 @@
   inset: 0;
   z-index: 100;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--text) 8%, transparent) 0 1px,
-    transparent 1px 2px,
-    color-mix(in srgb, var(--bg-sunken) 45%, transparent) 2px 3px,
-    transparent 3px 4px
-  );
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--bg-sunken) 26%, transparent) 0 1px,
+      transparent 1px 3px
+    ),
+    color-mix(in srgb, var(--text) 3%, transparent);
 }

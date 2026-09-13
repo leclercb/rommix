@@ -3,7 +3,7 @@
  *
  * The status colours are the departure: nothing in four shades of one hue can
  * say "this failed" and be believed, so red, amber and green are kept as low,
- * muted versions of themselves — dark enough to sit in this palette, separate
+ * muted versions of themselves — dark enough to sit in this theme, separate
  * enough to still be read as a verdict.
  */
 [data-theme='gameboy'] {

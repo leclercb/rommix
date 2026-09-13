@@ -26,7 +26,7 @@ import { WizardPage } from '../WizardPage'
  *
  * Only two questions come before the server, and both earn their place by being
  * awkward to change *after* it. The first page is how RomMix reads from a sofa
- * — its language, its palette and its size — and asking any of that after the
+ * — its language, its theme and its size — and asking any of that after the
  * library has loaded means asking it in an interface the user may not be able
  * to read. And where ROMs go decides where every download lands, so answering
  * it later means answering it with games already on disk in the other place.

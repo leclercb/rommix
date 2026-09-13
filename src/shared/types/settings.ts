@@ -180,7 +180,7 @@ export interface Settings {
    */
   uiScale: number
   /**
-   * Which palette the interface is drawn in. See `Theme`.
+   * Which theme the interface is drawn in. See `Theme`.
    *
    * A setting rather than a follow-the-desktop: RomMix is usually the whole
    * screen on a television that has no desktop to follow, and the two things

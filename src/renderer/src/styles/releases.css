@@ -41,7 +41,7 @@
 }
 
 .release__name {
-  font-size: 17px;
+  font-size: calc(17px * var(--type-scale));
   font-weight: 650;
   display: flex;
   align-items: center;
@@ -60,14 +60,14 @@
  */
 .release__name--file {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
-  font-size: 15px;
+  font-size: calc(15px * var(--type-scale));
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .release__meta {
   margin-top: 3px;
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-faint);
 }
 
@@ -89,7 +89,7 @@
   overflow-y: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   line-height: 1.5;
   opacity: 0.85;
 }

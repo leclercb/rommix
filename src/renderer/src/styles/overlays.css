@@ -78,7 +78,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 26px;
+  font-size: calc(26px * var(--type-scale));
   font-weight: 720;
   margin: 0 -38px 10px;
   padding: 34px 38px 10px;
@@ -127,7 +127,7 @@
 }
 
 .pair-code {
-  font-size: 46px;
+  font-size: calc(46px * var(--type-scale));
   font-weight: 780;
   letter-spacing: 10px;
   text-align: center;
@@ -151,7 +151,7 @@
   flex-wrap: wrap;
   padding: 10px var(--safe-x);
   background: color-mix(in srgb, var(--bg) 92%, transparent);
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-dim);
   pointer-events: none;
   z-index: 40;
@@ -197,7 +197,7 @@
  */
 .hints__credit {
   margin-right: auto;
-  font-size: 13px;
+  font-size: calc(13px * var(--type-scale));
   color: var(--text-faint);
   opacity: 0.75;
 }
@@ -253,7 +253,7 @@
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
-  font-size: 12px;
+  font-size: calc(12px * var(--type-scale));
   font-weight: 700;
   margin-right: 7px;
   color: var(--text);
@@ -264,7 +264,7 @@
   grid-template-columns: 210px 1fr;
   gap: 8px 20px;
   margin: 16px 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--type-scale));
 }
 
 /* Icon then label, both in the dim colour: the mark belongs to the label it
@@ -338,7 +338,7 @@
   align-items: center;
   gap: 10px;
   color: var(--text-dim);
-  font-size: 15px;
+  font-size: calc(15px * var(--type-scale));
 }
 
 /* The name is the whole subject of the dialog, and a BIOS file or a release
@@ -349,7 +349,7 @@
 }
 
 .install-progress__meta {
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -358,7 +358,7 @@
    under it is measuring something else. */
 .install-progress__run {
   margin-top: 10px;
-  font-size: 14px;
+  font-size: calc(14px * var(--type-scale));
   color: var(--text-faint);
 }
 
@@ -430,7 +430,7 @@
 }
 
 .curtain__title {
-  font-size: 38px;
+  font-size: calc(38px * var(--type-scale));
   font-weight: 780;
   letter-spacing: -1px;
   line-height: 1.1;
@@ -440,7 +440,7 @@
 
 .curtain__line {
   margin: 0;
-  font-size: 17px;
+  font-size: calc(17px * var(--type-scale));
   color: var(--text-dim);
 }
 

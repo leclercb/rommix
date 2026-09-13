@@ -1,7 +1,7 @@
 /*
  * The dark blue RomMix is drawn in unless somebody says otherwise. Under both
  * selectors because a swatch in the Settings picker carries `data-theme` to be
- * drawn in the palette it offers, and midnight has to answer to its own name
+ * drawn in the theme it offers, and midnight has to answer to its own name
  * there as well as being what `:root` means.
  */
 :root,

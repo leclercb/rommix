@@ -30,8 +30,11 @@
 
   --font: 'Silkscreen', 'Inter', system-ui, sans-serif;
   /* Every glyph is a square on an even grid, so a line of it is far wider than
-     the same line in the face the interface is drawn for. */
-  --font-size: 15px;
+     the same line in the face the interface is drawn for — and the line height
+     goes up as the size comes down, so a row here is the height a row is
+     everywhere else. */
+  --type-scale: 0.88;
+  --line-height: 1.7;
 
   color-scheme: light;
 }

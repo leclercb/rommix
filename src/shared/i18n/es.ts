@@ -704,7 +704,7 @@ export const es: Catalog = {
   'settings.date.language': 'Seguir el idioma',
   'settings.theme': 'Tema',
   'settings.themeHint': 'Los colores con los que se dibuja todo.',
-  'settings.themeBody': 'La pantalla de detrás se dibuja con la paleta resaltada.',
+  'settings.themeBody': 'La pantalla de detrás se dibuja con el tema resaltado.',
   'settings.themeCurrent': 'En uso',
   'settings.theme.midnight': 'Medianoche',
   'settings.theme.daylight': 'Luz de día',
@@ -717,7 +717,7 @@ export const es: Catalog = {
   'settings.theme.paper': 'Papel',
   'themes.noticeTitle': 'RomMix ya tiene temas',
   'themes.noticeBody':
-    'La interfaz puede dibujarse con otra paleta: una clara o una tomada de una consola. Cada una se muestra en pantalla antes de conservarla.',
+    'La interfaz puede dibujarse con otros colores: un tema claro o uno tomado de una consola. Cada uno se muestra en pantalla antes de conservarlo.',
   'themes.noticeChoose': 'Elegir un tema',
   'themes.noticeLater': 'Ahora no',
   'settings.support': 'Apoyar a RomMix',

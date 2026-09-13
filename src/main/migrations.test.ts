@@ -108,7 +108,7 @@ describe('running the steps', () => {
 })
 
 /**
- * Which installations are told that the interface has palettes now.
+ * Which installations are told that the interface has themes now.
  *
  * The step writes nothing anybody sees; what it decides is whether a dialog is
  * drawn, and it decides it by leaving the notice key out. So both directions are

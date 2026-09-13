@@ -59,7 +59,7 @@
   color: var(--text-dim);
   font: inherit;
   font-weight: 650;
-  font-size: 16px;
+  font-size: calc(16px * var(--type-scale));
   padding: 10px 16px;
   cursor: pointer;
   transition: var(--transition);
@@ -82,7 +82,7 @@
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
-  font-size: 12px;
+  font-size: calc(12px * var(--type-scale));
   font-weight: 700;
   color: var(--text-faint);
 }

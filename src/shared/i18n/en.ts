@@ -722,7 +722,7 @@ export const en = {
   'settings.theme.paper': 'Paper',
   'themes.noticeTitle': 'RomMix has themes now',
   'themes.noticeBody':
-    'The interface can be drawn in another palette — a light one, or one taken from a console. Each is shown on screen before you keep it.',
+    'The interface can be drawn in other colours — a light theme, or one taken from a console. Each is shown on screen before you keep it.',
   'themes.noticeChoose': 'Choose a theme',
   'themes.noticeLater': 'Not now',
   'settings.support': 'Support RomMix',
