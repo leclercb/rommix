@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
+import { spaceOf } from './disk.ts'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
 import { OfflineCache } from './offline.ts'
@@ -1661,5 +1662,81 @@ describe('a game fetched one file at a time', () => {
       []
     )
     assert.equal(store.getInstalled(9), undefined)
+  })
+})
+
+/**
+ * The room on the drive, which is asked about before any bytes move.
+ *
+ * The figures belong to whatever machine the suite is running on, so a test
+ * that named one would be a test about this disk. Two ways round that: a game
+ * no disk could hold, which is refused everywhere, and a game sized against
+ * what `spaceOf` reports for the folder a moment earlier, which is how the
+ * arithmetic can be pinned without knowing the answer in advance.
+ */
+describe('the room on the drive', () => {
+  /** Bigger than any disk this will ever run on, and safely under 2^53. */
+  const IMMENSE = 1e15
+
+  /** What a stopped transfer left behind, and the room it is measured against. */
+  const HELD = 16 * 1024 * 1024
+  const MARGIN = 4 * 1024 * 1024
+
+  test('a game no disk could hold is refused before the transfer starts', async () => {
+    const { downloads, root } = manager()
+
+    downloads.enqueue(rom({ fs_size_bytes: IMMENSE }))
+    const item = await settled(downloads, 1)
+
+    assert.equal(item.state, 'error')
+    // Both figures and the folder: a refusal naming only one of them leaves
+    // the reader unable to tell a full disk from an enormous game.
+    assert.match(item.error ?? '', /Not enough room: .+ needed, .+ free in .+genesis/)
+    assert.ok(!existsSync(join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md.part')))
+  })
+
+  test('a game the server declares no size for is left to try', async () => {
+    // What RomM reports for a game it has no size for. A check that refused
+    // those would be the reason they cannot be downloaded at all.
+    const { downloads } = manager()
+
+    downloads.enqueue(rom({ fs_size_bytes: 0 }))
+
+    assert.equal((await settled(downloads, 1)).state, 'done')
+  })
+
+  test('what is already on disk counts: a resumed transfer needs the rest', async () => {
+    const { downloads, store, root } = manager({ contents: 'rom bytes' })
+    const dir = join(root, 'roms', 'genesis')
+    mkdirSync(dir, { recursive: true })
+    const target = join(dir, 'Sonic the Hedgehog (USA).md')
+    writeFileSync(`${target}.part`, Buffer.alloc(HELD))
+    const space = await spaceOf(dir)
+    assert.ok(space)
+
+    /*
+     * Larger than the drive by everything but the margin, and all but that
+     * already here: sized against the whole game this is refused, and sized
+     * against the remainder it fits with room to spare. The gap between the
+     * two is what the rule is.
+     */
+    const total = space.freeBytes + HELD - MARGIN
+    store.setPending({
+      romId: 1,
+      name: 'Sonic the Hedgehog',
+      coverPath: null,
+      system: 'genesis',
+      platformName: 'Sega Mega Drive',
+      targetPath: target,
+      files: [],
+      ownsFolder: false,
+      fileName: 'Sonic the Hedgehog (USA).md',
+      totalBytes: total
+    })
+    await downloads.restorePending()
+
+    downloads.enqueue(rom({ fs_size_bytes: total }))
+
+    assert.equal((await settled(downloads, 1)).state, 'done')
   })
 })
