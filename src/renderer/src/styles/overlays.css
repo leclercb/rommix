@@ -36,23 +36,63 @@
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 34px 38px;
+  /* Sideways only: the room above the heading and below the buttons belongs to
+     those two, which stay put while the rest scrolls past them. */
+  padding: 0 38px;
   width: 75vw;
   max-width: 1440px;
   /* Never so tall that the buttons leave the screen: the panel scrolls inside
-     itself, and the safe-area padding on `.overlay` is what it stops short of. */
-  max-height: calc(100vh - var(--safe-y) * 2);
+     itself. Twice the safe-area padding `.overlay` already holds it in by, so
+     the veil is visible above and below the panel rather than the panel
+     reaching for both edges — a dialog that fills the screen reads as a
+     screen. */
+  max-height: calc(100vh - var(--safe-y) * 4);
   overflow-y: auto;
+  /* The heading and the buttons stay put while the list moves under them, so a
+     row brought into view has to stop short of both or it arrives underneath
+     one. */
+  scroll-padding: 72px 0 96px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 
+/*
+ * Kept in view while the panel scrolls under it.
+ *
+ * A list long enough to scroll is a list where the question being answered is
+ * the first thing off the screen. Pulled out over the panel's own padding and
+ * given it back as padding of its own, so it covers the full width of what is
+ * passing behind it and nothing moves from where it was drawn.
+ */
 .overlay__title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 26px;
   font-weight: 720;
-  margin: 0 0 10px;
+  margin: 0 -38px 10px;
+  padding: 34px 38px 10px;
+  background: var(--bg-raised);
+}
+
+/* And the same for the buttons, where a dialog ends with a row of them: what it
+   is asking stays reachable from wherever the list has been walked to. */
+.overlay__panel > .btn-row:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 22px -38px 0;
+  padding: 8px 38px 34px;
+  background: var(--bg-raised);
+}
+
+/* A dialog that ends in words rather than in buttons has nothing to hold the
+   panel's foot open, the padding that used to having moved into the two bands
+   that stay put. */
+.overlay__panel > :last-child:not(.btn-row) {
+  margin-bottom: 34px;
 }
 
 /* The mark reads as part of the heading rather than as a second thing beside

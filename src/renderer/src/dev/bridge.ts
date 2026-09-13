@@ -964,7 +964,11 @@ const bridge: RomMixBridge = {
       // title, but the demo is a page in a browser and it is the only name it
       // has once the link has been shared.
       if ('language' in patch) describePage()
-      return later(SETTINGS)
+      // A copy, because the renderer holds this in state: handing back the very
+      // object it was given leaves React comparing a reference with itself and
+      // skipping the render, so every settings row in the demo looked dead
+      // until something else redrew the screen.
+      return later({ ...SETTINGS })
     },
     emulatorStates: () => later([]),
     emulatorReleases: () => later([]),
