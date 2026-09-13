@@ -1223,6 +1223,53 @@ describe('the folder RomMix keeps everything in', () => {
 })
 
 /**
+ * The room left where the games go.
+ *
+ * The figure itself belongs to whatever drive the suite is running on, so what
+ * is asserted is the seam: `statfs` in the main process, `DriveSpace` across
+ * the bridge, one row per drive on the screen a download is watched from. The
+ * rules behind it — which folders are one drive, and what a folder that is not
+ * there yet answers — are `disk.test.ts`'s.
+ */
+describe('the room left where the games go', () => {
+  test('the downloads screen draws a row per drive the machine reports', async () => {
+    await app.goTo('downloads')
+    await app.waitFor(`document.querySelector('[data-drive]')`, 'the drives panel')
+
+    const drawn = await app.read<string[]>(
+      `[...document.querySelectorAll('[data-drive]')].map((row) => row.dataset.drive)`
+    )
+    const measured = await app.read<string[]>(
+      `(await window.rommix.system.drives()).map((drive) => drive.path)`
+    )
+
+    assert.deepEqual(drawn, measured)
+    // The folder the games land in rather than the one RomMix keeps its
+    // configuration in: what this figure is for is the download about to be
+    // started, and those are not always the same drive.
+    assert.ok(
+      drawn.every((path) => path.endsWith('/roms')),
+      `the drives are measured somewhere other than the ROM folder: ${drawn.join(', ')}`
+    )
+  })
+
+  test('and says how much of it is left, in figures rather than bytes', async () => {
+    const free = await app.read<string>(
+      `document.querySelector('[data-drive] .drive__free')?.textContent ?? ''`
+    )
+    const total = await app.read<string>(
+      `document.querySelector('[data-drive] .drive__total')?.textContent ?? ''`
+    )
+
+    // A number and a unit, which is what `formatBytes` makes of a figure the
+    // bridge carried as a number. A row saying "NaN" or "[object Object]" is
+    // what this is here to catch.
+    assert.match(free, /\d+(\.\d+)?\s(B|KB|MB|GB|TB|PB)/)
+    assert.match(total, /\d+(\.\d+)?\s(B|KB|MB|GB|TB|PB)/)
+  })
+})
+
+/**
  * The language, changed from the screen that offers it.
  *
  * Four catalogues are checked against each other by `npm test` — every key in
@@ -1274,6 +1321,67 @@ describe('reading it in another language', () => {
     await app.waitFor(
       `(await window.rommix.system.settings()).language === 'auto'`,
       'the language to be handed back to the system'
+    )
+  })
+})
+
+/**
+ * The theme, which is every colour on every screen.
+ *
+ * `npm test` checks that each name in `THEMES` is a stylesheet that exists and
+ * is imported. What it cannot reach is the part that makes one arrive: the
+ * setting crossing the bridge, the attribute on the root element, and the
+ * preview that is written straight onto it while the dialog is open — a
+ * preview left standing is the whole interface in a theme nobody chose.
+ */
+describe('the theme the interface is drawn in', () => {
+  test('the highlight previews a theme without saving it', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="general"]')`, 'the settings tabs')
+    await app.choose('[data-tab="general"]')
+    await app.choose('[data-action="theme"]')
+    await app.waitFor(`document.querySelector('[data-choice="gameboy"]')`, 'the themes')
+
+    // The pointer moves the highlight without pressing anything, which is
+    // exactly what the preview hangs on — see `Choice`.
+    await app.hover('[data-choice="gameboy"]')
+    await app.waitFor(
+      `document.documentElement.dataset.theme === 'gameboy'`,
+      'the screen behind the dialog to be drawn in the theme under the highlight'
+    )
+
+    assert.equal(
+      await app.read<string>(`(await window.rommix.system.settings()).theme`),
+      'midnight',
+      'a theme was saved by walking past it'
+    )
+  })
+
+  test('and leaving the dialog puts back the one in force', async () => {
+    await app.press('Escape')
+
+    await app.waitFor(
+      `document.documentElement.dataset.theme === 'midnight'`,
+      'the theme that was in force'
+    )
+  })
+
+  test('choosing one keeps it, and redraws everything without a restart', async () => {
+    await app.choose('[data-action="theme"]')
+    await app.choose('[data-choice="gameboy"]')
+
+    await app.waitFor(`document.documentElement.dataset.theme === 'gameboy'`, 'the new theme')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).theme === 'gameboy'`,
+      'the choice to be kept'
+    )
+
+    // Left as it was found: the scenarios after this one share the application.
+    await app.choose('[data-action="theme"]')
+    await app.choose('[data-choice="midnight"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).theme === 'midnight'`,
+      'the theme to be put back'
     )
   })
 })
