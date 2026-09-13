@@ -45,7 +45,7 @@
 
 .chip--emulator[data-state='bad'] {
   color: var(--danger);
-  border-color: rgb(255 107 107 / 35%);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 /* A row the pull will step over, the file being another emulator's.
@@ -68,7 +68,7 @@
      instead does nothing worth seeing: `--surface` is 4% white to begin with,
      so a fraction of it differs from the page by about two values. */
   background: none;
-  border-color: rgb(255 255 255 / 5%);
+  border-color: var(--border);
 }
 
 .asset-list li.asset--inert .asset__kind,
@@ -194,7 +194,7 @@
   gap: 10px;
   align-items: center;
   justify-content: center;
-  background: rgba(4, 5, 8, 0.94);
+  background: color-mix(in srgb, var(--bg-sunken) 94%, transparent);
   padding: var(--safe-y) var(--safe-x);
 }
 

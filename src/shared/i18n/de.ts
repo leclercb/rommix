@@ -139,10 +139,9 @@ export const de: Catalog = {
   // -- Ersteinrichtung ------------------------------------------------------
 
   'setup.stepOf': 'Schritt {step} von {total}',
-  'setup.scaleTitle': 'Wie groß soll RomMix sein?',
-  'setup.scaleSubtitle':
-    'Wählen Sie eine Größe, die Sie von Ihrem Platz aus lesen können. Auto folgt dem ' +
-    'Bildschirm.',
+  'setup.interfaceTitle': 'Wie soll RomMix aussehen?',
+  'setup.interfaceSubtitle':
+    'Sprache, Farben und Größe. Alles lässt sich später in den Einstellungen ändern.',
   'setup.scaleHint': 'Die ganze Oberfläche, nicht nur der Text.',
   'setup.storageTitle': 'Wohin sollen heruntergeladene Spiele?',
   'setup.storageSubtitle':
@@ -711,6 +710,24 @@ export const de: Catalog = {
   'settings.date.mdy': 'Monat zuerst',
   'settings.date.iso': 'ISO 8601',
   'settings.date.language': 'Der Sprache folgen',
+  'settings.theme': 'Design',
+  'settings.themeHint': 'Die Farben, in denen alles gezeichnet wird.',
+  'settings.themeBody': 'Der Bildschirm dahinter wird in der markierten Palette gezeichnet.',
+  'settings.themeCurrent': 'In Verwendung',
+  'settings.theme.midnight': 'Mitternacht',
+  'settings.theme.daylight': 'Tageslicht',
+  'settings.theme.famicom': 'Famicom',
+  'settings.theme.gameboy': 'Game Boy',
+  'settings.theme.dreamcast': 'Dreamcast',
+  'settings.theme.vmu': 'VMU',
+  'settings.theme.crt': 'Röhre',
+  'settings.theme.arcade': 'Spielhalle',
+  'settings.theme.paper': 'Papier',
+  'themes.noticeTitle': 'RomMix hat jetzt Designs',
+  'themes.noticeBody':
+    'Die Oberfläche kann in einer anderen Palette gezeichnet werden – einer hellen oder einer von einer Konsole übernommenen. Jede wird auf dem Bildschirm gezeigt, bevor sie bleibt.',
+  'themes.noticeChoose': 'Design wählen',
+  'themes.noticeLater': 'Später',
   'settings.support': 'RomMix unterstützen',
   'settings.supportBody':
     'RomMix ist kostenlos und bleibt es. Sie können mir einen Kaffee ausgeben.',

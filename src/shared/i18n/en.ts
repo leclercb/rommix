@@ -146,8 +146,9 @@ export const en = {
   // -- first-run setup ------------------------------------------------------
 
   'setup.stepOf': 'Step {step} of {total}',
-  'setup.scaleTitle': 'How big should RomMix be?',
-  'setup.scaleSubtitle': 'Pick a size you can read from where you sit. Auto follows the screen.',
+  'setup.interfaceTitle': 'How should RomMix look?',
+  'setup.interfaceSubtitle':
+    'Its language, its colours and its size. All three can be changed later in Settings.',
   'setup.scaleHint': 'The whole interface, not just the text.',
   'setup.storageTitle': 'Where should downloaded games go?',
   'setup.storageSubtitle':
@@ -700,6 +701,24 @@ export const en = {
   'settings.date.mdy': 'Month first',
   'settings.date.iso': 'ISO 8601',
   'settings.date.language': 'Match the language',
+  'settings.theme': 'Theme',
+  'settings.themeHint': 'The colours everything is drawn in.',
+  'settings.themeBody': 'The screen behind is drawn in whatever the highlight is on.',
+  'settings.themeCurrent': 'In use',
+  'settings.theme.midnight': 'Midnight',
+  'settings.theme.daylight': 'Daylight',
+  'settings.theme.famicom': 'Famicom',
+  'settings.theme.gameboy': 'Game Boy',
+  'settings.theme.dreamcast': 'Dreamcast',
+  'settings.theme.vmu': 'VMU',
+  'settings.theme.crt': 'CRT',
+  'settings.theme.arcade': 'Arcade',
+  'settings.theme.paper': 'Paper',
+  'themes.noticeTitle': 'RomMix has themes now',
+  'themes.noticeBody':
+    'The interface can be drawn in another palette — a light one, or one taken from a console. Each is shown on screen before you keep it.',
+  'themes.noticeChoose': 'Choose a theme',
+  'themes.noticeLater': 'Not now',
   'settings.support': 'Support RomMix',
   'settings.supportBody': 'RomMix is free and always will be. You can buy me a coffee.',
   'settings.buyCoffee': 'Buy me a coffee',

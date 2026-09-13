@@ -135,21 +135,21 @@
 }
 
 .notice--error {
-  background: rgba(255, 107, 107, 0.11);
-  border-color: rgba(255, 107, 107, 0.4);
-  color: #ffc9c9;
+  background: color-mix(in srgb, var(--danger) 11%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  color: color-mix(in srgb, var(--danger) 55%, var(--text));
 }
 
 .notice--warn {
-  background: rgba(255, 200, 87, 0.1);
-  border-color: rgba(255, 200, 87, 0.36);
-  color: #ffe3a3;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 36%, transparent);
+  color: color-mix(in srgb, var(--warning) 55%, var(--text));
 }
 
 .notice--ok {
-  background: rgba(93, 219, 160, 0.11);
-  border-color: rgba(93, 219, 160, 0.36);
-  color: #bff3da;
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+  border-color: color-mix(in srgb, var(--success) 36%, transparent);
+  color: color-mix(in srgb, var(--success) 55%, var(--text));
 }
 
 /* Segmented control used for auth mode and runner choice. */
@@ -184,10 +184,24 @@
   border-radius: 2px;
 }
 
+/* The dot in front of a theme's name, drawn in that theme: the element carries
+   its own `data-theme`, so the tokens named there apply to it and stop there.
+   Half ground and half accent, which is what separates one palette from the
+   next at a glance. Sized in `em`, so it grows with the label it is beside
+   wherever that is — a button, or a row of the dialog. See `Swatch`. */
+.swatch {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, var(--bg-raised) 50%, var(--accent) 50%);
+}
+
 .segmented__option[data-active='true'] {
   color: var(--text);
   border-color: var(--accent-strong);
-  background: rgba(90, 200, 250, 0.14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .segmented__option[data-focused='true'] {

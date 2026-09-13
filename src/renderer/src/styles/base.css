@@ -1,34 +1,28 @@
-/* Palette, sizing tokens and the handful of element resets. */
+/* Sizing tokens and the handful of element resets. The palette is in
+   `themes.css`, which holds every one of them including the default. */
 
 :root {
-  --bg: #0b0d13;
-  --bg-raised: #151a24;
-  --bg-hover: #1e2532;
-  --surface: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.09);
-
-  --text: #f2f5fa;
-  --text-dim: #9aa4b8;
-  --text-faint: #626c80;
+  /*
+   * The ground a card is drawn on, which is a gradient rather than a flat fill:
+   * a grid of covers is mostly card, and a shallow rake across each one is what
+   * stops the grid reading as one slab.
+   */
+  --card: linear-gradient(150deg, var(--bg-hover), var(--bg-raised));
 
   /*
-   * What kind of file a row holds, which is not a verdict about it.
+   * The face everything is set in.
    *
-   * Deliberately outside the four above: a category drawn in a status colour is
-   * read as a status, which is what an amber STATE tag did on every row whether
-   * anything was wrong or not. Violet and orchid are adjacent, so the two read
-   * as one family — "which kind" — and neither can be mistaken for green, amber,
-   * blue or red across a room.
+   * A token because a palette may replace it — two of them are drawn in
+   * pixels — and a stack rather than a file because the faces named here are
+   * ones a desktop already has. See `fonts.css` for the one exception.
    */
-  --kind-save: #a78bfa;
-  --kind-state: #e879c8;
-
-  --accent: #5ac8fa;
-  --accent-strong: #2aa9e0;
-  --accent-contrast: #04121b;
-  --danger: #ff6b6b;
-  --success: #5ddba0;
-  --warning: #ffc857;
+  --font: 'Inter', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /*
+   * How big that face is set, which is part of choosing one: the pixel faces
+   * are drawn on a smaller body than the rest and come out a size down at the
+   * same number. Everything else on the page is sized against this.
+   */
+  --font-size: 17px;
 
   --radius: 12px;
   --radius-lg: 18px;
@@ -68,14 +62,8 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family:
-    'Inter',
-    'Noto Sans',
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
-  font-size: 17px;
+  font-family: var(--font);
+  font-size: var(--font-size);
   line-height: 1.5;
   overflow: hidden;
   /* A controller drives this UI; a stray text selection only gets in the way. */

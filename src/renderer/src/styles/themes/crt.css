@@ -1,0 +1,26 @@
+/* Green phosphor on a tube, with the amber one for anything picked out. */
+[data-theme='crt'] {
+  --bg-sunken: #000000;
+  --bg: #05080a;
+  --bg-raised: #0b1210;
+  --bg-hover: #14201a;
+  --surface: rgba(143, 242, 164, 0.06);
+  --surface-soft: rgba(143, 242, 164, 0.03);
+  --surface-strong: rgba(143, 242, 164, 0.12);
+  --border: rgba(143, 242, 164, 0.16);
+  --border-strong: rgba(143, 242, 164, 0.28);
+  --text: #8ff2a4;
+  --text-dim: #5cbf74;
+  --text-faint: #3c8a51;
+  --kind-save: #b9f27a;
+  --kind-state: #ff8f3a;
+  --accent: #ffb000;
+  --accent-strong: #cc8a00;
+  --accent-contrast: #150b00;
+  --danger: #ff5f4a;
+  --danger-contrast: #200606;
+  --success: #8ff2a4;
+  --warning: #ffd24a;
+
+  color-scheme: dark;
+}

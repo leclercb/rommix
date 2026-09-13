@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useMemo, useState } from 'react'
 import { PLATFORM_ICON_PATHS, systemInfo } from '@config/systems'
 import { FLAG_VIEWBOX, LANGUAGE_FLAGS, type Locale } from '@shared/i18n'
+import type { Theme } from '@shared/types'
 
 /** Artwork: what RomM serves, and what stands in for it when it cannot. */
 
@@ -182,6 +183,20 @@ export function Logo({ className }: { className?: string }): JSX.Element {
       <rect x="36" y="76" width="56" height="4" rx="2" style={ground} opacity="0.5" />
     </svg>
   )
+}
+
+/**
+ * The dot standing for one theme, drawn in that theme's own colours.
+ *
+ * The element carries the `data-theme` it is offering, so the palette applies
+ * to this dot and to nothing around it — a picker where every option is drawn
+ * in the palette it would switch to, without a colour being named outside
+ * `themes.css`.
+ *
+ * Decorative, and hidden from a screen reader: the theme's name is beside it.
+ */
+export function Swatch({ theme }: { theme: Theme }): JSX.Element {
+  return <span className="swatch" data-theme={theme} aria-hidden="true" />
 }
 
 /**

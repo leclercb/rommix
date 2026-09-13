@@ -1,5 +1,11 @@
 import { useEffect, useRef, type JSX, type ReactNode, type Ref } from 'react'
-import type { I18n } from '@shared/i18n'
+import {
+  LANGUAGE_NAMES,
+  LOCALES,
+  type I18n,
+  type LanguageChoice as LanguageSetting
+} from '@shared/i18n'
+import { Flag } from './art'
 import type { RomStorage } from '@shared/types'
 import { useAction, useFocusable } from '../input/focus'
 import { Icon, type IconName } from '../icons'
@@ -448,6 +454,45 @@ export function uiScaleOptions(t: I18n['t']): { value: UiScaleChoice; label: str
 export function uiScaleChoice(scale: number): UiScaleChoice {
   const match = UI_SCALE_VALUES.find((value) => value === String(scale))
   return match ?? 'auto'
+}
+
+/**
+ * Which language RomMix speaks. Asked in Settings and again by the first-run
+ * wizard, which is the only reason it is a component rather than two lines.
+ *
+ * Auto, then each language written in itself, behind a flag. Deliberately
+ * untranslated: somebody hunting for their own language is, by definition,
+ * reading a list in one they may not have, and "Deutsch" is recognisable from
+ * across a room in a way that "German" translated into Spanish is not. Auto is
+ * the globe rather than a fifth flag, because it is the one answer that is not
+ * a country: it is whatever the desktop asks for.
+ */
+export function LanguageChoice({
+  value,
+  onChange
+}: {
+  value: LanguageSetting
+  onChange: (value: LanguageSetting) => void
+}): JSX.Element {
+  const { t } = useI18n()
+  const options: SegmentedOptions<LanguageSetting> = [
+    { value: 'auto', label: t('value.auto'), mark: <Icon name="languages" size={16} /> },
+    ...LOCALES.map((code) => ({
+      value: code,
+      label: LANGUAGE_NAMES[code],
+      mark: <Flag locale={code} />
+    }))
+  ]
+
+  return (
+    <Choice<LanguageSetting>
+      label={t('settings.language')}
+      hint={t('settings.languageHint')}
+      value={value}
+      options={options}
+      onChange={onChange}
+    />
+  )
 }
 
 /**

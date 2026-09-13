@@ -1,3 +1,4 @@
+import { THEMES_NOTICE } from '@shared/types'
 import { log } from './log.ts'
 import type { OfflineCache } from './offline.ts'
 import type { RommClient } from './romm/index.ts'
@@ -44,13 +45,36 @@ export interface Migration {
 /**
  * Every migration, oldest first. Order is the order they run in.
  *
- * Empty, and that is the state to expect between changes: a step belongs here
- * only while there are folders in the wild that have not been through it, and
- * work that has to happen *again* — a list that must keep up with the server,
- * a record that can fail and be wanted later — is not a migration at all. See
+ * Short, and that is the state to expect: a step belongs here only while there
+ * are folders in the wild that have not been through it, and work that has to
+ * happen *again* — a list that must keep up with the server, a record that can
+ * fail and be wanted later — is not a migration at all. See
  * `rememberInstalledGames` for the shape that one took instead.
  */
-export const MIGRATIONS: readonly Migration[] = []
+export const MIGRATIONS: readonly Migration[] = [
+  /**
+   * Decide who is told that the interface has palettes now.
+   *
+   * The notice is drawn for anyone whose `dismissedNotices` does not carry the
+   * key, which by itself would mean everybody — including somebody opening
+   * RomMix for the first time, who would be told that something they have never
+   * seen has changed. So a fresh folder has the key written into it here, and
+   * the notice is left standing for a folder that was already in use.
+   *
+   * `setupComplete` is what separates the two: it is the one answer that is
+   * false on a folder nothing has happened in yet and true from the end of the
+   * first-run wizard onwards. A folder abandoned partway through that wizard
+   * counts as fresh, which is the right answer for it as well.
+   */
+  {
+    id: 'announce-themes',
+    async run({ store }) {
+      const { setupComplete, dismissedNotices } = store.settings
+      if (setupComplete || dismissedNotices.includes(THEMES_NOTICE)) return
+      store.updateSettings({ dismissedNotices: [...dismissedNotices, THEMES_NOTICE] })
+    }
+  }
+]
 
 /**
  * Run whatever has not run yet, and record each one that finishes.

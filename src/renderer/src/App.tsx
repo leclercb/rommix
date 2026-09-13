@@ -22,6 +22,7 @@ import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
 import { SettingsScreen } from './screens/Settings'
 import { RunningOverlay } from './RunningOverlay'
+import { ThemesNotice } from './ThemesNotice'
 import { Toasts } from './Toasts'
 
 /**
@@ -281,6 +282,11 @@ export function App(): JSX.Element {
       </FocusZone>
 
       {confirmingQuit ? <QuitOverlay onCancel={() => setConfirmingQuit(false)} /> : null}
+
+      {/* Not while something is in front of RomMix: an emulator has the screen
+          and the pad, and a dialog nobody can answer would be waiting behind
+          it. See `ThemesNotice`. */}
+      {covered ? null : <ThemesNotice />}
 
       {covered ? <RunningOverlay /> : null}
       <Toasts />

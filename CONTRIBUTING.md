@@ -104,6 +104,7 @@ worth being able to see.
 | Say what a BIOS needs   | `src/config/bios.ts`                               |
 | Teach a new ROM format  | `src/config/romfiles.ts`                           |
 | Add an emulator         | a folder under `src/config/emulators/` — see below |
+| Add a theme             | a file under `src/renderer/src/styles/themes/`     |
 | Change what RomMix says | `src/shared/i18n/en.ts`, then the other three      |
 | Change the landing page | `site/text/en.json`, then the other three          |
 

@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { createI18n, localeFor, type I18n } from '@shared/i18n'
 import {
+  DEFAULT_THEME,
   isStopped,
   type ConnectionStatus,
   type DownloadItem,
@@ -211,6 +212,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   useEffect(() => {
     document.documentElement.lang = i18n.locale
   }, [i18n])
+
+  // On the root element, where `themes.css` looks for it — and set from here
+  // rather than written into the markup, so choosing a palette in Settings
+  // repaints the interface with nothing reloaded. Midnight until the settings
+  // have arrived, which is what `base.css` already draws.
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings?.theme ?? DEFAULT_THEME
+  }, [settings?.theme])
 
   // Told to the input layer rather than read by it: the cues are played from
   // inside the focus engine, which has no business holding a settings object.

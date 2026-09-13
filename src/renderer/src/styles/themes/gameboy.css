@@ -1,0 +1,33 @@
+/*
+ * The four greens of the original Game Boy, in the order the panel drew them.
+ *
+ * The status colours are the departure: nothing in four shades of one hue can
+ * say "this failed" and be believed, so red, amber and green are kept as low,
+ * muted versions of themselves — dark enough to sit in this palette, separate
+ * enough to still be read as a verdict.
+ */
+[data-theme='gameboy'] {
+  --bg-sunken: #081b08;
+  --bg: #0f380f;
+  --bg-raised: #1b4a1b;
+  --bg-hover: #306230;
+  --surface: rgba(155, 188, 15, 0.06);
+  --surface-soft: rgba(155, 188, 15, 0.03);
+  --surface-strong: rgba(155, 188, 15, 0.12);
+  --border: rgba(155, 188, 15, 0.18);
+  --border-strong: rgba(155, 188, 15, 0.3);
+  --text: #9bbc0f;
+  --text-dim: #7f9e12;
+  --text-faint: #5d7c14;
+  --kind-save: #a9c24a;
+  --kind-state: #d8b24a;
+  --accent: #8bac0f;
+  --accent-strong: #6d8a0c;
+  --accent-contrast: #0f380f;
+  --danger: #d4691f;
+  --danger-contrast: #0f380f;
+  --success: #8bac0f;
+  --warning: #c1901a;
+
+  color-scheme: dark;
+}

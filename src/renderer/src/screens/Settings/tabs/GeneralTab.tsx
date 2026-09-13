@@ -1,26 +1,17 @@
 import { type JSX, useState } from 'react'
-import {
-  DATE_FORMATS,
-  DEFAULT_DATE_FORMAT,
-  LANGUAGE_NAMES,
-  LOCALES,
-  dateFormatSample,
-  type DateFormat,
-  type LanguageChoice
-} from '@shared/i18n'
+import { DATE_FORMATS, DEFAULT_DATE_FORMAT, dateFormatSample, type DateFormat } from '@shared/i18n'
 import {
   Choice,
-  Flag,
   FocusButton,
+  LanguageChoice,
   Overlay,
   ScanToOpen,
+  ThemeChoice,
   Toggle,
   uiScaleChoice,
   uiScaleOptions,
-  type SegmentedOptions,
   type UiScaleChoice
 } from '../../../components'
-import { Icon } from '../../../icons'
 import { useApp, useI18n } from '../../../state'
 
 /**
@@ -55,27 +46,6 @@ export function GeneralTab(): JSX.Element {
     // one of them is a view of a library there is no longer a server for.
     replace({ name: 'setup' })
   }
-
-  /**
-   * Auto, then each language written in itself, behind a flag.
-   *
-   * Deliberately untranslated: somebody hunting for their own language is, by
-   * definition, reading a list in one they may not have, and "Deutsch" is
-   * recognisable from across a room in a way that "German" translated into
-   * Spanish is not. The flag is quicker still — see `LANGUAGE_FLAGS`, which
-   * says what it is and is not claiming.
-   *
-   * Auto is the globe rather than a fifth flag, because it is the one answer
-   * that is not a country: it is whatever the desktop asks for.
-   */
-  const languages: SegmentedOptions<LanguageChoice> = [
-    { value: 'auto', label: t('value.auto'), mark: <Icon name="languages" size={16} /> },
-    ...LOCALES.map((code) => ({
-      value: code,
-      label: LANGUAGE_NAMES[code],
-      mark: <Flag locale={code} />
-    }))
-  ]
 
   /**
    * The formats by name, with the one in force written out underneath.
@@ -119,13 +89,11 @@ export function GeneralTab(): JSX.Element {
       </div>
 
       <h2 className="section-title">{t('settings.interface')}</h2>
-      <Choice<LanguageChoice>
-        label={t('settings.language')}
-        hint={t('settings.languageHint')}
+      <LanguageChoice
         value={settings?.language ?? 'auto'}
-        options={languages}
         onChange={(next) => void saveSettings({ language: next })}
       />
+      <ThemeChoice />
       <Choice<DateFormat>
         label={t('settings.dateFormat')}
         hint={t('settings.dateFormatHint', { example: dateFormatSample(locale, dateFormat) })}

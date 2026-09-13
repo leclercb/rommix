@@ -5,7 +5,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(6, 8, 12, 0.86);
+  background: color-mix(in srgb, var(--bg-sunken) 86%, transparent);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -32,6 +32,14 @@
  * share taken at that drawn-for width — below it, every television was getting
  * the cap instead of the share, which is the one screen the share was for.
  */
+/* Less ground and no blur, for a dialog that is about what is behind it. The
+   panel below keeps its own, so what is being asked stays readable. See
+   `Overlay`. */
+.overlay--sheer {
+  background: color-mix(in srgb, var(--bg-sunken) 45%, transparent);
+  backdrop-filter: none;
+}
+
 .overlay__panel {
   background: var(--bg-raised);
   border: 1px solid var(--border);
@@ -142,7 +150,7 @@
      so they wrap onto a second line on a narrow window rather than colliding. */
   flex-wrap: wrap;
   padding: 10px var(--safe-x);
-  background: rgb(6 8 12 / 92%);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
   font-size: 14px;
   color: var(--text-dim);
   pointer-events: none;
@@ -166,7 +174,7 @@
   right: 0;
   bottom: 100%;
   height: 56px;
-  background: linear-gradient(transparent, rgb(6 8 12 / 92%));
+  background: linear-gradient(transparent, color-mix(in srgb, var(--bg) 92%, transparent));
 }
 
 /* Each hint keeps its chip and its label on one line, whatever they say. */
@@ -385,7 +393,11 @@
    instead and leaves the middle to the artwork — and lighter than the banner's,
    because this is the whole screen and the picture is the point of it. */
 .curtain .backdrop::after {
-  background: radial-gradient(ellipse at center, rgba(11, 13, 19, 0.1), rgba(11, 13, 19, 0.82) 80%);
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--bg) 10%, transparent),
+    color-mix(in srgb, var(--bg) 82%, transparent) 80%
+  );
 }
 
 /* Blurred well past recognition: it is a wash of the game's own colour rather
@@ -414,7 +426,7 @@
   width: min(34vh, 280px);
   box-shadow:
     0 30px 70px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 0 0 1px var(--border);
 }
 
 .curtain__title {

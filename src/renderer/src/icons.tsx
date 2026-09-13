@@ -42,6 +42,7 @@ import {
   Maximize,
   MonitorCog,
   Package,
+  Palette,
   Pause,
   Play,
   Plug,
@@ -163,6 +164,8 @@ export const ICONS = {
   system: MonitorCog,
   /** What is known about a game, as opposed to what can be done with it. */
   details: Info,
+  /** The colours the interface is drawn in. */
+  theme: Palette,
   screenshots: Images,
   /** This machine's own copy of something, as opposed to the server's. */
   device: HardDrive

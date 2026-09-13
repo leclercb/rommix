@@ -1,0 +1,27 @@
+/* The white console and the orange of its swirl. */
+[data-theme='dreamcast'] {
+  --bg-sunken: #7a8592;
+  --bg: #f4f5f7;
+  --bg-raised: #ffffff;
+  --bg-hover: #e8eaee;
+  --surface: rgba(20, 24, 32, 0.04);
+  --surface-soft: rgba(20, 24, 32, 0.02);
+  --surface-strong: rgba(20, 24, 32, 0.09);
+  --border: rgba(20, 24, 32, 0.12);
+  --border-strong: rgba(20, 24, 32, 0.2);
+  --text: #14181f;
+  --text-dim: #4a5262;
+  --text-faint: #79808f;
+  --kind-save: #5b3fd6;
+  --kind-state: #b03a86;
+  --accent: #f06400;
+  --accent-strong: #c24d00;
+  --accent-contrast: #fff8f2;
+  --danger: #cc2b2b;
+  --danger-contrast: #fff3f2;
+  --success: #1c8a58;
+  /* Dark gold rather than amber, which beside that orange is the same colour. */
+  --warning: #8a6a00;
+
+  color-scheme: light;
+}

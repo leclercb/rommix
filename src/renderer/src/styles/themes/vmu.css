@@ -1,0 +1,26 @@
+/* The memory card in the Dreamcast's pad: dark blue on a blue-grey LCD. */
+[data-theme='vmu'] {
+  --bg-sunken: #4c6b78;
+  --bg: #a9c4c9;
+  --bg-raised: #b9d2d6;
+  --bg-hover: #c6dde0;
+  --surface: rgba(8, 32, 40, 0.05);
+  --surface-soft: rgba(8, 32, 40, 0.025);
+  --surface-strong: rgba(8, 32, 40, 0.1);
+  --border: rgba(8, 32, 40, 0.16);
+  --border-strong: rgba(8, 32, 40, 0.26);
+  --text: #0b2530;
+  --text-dim: #325663;
+  --text-faint: #5b7d88;
+  --kind-save: #4a3f8c;
+  --kind-state: #7d3a63;
+  --accent: #14596e;
+  --accent-strong: #0b3d4d;
+  --accent-contrast: #d8eef2;
+  --danger: #8c2f2f;
+  --danger-contrast: #e6f2f4;
+  --success: #1f6b4a;
+  --warning: #8a6512;
+
+  color-scheme: light;
+}

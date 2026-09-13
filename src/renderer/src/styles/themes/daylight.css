@@ -1,0 +1,26 @@
+/* Light, and otherwise the same interface: the blue stays the accent. */
+[data-theme='daylight'] {
+  --bg-sunken: #aab3c2;
+  --bg: #eef1f6;
+  --bg-raised: #ffffff;
+  --bg-hover: #e2e7f0;
+  --surface: rgba(16, 24, 40, 0.04);
+  --surface-soft: rgba(16, 24, 40, 0.02);
+  --surface-strong: rgba(16, 24, 40, 0.09);
+  --border: rgba(16, 24, 40, 0.12);
+  --border-strong: rgba(16, 24, 40, 0.2);
+  --text: #101625;
+  --text-dim: #4d5769;
+  --text-faint: #7a8497;
+  --kind-save: #6d3fd6;
+  --kind-state: #b4348f;
+  --accent: #0f7fb8;
+  --accent-strong: #0a5f8c;
+  --accent-contrast: #ffffff;
+  --danger: #c0392b;
+  --danger-contrast: #fff2f0;
+  --success: #1f8a5b;
+  --warning: #a86b00;
+
+  color-scheme: light;
+}

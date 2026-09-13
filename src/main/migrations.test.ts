@@ -15,6 +15,7 @@ import { afterEach, describe, test } from 'node:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { THEMES_NOTICE } from '@shared/types'
 import { OfflineCache } from './offline.ts'
 import { MIGRATIONS, runMigrations, type Migration, type MigrationContext } from './migrations.ts'
 import type { RommClient } from './romm/index.ts'
@@ -99,9 +100,47 @@ describe('running the steps', () => {
   })
 
   test('every id is different, or one of them would silence another', () => {
-    // Empty today, and the assertion is what makes adding one safe: an id
-    // reused from a step already recorded is a step that never runs.
+    // The assertion is what makes adding one safe: an id reused from a step
+    // already recorded is a step that never runs.
     const ids = MIGRATIONS.map((migration) => migration.id)
     assert.equal(new Set(ids).size, ids.length)
+  })
+})
+
+/**
+ * Which installations are told that the interface has palettes now.
+ *
+ * The step writes nothing anybody sees; what it decides is whether a dialog is
+ * drawn, and it decides it by leaving the notice key out. So both directions are
+ * asserted here — the fresh folder that must never see the notice, and the one
+ * already in use that must.
+ */
+describe('announcing the themes', () => {
+  const announce = MIGRATIONS.filter((migration) => migration.id === 'announce-themes')
+
+  test('a fresh folder is marked as having seen it, and never sees it', async () => {
+    const ctx = context()
+
+    await runMigrations(ctx, announce)
+
+    assert.deepEqual(ctx.store.settings.dismissedNotices, [THEMES_NOTICE])
+  })
+
+  test('a folder that has been through setup is left to be told', async () => {
+    const ctx = context()
+    ctx.store.updateSettings({ setupComplete: true })
+
+    await runMigrations(ctx, announce)
+
+    assert.deepEqual(ctx.store.settings.dismissedNotices, [])
+  })
+
+  test('a notice already dismissed is not written down twice', async () => {
+    const ctx = context()
+    ctx.store.updateSettings({ dismissedNotices: [THEMES_NOTICE] })
+
+    await runMigrations(ctx, announce)
+
+    assert.deepEqual(ctx.store.settings.dismissedNotices, [THEMES_NOTICE])
   })
 })

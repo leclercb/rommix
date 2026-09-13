@@ -14,11 +14,13 @@ export {
   Logo,
   PlatformBadge,
   PlatformIcon,
+  Swatch,
   SystemIcon
 } from './art'
 export {
   Choice,
   FocusButton,
+  LanguageChoice,
   RomStorageChoice,
   SegmentedControl,
   Tabs,
@@ -41,5 +43,6 @@ export {
 } from './games'
 export { Hints, Overlay, PageTitle, QuitOverlay, Spinner } from './overlay'
 export { QrCode, ScanToOpen } from './qr'
+export { ThemeChoice } from './theme'
 export { StatusBadge, StatusPill, type Tone } from './status'
 export { Filled } from './text'

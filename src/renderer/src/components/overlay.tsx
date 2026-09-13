@@ -45,6 +45,7 @@ export function Spinner(): JSX.Element {
 export function Overlay({
   title,
   icon,
+  sheer = false,
   onDismiss,
   children
 }: {
@@ -68,11 +69,20 @@ export function Overlay({
    * puts the panel away and leaves the work running, which is the honest
    * offer: what is behind it was never blocked, only covered.
    */
+  /**
+   * For a dialog whose subject is the screen behind it.
+   *
+   * The veil is there so a modal is read as the only thing that can be
+   * answered. A panel previewing what it is about — the theme picker, which
+   * repaints everything around it as the highlight moves — is the one case
+   * where hiding the page hides the answer, so it asks for less of it.
+   */
+  sheer?: boolean
   onDismiss?: () => void
   children: ReactNode
 }): JSX.Element {
   return (
-    <div className="overlay">
+    <div className={sheer ? 'overlay overlay--sheer' : 'overlay'}>
       <div className="overlay__panel">
         <h2 className="overlay__title">
           {icon ? <Icon name={icon} size={22} /> : null}

@@ -10,6 +10,7 @@ import type { DateFormat } from '../i18n/dates.ts'
 import type { LanguageChoice } from '../i18n/locales.ts'
 import type { EmulatorId } from '../../config/emulators/types.ts'
 import type { RommUser } from './romm.ts'
+import type { Theme } from './theme.ts'
 import type { UpdatePolicy } from './updates.ts'
 
 export type AuthMode = 'password' | 'device' | 'token'
@@ -178,6 +179,15 @@ export interface Settings {
    * for a panel whose reported size does not match how far away it is sat from.
    */
   uiScale: number
+  /**
+   * Which palette the interface is drawn in. See `Theme`.
+   *
+   * A setting rather than a follow-the-desktop: RomMix is usually the whole
+   * screen on a television that has no desktop to follow, and the two things
+   * that would drive one — the room's light and the panel — are not things a
+   * browser is told about.
+   */
+  theme: Theme
   /**
    * Which language the interface is drawn in, or `auto` to follow the desktop.
    *

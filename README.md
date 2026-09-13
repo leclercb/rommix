@@ -224,9 +224,13 @@ use the first time you play something on that platform.
 
 ## 🔧 Settings
 
-**General → Interface.** Language, and **Scale**: the interface is laid out for a
-1080p television, so **Auto** doubles it on a 4K one. Pick a number if your panel
-is nearer or further away.
+**General → Interface.** Language, **Theme** and **Scale**. A theme is a palette
+— the dark blue RomMix starts in, a light one, five taken from consoles, and two
+set in pixels: a cabinet with the lines of a tube across it, and a printed page.
+The list previews: everything around it is drawn in whichever palette the
+highlight is on, and leaving without choosing puts back the one in use. The
+interface is laid out for a 1080p television, so **Auto** doubles the scale on a
+4K one; pick a number if your panel is nearer or further away.
 
 **Games → Games on disk.** Downloads go to each emulator's own ROM folder, or to
 one RomMix folder you point every emulator at.
@@ -510,3 +514,8 @@ rather than a public issue — see [SECURITY.md](SECURITY.md).
 ## 📄 Licence
 
 MIT — see [LICENSE](LICENSE).
+
+The two pixel themes are set in [VT323](https://fonts.google.com/specimen/VT323)
+and [Silkscreen](https://fonts.google.com/specimen/Silkscreen), both under the
+SIL Open Font License 1.1. The fonts ship with RomMix, and each licence sits
+beside its file in `src/renderer/src/assets/fonts/`.

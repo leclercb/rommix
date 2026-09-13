@@ -115,7 +115,7 @@
   font-weight: 650;
   padding: 3px 11px 3px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface);
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -169,7 +169,7 @@
   height: 13px;
   border-radius: 50%;
   background: var(--success);
-  border: 2px solid rgba(0, 0, 0, 0.55);
+  border: 2px solid color-mix(in srgb, var(--bg-sunken) 55%, transparent);
 }
 
 /* How many dumps of one game the tile stands for, where the server grouped
@@ -185,5 +185,5 @@
   font-size: 12px;
   font-weight: 650;
   color: var(--text);
-  background: rgba(0, 0, 0, 0.72);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
 }

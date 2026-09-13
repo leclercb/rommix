@@ -12,6 +12,7 @@ import {
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import { DEFAULT_DATE_FORMAT } from '@shared/i18n'
+import { DEFAULT_THEME } from '@shared/types'
 import type {
   InstalledRom,
   PendingDownload,
@@ -90,6 +91,7 @@ function defaultSettings(): Settings {
     confirmSavePush: true,
     dismissedNotices: [],
     uiScale: 0,
+    theme: DEFAULT_THEME,
     // The desktop's own language, until somebody says otherwise in Settings.
     language: 'auto',
     dateFormat: DEFAULT_DATE_FORMAT,

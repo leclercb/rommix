@@ -1,6 +1,7 @@
 import { artFor, PLATFORMS, ROMS as LIBRARY } from './library'
 import { DEFAULT_DATE_FORMAT, createI18n, localeFor, type MessageKey } from '@shared/i18n'
 import { fileNameOf } from '@shared/gamefiles'
+import { DEFAULT_THEME, THEMES_NOTICE } from '@shared/types'
 import type { RomMixBridge } from '@shared/api'
 import type {
   BiosPlatform,
@@ -544,11 +545,15 @@ const SETTINGS: Settings = {
   navigationSounds: true,
   confirmUninstall: true,
   confirmSavePush: true,
-  dismissedNotices: [],
+  // The themes notice among them: it is there to tell somebody who had RomMix
+  // before the palettes existed, and nothing in the demo is older than the
+  // demo. See `ThemesNotice`.
+  dismissedNotices: [THEMES_NOTICE],
   // The browser's own language, so the published demo reads in whatever the
   // visitor's browser is set to — and the Settings row still switches it.
   language: 'auto',
   dateFormat: DEFAULT_DATE_FORMAT,
+  theme: DEFAULT_THEME,
   // 0 is "measure the screen", which is what a browser at any size wants.
   uiScale: 0,
   updates: 'auto',

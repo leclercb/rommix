@@ -1,0 +1,59 @@
+/*
+ * The other side of the same idea: pixels on paper.
+ *
+ * A printed manual — warm white, ink blue, everything else in the brown-black
+ * a cheap press left behind — under the faint grid of the squared paper a map
+ * of a dungeon was drawn on.
+ */
+[data-theme='paper'] {
+  --bg-sunken: #9a8f7d;
+  --bg: #f5f1e6;
+  --bg-raised: #fffdf6;
+  --bg-hover: #ece6d6;
+  --surface: rgba(40, 35, 20, 0.045);
+  --surface-soft: rgba(40, 35, 20, 0.022);
+  --surface-strong: rgba(40, 35, 20, 0.1);
+  --border: rgba(40, 35, 20, 0.16);
+  --border-strong: rgba(40, 35, 20, 0.26);
+  --text: #241f18;
+  --text-dim: #5c5346;
+  --text-faint: #8a8071;
+  --kind-save: #5b3fb8;
+  --kind-state: #b03a7a;
+  --accent: #1f6fb2;
+  --accent-strong: #14507f;
+  --accent-contrast: #f7fbff;
+  --danger: #b3261e;
+  --danger-contrast: #fff4f2;
+  --success: #1d7a4d;
+  --warning: #9a6b00;
+
+  --font: 'Silkscreen', 'Inter', system-ui, sans-serif;
+  /* Every glyph is a square on an even grid, so a line of it is far wider than
+     the same line in the face the interface is drawn for. */
+  --font-size: 15px;
+
+  color-scheme: light;
+}
+
+/* The squares, faint enough to be paper rather than a table. Fixed to the
+   screen and untouchable for the same reasons the tube's lines are — see
+   `arcade.css`, which this is the light half of. */
+[data-theme='paper'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--text) 6%, transparent) 0 1px,
+      transparent 1px 26px
+    ),
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--text) 6%, transparent) 0 1px,
+      transparent 1px 26px
+    );
+}

@@ -1,0 +1,54 @@
+/*
+ * The faces RomMix carries with it.
+ *
+ * Only the ones no machine can be assumed to have, which is the two the pixel
+ * palettes are set in. Everything else is whatever the desktop provides — see
+ * `--font`, whose default names the faces to try in order — because a font file
+ * is bytes in every AppImage, and a television RomMix is offline on has no
+ * network to fetch one from.
+ *
+ * The Latin subset of each, as Google Fonts serves them under that name: it
+ * carries the accents the four languages RomMix speaks are written with, and a
+ * character outside it falls through to the next face in the stack rather than
+ * to nothing.
+ *
+ * Both are under the SIL Open Font License 1.1, and the text of each sits
+ * beside the files.
+ *
+ * `font-display: block` on both: the face is the palette, so a fallback drawn
+ * first is the interface visibly changing font a moment after it is opened.
+ * The files are local and tens of kilobytes, so the wait being paid for is not
+ * one anybody sees.
+ */
+
+/*
+ * VT323, a terminal's face, for the dark pixel palette.
+ *
+ * Narrow, which is what makes it usable here: the labels are long in four
+ * languages, and a square face with a glyph per cell wraps "Nintendo
+ * Entertainment System" twice on a television. Its digits are the other reason
+ * — a library is dates, sizes and version numbers, and the pixel faces with a
+ * five that reads as an S are unusable for exactly that.
+ */
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../assets/fonts/vt323-latin.woff2') format('woff2');
+}
+
+/*
+ * Silkscreen, a bitmap face on an even grid, for the light pixel palette.
+ *
+ * It has no lowercase — the small letters are drawn as small capitals — which
+ * is a choice rather than a gap: it is the face a manual's headings were set
+ * in, and the palette that uses it is a printed page.
+ */
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../assets/fonts/silkscreen-latin.woff2') format('woff2');
+}

@@ -16,7 +16,7 @@
   position: relative;
   border-radius: var(--radius);
   overflow: hidden;
-  background: linear-gradient(150deg, #202836, #131821);
+  background: var(--card);
 }
 
 .cover::before {
@@ -77,7 +77,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  background: linear-gradient(150deg, #202836, #131821);
+  background: var(--card);
 }
 
 .card {

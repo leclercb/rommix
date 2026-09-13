@@ -1,0 +1,26 @@
+/* Cream and the red of the console the Famicom's own box was printed in. */
+[data-theme='famicom'] {
+  --bg-sunken: #8d6a55;
+  --bg: #f3e7d3;
+  --bg-raised: #fffaf0;
+  --bg-hover: #ecdcc2;
+  --surface: rgba(60, 30, 20, 0.05);
+  --surface-soft: rgba(60, 30, 20, 0.025);
+  --surface-strong: rgba(60, 30, 20, 0.1);
+  --border: rgba(60, 30, 20, 0.14);
+  --border-strong: rgba(60, 30, 20, 0.24);
+  --text: #2a1a12;
+  --text-dim: #6b5344;
+  --text-faint: #96806f;
+  --kind-save: #7a3fa0;
+  --kind-state: #b23a7a;
+  --accent: #c8102e;
+  --accent-strong: #8f0a20;
+  --accent-contrast: #fff6ec;
+  --danger: #a81020;
+  --danger-contrast: #fff1ea;
+  --success: #3f7d3f;
+  --warning: #b57d00;
+
+  color-scheme: light;
+}

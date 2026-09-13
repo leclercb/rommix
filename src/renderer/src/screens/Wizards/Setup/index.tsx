@@ -9,8 +9,10 @@ import {
   PageTitle,
   QrCode,
   QuitOverlay,
+  LanguageChoice,
   RomStorageChoice,
   SegmentedControl,
+  ThemeChoice,
   TextField,
   uiScaleChoice,
   type UiScaleChoice,
@@ -23,19 +25,19 @@ import { WizardPage } from '../WizardPage'
  * The steps of first-run setup, in order.
  *
  * Only two questions come before the server, and both earn their place by being
- * awkward to change *after* it. Scale is the one setting that decides whether
- * the next screen can be read at all from a sofa — asking it after the library
- * has loaded means asking it in text the user may not be able to see. And where
- * ROMs go decides where every download lands, so answering it later means
- * answering it with games already on disk in the other place.
+ * awkward to change *after* it. The first page is how RomMix reads from a sofa
+ * — its language, its palette and its size — and asking any of that after the
+ * library has loaded means asking it in an interface the user may not be able
+ * to read. And where ROMs go decides where every download lands, so answering
+ * it later means answering it with games already on disk in the other place.
  *
  * Everything else RomMix can be told stays in Settings. A wizard is a tax on
  * the first five minutes, and it is only worth charging for the questions whose
  * answers are expensive to revise.
  */
-type SetupStep = 'scale' | 'storage' | 'server'
+type SetupStep = 'interface' | 'storage' | 'server'
 
-const SETUP_STEPS: readonly SetupStep[] = ['scale', 'storage', 'server']
+const SETUP_STEPS: readonly SetupStep[] = ['interface', 'storage', 'server']
 
 /**
  * First-run setup, which ends on the server and is mostly about reaching it.
@@ -77,7 +79,7 @@ export function SetupScreen(): JSX.Element {
   const [step, setStep] = useState<SetupStep | null>(null)
   useEffect(() => {
     if (!settings || step !== null) return
-    setStep(settings.setupComplete ? 'server' : 'scale')
+    setStep(settings.setupComplete ? 'server' : 'interface')
     /**
      * Why this screen is showing, when nobody on it asked for it.
      *
@@ -164,14 +166,21 @@ export function SetupScreen(): JSX.Element {
   const stepNumber = SETUP_STEPS.indexOf(step) + 1
   const at = (next: SetupStep): void => setStep(next)
 
-  if (step === 'scale') {
+  if (step === 'interface') {
     return (
       <SetupPage
         step={stepNumber}
-        title={t('setup.scaleTitle')}
-        subtitle={t('setup.scaleSubtitle')}
+        title={t('setup.interfaceTitle')}
+        subtitle={t('setup.interfaceSubtitle')}
         next={() => at('storage')}
       >
+        {/* Language first: it is the one answer that decides whether the two
+            below can be read at all. */}
+        <LanguageChoice
+          value={settings.language}
+          onChange={(next) => void saveSettings({ language: next })}
+        />
+        <ThemeChoice />
         <Choice<UiScaleChoice>
           label={t('control.scale')}
           hint={t('setup.scaleHint')}
@@ -189,7 +198,7 @@ export function SetupScreen(): JSX.Element {
         step={stepNumber}
         title={t('setup.storageTitle')}
         subtitle={t('setup.storageSubtitle')}
-        previous={() => at('scale')}
+        previous={() => at('interface')}
         next={() => at('server')}
       >
         <RomStorageChoice

@@ -33,7 +33,7 @@
 .game-hero__art {
   border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border-strong);
   box-shadow: 0 26px 70px rgba(0, 0, 0, 0.7);
 }
 
@@ -64,8 +64,8 @@
   gap: 7px;
   padding: 3px 12px;
   border-radius: 999px;
-  background: rgba(255, 200, 87, 0.14);
-  border: 1px solid rgba(255, 200, 87, 0.4);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
   color: var(--warning);
   font-size: 14px;
   font-weight: 700;
@@ -104,7 +104,7 @@
 
 .game-hero__summary[data-focused='true'] {
   color: var(--text);
-  background: rgba(6, 8, 12, 0.55);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
   box-shadow: var(--focus-ring);
 }
 
@@ -117,18 +117,18 @@
   color: var(--accent);
 }
 
-/* The chips sit on artwork rather than on the page, so they carry their own
-   dark ground instead of the near-transparent one. */
+/* The chips sit on artwork rather than on the page, so they carry most of the
+   ground with them instead of the near-transparent wash. */
 .game-hero .chip {
-  background: rgba(6, 8, 12, 0.55);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border-color: var(--border-strong);
   color: var(--text);
   backdrop-filter: blur(6px);
 }
 
 .game-hero .chip--on {
-  background: rgba(93, 219, 160, 0.2);
-  border-color: rgba(93, 219, 160, 0.45);
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
   color: var(--success);
 }
 
@@ -192,8 +192,13 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(11, 13, 19, 0.55), rgba(11, 13, 19, 0.15) 40%, var(--bg)),
-    linear-gradient(90deg, rgba(11, 13, 19, 0.72), transparent 60%);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg) 55%, transparent),
+      color-mix(in srgb, var(--bg) 15%, transparent) 40%,
+      var(--bg)
+    ),
+    linear-gradient(90deg, color-mix(in srgb, var(--bg) 72%, transparent), transparent 60%);
 }
 
 .chip {
@@ -207,8 +212,8 @@
 }
 
 .chip--on {
-  background: rgba(93, 219, 160, 0.14);
-  border-color: rgba(93, 219, 160, 0.4);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
   color: var(--success);
 }
 

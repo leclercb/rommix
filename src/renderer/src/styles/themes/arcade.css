@@ -1,0 +1,66 @@
+/*
+ * A cabinet in a dark room: magenta and cyan on near-black, set in pixels and
+ * drawn through the lines of a tube.
+ *
+ * The surfaces are tinted violet rather than white, which is what keeps the
+ * panels reading as lit glass instead of as grey.
+ */
+[data-theme='arcade'] {
+  --bg-sunken: #04030a;
+  --bg: #0a0714;
+  --bg-raised: #150f26;
+  --bg-hover: #221838;
+  --surface: rgba(180, 160, 255, 0.07);
+  --surface-soft: rgba(180, 160, 255, 0.035);
+  --surface-strong: rgba(180, 160, 255, 0.14);
+  --border: rgba(180, 160, 255, 0.18);
+  --border-strong: rgba(180, 160, 255, 0.3);
+  --text: #f4e9ff;
+  --text-dim: #b09ad0;
+  --text-faint: #7b6aa0;
+  --kind-save: #7ae7ff;
+  --kind-state: #ff9de2;
+  --accent: #ff2e97;
+  --accent-strong: #c50f6e;
+  --accent-contrast: #14000c;
+  --danger: #ff4d4d;
+  --danger-contrast: #1a0002;
+  --success: #3dffb0;
+  --warning: #ffd029;
+
+  --font: 'VT323', 'Inter', system-ui, sans-serif;
+  /* Drawn tall and narrow on a small body, so it needs the size back. */
+  --font-size: 21px;
+
+  color-scheme: dark;
+}
+
+/*
+ * The scan lines, over everything and catching nothing.
+ *
+ * On `body` because it is the one element always there and never scrolled: a
+ * tube's lines belong to the screen rather than to the page, so they stay put
+ * while the library moves underneath them. Above every other layer — a dialog
+ * is behind the glass too — and `pointer-events: none`, or the whole interface
+ * would be under a sheet nothing could be clicked through.
+ *
+ * A light line and a dark one, alternating. A tube's lines are gaps between
+ * lit rows, so drawing them dark is the honest version and it disappears over
+ * a palette this close to black — which is most of the screen. The pair shows
+ * on both: the dark line does the work over artwork and anything else bright,
+ * the light one over the ground.
+ */
+[data-theme='arcade'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--text) 8%, transparent) 0 1px,
+    transparent 1px 2px,
+    color-mix(in srgb, var(--bg-sunken) 45%, transparent) 2px 3px,
+    transparent 3px 4px
+  );
+}

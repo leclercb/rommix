@@ -7,7 +7,12 @@
   grid-template-rows: auto 1fr;
   height: 100%;
   background:
-    radial-gradient(120vw 90vh at 78% -10%, rgba(90, 200, 250, 0.09), transparent 62%), var(--bg);
+    radial-gradient(
+      120vw 90vh at 78% -10%,
+      color-mix(in srgb, var(--accent) 9%, transparent),
+      transparent 62%
+    ),
+    var(--bg);
 }
 
 /*
@@ -30,7 +35,7 @@
   gap: 24px;
   padding: 12px var(--safe-x);
   border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.28);
+  background: color-mix(in srgb, var(--bg-sunken) 40%, transparent);
 }
 
 .topbar__brand {
@@ -50,7 +55,7 @@
   height: 38px;
   /* The mark is the only saturated thing in the bar; the glow ties it to the
      accent wash behind it instead of leaving it pasted onto the ground. */
-  filter: drop-shadow(0 3px 10px rgba(90, 200, 250, 0.3));
+  filter: drop-shadow(0 3px 10px color-mix(in srgb, var(--accent) 30%, transparent));
 }
 
 .topbar__wordmark {

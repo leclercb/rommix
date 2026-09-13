@@ -97,7 +97,7 @@
   grid-column: 1 / -1;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--surface-strong);
   overflow: hidden;
 }
 

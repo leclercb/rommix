@@ -50,7 +50,7 @@
  * fills in exactly like every other focused button.
  */
 .btn--primary {
-  background: rgba(90, 200, 250, 0.14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-color: var(--accent-strong);
   color: var(--text);
 }
@@ -58,7 +58,7 @@
 .btn--danger[data-focused='true'] {
   background: var(--danger);
   border-color: var(--danger);
-  color: #200606;
+  color: var(--danger-contrast);
 }
 
 .btn--ghost {

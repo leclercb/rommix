@@ -16,6 +16,7 @@
  * Add a section at the end unless it is deliberately overriding one above it.
  */
 
+@import './fonts.css';
 @import './base.css';
 @import './shell.css';
 @import './buttons.css';
@@ -32,3 +33,10 @@
 @import './bios.css';
 @import './releases.css';
 @import './motion.css';
+
+/*
+ * Last, because `[data-theme='…']` and the `:root` it is overriding carry the
+ * same specificity, and between equals the order here is what decides. See
+ * `themes/index.css`.
+ */
+@import './themes/index.css';
