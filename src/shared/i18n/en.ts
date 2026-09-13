@@ -326,6 +326,8 @@ export const en = {
   'downloads.clearFinished': 'Clear finished',
   'downloads.cleared_one': '{count} finished transfer cleared',
   'downloads.cleared_other': '{count} finished transfers cleared',
+  'downloads.driveFree': '{free} free',
+  'downloads.driveOf': 'of {total}',
   'downloads.sortBy': 'Sort: {mode}',
   'downloads.groupBySystem': 'Group by system: {value}',
   'downloads.syncWithDisk': 'Sync with disk',
@@ -909,6 +911,8 @@ export const en = {
   'system.emulatorsInstalled': 'Emulators installed',
   'system.countOf': '{count} of {total}',
   'system.romsWritable': 'ROM folders writable',
+  'system.freeSpace': 'Free space',
+  'system.freeOf': '{free} free of {total} in {path}',
   'system.controller': 'Controller',
   'system.noController': 'none seen — press a button on it',
   'system.logFile': 'Log file',
@@ -969,6 +973,7 @@ export const en = {
   'error.sessionExpired': 'Session expired — sign in again',
   'error.downloadInterrupted':
     'The transfer from RomM kept breaking off after {received} of {total}.',
+  'error.noRoom': 'Not enough room: {needed} needed, {free} free in {path}.',
   'error.unsafeName': '{name} is not a name RomMix will write to disk.',
   'error.downloadNotPublished':
     '{name} is not the file that was published. It has been deleted rather than installed.',

@@ -4,6 +4,7 @@ import type {
   BiosSyncResult,
   ConnectionStatus,
   DiagnosticsReport,
+  DriveSpace,
   DownloadItem,
   InstalledRom,
   LaunchChoice,
@@ -372,6 +373,14 @@ export interface RomMixBridge {
     runEmulator(id: string): Promise<string>
     onInstallProgress(listener: (progress: EmulatorInstallProgress) => void): () => void
     diagnostics(): Promise<DiagnosticsReport>
+    /**
+     * How much room is left on each drive downloads go to.
+     *
+     * Separate from `diagnostics`, which answers the same question among a
+     * dozen others and pays for a probe of every emulator on the machine to do
+     * it. See the `system:drives` handler.
+     */
+    drives(): Promise<DriveSpace[]>
     root(): Promise<RootLocation>
     /** Repoint RomMix's folder, copying the configuration across. Needs a restart. */
     setRoot(path: string): Promise<RootLocation>

@@ -6,6 +6,7 @@ import { UninstallDialog } from '../Game/dialogs'
 import { startedMessage } from '../Game/useGameCopy'
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import { fileNameOf } from '@shared/gamefiles'
+import { Drives } from './Drives'
 import { InstalledRow } from './InstalledRow'
 import { PlatformGroup } from './PlatformGroup'
 import { ProgressRow } from './ProgressRow'
@@ -370,6 +371,10 @@ export function DownloadsScreen(): JSX.Element {
         </>
       ) : (
         <>
+          {/* Above the controls: what they sort and group is what is taking up
+              the room this says is left. */}
+          <Drives />
+
           <div className="btn-row">
             <FocusButton
               icon="sort"

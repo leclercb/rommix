@@ -24,7 +24,7 @@ export function SystemTab({
   /** Run the pre-flight check again; resolves with what it found. */
   onRecheck: () => Promise<DiagnosticsReport | null>
 }): JSX.Element {
-  const { t } = useI18n()
+  const { t, formatBytes } = useI18n()
   const { notify } = useApp()
   const [rootDraft, setRootDraft] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
@@ -137,6 +137,26 @@ export function SystemTab({
             </dd>
             <dt>{t('system.romsWritable')}</dt>
             <dd>{diagnostics.romsWritable ? t('value.yes') : t('value.no')}</dd>
+            {/* One line per drive downloads go to, which is one line unless
+                each emulator keeps its library on a disk of its own. Absent
+                where nothing could be measured: a drive that will not answer is
+                one RomMix says nothing about. */}
+            {diagnostics.drives.length > 0 ? (
+              <>
+                <dt>{t('system.freeSpace')}</dt>
+                <dd>
+                  {diagnostics.drives.map((drive) => (
+                    <div key={drive.path}>
+                      {t('system.freeOf', {
+                        free: formatBytes(drive.freeBytes),
+                        total: formatBytes(drive.totalBytes),
+                        path: drive.path
+                      })}
+                    </div>
+                  ))}
+                </dd>
+              </>
+            ) : null}
             <dt>{t('system.controller')}</dt>
             <dd>{controller ?? t('system.noController')}</dd>
             {/* The file to attach to a bug report, named where the problems are. */}

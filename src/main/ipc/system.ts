@@ -1,7 +1,8 @@
 import { app, shell } from 'electron'
 import { EMULATORS } from '@config/emulators'
-import type { DiagnosticsReport, RootLocation, Settings } from '@shared/types'
+import type { DiagnosticsReport, DriveSpace, RootLocation, Settings } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
+import { drivesOf } from '../disk.ts'
 import { flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
@@ -70,6 +71,30 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     }
     return next
   })
+
+  /**
+   * Every folder a download could land in, for whatever wants to measure them.
+   *
+   * The same rule the pre-flight check applies below: one folder with shared
+   * storage, and otherwise one per emulator that is actually here and knows
+   * where its library is.
+   */
+  const romFolders = async (): Promise<string[]> => {
+    if (store.settings.romStorage === 'rommix') return [rootPaths().roms]
+    const emulators = await rommix.ensureEmulators()
+    return emulators
+      .filter((emulator) => emulator.available && emulator.paths.roms)
+      .map((emulator) => emulator.paths.roms as string)
+  }
+
+  /**
+   * How much room is left where games go.
+   *
+   * Its own channel rather than a field of the pre-flight report: the downloads
+   * screen wants this figure every time it is opened, and the report around it
+   * runs `flatpak` twice and probes every emulator on the machine.
+   */
+  handle('system:drives', async (): Promise<DriveSpace[]> => drivesOf(await romFolders()))
 
   handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
     const emulators = await rommix.refreshEmulators()
@@ -153,6 +178,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       flathubConfigured: hasFlathub,
       emulators,
       romsWritable,
+      drives: await drivesOf(romRoots.map((root) => root.path)),
       logPath: log.path(),
       notes
     }

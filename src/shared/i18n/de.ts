@@ -327,6 +327,8 @@ export const de: Catalog = {
   'downloads.clearFinished': 'Abgeschlossene entfernen',
   'downloads.cleared_one': '{count} abgeschlossene Übertragung entfernt',
   'downloads.cleared_other': '{count} abgeschlossene Übertragungen entfernt',
+  'downloads.driveFree': '{free} frei',
+  'downloads.driveOf': 'von {total}',
   'downloads.sortBy': 'Sortierung: {mode}',
   'downloads.groupBySystem': 'Nach System gruppieren: {value}',
   'downloads.syncWithDisk': 'Mit der Platte abgleichen',
@@ -932,6 +934,8 @@ export const de: Catalog = {
   'system.emulatorsInstalled': 'Emulatoren installiert',
   'system.countOf': '{count} von {total}',
   'system.romsWritable': 'ROM-Ordner beschreibbar',
+  'system.freeSpace': 'Freier Speicher',
+  'system.freeOf': '{free} frei von {total} in {path}',
   'system.controller': 'Controller',
   'system.noController': 'keiner gesehen — drücken Sie eine seiner Tasten',
   'system.logFile': 'Protokolldatei',
@@ -998,6 +1002,7 @@ export const de: Catalog = {
   'error.sessionExpired': 'Sitzung abgelaufen — melden Sie sich erneut an',
   'error.downloadInterrupted':
     'Die Übertragung von RomM brach nach {received} von {total} immer wieder ab.',
+  'error.noRoom': 'Nicht genug Platz: {needed} nötig, {free} frei in {path}.',
   'error.unsafeName': '{name} ist kein Name, den RomMix auf die Platte schreibt.',
   'error.downloadNotPublished':
     '{name} ist nicht die veröffentlichte Datei. Sie wurde gelöscht statt installiert.',

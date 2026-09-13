@@ -171,8 +171,10 @@ readable only by you where no keyring is reachable.
   downloaded.
 - **Collections** — the collections you made on RomM, and the virtual ones RomM
   builds itself.
-- **Downloads** — the queue, and everything on this device by platform. **Sync
-  with disk** forgets games you deleted by hand and adopts ROMs you copied in.
+- **Downloads** — the queue, and everything on this device by platform, over
+  the room left on the drive those games go to. **Sync with disk** forgets games
+  you deleted by hand and adopts ROMs you copied in. A game larger than the room
+  left is refused before the transfer starts, naming both figures.
 - **BIOS** — per platform, then copies the missing files into place. They come
   from your own server only: upload them to RomM under a platform. Switch, PS3,
   Vita, 3DS and Wii U need a dump from a real console instead, and say so.
@@ -251,8 +253,8 @@ synced, and RomMix says so rather than uploading the wrong data.
 **Games → Downloads → Ask before deleting a downloaded game**, on by default.
 
 **System → Pre-flight check.** Whether `flatpak` and Flathub are there, whether
-each emulator has been run, whether the ROM folder is writable — named, rather
-than left to fail at launch.
+each emulator has been run, whether the ROM folder is writable and how much room
+is left on the drive it is on — named, rather than left to fail at launch.
 
 **System → RomMix folder.** Settings, credentials, the download index and any
 emulator RomMix installed live in `~/rommix`. Set a new path and RomMix copies

@@ -189,3 +189,44 @@
   gap: 14px;
   margin-bottom: 10px;
 }
+
+/*
+ * How much room is left, above the list of what is taking it.
+ *
+ * One block per drive, the bar underneath reading as the disk rather than as a
+ * transfer: it is the same bar every progress row draws, which is the point —
+ * a second kind of bar would be a second thing to learn.
+ */
+.drives {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.drive__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.drive__free {
+  font-weight: 700;
+}
+
+.drive__total,
+.drive__path {
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+/* Last, and allowed to be cut: the folder is the least of the three and the
+   only one that can run to a line of its own. */
+.drive__path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

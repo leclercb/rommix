@@ -320,6 +320,8 @@ export const fr: Catalog = {
   'downloads.clearFinished': 'Effacer les terminés',
   'downloads.cleared_one': '{count} transfert terminé effacé',
   'downloads.cleared_other': '{count} transferts terminés effacés',
+  'downloads.driveFree': '{free} libres',
+  'downloads.driveOf': 'sur {total}',
   'downloads.sortBy': 'Tri : {mode}',
   'downloads.groupBySystem': 'Grouper par système : {value}',
   'downloads.syncWithDisk': 'Comparer au disque',
@@ -922,6 +924,8 @@ export const fr: Catalog = {
   'system.emulatorsInstalled': 'Émulateurs installés',
   'system.countOf': '{count} sur {total}',
   'system.romsWritable': 'Dossiers de ROM accessibles en écriture',
+  'system.freeSpace': 'Espace libre',
+  'system.freeOf': '{free} libres sur {total} dans {path}',
   'system.controller': 'Manette',
   'system.noController': 'aucune détectée — appuyez sur un de ses boutons',
   'system.logFile': 'Fichier journal',
@@ -988,6 +992,7 @@ export const fr: Catalog = {
   'error.sessionExpired': 'Session expirée — reconnectez-vous',
   'error.downloadInterrupted':
     'Le transfert depuis RomM n’a cessé d’être interrompu après {received} sur {total}.',
+  'error.noRoom': 'Pas assez de place : {needed} nécessaires, {free} libres dans {path}.',
   'error.unsafeName': "{name} n'est pas un nom que RomMix écrira sur le disque.",
   'error.downloadNotPublished':
     "{name} n'est pas le fichier qui a été publié. Il a été supprimé plutôt qu'installé.",

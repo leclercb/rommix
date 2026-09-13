@@ -3,8 +3,9 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { archiveIsTheRom, chooseLaunchFile } from '@shared/gamefiles'
 import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
+import { fits, spaceOf } from './disk.ts'
 import { unpack, type InstallResult } from './install.ts'
-import { t } from './i18n.ts'
+import { i18n, t } from './i18n.ts'
 import { log } from './log.ts'
 import { Library } from './library.ts'
 import {
@@ -503,6 +504,46 @@ export class DownloadManager extends EventEmitter {
     }
   }
 
+  /**
+   * Stop before the bytes, where the drive cannot hold them.
+   *
+   * A transfer that runs out of room fails at whatever percentage the disk
+   * filled at, leaves a partial file behind, and says so in the language of
+   * whatever write failed first. The size is known from RomM before anything is
+   * fetched and the room is one `statfs`, so the honest place to say no is
+   * here, naming both figures.
+   *
+   * What is already on disk counts: a resumed transfer needs the remainder
+   * rather than the whole game, and refusing one that fits is as wrong as
+   * starting one that does not.
+   *
+   * Silent unless it is certain. A drive that will not answer, and a server
+   * that gave no size — RomM derives `fs_size_bytes` and can report 0 — both
+   * leave the transfer to try, which is what RomMix did before there was a
+   * check at all.
+   */
+  private async checkThereIsRoom(item: DownloadItem, dir: string): Promise<void> {
+    const needed = item.totalBytes - item.receivedBytes
+    const space = await spaceOf(dir)
+    // A drive that would not answer is not grounds for refusing to try.
+    if (!space || fits(needed, space.freeBytes)) return
+
+    log.warn('download', 'not enough room', {
+      romId: item.romId,
+      name: item.name,
+      needed,
+      free: space.freeBytes,
+      dir
+    })
+    throw new Error(
+      t('error.noRoom', {
+        needed: i18n().formatBytes(needed),
+        free: i18n().formatBytes(space.freeBytes),
+        path: dir
+      })
+    )
+  }
+
   private async runOne(item: DownloadItem, rom: RommRom): Promise<void> {
     const controller = new AbortController()
     this.controllers.set(rom.id, controller)
@@ -532,6 +573,8 @@ export class DownloadManager extends EventEmitter {
        * The archive stays as the answer for a server too old to serve files
        * individually, and for a game that is one file to begin with.
        */
+      await this.checkThereIsRoom(item, dir)
+
       const perFile = await this.client.fileTransfers(rom)
       const resumable = perFile.available ? perFile.resumable : await this.client.supportsRange(rom)
       item.resumable = resumable

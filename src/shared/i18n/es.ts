@@ -317,6 +317,8 @@ export const es: Catalog = {
   'downloads.clearFinished': 'Limpiar las terminadas',
   'downloads.cleared_one': '{count} transferencia terminada eliminada',
   'downloads.cleared_other': '{count} transferencias terminadas eliminadas',
+  'downloads.driveFree': '{free} libres',
+  'downloads.driveOf': 'de {total}',
   'downloads.sortBy': 'Orden: {mode}',
   'downloads.groupBySystem': 'Agrupar por sistema: {value}',
   'downloads.syncWithDisk': 'Contrastar con el disco',
@@ -910,6 +912,8 @@ export const es: Catalog = {
   'system.emulatorsInstalled': 'Emuladores instalados',
   'system.countOf': '{count} de {total}',
   'system.romsWritable': 'Carpetas de ROM con permiso de escritura',
+  'system.freeSpace': 'Espacio libre',
+  'system.freeOf': '{free} libres de {total} en {path}',
   'system.controller': 'Mando',
   'system.noController': 'ninguno detectado — pulsa uno de sus botones',
   'system.logFile': 'Archivo de registro',
@@ -974,6 +978,7 @@ export const es: Catalog = {
   'error.sessionExpired': 'Sesión caducada — inicia sesión otra vez',
   'error.downloadInterrupted':
     'La transferencia desde RomM se interrumpió una y otra vez tras {received} de {total}.',
+  'error.noRoom': 'No hay espacio suficiente: {needed} necesarios, {free} libres en {path}.',
   'error.unsafeName': '{name} no es un nombre que RomMix vaya a escribir en el disco.',
   'error.downloadNotPublished':
     '{name} no es el archivo que se publicó. Se ha eliminado en lugar de instalarlo.',

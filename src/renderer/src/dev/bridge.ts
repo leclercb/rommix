@@ -981,12 +981,22 @@ const bridge: RomMixBridge = {
     installEmulatorFlatpak: () => refuse(),
     runEmulator: () => refuse(),
     onInstallProgress: noSubscription,
+    /**
+     * A drive, invented like the rest of this library.
+     *
+     * Empty would be the literal truth — a browser has no filesystem to
+     * measure — but the figure is part of what the downloads screen is, and a
+     * preview missing a row is a preview of a different screen. Sized so the
+     * games in the stub library are a plausible dent in it.
+     */
+    drives: () => later([{ path: `${PREVIEW_ROOT}/roms`, freeBytes: 214e9, totalBytes: 512e9 }]),
     diagnostics: () =>
       later({
         flatpakAvailable: false,
         flathubConfigured: false,
         emulators: [],
         romsWritable: true,
+        drives: [{ path: `${PREVIEW_ROOT}/roms`, freeBytes: 214e9, totalBytes: 512e9 }],
         // The path the real app would print, though nothing writes to it here:
         // the panel shows it so a bug report can quote it, and a demo quoting a
         // folder RomMix does not use teaches the wrong one.

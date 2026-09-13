@@ -14,6 +14,20 @@ export interface RootLocation {
   fromEnvironment: boolean
 }
 
+/**
+ * The room left on one drive games are written to.
+ *
+ * `path` is a folder on it rather than the mount point: it is what RomMix was
+ * asked about and what the user would recognise — "this is where my Switch
+ * games go" — where `/run/media/mmcblk0p1` is a fact about the machine.
+ */
+export interface DriveSpace {
+  path: string
+  /** Free to the user running RomMix, which is below what is free to root. */
+  freeBytes: number
+  totalBytes: number
+}
+
 /** Result of the pre-flight check shown on the Settings screen. */
 export interface DiagnosticsReport {
   /**
@@ -38,6 +52,13 @@ export interface DiagnosticsReport {
   emulators: EmulatorState[]
   /** True when every installed emulator's ROM folder can be written to. */
   romsWritable: boolean
+  /**
+   * The drives those folders are on, one entry each. See `drivesOf`.
+   *
+   * Empty where nothing could be measured, which is the same thing the screen
+   * says about a drive that will not answer: nothing.
+   */
+  drives: DriveSpace[]
   /** The log file, so a bug report can name the file rather than hunt for it. */
   logPath: string
   notes: string[]
