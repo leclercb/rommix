@@ -103,6 +103,21 @@
   margin-bottom: 34px;
 }
 
+/*
+ * A break between two rows of buttons that answer different questions — see
+ * `QuitActions`.
+ *
+ * Pulled out over the panel's padding like the heading band above it, so it
+ * reads as the panel divided rather than as a line drawn around the buttons.
+ * The room under it is the sticky row's own, which is why only the top is set
+ * here.
+ */
+.overlay__split {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 26px -38px 0;
+}
+
 /* The mark reads as part of the heading rather than as a second thing beside
    it, so it takes the dimmer of the two text colours and does not shrink when
    the words beside it run to two lines. */

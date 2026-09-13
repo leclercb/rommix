@@ -83,7 +83,6 @@ export const fr: Catalog = {
   'app.version': 'v{version}',
   'app.quitTitle': 'Quitter RomMix ?',
   'app.stay': 'Rester',
-  'app.thisMachine': 'Cette machine',
   'app.sleep': 'Veille',
   'app.restartMachine': 'Redémarrer',
   'app.turnOff': 'Éteindre',

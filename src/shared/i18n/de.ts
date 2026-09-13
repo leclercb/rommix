@@ -86,7 +86,6 @@ export const de: Catalog = {
   'app.version': 'v{version}',
   'app.quitTitle': 'RomMix beenden?',
   'app.stay': 'Bleiben',
-  'app.thisMachine': 'Dieser Rechner',
   'app.sleep': 'Ruhezustand',
   'app.restartMachine': 'Neu starten',
   'app.turnOff': 'Ausschalten',

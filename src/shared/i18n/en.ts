@@ -95,7 +95,6 @@ export const en = {
   'app.version': 'v{version}',
   'app.quitTitle': 'Quit RomMix?',
   'app.stay': 'Stay',
-  'app.thisMachine': 'This machine',
   'app.sleep': 'Sleep',
   'app.restartMachine': 'Restart',
   'app.turnOff': 'Turn off',

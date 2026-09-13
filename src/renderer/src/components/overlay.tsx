@@ -182,7 +182,12 @@ function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
 
       {actions.length > 0 ? (
         <>
-          <p className="muted">{t('app.thisMachine')}</p>
+          {/* A rule rather than a heading over the row: what these three do is
+              already on them, and the one thing missing was that they are not
+              more answers to the question in the title. A line says that
+              without a label, and without a phrase to translate that reads as
+              a settings section in every language. */}
+          <hr className="overlay__split" />
           <div className="btn-row">
             {POWER.filter((entry) => actions.includes(entry.action)).map((entry) => (
               <FocusButton
