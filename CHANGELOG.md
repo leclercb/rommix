@@ -4,8 +4,13 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
-## 0.17.0-rc.0 — 2026-09-13
+## 0.17.0 — 2026-09-14
 
+- test(app): cover the drives panel and the theme picker (68ddeed)
+- test(unit): tie the theme list to the stylesheets (a68deb4)
+- test(unit): cover the check on the room left (bed3855)
+- test(unit): cover the power actions (061cebd)
+- fix: divide the quit dialog with a rule instead of a label (95f0405)
 - fix: apply the interface scale in the demo (a823aee)
 - fix: draw the arcade theme's scan lines as a tube would (ba5ab4a)
 - feat: open the theme picker from the notice (8a3c177)
