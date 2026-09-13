@@ -566,6 +566,11 @@ const SETTINGS: Settings = {
 // The bridge
 // ---------------------------------------------------------------------------
 
+/** The screen the interface is drawn for, and the range it is held to. See `applyScale`. */
+const DESIGN_HEIGHT = 1080
+const MIN_SCALE = 1
+const MAX_SCALE = 3
+
 /** Every subscription, since nothing here ever emits. */
 const noSubscription = (): (() => void) => () => {}
 
@@ -969,6 +974,7 @@ const bridge: RomMixBridge = {
       // title, but the demo is a page in a browser and it is the only name it
       // has once the link has been shared.
       if ('language' in patch) describePage()
+      if ('uiScale' in patch) applyScale()
       // A copy, because the renderer holds this in state: handing back the very
       // object it was given leaves React comparing a reference with itself and
       // skipping the render, so every settings row in the demo looked dead
@@ -1055,6 +1061,29 @@ function say(key: MessageKey): string {
 }
 
 /**
+ * The size the interface is drawn at, which in the application is not the
+ * renderer's job at all.
+ *
+ * `RomMixApp.applyUiScale` sets a zoom factor on the window, and the rule it
+ * follows is repeated here rather than approximated: the chosen number, or the
+ * screen's height over the 1080p the interface is drawn for, to the nearest
+ * quarter and never below 1. A browser has no window to zoom, so the root
+ * element carries it instead — `zoom` is the same idea, and the one property
+ * that scales a layout rather than transforming a picture of one.
+ *
+ * Without this the row in Settings is the one control in the demo that answers
+ * and then does nothing, which reads as a broken interface rather than as a
+ * preview with no machine behind it.
+ */
+function applyScale(): void {
+  const chosen = SETTINGS.uiScale
+  const wanted = chosen > 0 ? chosen : window.screen.height / DESIGN_HEIGHT
+  document.documentElement.style.zoom = String(
+    Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(wanted * 4) / 4))
+  )
+}
+
+/**
  * Name the page in whatever language it is about to be drawn in.
  *
  * `vite.web.config.ts` writes an English title and description into the
@@ -1074,6 +1103,9 @@ function describePage(): void {
 export function installPreviewBridge(): void {
   window.rommix = bridge
   describePage()
+  // Before anything renders, the same as the window's zoom factor being set on
+  // `did-finish-load` in the application.
+  applyScale()
   // Said once, in the one place a developer will look when something behaves
   // oddly here and not in the app.
   console.info('[rommix] web preview: window.rommix is a stub, no server is involved')
