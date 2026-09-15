@@ -579,9 +579,12 @@ export function GameScreen({
           </FocusButton>
         ) : null}
 
-        <FocusButton icon="back" variant="ghost" onSelect={goBack}>
-          {t('action.back')}
-        </FocusButton>
+        {/* No Back button here. B is what goes back on every screen in RomMix
+            and the hint bar says so, so one drawn on this screen alone is a
+            button that teaches the wrong thing about all the others — and this
+            row is the longest in the app without it. The error state below
+            keeps one: it is the only control on that screen, and a screen with
+            nothing focusable is a screen a pointer cannot leave. */}
       </GameHero>
 
       {/* Paused as well as moving: where a transfer stopped is the thing being
