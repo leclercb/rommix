@@ -497,6 +497,7 @@ export const en = {
   'game.tabSaves': 'Saves',
   'game.tabFiles': 'Files',
   'game.tabScreenshots': 'Screenshots',
+  'game.tabManual': 'Manual',
   'game.tabVersions': 'Versions',
   'game.revision': 'Rev {revision}',
   'game.ratingOutOf': '/ 100',
@@ -681,6 +682,10 @@ export const en = {
   'shots.previous': 'Previous screenshot',
   'shots.next': 'Next screenshot',
   'shots.position': '{index} of {total}',
+  'manual.previous': 'Previous page',
+  'manual.next': 'Next page',
+  'manual.missing': 'RomM has no manual for this game.',
+  'manual.offline': 'The manual is on your server. It comes back when RomMix can reach it again.',
 
   // -- settings -------------------------------------------------------------
 

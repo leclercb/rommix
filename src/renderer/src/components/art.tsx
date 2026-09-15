@@ -18,7 +18,7 @@ export function CoverArt({
   name: string
   className?: string
 }): JSX.Element {
-  const url = window.rommix.system.imageUrl(path)
+  const url = window.rommix.system.assetUrl(path)
   const [failed, setFailed] = useState(false)
 
   // A new ROM in the same slot must clear the previous failure.
@@ -84,7 +84,7 @@ export function CoverMosaic({
  * and so a component per cell.
  */
 function MosaicCell({ path }: { path: string }): JSX.Element {
-  const url = window.rommix.system.imageUrl(path)
+  const url = window.rommix.system.assetUrl(path)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => setFailed(false), [url])
@@ -112,7 +112,7 @@ export function ArtBackdrop({
 }: {
   paths: (string | null | undefined)[]
 }): JSX.Element | null {
-  const url = paths.map((path) => window.rommix.system.imageUrl(path ?? null)).find(Boolean) ?? null
+  const url = paths.map((path) => window.rommix.system.assetUrl(path ?? null)).find(Boolean) ?? null
   const [failed, setFailed] = useState(false)
 
   // A different game in the same slot must clear the previous failure.
@@ -320,7 +320,7 @@ function IconImage({
         .split('|')
         .filter(Boolean)
         .flatMap((name) => PLATFORM_ICON_PATHS.map((path) => path.replace('{name}', name)))
-        .map((path) => window.rommix.system.imageUrl(path))
+        .map((path) => window.rommix.system.assetUrl(path))
         .filter((url): url is string => url !== null),
     [names]
   )

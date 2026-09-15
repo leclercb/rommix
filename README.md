@@ -54,6 +54,7 @@ Demo: https://leclercb.github.io/rommix/demo/
 - ✈️ Offline mode — play your downloaded games with no connection: covers,
   details, screenshots and Play all still work
 - 🔁 Downloads and unsent saves resume when you are back online
+- 📖 The manual RomM holds for a game, read on screen and turned with the pad
 - 🧩 BIOS files installed from your own server
 - 🎛️ Emulators installed and assigned by RomMix, changeable per platform
 - 📱 Sign in by scanning a code with your phone
@@ -186,8 +187,9 @@ quit to.
   Vita, 3DS and Wii U need a dump from a real console instead, and say so.
 - **Emulators** — what is installed, and which one runs each platform (below).
 - **A game's page** — download, play, uninstall, favourite it, say how far
-  through it you are, put it in a collection, and four tabs: **Details**,
-  **Saves**, **Files**, **Screenshots**.
+  through it you are, put it in a collection, and its tabs: **Details**,
+  **Saves**, **Files**, **Screenshots**, and **Manual** where RomM has one —
+  upload it to RomM and it is read here, a page at a time.
   Where an emulator offers more than one way to run a platform, RomMix asks once
   and remembers; **Run with…** changes the answer.
 

@@ -198,6 +198,17 @@ export interface RommRom {
   url_cover: string | null
   path_video: string | null
 
+  /**
+   * The scanned manual, which RomM serves as a PDF like any other asset.
+   *
+   * `has_manual` is the flag the tab is drawn on, and `path_manual` is what it
+   * is drawn from: the two can disagree while the server is still fetching one,
+   * and a tab opening on nothing reads as the manual having been lost.
+   */
+  has_manual: boolean
+  path_manual: string | null
+  url_manual: string | null
+
   regions: string[]
   languages: string[]
   tags: string[]

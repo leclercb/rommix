@@ -190,7 +190,7 @@ function serveSlowly(res: ServerResponse, bytes: Buffer, from = 0): void {
 /**
  * A cover, as a picture rather than as a path that answers nothing.
  *
- * A real PNG, because the screens do not merely reference these: `imageUrl`
+ * A real PNG, because the screens do not merely reference these: `assetUrl`
  * builds a `rommix-img://` URL, the main process answers it through
  * `registerImageProtocol`, and what comes back has to decode or the tile is
  * blank in exactly the way a broken path would be. One pixel is enough to tell
@@ -274,6 +274,75 @@ function shotPath(romId: number, index: number): string {
  * viewer's walk from one to the next has somewhere to go. */
 const SHOTS_PER_ROM = 3
 
+/** And where its manual lives, which RomM serves as a PDF beside the artwork. */
+function manualPath(romId: number): string {
+  return `/assets/romm/resources/roms/${romId}/manual/manual.pdf`
+}
+
+/** How many pages that manual has. More than one, for the same reason. */
+const MANUAL_PAGES = 3
+
+/**
+ * A manual, as a PDF a real viewer will open.
+ *
+ * Written out by hand rather than fetched from a fixture, because the only
+ * thing that makes this test worth running is that Chromium's own viewer
+ * accepts the bytes: a file it refuses draws an empty frame, which is exactly
+ * what a wrong content type or a blocked `frame-src` also draws.
+ *
+ * The oldest shape a PDF can take — one object per page, uncompressed content,
+ * a plain cross-reference table — so that nothing here depends on a library.
+ * Every offset in that table is counted from the bytes as they are built, which
+ * is the one part a reader will not forgive being wrong.
+ */
+function manualPdf(pages = MANUAL_PAGES): Buffer {
+  const objects: string[] = []
+  const kids = Array.from({ length: pages }, (_, index) => `${3 + index * 2} 0 R`)
+
+  objects.push('<< /Type /Catalog /Pages 2 0 R >>')
+  objects.push(`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages} >>`)
+
+  for (let page = 0; page < pages; page += 1) {
+    const contents = 4 + page * 2
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] ` +
+        `/Resources << /Font << /F1 ${3 + pages * 2} 0 R >> >> /Contents ${contents} 0 R >>`
+    )
+    // Large type in the middle of the page: what this is read back by is a
+    // screenshot of a television, where anything smaller is a smudge.
+    const text = `BT /F1 48 Tf 72 400 Td (Page ${page + 1} of ${pages}) Tj ET`
+    objects.push(`<< /Length ${text.length} >>\nstream\n${text}\nendstream`)
+  }
+
+  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+
+  const parts: Buffer[] = [Buffer.from('%PDF-1.4\n')]
+  const offsets: number[] = []
+  let at = parts[0].length
+
+  objects.forEach((body, index) => {
+    const object = Buffer.from(`${index + 1} 0 obj\n${body}\nendobj\n`)
+    offsets.push(at)
+    at += object.length
+    parts.push(object)
+  })
+
+  const table = [
+    `xref`,
+    `0 ${objects.length + 1}`,
+    '0000000000 65535 f ',
+    ...offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n `),
+    'trailer',
+    `<< /Size ${objects.length + 1} /Root 1 0 R >>`,
+    'startxref',
+    String(at),
+    '%%EOF'
+  ]
+  parts.push(Buffer.from(`${table.join('\n')}\n`))
+
+  return Buffer.concat(parts)
+}
+
 /** The bytes of one file of a game made of several. */
 function bytesFor(fileName: string): Buffer {
   return Buffer.from(`RomMix integration test — ${fileName}\n`.repeat(16))
@@ -328,6 +397,11 @@ function rom(
     path_cover_large: art ? coverPath(id, 'big') : null,
     url_cover: null,
     path_video: null,
+    // On whatever has artwork, so a library has games with a manual and games
+    // without — the tab is drawn for one and not the other.
+    has_manual: art,
+    path_manual: art ? manualPath(id) : null,
+    url_manual: null,
     regions: ['USA'],
     languages: ['en'],
     tags: [],
@@ -714,6 +788,19 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const png = coverPng(Number(shot[1]) * 100 + Number(shot[2]) + 1)
         res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
         return res.end(png)
+      }
+
+      // The manual, served as the PDF the viewer in the Manual tab opens. The
+      // content type is the point of the route: the bytes arrive at Chromium's
+      // viewer through the same authenticated protocol as a cover, and a
+      // manual sent as an image draws a blank frame and nothing else.
+      const manual = /^\/assets\/romm\/resources\/roms\/(\d+)\/manual\/manual\.pdf$/.exec(
+        url.pathname
+      )
+      if (manual) {
+        const pdf = manualPdf()
+        res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length })
+        return res.end(pdf)
       }
 
       if (url.pathname === '/api/users/me') return json(user)

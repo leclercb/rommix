@@ -504,6 +504,7 @@ export const de: Catalog = {
   'game.tabSaves': 'Spielstände',
   'game.tabFiles': 'Dateien',
   'game.tabScreenshots': 'Screenshots',
+  'game.tabManual': 'Handbuch',
   'game.tabVersions': 'Fassungen',
   'game.revision': 'Rev. {revision}',
   'game.ratingOutOf': '/ 100',
@@ -687,6 +688,11 @@ export const de: Catalog = {
   'shots.previous': 'Vorheriger Screenshot',
   'shots.next': 'Nächster Screenshot',
   'shots.position': '{index} von {total}',
+  'manual.previous': 'Vorherige Seite',
+  'manual.next': 'Nächste Seite',
+  'manual.missing': 'RomM hat kein Handbuch für dieses Spiel.',
+  'manual.offline':
+    'Das Handbuch liegt auf Ihrem Server. Es ist wieder da, sobald RomMix ihn erreicht.',
 
   // -- Einstellungen --------------------------------------------------------
 

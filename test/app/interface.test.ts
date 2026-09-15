@@ -748,7 +748,7 @@ describe('the artwork a library is mostly made of', () => {
   test('a cover is fetched through the main process and decodes', async () => {
     // The one asset path in RomMix, and the reason it exists: RomM serves
     // artwork behind the same token as everything else, so the renderer cannot
-    // ask for a cover directly. `imageUrl` hands it a `rommix-img://` URL, and
+    // ask for a cover directly. `assetUrl` hands it a `rommix-img://` URL, and
     // the main process answers that by going to the server — or to the copy it
     // saved. Nothing had ever driven it, because every cover the fake served
     // was null.
@@ -886,6 +886,99 @@ describe('saying how far through a game you are', () => {
     // but the handful that bind it themselves the way out is a button.
     await app.choose('[data-action="close-status"]')
     await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close again')
+  })
+})
+
+/**
+ * The manual tab, which is a PDF drawn by the browser rather than by RomMix.
+ *
+ * Three things have to be true at once for a page of it to appear, and not one
+ * of them can be seen from a unit test: the viewer is a Chromium plugin and off
+ * unless `plugins` asks for it, the frame is a source the page's own CSP has to
+ * allow, and the bytes arrive over the authenticated protocol with a content
+ * type the viewer will accept. Any of the three wrong draws the same empty
+ * rectangle.
+ *
+ * What is asserted is therefore the frame's address and the request behind it.
+ * The page inside belongs to a plugin on an origin of its own, so nothing in
+ * this document can read it — see `manualPdf` in the fake, which is a real PDF
+ * for the half of this that only a person looking at a screenshot can judge.
+ */
+describe('reading the manual of a game', () => {
+  /** The manual RomM holds for the game these scenarios open. */
+  const manual = (): string => server.roms.find((one) => one.id === 2)?.path_manual ?? ''
+
+  /** Whether the server has been asked for a path yet, given a moment to be. */
+  const asked = async (path: string): Promise<boolean> => {
+    for (let tries = 0; tries < 100; tries += 1) {
+      if (server.asked.some((one) => one.path === path)) return true
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+    }
+    return false
+  }
+
+  /** The frame's address, which is the only thing that says which page it is on. */
+  const frameSrc = (): Promise<string> =>
+    app.read<string>(`document.querySelector('.manual__page')?.src ?? ''`)
+
+  test('the tab draws a frame pointed at the file on the server', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-tab="manual"]')
+
+    await app.waitFor(`document.querySelector('.manual__page')`, 'the manual')
+    const src = await frameSrc()
+    assert.ok(
+      src.includes(encodeURIComponent(manual())),
+      `the frame was pointed at ${JSON.stringify(src)}`
+    )
+    // Without this the viewer draws its own toolbar along the top: a row of
+    // small mouse targets on a screen driven with a pad.
+    assert.ok(src.endsWith('#toolbar=0&view=FitH&page=1'), `the frame asked for ${src}`)
+
+    // And the file was actually fetched, which is the half the address cannot
+    // say: a frame Chromium refused to load asks the main process for nothing,
+    // and the main process asks the server for nothing in turn. Waited for
+    // here rather than read once, because the frame fetches on its own time.
+    assert.ok(await asked(manual()), 'nothing ever asked the server for the manual')
+  })
+
+  test('and the two buttons under it turn the page', async () => {
+    // Page one, so there is nowhere back to go: a manual that opened on a page
+    // it could walk off the front of would be a manual with no first page.
+    assert.equal(
+      await app.read<string>(
+        `document.querySelector('[data-action="manual-previous"]').dataset.disabled`
+      ),
+      'true',
+      'the way back was open on the first page'
+    )
+
+    await app.choose('[data-action="manual-next"]')
+    await app.waitFor(
+      `document.querySelector('.manual__page').src.endsWith('page=2')`,
+      'the second page'
+    )
+
+    await app.choose('[data-action="manual-previous"]')
+    await app.waitFor(
+      `document.querySelector('.manual__page').src.endsWith('page=1')`,
+      'the first page again'
+    )
+  })
+
+  test('and a game the server has no manual for has no tab at all', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="3"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.waitFor(`document.querySelector('[data-tab="details"]')`, 'the tabs')
+
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-tab="manual"]'))`),
+      false,
+      'a game with no manual was given the tab anyway'
+    )
   })
 })
 

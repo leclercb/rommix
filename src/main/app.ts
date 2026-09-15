@@ -457,7 +457,10 @@ export class RomMixApp {
         // address space with the page.
         sandbox: true,
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        // Chromium's own PDF viewer, which is a plugin and off by default.
+        // It is what draws a game's manual — see `ManualTab`.
+        plugins: true
       }
     })
 

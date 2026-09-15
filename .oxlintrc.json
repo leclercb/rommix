@@ -85,6 +85,15 @@
       "rules": { "unicorn/require-module-specifiers": "off" }
     },
     {
+      // The frame here holds Chromium's own PDF viewer, reading a file that
+      // came over RomMix's authenticated protocol. A sandbox is what the rule
+      // asks for and what would take the feature away: the viewer is a plugin,
+      // and it refuses to load on the opaque origin a sandboxed frame is given
+      // — which draws an empty white rectangle and reports nothing anywhere.
+      "files": ["src/renderer/src/screens/Game/tabs/ManualTab.tsx"],
+      "rules": { "react/iframe-missing-sandbox": "off" }
+    },
+    {
       // The focus engine keeps a ref mirroring the focused id and reads it
       // during render on purpose: the alternative is re-registering every
       // focusable on every focus change, which is the cost the whole module is

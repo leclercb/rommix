@@ -6,13 +6,15 @@
  * and none of them knows anything about the screen around it: every one takes
  * the game, or the list it draws, and nothing else.
  *
- * Four are always there. Versions is the exception, drawn only for a game the
- * server holds more than one file of, because a tab that is empty for most of a
- * library reads as something missing rather than as something absent.
+ * Four are always there. Versions and Manual are the exceptions, drawn only for
+ * a game the server holds more than one file of, and for one it has a manual
+ * for, because a tab that is empty for most of a library reads as something
+ * missing rather than as something absent.
  */
 
 export { DetailsTab } from './DetailsTab'
 export { FilesTab } from './FilesTab'
+export { ManualTab } from './ManualTab'
 export { SavesTab, deleteScopeLabel, deleteScopesOf } from './SavesTab'
 export { ScreenshotsTab } from './ScreenshotsTab'
 export { VersionsTab } from './VersionsTab'

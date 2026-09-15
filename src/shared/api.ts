@@ -386,8 +386,13 @@ export interface RomMixBridge {
     /** Repoint RomMix's folder, copying the configuration across. Needs a restart. */
     setRoot(path: string): Promise<RootLocation>
     restart(): Promise<void>
-    /** Turn a RomM asset path into a URL the renderer can put in an <img>. */
-    imageUrl(path: string | null): string | null
+    /**
+     * Turn a RomM asset path into a URL the renderer can point at.
+     *
+     * Covers, screenshots and console icons go in an `<img>`; a game's manual is
+     * a PDF and goes in a frame. Both are the same authenticated protocol.
+     */
+    assetUrl(path: string | null): string | null
     toggleFullscreen(): Promise<boolean>
     quit(): Promise<void>
     /**

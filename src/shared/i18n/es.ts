@@ -494,6 +494,7 @@ export const es: Catalog = {
   'game.tabSaves': 'Partidas',
   'game.tabFiles': 'Archivos',
   'game.tabScreenshots': 'Capturas',
+  'game.tabManual': 'Manual',
   'game.tabVersions': 'Versiones',
   'game.revision': 'Rev. {revision}',
   'game.ratingOutOf': '/ 100',
@@ -674,6 +675,10 @@ export const es: Catalog = {
   'shots.previous': 'Captura anterior',
   'shots.next': 'Captura siguiente',
   'shots.position': '{index} de {total}',
+  'manual.previous': 'Página anterior',
+  'manual.next': 'Página siguiente',
+  'manual.missing': 'RomM no tiene manual para este juego.',
+  'manual.offline': 'El manual está en tu servidor. Vuelve en cuanto RomMix pueda conectarse.',
 
   // -- ajustes --------------------------------------------------------------
 

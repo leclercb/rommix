@@ -33,6 +33,7 @@ import {
   Layers,
   ClipboardList,
   BookMarked,
+  BookOpen,
   Bookmark,
   Plus,
   LayoutGrid,
@@ -178,6 +179,8 @@ export const ICONS = {
    * look like the row that closes a program.
    */
   powerOff: PowerOff,
+  /** The scanned manual a game shipped with. */
+  manual: BookOpen,
   screenshots: Images,
   /** This machine's own copy of something, as opposed to the server's. */
   device: HardDrive

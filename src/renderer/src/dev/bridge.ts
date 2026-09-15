@@ -90,6 +90,9 @@ const UNMATCHED: RommRom = {
   path_cover_large: null,
   url_cover: null,
   path_video: null,
+  has_manual: false,
+  path_manual: null,
+  url_manual: null,
   regions: [],
   languages: [],
   tags: [],
@@ -1023,7 +1026,7 @@ const bridge: RomMixBridge = {
      * icon set — resolves to null, so the app falls back to its platform badge
      * rather than drawing thirteen broken images.
      */
-    imageUrl: (path: string | null) => artFor(path),
+    assetUrl: (path: string | null) => artFor(path),
     toggleFullscreen: () => later(false),
     quit: () => refuse(),
     // Nothing to offer: a browser tab has no machine to put to sleep, and the

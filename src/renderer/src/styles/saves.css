@@ -179,6 +179,28 @@
 }
 
 /*
+ * The manual: the page, and the two buttons that turn it.
+ *
+ * As tall as the screen will allow and no taller, because the buttons under it
+ * have to stay on screen — a page that pushed them past the bottom edge would
+ * be a manual the pad can open and not turn. The frame carries the viewer's
+ * own ground rather than the theme's: what is inside it is a white page under
+ * a grey mat, and there is no theme in which that becomes something else.
+ */
+.manual {
+  margin: 16px 0 24px;
+}
+
+.manual__page {
+  display: block;
+  width: 100%;
+  height: 58vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+/*
  * The screenshot viewer: one picture, as large as the screen will show it.
  *
  * Darker than a dialog's backdrop and with nothing else on it — a picture is

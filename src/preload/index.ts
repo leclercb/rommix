@@ -149,7 +149,7 @@ const bridge: RomMixBridge = {
     restart: () => ipcRenderer.invoke('system:restart'),
     // Synchronous on purpose: it only builds a URL string, and <img src> needs
     // it during render.
-    imageUrl: (path: string | null) =>
+    assetUrl: (path: string | null) =>
       path ? `rommix-img://asset/?p=${encodeURIComponent(path)}` : null,
     toggleFullscreen: () => ipcRenderer.invoke('system:toggleFullscreen'),
     quit: () => ipcRenderer.invoke('system:quit'),

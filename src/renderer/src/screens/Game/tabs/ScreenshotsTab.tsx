@@ -55,7 +55,7 @@ function Shot({ path, onSelect }: { path: string; onSelect: () => void }): JSX.E
     >
       <img
         className="shot__image"
-        src={window.rommix.system.imageUrl(path) ?? undefined}
+        src={window.rommix.system.assetUrl(path) ?? undefined}
         alt=""
         loading="lazy"
       />
@@ -130,7 +130,7 @@ function ViewerFrame({
         ) : null}
         <img
           className="viewer__image"
-          src={window.rommix.system.imageUrl(shots[index]) ?? undefined}
+          src={window.rommix.system.assetUrl(shots[index]) ?? undefined}
           alt=""
         />
         {/* Where focus starts, so a set is walked with A alone. Next rather

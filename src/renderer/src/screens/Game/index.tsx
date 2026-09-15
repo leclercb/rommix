@@ -22,13 +22,13 @@ import {
   PushConfirmDialog,
   UninstallDialog
 } from './dialogs'
-import { DetailsTab, FilesTab, SavesTab, ScreenshotsTab, VersionsTab } from './tabs'
+import { DetailsTab, FilesTab, ManualTab, SavesTab, ScreenshotsTab, VersionsTab } from './tabs'
 import { useGameCopy } from './useGameCopy'
 import { useGameLaunch } from './useGameLaunch'
 import { useGameMarks } from './useGameMarks'
 import { useGameSaves } from './useGameSaves'
 
-type GameTab = 'details' | 'saves' | 'files' | 'screenshots' | 'versions'
+type GameTab = 'details' | 'saves' | 'files' | 'screenshots' | 'manual' | 'versions'
 
 /**
  * A single game: artwork, metadata, and the actions that matter — download it,
@@ -332,7 +332,9 @@ export function GameScreen({
    * list a dump is named in is not itself a promise that the dump has one. The
    * panel would otherwise be drawing a tab the strip above it does not show.
    */
-  const activeTab: GameTab = tab === 'versions' && versions.length === 0 ? 'details' : tab
+  const missingTab =
+    (tab === 'versions' && versions.length === 0) || (tab === 'manual' && !rom.has_manual)
+  const activeTab: GameTab = missingTab ? 'details' : tab
   /**
    * Whether the highlight belongs to the tab strip rather than to this screen's
    * own first action.
@@ -672,6 +674,12 @@ export function GameScreen({
               icon: 'screenshots',
               badge: rom.merged_screenshots?.length || undefined
             },
+            // Only for a game the server has one, on the same terms as
+            // Versions below: the tab is the whole of the feature, so a game
+            // with no manual is a game with no tab rather than an empty one.
+            ...(rom.has_manual
+              ? [{ id: 'manual' as const, label: t('game.tabManual'), icon: 'manual' as const }]
+              : []),
             // Only where there is more than one dump — see `tabs/index.ts`. The
             // count is every version including this one, which is the number
             // the grid's own tile carries.
@@ -695,6 +703,7 @@ export function GameScreen({
           ) : null}
           {activeTab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
           {activeTab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
+          {activeTab === 'manual' ? <ManualTab rom={rom} /> : null}
           {activeTab === 'versions' ? (
             <VersionsTab
               rom={rom}
