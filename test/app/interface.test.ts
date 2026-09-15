@@ -1072,23 +1072,37 @@ describe('reading the manual of a game', () => {
 
   /** The frame's address, which is the only thing that says which page it is on. */
   const frameSrc = (): Promise<string> =>
-    app.read<string>(`document.querySelector('.manual__page')?.src ?? ''`)
+    app.read<string>(`document.querySelector('.viewer__page')?.src ?? ''`)
 
-  test('the tab draws a frame pointed at the file on the server', async () => {
+  test('the tab is a row, and pressing it hands the manual the screen', async () => {
     await app.goTo('library')
     await app.choose('[data-rom="2"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
     await app.choose('[data-tab="manual"]')
 
-    await app.waitFor(`document.querySelector('.manual__page')`, 'the manual')
+    // A page inside the panel is a postcard under a banner and a strip of
+    // tabs, so the tab offers the manual rather than drawing it. See
+    // `ShotViewer`, which the viewer this opens is shaped after.
+    await app.waitFor(`document.querySelector('[data-action="read-manual"]')`, 'the row')
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('.viewer__page'))`),
+      false,
+      'the manual should not be drawn until it is asked for'
+    )
+
+    await app.choose('[data-action="read-manual"]')
+    await app.waitFor(`document.querySelector('.viewer__page')`, 'the manual')
+
     const src = await frameSrc()
     assert.ok(
       src.includes(encodeURIComponent(manual())),
       `the frame was pointed at ${JSON.stringify(src)}`
     )
-    // Without this the viewer draws its own toolbar along the top: a row of
-    // small mouse targets on a screen driven with a pad.
-    assert.ok(src.endsWith('#toolbar=0&view=FitH&page=1'), `the frame asked for ${src}`)
+    // Without these the viewer draws its own toolbar along the top — a row of
+    // small mouse targets on a screen driven with a pad — and fits the page to
+    // the width, which puts the rest of it behind a scrollbar nothing here can
+    // reach.
+    assert.ok(src.endsWith('#toolbar=0&view=Fit&page=1'), `the frame asked for ${src}`)
 
     // And the file was actually fetched, which is the half the address cannot
     // say: a frame Chromium refused to load asks the main process for nothing,
@@ -1097,7 +1111,7 @@ describe('reading the manual of a game', () => {
     assert.ok(await asked(manual()), 'nothing ever asked the server for the manual')
   })
 
-  test('and the two buttons under it turn the page', async () => {
+  test('and the two buttons beside it turn the page', async () => {
     // Page one, so there is nowhere back to go: a manual that opened on a page
     // it could walk off the front of would be a manual with no first page.
     assert.equal(
@@ -1110,15 +1124,24 @@ describe('reading the manual of a game', () => {
 
     await app.choose('[data-action="manual-next"]')
     await app.waitFor(
-      `document.querySelector('.manual__page').src.endsWith('page=2')`,
+      `document.querySelector('.viewer__page').src.endsWith('page=2')`,
       'the second page'
     )
 
     await app.choose('[data-action="manual-previous"]')
     await app.waitFor(
-      `document.querySelector('.manual__page').src.endsWith('page=1')`,
+      `document.querySelector('.viewer__page').src.endsWith('page=1')`,
       'the first page again'
     )
+  })
+
+  test('and B puts the page down, leaving the game where it was', async () => {
+    // The same button that leaves a screenshot, on a layer of its own — and
+    // not the one that leaves the game screen, which is still what B means
+    // once the manual is closed.
+    await app.press('Escape')
+    await app.waitFor(`!document.querySelector('.viewer__page')`, 'the manual to close')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen still')
   })
 
   test('and a game the server has no manual for has no tab at all', async () => {

@@ -690,6 +690,7 @@ export const en = {
   'shots.position': '{index} of {total}',
   'manual.previous': 'Previous page',
   'manual.next': 'Next page',
+  'manual.read': 'Read',
   'manual.missing': 'RomM has no manual for this game.',
   'manual.offline': 'The manual is on your server. It comes back when RomMix can reach it again.',
   'achievements.progress': '{earned} of {total} earned · {points} of {totalPoints} points',

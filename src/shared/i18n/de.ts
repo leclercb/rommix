@@ -696,6 +696,7 @@ export const de: Catalog = {
   'shots.position': '{index} von {total}',
   'manual.previous': 'Vorherige Seite',
   'manual.next': 'Nächste Seite',
+  'manual.read': 'Lesen',
   'manual.missing': 'RomM hat kein Handbuch für dieses Spiel.',
   'manual.offline':
     'Das Handbuch liegt auf Ihrem Server. Es ist wieder da, sobald RomMix ihn erreicht.',

@@ -689,6 +689,7 @@ export const fr: Catalog = {
   'shots.position': '{index} sur {total}',
   'manual.previous': 'Page précédente',
   'manual.next': 'Page suivante',
+  'manual.read': 'Lire',
   'manual.missing': 'RomM n’a pas de manuel pour ce jeu.',
   'manual.offline': 'Le manuel est sur votre serveur. Il revient dès que RomMix peut le joindre.',
   'achievements.progress': '{earned} sur {total} obtenus · {points} points sur {totalPoints}',

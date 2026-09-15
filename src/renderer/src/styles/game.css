@@ -311,13 +311,214 @@
 }
 
 /* The arrows flank the picture rather than sit under it, so Left and Right find
-   them where the movement they make is going. */
+   them where the movement they make is going.
+
+   Given the height the bar below does not want, and its contents centred in it:
+   a picture brings its own size and would be centred anyway, but a page of a
+   manual is a frame, and a frame has no size of its own to be laid out by. */
 .viewer__frame {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   min-height: 0;
   width: 100%;
+}
+
+/*
+ * A page of a manual, which is a frame rather than a picture and so has no size
+ * of its own: the viewer inside fits the page to whatever box it is given.
+ *
+ * Narrowed towards the shape of a page, because a box the width of a television
+ * leaves a portrait manual as a strip of paper in a field of the viewer's own
+ * grey. It is not fitted to the millimetre — the viewer keeps a scrollbar and
+ * its own continuous flow, so the foot of the frame can show the top of the
+ * next page — and that is the price of reading a PDF in the viewer the browser
+ * brought rather than writing one.
+ */
+.viewer__page {
+  flex: 0 1 auto;
+  align-self: stretch;
+  width: min(100%, 62vh);
+  height: 100%;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+/* Contained, and the one thing on screen allowed to set its own shape. */
+.viewer__image {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+.viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.viewer__count {
+  font-size: calc(15px * var(--type-scale));
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The achievements of a game: a badge, what it is for, and what it is worth.
+ *
+ * One column of wide rows rather than a grid of badges. The description is the
+ * part that is actually read — half of them are the only clue about what to do
+ * next — and a grid would put it under a picture in a column three words wide.
+ *
+ * Which of the two a row is is said by the mark at its end, not by how hard the
+ * row is drawn: a dimmed row reads as a row that is not ready yet, and the two
+ * badges RetroAchievements draws for an achievement are the same picture twice
+ * to anyone who has not seen the set before. The earned row still sits on a
+ * stronger ground, which is what makes the set readable as a column — but
+ * nothing here is legible only because of it.
+ */
+/* The line about where these are actually earned: quieter than the score above
+   it, which is what the tab is for, and above the list rather than under it —
+   at the foot of forty rows it would be read by nobody. */
+.achievements__note {
+  margin: -6px 0 0;
+  color: var(--text-faint);
+}
+
+.achievements {
+  list-style: none;
+  margin: 16px 0 24px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.achievement {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.achievement[data-earned='true'] {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+/* The highlight, which here is a reading position rather than a thing about to
+   be pressed: the ring, without the lift a control gets. */
+.achievement[data-focused='true'] {
+  box-shadow: var(--focus-ring);
+}
+
+/* The badge of one not earned yet, which RetroAchievements draws in grey
+   already. Held back a little further so the column reads at a glance, and not
+   so far that the picture stops being a picture — the word beside it is what
+   actually says which this is. */
+.achievement[data-earned='false'] .achievement__badge {
+  opacity: 0.6;
+}
+
+.achievement__badge {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--bg-raised);
+}
+
+/* The stand-in for a badge RomM has not fetched yet, which has to hold the same
+   square so a list half way through arriving does not jump about as it fills. */
+.achievement__badge--none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.achievement__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.achievement__title {
+  font-weight: 600;
+}
+
+.achievement__description {
+  color: var(--text-dim);
+}
+
+/* Right of the row and never wrapping: it is a number, and a column of them
+   read down the edge is how a set is judged at a glance. */
+.achievement__points {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/*
+ * The screenshot viewer: one picture, as large as the screen will show it.
+ *
+ * Darker than a dialog's backdrop and with nothing else on it — a picture is
+ * judged against what surrounds it, and a panel with a title above it would be
+ * the brightest thing in the room.
+ */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-sunken) 94%, transparent);
+  padding: var(--safe-y) var(--safe-x);
+}
+
+/* The arrows flank the picture rather than sit under it, so Left and Right find
+   them where the movement they make is going.
+
+   Given the height the bar below does not want, and its contents centred in it:
+   a picture brings its own size and would be centred anyway, but a page of a
+   manual is a frame, and a frame has no size of its own to be laid out by. */
+.viewer__frame {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 0;
+  width: 100%;
+}
+
+/*
+ * A page of a manual, which is a frame rather than a picture and so cannot be
+ * sized by what is inside it: the viewer within fits the page to whatever box
+ * it is given. Narrowed towards a page's own proportions so that a portrait
+ * manual — which is most of them — fills the box instead of sitting as a strip
+ * of paper in a grey field. A landscape scan still arrives whole, just smaller.
+ */
+.viewer__page {
+  flex: 0 1 auto;
+  width: min(100%, 62vh);
+  height: 100%;
+  align-self: stretch;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
 }
 
 /* Contained, and the one thing on screen allowed to set its own shape. */
@@ -446,9 +647,11 @@
  *
  * As tall as the screen will allow and no taller, because the buttons under it
  * have to stay on screen — a page that pushed them past the bottom edge would
- * be a manual the pad can open and not turn. The frame carries the viewer's
- * own ground rather than the theme's: what is inside it is a white page under
- * a grey mat, and there is no theme in which that becomes something else.
+ * be a manual the pad can open and not turn. The page inside is fitted whole to
+ * this box rather than to its width, so the height here is what decides how
+ * large a manual is read at. The frame carries the viewer's own ground rather
+ * than the theme's: what is inside it is a white page under a grey mat, and
+ * there is no theme in which that becomes something else.
  */
 .manual {
   margin: 16px 0 24px;
@@ -456,8 +659,17 @@
 
 .manual__page {
   display: block;
-  width: 100%;
-  height: 58vh;
+  /*
+   * Narrowed towards the shape of a page and centred, because the viewer mats
+   * whatever it cannot fill: a portrait manual in a frame the width of the
+   * panel is a strip of paper down the middle of a grey field, and the paper is
+   * the part being read. The cap is a page's own proportions at this height, so
+   * a portrait scan fills the box; a landscape one still arrives whole, just
+   * smaller, which is the trade worth making for how manuals actually come.
+   */
+  width: min(100%, 56vh);
+  margin: 0 auto;
+  height: 70vh;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-sunken);
