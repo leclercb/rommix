@@ -710,6 +710,15 @@ export async function startApp(options: StartOptions): Promise<App> {
    * Read from the page rather than worked out here, because only the page knows
    * where anything is: the layout depends on the window, and the window depends
    * on the machine the suite is running on.
+   *
+   * Scrolled to first, which is the half a pointer cannot do for itself. A
+   * dialog whose list is longer than it is tall keeps the rest of it below the
+   * panel, and a row down there has coordinates that are real, outside the
+   * panel, and under something else entirely — so the event lands on whatever
+   * is at that place and the thing asked for is never touched. The pad walks
+   * and the panel follows; a mouse is given the same by being pointed at
+   * something in view. Centred rather than nudged to the nearest edge, so what
+   * is aimed at is clear of both sticky ends of the panel.
    */
   const centreOf = async (
     selector: string
@@ -720,7 +729,9 @@ export async function startApp(options: StartOptions): Promise<App> {
     )
     const at = await read<{ x: number; y: number; edgeX: number; edgeY: number } | null>(
       `(() => {
-         const box = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect()
+         const target = document.querySelector(${JSON.stringify(selector)})
+         target?.scrollIntoView({ block: 'center', inline: 'nearest' })
+         const box = target?.getBoundingClientRect()
          return box
            ? {
                x: box.left + box.width / 2,
