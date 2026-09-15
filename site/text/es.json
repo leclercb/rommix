@@ -46,6 +46,7 @@
   "features.marks": "Favoritos, progreso y tiempo de juego guardados en RomM",
   "features.offline": "Modo sin conexión — juega a lo descargado sin internet",
   "features.resume": "Descargas y partidas pendientes se reanudan al volver a estar en línea",
+  "features.manual": "El manual del juego, leído en pantalla",
   "features.bios": "El BIOS instalado desde tu propio servidor",
   "features.emulators": "Emuladores que RomMix instala y asigna",
   "features.preflight": "Una comprobación previa que encuentra problemas antes de jugar",
