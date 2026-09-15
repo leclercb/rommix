@@ -177,6 +177,17 @@ export class ConnectionWatch {
     }
   ) {}
 
+  /**
+   * The last answer, without asking for another.
+   *
+   * For a caller that needs a fact from it — who is signed in — rather than a
+   * fresh verdict on the connection: asking again would be a round trip to
+   * learn what was already known a moment ago.
+   */
+  get current(): ConnectionStatus | null {
+    return this.last
+  }
+
   /** The current answer, announced if it differs from the last one. */
   async refresh(): Promise<ConnectionStatus> {
     const next = await this.read()

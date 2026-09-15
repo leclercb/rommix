@@ -287,6 +287,12 @@ const HLTB_MAIN_STORY = 9 * 3600
  */
 const RA_GAME = 900
 
+/**
+ * And which RomM game that is: the one the launch scenarios actually play, so
+ * that what a session does about achievements can be watched from here.
+ */
+const RA_ROM = 2
+
 /** The achievements it has, and the one the user has already earned. */
 const RA_ACHIEVEMENTS = [
   { ra_id: 11, title: 'First steps', points: 5, order: 0 },
@@ -446,11 +452,11 @@ function rom(
     path_video: null,
     // Seconds, the unit HowLongToBeat answers in. See `HLTB_ROM`.
     hltb_metadata: id === HLTB_ROM ? { main_story: HLTB_MAIN_STORY } : null,
-    // The same one game, for the same reason: the tab has to be absent
-    // somewhere for its absence to be worth asserting. See `RA_GAME`.
-    ra_id: id === HLTB_ROM ? RA_GAME : null,
+    // One game, for the same reason the figure above is on one: the tab has to
+    // be absent somewhere for its absence to be worth asserting. See `RA_ROM`.
+    ra_id: id === RA_ROM ? RA_GAME : null,
     merged_ra_metadata:
-      id === HLTB_ROM
+      id === RA_ROM
         ? {
             achievements: RA_ACHIEVEMENTS.map((one) => ({
               ra_id: one.ra_id,

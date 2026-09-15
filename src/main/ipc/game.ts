@@ -1,9 +1,10 @@
 import { localize } from '@shared/i18n'
-import type { LaunchChoice, LaunchResult } from '@shared/types'
+import type { LaunchChoice, LaunchResult, RommRom } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { i18n, t } from '../i18n.ts'
 import { log } from '../log.ts'
 import { RommError } from '../romm/index.ts'
+import { shouldRefreshAchievements } from '../retroachievements.ts'
 import { launchContext, launcherKey, launchOptions, romFor } from './context.ts'
 import type { Handle } from './handler.ts'
 
@@ -75,7 +76,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
 
     rommix.send('running:state', { running: true, romId, stage: null })
     try {
-      return await launcher.launch({
+      const result = await launcher.launch({
         rom,
         // Never `installed.path`: for a multi-file game that is the directory,
         // and an emulator can only be given a file.
@@ -88,6 +89,9 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
         // game is up.
         onStage: (stage) => rommix.send('running:state', { running: true, romId, stage })
       })
+
+      await refreshAchievements(rommix, rom)
+      return result
     } finally {
       rommix.send('running:state', { running: false, romId: null, stage: null })
     }
@@ -102,4 +106,34 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
     log.warn('game', 'force close requested from the interface')
     launcher.stop(true)
   })
+}
+
+/**
+ * Have RomM look at RetroAchievements again, now that a session has ended.
+ *
+ * Here rather than in `Launcher`, which accounts for the session itself and
+ * knows nothing about who is signed in — and the answer has to reach the
+ * screen, which is this side of the bridge.
+ *
+ * The new status is pushed rather than left for the watch to find: `settle`
+ * announces a change of *shape* — connected, offline, configured — and what
+ * changed here is inside a status that still says exactly what it said before.
+ *
+ * Best effort throughout, like the play session it follows. Nothing here is
+ * worth failing a launch that has already happened over, and a server that
+ * refused is a tab that is as right as it was a minute ago.
+ */
+async function refreshAchievements(rommix: RomMixApp, rom: RommRom): Promise<void> {
+  const user = rommix.connection.current?.user ?? null
+  if (!user || !shouldRefreshAchievements(rom, user)) return
+
+  try {
+    await rommix.client.refreshAchievements(user.id)
+    rommix.send('server:status', await rommix.connection.refresh())
+  } catch (cause) {
+    log.warn('game', 'could not refresh RetroAchievements', {
+      romId: rom.id,
+      reason: (cause as Error).message
+    })
+  }
 }

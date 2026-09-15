@@ -138,9 +138,23 @@ describe('a game its emulator has more than one way to run', () => {
     )
   })
 
-  test('and Run with is the way back to it', async () => {
+  test('and the session ends with RomM told to look at RetroAchievements again', async () => {
     await app.waitFor(`!document.querySelector('.curtain')`, 'the session to end', 20_000)
 
+    // The emulator is what earns an achievement and RomM is what fetches it,
+    // so this request is the only thing that puts what just happened on the
+    // game's page. Asserted from the server's side because nothing on screen
+    // says it, and skipped entirely for a game with no achievements — see
+    // `shouldRefreshAchievements`, which is where that half is pinned.
+    assert.ok(
+      server.asked.some(
+        (one) => one.method === 'POST' && one.path.endsWith('/api/users/1/ra/refresh')
+      ),
+      'a session on a game with achievements should refresh them'
+    )
+  })
+
+  test('and Run with is the way back to it', async () => {
     // Without this button an answer given once could only be changed by
     // editing the settings file, which is not a thing to do from a sofa.
     await app.choose('[data-action="run-with"]')

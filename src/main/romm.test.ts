@@ -1127,6 +1127,29 @@ describe('reporting play time', () => {
   })
 })
 
+describe('RetroAchievements', () => {
+  test('the refresh names the user whose progress is being fetched', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json({}))
+
+    await new RommClient(store).refreshAchievements(7)
+
+    assert.equal(sent[0].method, 'POST')
+    assert.ok(sent[0].url.endsWith('/api/users/7/ra/refresh'), `it asked ${sent[0].url}`)
+  })
+
+  test('and a server that refuses says so, for the caller to shrug off', async () => {
+    // The caller is a session that has already happened — see the handler in
+    // `ipc/game.ts`, which logs this and carries on. What must not happen is
+    // the refusal passing for success, which would be a screen quietly one
+    // session out of date for ever.
+    const { store } = fakeStore()
+    serve(() => json({ detail: 'no' }, 500))
+
+    await assert.rejects(() => new RommClient(store).refreshAchievements(7))
+  })
+})
+
 describe('asking the server what it can do before a transfer', () => {
   const multi = {
     id: 5,

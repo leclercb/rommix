@@ -903,7 +903,7 @@ describe('saying how far through a game you are', () => {
 describe('the achievements of a game', () => {
   test('the tab draws the set, marking the one already earned', async () => {
     await app.goTo('library')
-    await app.choose('[data-rom="1"]')
+    await app.choose('[data-rom="2"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
     await app.choose('[data-tab="achievements"]')
 
@@ -938,7 +938,7 @@ describe('the achievements of a game', () => {
 
   test('and a game it does not cover has no tab at all', async () => {
     await app.goTo('library')
-    await app.choose('[data-rom="2"]')
+    await app.choose('[data-rom="3"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
     await app.waitFor(`document.querySelector('[data-tab="details"]')`, 'the tabs')
 

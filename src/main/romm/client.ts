@@ -1354,6 +1354,25 @@ export class RommClient {
   }
 
   /**
+   * POST /api/users/{id}/ra/refresh — have RomM read this user's
+   * RetroAchievements progress again.
+   *
+   * RomM is what talks to RetroAchievements: it holds the key, and the score
+   * RomMix draws is whatever it last fetched. Without this the tab is right on
+   * whatever schedule the server keeps, which means a session that earned
+   * something shows nothing when the page is opened a minute later.
+   *
+   * Sent after a session and only where it can change anything — see
+   * `shouldRefreshAchievements`. The answer is not read: what it says is that
+   * RomM has been told, and what was fetched arrives with the next `me`.
+   */
+  async refreshAchievements(userId: number): Promise<void> {
+    log.info('romm', 'asking the server to refresh RetroAchievements', { userId })
+    const res = await this.request(`/api/users/${userId}/ra/refresh`, { method: 'POST' })
+    if (!res.ok) throw await this.toError(res)
+  }
+
+  /**
    * GET /api/play-sessions — how long this game has been played, in seconds.
    *
    * Added up here because RomM keeps the sessions and not the total: every
