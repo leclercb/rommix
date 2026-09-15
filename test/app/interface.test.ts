@@ -1342,12 +1342,24 @@ describe('the theme the interface is drawn in', () => {
     await app.choose('[data-action="theme"]')
     await app.waitFor(`document.querySelector('[data-choice="gameboy"]')`, 'the themes')
 
+    const ground = await app.read<string>(`getComputedStyle(document.body).backgroundColor`)
+
     // The pointer moves the highlight without pressing anything, which is
     // exactly what the preview hangs on — see `Choice`.
     await app.hover('[data-choice="gameboy"]')
     await app.waitFor(
       `document.documentElement.dataset.theme === 'gameboy'`,
       'the screen behind the dialog to be drawn in the theme under the highlight'
+    )
+
+    // And that the palette behind the attribute arrived with it. `npm test`
+    // reads the stylesheets off the disk, where a folder nothing imports into
+    // the page looks exactly like one that is loaded — so the ground is read
+    // before and after, and the claim is that it moved rather than what it
+    // moved to. The colour is the theme file's to tune.
+    await app.waitFor(
+      `getComputedStyle(document.body).backgroundColor !== ${JSON.stringify(ground)}`,
+      'the palette under the attribute, not only the attribute'
     )
 
     assert.equal(
