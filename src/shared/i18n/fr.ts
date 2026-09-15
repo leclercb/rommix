@@ -499,6 +499,7 @@ export const fr: Catalog = {
   'game.tabFiles': 'Fichiers',
   'game.tabScreenshots': 'Captures',
   'game.tabManual': 'Manuel',
+  'game.tabAchievements': 'Succès',
   'game.tabVersions': 'Versions',
   'game.revision': 'Rév. {revision}',
   'game.ratingOutOf': '/ 100',
@@ -687,6 +688,16 @@ export const fr: Catalog = {
   'manual.next': 'Page suivante',
   'manual.missing': 'RomM n’a pas de manuel pour ce jeu.',
   'manual.offline': 'Le manuel est sur votre serveur. Il revient dès que RomMix peut le joindre.',
+  'achievements.progress': '{earned} sur {total} obtenus · {points} points sur {totalPoints}',
+  'achievements.notLinked':
+    'Ajoutez votre nom RetroAchievements à votre compte RomM pour voir vos succès.',
+  'achievements.earnedIn':
+    'Les succès s’obtiennent dans {emulator}, qui doit être connecté à RetroAchievements.',
+  'achievements.earnedInEmulator':
+    'Les succès s’obtiennent dans l’émulateur, qui doit être connecté à RetroAchievements.',
+  'achievements.empty': 'RetroAchievements n’a rien pour ce jeu.',
+  'achievements.points_one': '{count} point',
+  'achievements.points_other': '{count} points',
 
   // -- réglages -------------------------------------------------------------
 

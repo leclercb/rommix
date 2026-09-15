@@ -53,6 +53,7 @@
   "features.offline": "Offline mode — play downloaded games with no connection",
   "features.resume": "Downloads and unsent saves resume when you are back online",
   "features.manual": "The game's manual, read on screen",
+  "features.achievements": "RetroAchievements a game has, and the ones you have earned",
   "features.bios": "BIOS files installed from your own server",
   "features.emulators": "Emulators installed and assigned by RomMix",
   "features.preflight": "A pre-flight check that finds problems before you play",

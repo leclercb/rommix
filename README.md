@@ -56,6 +56,7 @@ Demo: https://leclercb.github.io/rommix/demo/
   details, screenshots and Play all still work
 - 🔁 Downloads and unsent saves resume when you are back online
 - 📖 The manual RomM holds for a game, read on screen and turned with the pad
+- 🏆 RetroAchievements a game has, and which of them you have earned
 - 🧩 BIOS files installed from your own server
 - 🎛️ Emulators installed and assigned by RomMix, changeable per platform
 - 📱 Sign in by scanning a code with your phone
@@ -189,8 +190,11 @@ quit to.
 - **Emulators** — what is installed, and which one runs each platform (below).
 - **A game's page** — download, play, uninstall, favourite it, say how far
   through it you are, put it in a collection, and its tabs: **Details**,
-  **Saves**, **Files**, **Screenshots**, and **Manual** where RomM has one —
-  upload it to RomM and it is read here, a page at a time.
+  **Saves**, **Files**, **Screenshots**, **Manual** where RomM has one — upload
+  it to RomM and it is read here, a page at a time — and **Achievements** where
+  RetroAchievements covers the game. Achievements are earned in the emulator,
+  under your own RetroAchievements login; RomMix only shows what RomM has
+  fetched against the name on your RomM account.
   Where an emulator offers more than one way to run a platform, RomMix asks once
   and remembers; **Run with…** changes the answer.
 

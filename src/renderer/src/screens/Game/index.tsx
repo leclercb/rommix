@@ -22,13 +22,22 @@ import {
   PushConfirmDialog,
   UninstallDialog
 } from './dialogs'
-import { DetailsTab, FilesTab, ManualTab, SavesTab, ScreenshotsTab, VersionsTab } from './tabs'
+import {
+  AchievementsTab,
+  DetailsTab,
+  FilesTab,
+  ManualTab,
+  SavesTab,
+  ScreenshotsTab,
+  VersionsTab
+} from './tabs'
 import { useGameCopy } from './useGameCopy'
 import { useGameLaunch } from './useGameLaunch'
 import { useGameMarks } from './useGameMarks'
 import { useGameSaves } from './useGameSaves'
 
-type GameTab = 'details' | 'saves' | 'files' | 'screenshots' | 'manual' | 'versions'
+type GameTab =
+  'details' | 'saves' | 'files' | 'screenshots' | 'manual' | 'achievements' | 'versions'
 
 /**
  * A single game: artwork, metadata, and the actions that matter — download it,
@@ -348,8 +357,11 @@ export function GameScreen({
    * list a dump is named in is not itself a promise that the dump has one. The
    * panel would otherwise be drawing a tab the strip above it does not show.
    */
+  const achievements = rom.merged_ra_metadata?.achievements ?? []
   const missingTab =
-    (tab === 'versions' && versions.length === 0) || (tab === 'manual' && !rom.has_manual)
+    (tab === 'versions' && versions.length === 0) ||
+    (tab === 'manual' && !rom.has_manual) ||
+    (tab === 'achievements' && achievements.length === 0)
   const activeTab: GameTab = missingTab ? 'details' : tab
   /**
    * Whether the highlight belongs to the tab strip rather than to this screen's
@@ -696,6 +708,19 @@ export function GameScreen({
             ...(rom.has_manual
               ? [{ id: 'manual' as const, label: t('game.tabManual'), icon: 'manual' as const }]
               : []),
+            // Only for a game RetroAchievements covers. The badge is how many
+            // there are rather than how many are earned: the count beside a
+            // tab is what it holds, and the score is the tab's own first line.
+            ...(achievements.length > 0
+              ? [
+                  {
+                    id: 'achievements' as const,
+                    label: t('game.tabAchievements'),
+                    icon: 'achievement' as const,
+                    badge: achievements.length
+                  }
+                ]
+              : []),
             // Only where there is more than one dump — see `tabs/index.ts`. The
             // count is every version including this one, which is the number
             // the grid's own tile carries.
@@ -720,6 +745,7 @@ export function GameScreen({
           {activeTab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
           {activeTab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
           {activeTab === 'manual' ? <ManualTab rom={rom} /> : null}
+          {activeTab === 'achievements' ? <AchievementsTab rom={rom} entry={entry} /> : null}
           {activeTab === 'versions' ? (
             <VersionsTab
               rom={rom}

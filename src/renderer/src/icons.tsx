@@ -62,6 +62,7 @@ import {
   Tag,
   Tags,
   Trash2,
+  Trophy,
   Upload,
   Users
 } from 'lucide-react'
@@ -181,6 +182,8 @@ export const ICONS = {
   powerOff: PowerOff,
   /** The scanned manual a game shipped with. */
   manual: BookOpen,
+  /** One of a game's RetroAchievements. */
+  achievement: Trophy,
   screenshots: Images,
   /** This machine's own copy of something, as opposed to the server's. */
   device: HardDrive

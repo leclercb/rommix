@@ -73,6 +73,83 @@ export interface RommUser {
   role: string
   oauth_scopes: string[]
   avatar_path: string
+
+  /**
+   * The RetroAchievements account this RomM user is linked to, and what it has
+   * earned — both of them the server's, set up on RomM and never here.
+   *
+   * RomMix has no way to earn an achievement and no business holding anybody's
+   * RA password: the emulator is what talks to RetroAchievements, and this is
+   * the score RomM has already fetched on the user's behalf. Null for a RomM
+   * account with no RA name against it, which is most of them.
+   */
+  ra_username: string | null
+  ra_progression: RommRaProgression | null
+}
+
+/** `RAProgression` — every game this user has RetroAchievements progress in. */
+export interface RommRaProgression {
+  total: number
+  results: RommRaGameProgression[]
+}
+
+/**
+ * `RAUserGameProgression` — what one user has earned in one game.
+ *
+ * Keyed by the game's RetroAchievements id rather than RomM's, which is what
+ * `RommRom.ra_id` is declared for: the two numbering systems are unrelated, and
+ * this list arrives with the user rather than with the game.
+ */
+export interface RommRaGameProgression {
+  rom_ra_id: number | null
+  max_possible: number | null
+  num_awarded: number | null
+  num_awarded_hardcore: number | null
+  earned_achievements: RommRaEarned[]
+}
+
+/**
+ * `EarnedAchievement` — one the user has, and when.
+ *
+ * The id is a string here and a number on the achievement it refers to, which
+ * is RomM's shape rather than a mistake — see `achievementsEarned`, where the
+ * two are brought together.
+ */
+export interface RommRaEarned {
+  id: string
+  date: string
+  date_hardcore: string
+}
+
+/**
+ * `RomRAMetadata` — what RetroAchievements has for a game.
+ *
+ * Only the achievements. The genres and companies beside them are a fourth
+ * opinion about facts `metadatum` already merges from every provider.
+ */
+export interface RommRomRa {
+  achievements: RommRaAchievement[]
+}
+
+/**
+ * `RAGameRomAchievement` — one achievement of a game.
+ *
+ * Two badges: the one for having it and the one for not. Both are paths on the
+ * RomM server, served like any other asset — the `badge_url` pair beside them
+ * points at RetroAchievements' own host, which the renderer cannot reach and
+ * its own CSP would refuse anyway.
+ *
+ * Every field is nullable in RomM's schema, this being scraped data about a
+ * third party's database.
+ */
+export interface RommRaAchievement {
+  ra_id: number | null
+  title: string | null
+  description: string | null
+  points: number | null
+  badge_path: string | null
+  badge_path_lock: string | null
+  display_order: number | null
 }
 
 /** GET /api/platforms (`PlatformSchema`). */
@@ -241,6 +318,9 @@ export interface RommRom {
 
   metadatum: RommRomMetadata
   hltb_metadata: RommRomHltb | null
+  /** This game on RetroAchievements, which is what `ra_progression` is keyed by. */
+  ra_id: number | null
+  merged_ra_metadata: RommRomRa | null
   rom_user: RommRomUser
   files: RommRomFile[]
   merged_screenshots: string[]

@@ -94,6 +94,8 @@ const UNMATCHED: RommRom = {
   path_manual: null,
   url_manual: null,
   hltb_metadata: null,
+  ra_id: null,
+  merged_ra_metadata: null,
   regions: [],
   languages: [],
   tags: [],
@@ -722,7 +724,11 @@ const bridge: RomMixBridge = {
           enabled: true,
           role: 'admin',
           oauth_scopes: [],
-          avatar_path: ''
+          avatar_path: '',
+          // Not linked, like most RomM accounts: the preview shows what a
+          // game has rather than what anybody has earned.
+          ra_username: null,
+          ra_progression: null
         },
         serverVersion: '5.1.0 (preview)',
         error: null

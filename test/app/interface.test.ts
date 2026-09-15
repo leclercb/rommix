@@ -890,6 +890,67 @@ describe('saying how far through a game you are', () => {
 })
 
 /**
+ * The achievements of a game, which come from two answers and one account.
+ *
+ * The set belongs to the game and the earned half belongs to the user, and
+ * RomMix joins them — `achievements.test.ts` is where that join is pinned,
+ * because every way it can be wrong draws the same page of locked badges.
+ * What is left for here is the part that has to cross the bridge: the tab
+ * exists for a game RetroAchievements covers, its badges are fetched through
+ * the authenticated protocol like any other picture, and the row the user has
+ * earned is the one drawn as earned.
+ */
+describe('the achievements of a game', () => {
+  test('the tab draws the set, marking the one already earned', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.choose('[data-tab="achievements"]')
+
+    await app.waitFor(`document.querySelector('.achievement')`, 'the achievements')
+    assert.deepEqual(
+      await app.read<string[]>(
+        `[...document.querySelectorAll('.achievement')].map((one) => one.dataset.earned)`
+      ),
+      ['true', 'false', 'false'],
+      'the earned achievement is the first of the set the fake holds'
+    )
+  })
+
+  test('and says where they are actually earned, RomMix not being what earns them', async () => {
+    // Generic here: this game is not on the disk, so no emulator has been
+    // settled for it. The named version is the same line with the emulator in
+    // it — see `AchievementsTab`.
+    assert.equal(
+      await app.read<string | null>(`document.querySelector('.achievements__note')?.textContent`),
+      en['achievements.earnedInEmulator']
+    )
+  })
+
+  test('and the badges arrive as pictures rather than as broken paths', async () => {
+    // Through `rommix-img://` like a cover: RetroAchievements' own host is
+    // named in the same payload and is exactly what the renderer cannot ask.
+    await app.waitFor(
+      `[...document.querySelectorAll('.achievement__badge')].every((one) => one.naturalWidth > 0)`,
+      'every badge to decode'
+    )
+  })
+
+  test('and a game it does not cover has no tab at all', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.waitFor(`document.querySelector('[data-tab="details"]')`, 'the tabs')
+
+    assert.equal(
+      await app.read<boolean>(`Boolean(document.querySelector('[data-tab="achievements"]'))`),
+      false,
+      'a game RetroAchievements has nothing for was given the tab anyway'
+    )
+  })
+})
+
+/**
  * How long a game has taken, which is two numbers from two places.
  *
  * The time played is added up from the sessions RomM holds — every device's,

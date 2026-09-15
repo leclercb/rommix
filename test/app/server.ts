@@ -281,6 +281,26 @@ function shotPath(romId: number, index: number): string {
 const HLTB_MAIN_STORY = 9 * 3600
 
 /**
+ * The game RetroAchievements covers, by its id there rather than RomM's — the
+ * two are unrelated, and a fake that used one number for both would let a
+ * screen matching on the wrong one pass.
+ */
+const RA_GAME = 900
+
+/** The achievements it has, and the one the user has already earned. */
+const RA_ACHIEVEMENTS = [
+  { ra_id: 11, title: 'First steps', points: 5, order: 0 },
+  { ra_id: 12, title: 'Half way', points: 10, order: 1 },
+  { ra_id: 13, title: 'All the way', points: 25, order: 2 }
+]
+const RA_EARNED = '11'
+
+/** Where a badge lives, which is an asset path like any other. */
+function badgePath(achievementId: number, locked: boolean): string {
+  return `/assets/romm/resources/ra/${achievementId}${locked ? '-lock' : ''}.png`
+}
+
+/**
  * The one game the fake has that figure for.
  *
  * One rather than all of them, because the Details tab is as much about the
@@ -426,6 +446,29 @@ function rom(
     path_video: null,
     // Seconds, the unit HowLongToBeat answers in. See `HLTB_ROM`.
     hltb_metadata: id === HLTB_ROM ? { main_story: HLTB_MAIN_STORY } : null,
+    // The same one game, for the same reason: the tab has to be absent
+    // somewhere for its absence to be worth asserting. See `RA_GAME`.
+    ra_id: id === HLTB_ROM ? RA_GAME : null,
+    merged_ra_metadata:
+      id === HLTB_ROM
+        ? {
+            achievements: RA_ACHIEVEMENTS.map((one) => ({
+              ra_id: one.ra_id,
+              title: one.title,
+              description: `${one.title}, as the fake RomM tells it`,
+              points: one.points,
+              num_awarded: 100,
+              num_awarded_hardcore: 10,
+              badge_id: String(one.ra_id),
+              badge_url: null,
+              badge_url_lock: null,
+              badge_path: badgePath(one.ra_id, false),
+              badge_path_lock: badgePath(one.ra_id, true),
+              display_order: one.order,
+              type: null
+            }))
+          }
+        : null,
     // On whatever has artwork, so a library has games with a manual and games
     // without — the tab is drawn for one and not the other.
     has_manual: art,
@@ -557,7 +600,26 @@ const user: RommUser = {
   enabled: true,
   role: 'admin',
   oauth_scopes: [],
-  avatar_path: ''
+  avatar_path: '',
+  // Linked, and one achievement in. Both halves matter: the screen says
+  // something different for an account with no RetroAchievements name against
+  // it, and a progression with nothing earned cannot tell a badge that is drawn
+  // as earned from one that is drawn as locked.
+  ra_username: 'tester-on-ra',
+  ra_progression: {
+    total: 1,
+    results: [
+      {
+        rom_ra_id: RA_GAME,
+        max_possible: RA_ACHIEVEMENTS.length,
+        num_awarded: 1,
+        num_awarded_hardcore: 0,
+        // Ids as strings, which is how RomM sends them and the whole reason
+        // `achievementsOf` builds its set out of strings.
+        earned_achievements: [{ id: RA_EARNED, date: '2026-01-02 21:15:00', date_hardcore: '' }]
+      }
+    ]
+  }
 }
 
 /**
@@ -849,6 +911,16 @@ export async function startFakeRomm(): Promise<FakeRomm> {
             duration_ms: durationMs
           }))
         )
+      }
+
+      // The badges, as pictures: the tab draws two per achievement depending on
+      // whether it has been earned, and a path that answers nothing looks the
+      // same as a row correctly drawn as locked.
+      const badge = /^\/assets\/romm\/resources\/ra\/(\d+)(-lock)?\.png$/.exec(url.pathname)
+      if (badge) {
+        const png = coverPng(Number(badge[1]) * (badge[2] ? 3 : 7))
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
+        return res.end(png)
       }
 
       if (url.pathname === '/api/users/me') return json(user)

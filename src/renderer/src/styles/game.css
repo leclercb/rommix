@@ -1,6 +1,10 @@
 /* --------------------------------------------------------------------------
-   Game banner (game screen)
-   -------------------------------------------------------------------------- */
+   The game screen: its banner, and the tabs that are not lists
+   --------------------------------------------------------------------------
+
+   The lists — saves, files, screenshots — are made of `.asset-list` and live
+   with it in `saves.css`. What is here is the banner and the two tabs that draw
+   something else entirely: a page of a manual, and a set of achievements. */
 
 /*
  * The head of a game's page: its own artwork, edge to edge, with the cover and
@@ -247,4 +251,112 @@
 
 .chip--status[data-state='off'] {
   --chip-tone: var(--text-faint);
+}
+
+/*
+ * The achievements of a game: a badge, what it is for, and what it is worth.
+ *
+ * One column of wide rows rather than a grid of badges. The description is the
+ * part that is actually read — half of them are the only clue about what to do
+ * next — and a grid would put it under a picture in a column three words wide.
+ *
+ * An earned row is drawn at full strength and an unearned one is dimmed as a
+ * whole, picture and words together. The badges differ as well,
+ * RetroAchievements drawing its own locked version, but a set nobody has
+ * started is a page of pictures that all look alike — so the dimming is what
+ * says it at a glance.
+ */
+/* The line about where these are actually earned: quieter than the score above
+   it, which is what the tab is for, and above the list rather than under it —
+   at the foot of forty rows it would be read by nobody. */
+.achievements__note {
+  margin: -6px 0 0;
+  color: var(--text-faint);
+}
+
+.achievements {
+  list-style: none;
+  margin: 16px 0 24px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.achievement {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  opacity: 0.55;
+}
+
+.achievement[data-earned='true'] {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  opacity: 1;
+}
+
+.achievement__badge {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--bg-raised);
+}
+
+/* The stand-in for a badge RomM has not fetched yet, which has to hold the same
+   square so a list half way through arriving does not jump about as it fills. */
+.achievement__badge--none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.achievement__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.achievement__title {
+  font-weight: 600;
+}
+
+.achievement__description {
+  color: var(--text-dim);
+}
+
+/* Right of the row and never wrapping: it is a number, and a column of them
+   read down the edge is how a set is judged at a glance. */
+.achievement__points {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/*
+ * The manual: the page, and the two buttons that turn it.
+ *
+ * As tall as the screen will allow and no taller, because the buttons under it
+ * have to stay on screen — a page that pushed them past the bottom edge would
+ * be a manual the pad can open and not turn. The frame carries the viewer's
+ * own ground rather than the theme's: what is inside it is a white page under
+ * a grey mat, and there is no theme in which that becomes something else.
+ */
+.manual {
+  margin: 16px 0 24px;
+}
+
+.manual__page {
+  display: block;
+  width: 100%;
+  height: 58vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
 }

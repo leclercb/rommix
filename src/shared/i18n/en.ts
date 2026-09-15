@@ -498,6 +498,7 @@ export const en = {
   'game.tabFiles': 'Files',
   'game.tabScreenshots': 'Screenshots',
   'game.tabManual': 'Manual',
+  'game.tabAchievements': 'Achievements',
   'game.tabVersions': 'Versions',
   'game.revision': 'Rev {revision}',
   'game.ratingOutOf': '/ 100',
@@ -688,6 +689,16 @@ export const en = {
   'manual.next': 'Next page',
   'manual.missing': 'RomM has no manual for this game.',
   'manual.offline': 'The manual is on your server. It comes back when RomMix can reach it again.',
+  'achievements.progress': '{earned} of {total} earned · {points} of {totalPoints} points',
+  'achievements.notLinked':
+    'Add your RetroAchievements name to your RomM account to see what you have earned.',
+  'achievements.earnedIn':
+    'Achievements are earned in {emulator}, which has to be signed in to RetroAchievements.',
+  'achievements.earnedInEmulator':
+    'Achievements are earned in the emulator, which has to be signed in to RetroAchievements.',
+  'achievements.empty': 'RetroAchievements has nothing for this game.',
+  'achievements.points_one': '{count} point',
+  'achievements.points_other': '{count} points',
 
   // -- settings -------------------------------------------------------------
 

@@ -48,6 +48,7 @@
   "features.offline": "Mode hors ligne — jouez aux jeux téléchargés sans connexion",
   "features.resume": "Téléchargements et sauvegardes en attente reprennent une fois reconnecté",
   "features.manual": "Le manuel du jeu, lu à l’écran",
+  "features.achievements": "Les succès RetroAchievements d’un jeu, et ceux que vous avez obtenus",
   "features.bios": "Le BIOS installé depuis votre propre serveur",
   "features.emulators": "Les émulateurs installés et attribués par RomMix",
   "features.preflight": "Une vérification préalable qui trouve les problèmes avant de jouer",
