@@ -4,6 +4,23 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.18.0-rc.0 — 2026-09-15
+
+- feat: leave the Collections button its mark alone (99f9d63)
+- feat: drop the Back button from a game's page (653cdae)
+- feat: open a game's manual full screen (8add4d1)
+- feat: say whether an achievement is earned, rather than drawing it faintly (c2720a7)
+- feat: refresh RetroAchievements when a session ends (2336dc9)
+- feat: thin the line under a game's title (c90e48b)
+- refactor: keep a game's tab styles in one file (08e5b19)
+- feat: add the Achievements tab to a game's page (c60361e)
+- feat: show the time played beside the time to beat (bbce051)
+- docs: name the manual on the landing page (2bdf6d0)
+- feat: add the Manual tab to a game's page (d61a693)
+- test(app): check the theme's colours reach the page (4fdf318)
+- test(unit): check what a theme may not leave to midnight (a342c82)
+- feat: add the Mega Drive, Super Famicom and GameCube themes (51f84eb)
+
 ## 0.17.0 — 2026-09-14
 
 - test(app): cover the drives panel and the theme picker (68ddeed)
