@@ -1,0 +1,34 @@
+/*
+ * The grey of the console and the four colours of the buttons on its pad.
+ *
+ * Three of those four are the status colours already — red, yellow and green
+ * mean on a pad what they mean on a screen — which leaves the blue to be the
+ * accent and nothing left over for a category. So what kind of file a row holds
+ * is drawn off the pad entirely, in the violet and rose the dark themes use, far
+ * enough from the blue to not be read as a focused control.
+ */
+[data-theme='superfamicom'] {
+  --bg-sunken: #6f6b7d;
+  --bg: #dcd9e2;
+  --bg-raised: #f1eff5;
+  --bg-hover: #cfccd9;
+  --surface: rgba(34, 28, 52, 0.05);
+  --surface-soft: rgba(34, 28, 52, 0.025);
+  --surface-strong: rgba(34, 28, 52, 0.1);
+  --border: rgba(34, 28, 52, 0.14);
+  --border-strong: rgba(34, 28, 52, 0.24);
+  --text: #1e1a2b;
+  --text-dim: #524b66;
+  --text-faint: #837c95;
+  --kind-save: #8c2fa6;
+  --kind-state: #c0397a;
+  --accent: #2f4fb8;
+  --accent-strong: #213a8c;
+  --accent-contrast: #f4f6ff;
+  --danger: #b62230;
+  --danger-contrast: #fff2f3;
+  --success: #227a45;
+  --warning: #9a6b00;
+
+  color-scheme: light;
+}

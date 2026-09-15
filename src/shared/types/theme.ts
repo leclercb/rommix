@@ -20,10 +20,13 @@ export const THEMES = [
   /** Light, for a room with the curtains open. */
   'daylight',
   'famicom',
+  'megadrive',
   'gameboy',
+  'superfamicom',
   'dreamcast',
   /** The Dreamcast's memory card: a blue-grey LCD. */
   'vmu',
+  'gamecube',
   /** Phosphor on a black tube. */
   'crt',
   /** A cabinet in a dark room: pixels, neon and scan lines. */

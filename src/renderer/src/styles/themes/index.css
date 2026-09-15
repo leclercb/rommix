@@ -34,9 +34,12 @@
 @import './midnight.css';
 @import './daylight.css';
 @import './famicom.css';
+@import './megadrive.css';
 @import './gameboy.css';
+@import './superfamicom.css';
 @import './dreamcast.css';
 @import './vmu.css';
+@import './gamecube.css';
 @import './crt.css';
 @import './arcade.css';
 @import './paper.css';

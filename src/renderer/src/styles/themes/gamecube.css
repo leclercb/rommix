@@ -1,0 +1,33 @@
+/*
+ * The indigo of the cube, lit from inside.
+ *
+ * The accent is the console's own violet, which is the one colour this theme
+ * has to have — and the reason the two category colours move off it. Violet
+ * beside a violet fill says nothing, so they are drawn as cyan and pink here:
+ * still a pair, still nothing a status colour could be mistaken for.
+ */
+[data-theme='gamecube'] {
+  --bg-sunken: #0a0718;
+  --bg: #14102a;
+  --bg-raised: #211b45;
+  --bg-hover: #2e2657;
+  --surface: rgba(170, 150, 255, 0.06);
+  --surface-soft: rgba(170, 150, 255, 0.03);
+  --surface-strong: rgba(170, 150, 255, 0.12);
+  --border: rgba(170, 150, 255, 0.16);
+  --border-strong: rgba(170, 150, 255, 0.28);
+  --text: #ece7ff;
+  --text-dim: #b0a6d8;
+  --text-faint: #7d73a6;
+  --kind-save: #45cfe0;
+  --kind-state: #f08ad0;
+  --accent: #8c6cf5;
+  --accent-strong: #6b48d6;
+  --accent-contrast: #100826;
+  --danger: #ff5c5c;
+  --danger-contrast: #1c0505;
+  --success: #4bd99a;
+  --warning: #ffc94f;
+
+  color-scheme: dark;
+}
