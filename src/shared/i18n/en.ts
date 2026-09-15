@@ -657,9 +657,12 @@ export const en = {
 
   'details.company': 'Company',
   'details.series': 'Series',
+  'details.genres': 'Genre',
   'details.released': 'Released',
   'details.players': 'Players',
   'details.modes': 'Modes',
+  'details.regions': 'Region',
+  'details.revision': 'Revision',
   'details.languages': 'Languages',
   'details.tags': 'Tags',
   'details.lastPlayed': 'Last played',

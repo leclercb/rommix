@@ -56,6 +56,7 @@ import {
   Search,
   Server,
   Settings,
+  Shapes,
   SlidersHorizontal,
   Sparkles,
   Star,
@@ -133,6 +134,8 @@ export const ICONS = {
   company: Building2,
   /** The series a game belongs to. */
   franchise: Library,
+  /** What kind of game it is. */
+  genre: Shapes,
   players: Users,
   /** How a game can be played: alone, together, split screen. */
   modes: Joystick,

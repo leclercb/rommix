@@ -649,9 +649,12 @@ export const es: Catalog = {
 
   'details.company': 'Empresa',
   'details.series': 'Saga',
+  'details.genres': 'Género',
   'details.released': 'Lanzamiento',
   'details.players': 'Jugadores',
   'details.modes': 'Modos',
+  'details.regions': 'Región',
+  'details.revision': 'Revisión',
   'details.languages': 'Idiomas',
   'details.tags': 'Etiquetas',
   'details.lastPlayed': 'Última partida',

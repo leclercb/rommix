@@ -278,19 +278,16 @@ function Hero({
             <PlatformIcon slug={rom.platform_slug} size={20} label={rom.platform_display_name} />
             {rom.platform_display_name}
           </span>
-          {/* Marked like the same chip on the game's own banner, genres
-              included in staying unmarked. See `GameHero`. */}
+          {/* The same two facts the game's own banner leads with, marked the
+              same way — this is the same question asked one screen earlier.
+              What kind of game it is was three more chips here and is said
+              better by the summary underneath. See `GameHero`. */}
           {year ? (
             <span className="chip chip--icon">
               <Icon name="time" size={14} />
               {year}
             </span>
           ) : null}
-          {rom.metadatum.genres.slice(0, 3).map((genre) => (
-            <span className="chip" key={genre}>
-              {genre}
-            </span>
-          ))}
         </div>
         {rom.summary ? <p className="hero__summary">{rom.summary}</p> : null}
         <div className="hero__hint">{t('home.pressToOpen', { key: keyLabel('A') })}</div>

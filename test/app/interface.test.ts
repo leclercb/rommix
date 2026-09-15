@@ -1767,17 +1767,45 @@ describe('what a game says about itself', () => {
     // them empty would be a column of labels with nothing beside them, which
     // reads as data that failed to arrive.
     assert.deepEqual(await labels(), [
+      en['details.genres'],
       en['details.released'],
       en['details.players'],
       en['details.modes'],
+      en['details.regions'],
       en['details.languages']
     ])
 
     // And the values are the server's own, rather than something the screen
-    // worked out: these three are lists RomM sends and RomMix only joins up.
+    // worked out: these are lists RomM sends and RomMix only joins up.
     assert.equal(await valueOf(en['details.players']), rom().metadatum.player_count)
     assert.equal(await valueOf(en['details.modes']), rom().metadatum.game_modes.join(', '))
     assert.equal(await valueOf(en['details.languages']), rom().languages.join(', '))
+    // The two that moved off the banner, which is the point of them being
+    // here: a well-matched game drew ten chips under its title.
+    assert.equal(await valueOf(en['details.genres']), rom().metadatum.genres.join(', '))
+    assert.equal(await valueOf(en['details.regions']), rom().regions.join(', '))
+  })
+
+  test('and the line under the title is the other half of that filter', async () => {
+    // The banner answers whether to play this now; the tab above answers which
+    // copy it is. A fact on both is a fact read twice on one screen, and the
+    // line under a well-matched title used to run to ten chips — so what is
+    // asserted is the absence, chip by chip, of what moved here.
+    const chips = await app.read<string[]>(
+      `[...document.querySelectorAll('.game-hero__meta .chip')].map((one) => one.textContent)`
+    )
+
+    assert.ok(
+      chips.some((chip) => chip.includes(rom().platform_display_name)),
+      `the platform should still be there, among ${JSON.stringify(chips)}`
+    )
+    for (const moved of [...rom().metadatum.genres, ...rom().regions]) {
+      assert.equal(
+        chips.some((chip) => chip.includes(moved)),
+        false,
+        `${moved} is on the Details tab now and should not also be a chip`
+      )
+    }
   })
 
   test('and nothing about a copy on this disk, because there is not one', async () => {

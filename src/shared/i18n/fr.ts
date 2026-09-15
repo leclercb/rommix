@@ -656,9 +656,12 @@ export const fr: Catalog = {
 
   'details.company': 'Éditeur',
   'details.series': 'Série',
+  'details.genres': 'Genre',
   'details.released': 'Sortie',
   'details.players': 'Joueurs',
   'details.modes': 'Modes',
+  'details.regions': 'Région',
+  'details.revision': 'Révision',
   'details.languages': 'Langues',
   'details.tags': 'Étiquettes',
   'details.lastPlayed': 'Dernière partie',

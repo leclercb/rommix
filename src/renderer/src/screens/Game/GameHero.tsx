@@ -16,6 +16,18 @@ import { StatusTag } from './StatusDialog'
  * arrives as `children`, because those buttons are the screen's own state —
  * what is downloading, what is running, what is busy — and only the screen
  * holding that state can say what each one does.
+ *
+ * The line under the title answers one question — whether to play this now —
+ * and holds only what bears on it: what it runs on, what people think of it,
+ * how old it is, how big the download is, whether it is here already, and how
+ * far through it the player says they are. Which dump this is and what is in it
+ * are a different question and are answered a press away, on the Details tab.
+ *
+ * That division is what keeps the line readable. Every fact RomM holds has a
+ * claim to being here, and a well-matched game drew ten of them across a
+ * television: a row of grey pills nobody reads, in which the two that are
+ * actually a state — downloaded, and the player's own mark — were lost among
+ * eight that are not.
  */
 export function GameHero({
   rom,
@@ -82,21 +94,9 @@ export function GameHero({
                 {year}
               </span>
             ) : null}
-            {/* Which dump this is, where the game itself is named — the pair
-                that decides whether a copy boots and which of two files of
-                the same game you are looking at. */}
-            {rom.regions.length > 0 ? (
-              <span className="chip chip--icon">
-                <Icon name="region" size={14} />
-                {rom.regions.join(', ')}
-              </span>
-            ) : null}
-            {rom.revision ? (
-              <span className="chip chip--icon">
-                <Icon name="revision" size={14} />
-                {t('game.revision', { revision: rom.revision })}
-              </span>
-            ) : null}
+            {/* How big the download is, which is the last thing that bears on
+                whether to press Play or Download and the reason size stayed
+                here when region, revision and genre went to the tab. */}
             <span className="chip chip--icon">
               <Icon name="size" size={14} />
               {formatBytes(rom.fs_size_bytes)}
@@ -107,14 +107,6 @@ export function GameHero({
                 {t('library.downloadedMark')}
               </span>
             ) : null}
-            {/* The genres are the one run of chips left unmarked: three of them
-                carrying the same glyph in a row reads as a pattern rather than
-                as three facts, and nothing about a genre needs saying twice. */}
-            {rom.metadatum.genres.slice(0, 3).map((genre) => (
-              <span className="chip" key={genre}>
-                {genre}
-              </span>
-            ))}
             {/* Last on the line, after everything the game is: this is the one
                 thing here the player put there themselves. Absent until they
                 have — a chip reading "not said" on every game in the library

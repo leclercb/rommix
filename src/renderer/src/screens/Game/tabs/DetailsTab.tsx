@@ -14,9 +14,9 @@ type Fact = { icon: IconName; label: string; value: string | null }
  *
  * Three groups, in the order they are wanted: what the game is, which dump of
  * it this is, and where this copy of it lives. Nothing the page already says
- * gets a row — the filename is the Files tab's whole subject, and platform,
- * rating, year, region, revision, size and genre are all in the banner — so
- * what is left here is only what cannot be read anywhere else.
+ * gets a row — the filename is the Files tab's whole subject, and the platform,
+ * the rating, the year and the size are in the banner — so what is left here is
+ * only what cannot be read anywhere else.
  *
  * Built as a list and filtered rather than written as conditional rows: RomM's
  * metadata is only as complete as the provider a game was matched against, and
@@ -43,6 +43,7 @@ export function DetailsTab({
 
   const facts: Fact[] = [
     { icon: 'company', label: t('details.company'), value: list(meta.companies) },
+    { icon: 'genre', label: t('details.genres'), value: list(meta.genres) },
     { icon: 'franchise', label: t('details.series'), value: list(meta.franchises) },
     {
       icon: 'time',
@@ -58,9 +59,16 @@ export function DetailsTab({
     },
     { icon: 'modes', label: t('details.modes'), value: list(meta.game_modes) },
 
-    // Which dump this is. Region and revision are chips in the banner; what is
-    // left is the language it can be read in and the tags two files of the same
-    // game tell themselves apart by.
+    // Which dump this is: where it was sold, which revision of it this file
+    // holds, what language it can be read in, and the tags two files of the
+    // same game tell themselves apart by. The banner says none of this — it
+    // answers whether to play the game, and these answer which copy this is.
+    { icon: 'region', label: t('details.regions'), value: list(rom.regions) },
+    {
+      icon: 'revision',
+      label: t('details.revision'),
+      value: rom.revision ? t('game.revision', { revision: rom.revision }) : null
+    },
     { icon: 'languages', label: t('details.languages'), value: list(rom.languages) },
     { icon: 'tags', label: t('details.tags'), value: list(rom.tags) },
 
