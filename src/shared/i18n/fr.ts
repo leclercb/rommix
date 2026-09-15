@@ -661,6 +661,8 @@ export const fr: Catalog = {
   'details.languages': 'Langues',
   'details.tags': 'Étiquettes',
   'details.lastPlayed': 'Dernière partie',
+  'details.played': 'Temps de jeu',
+  'details.toBeat': 'Temps pour finir',
   'details.installedTo': 'Installé dans',
   'details.systemFolder': 'Dossier système',
   'details.downloadedFor': 'Téléchargé pour',

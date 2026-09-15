@@ -185,6 +185,11 @@ export interface RomMixBridge {
     platformCounts(platformIds: number[], search: string): Promise<Record<number, number>>
     roms(query: RomQuery): Promise<RommRomPage>
     rom(id: number): Promise<RommRom>
+    /**
+     * Seconds this game has been played, added up over every session RomM
+     * holds for it — this machine's and every other device's alike.
+     */
+    playTime(romId: number): Promise<number>
     /** Whether this game is in the user's favourites on RomM. */
     favourite(romId: number): Promise<boolean>
     /** Put it in or take it out; resolves to the state it ended up in. */

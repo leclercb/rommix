@@ -667,6 +667,8 @@ export const de: Catalog = {
   'details.languages': 'Sprachen',
   'details.tags': 'Schlagwörter',
   'details.lastPlayed': 'Zuletzt gespielt',
+  'details.played': 'Spielzeit',
+  'details.toBeat': 'Durchspielzeit',
   'details.installedTo': 'Installiert in',
   'details.systemFolder': 'Systemordner',
   'details.downloadedFor': 'Heruntergeladen für',

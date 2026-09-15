@@ -81,6 +81,17 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
     await library.adopt([rom])
     return rom
   })
+  /**
+   * How long this game has been played, in seconds, across every device.
+   *
+   * Straight to the server rather than out of anything saved: the total is a
+   * sum over sessions RomM holds, and the whole reason it is worth drawing is
+   * that the handheld's evening counts towards the same number as the
+   * television's. A game never played has none, which is a zero here and an
+   * absent row on the screen.
+   */
+  handle('library:playTime', (romId: number) => client.playTime(romId))
+
   handle('library:favourite', (romId: number) => client.isFavourite(romId))
   handle('library:setCollection', (romId: number, collectionId: number, member: boolean) =>
     client.setCollectionMembership(collectionId, romId, member)

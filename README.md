@@ -51,6 +51,7 @@ Demo: https://leclercb.github.io/rommix/demo/
 - 💿 Multi-disc sets unpacked and launched as one game
 - ☁️ Saves and states synced both ways, plus a per-game tab to do it by hand
 - ❤️ Favourites, progress and play time saved to RomM
+- ⏱️ Time played on every device added up, beside how long the game usually takes
 - ✈️ Offline mode — play your downloaded games with no connection: covers,
   details, screenshots and Play all still work
 - 🔁 Downloads and unsent saves resume when you are back online

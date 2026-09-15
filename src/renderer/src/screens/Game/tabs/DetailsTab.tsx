@@ -23,8 +23,20 @@ type Fact = { icon: IconName; label: string; value: string | null }
  * a homebrew ROM matched to nothing would otherwise leave an empty tab, which
  * reads as a failure rather than as an absence.
  */
-export function DetailsTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
-  const { t, formatBytes, formatDate, formatDateTime } = useI18n()
+export function DetailsTab({
+  rom,
+  entry,
+  played
+}: {
+  rom: RommRom
+  entry?: InstalledRom
+  /**
+   * Seconds this game has been played on every device, or null while the
+   * server is still being asked and where it could not be.
+   */
+  played?: number | null
+}): JSX.Element {
+  const { t, formatBytes, formatDate, formatDateTime, formatDuration } = useI18n()
   const meta = rom.metadatum
   const list = (values: string[]): string | null => (values.length > 0 ? values.join(', ') : null)
   const at = (value: string | null): string | null => formatDateTime(value)
@@ -53,6 +65,15 @@ export function DetailsTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom 
     { icon: 'tags', label: t('details.tags'), value: list(rom.tags) },
 
     { icon: 'play', label: t('details.lastPlayed'), value: at(rom.rom_user.last_played) },
+    // The two halves of "how far into this am I": the time this library has
+    // put in, and what it takes most people. Beside each other on purpose —
+    // either one alone is a number with nothing to be read against.
+    { icon: 'time', label: t('details.played'), value: formatDuration(played ?? 0) },
+    {
+      icon: 'time',
+      label: t('details.toBeat'),
+      value: formatDuration(rom.hltb_metadata?.main_story ?? 0)
+    },
     // The folder to open to find this game: its own directory when it was
     // unpacked into one, otherwise the system folder it sits in. Not the
     // filename — that is the Files tab, in full, for both ends.

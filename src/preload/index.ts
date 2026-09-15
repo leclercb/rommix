@@ -55,6 +55,7 @@ const bridge: RomMixBridge = {
       ipcRenderer.invoke('library:platformCounts', platformIds, search),
     roms: (query: RomQuery) => ipcRenderer.invoke('library:roms', query),
     rom: (id: number) => ipcRenderer.invoke('library:rom', id),
+    playTime: (romId: number) => ipcRenderer.invoke('library:playTime', romId),
     favourite: (romId: number) => ipcRenderer.invoke('library:favourite', romId),
     setFavourite: (romId: number, favourite: boolean) =>
       ipcRenderer.invoke('library:setFavourite', romId, favourite),

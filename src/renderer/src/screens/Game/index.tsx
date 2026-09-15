@@ -137,6 +137,22 @@ export function GameScreen({
   const interruptible = download?.state === 'queued' || download?.state === 'downloading'
   const running = runningRomId === romId
 
+  /**
+   * How long this game has been played, which only the server can add up.
+   *
+   * Asked again when the emulator closes: a session is reported as the game
+   * exits, so the total on screen is one session out of date otherwise —
+   * exactly at the moment somebody has come back from playing and might look.
+   */
+  const [played, setPlayed] = useState<number | null>(null)
+  useEffect(() => {
+    setPlayed(null)
+    void window.rommix.library
+      .playTime(romId)
+      .then(setPlayed)
+      .catch(() => setPlayed(null))
+  }, [romId, running])
+
   /** How this game is named and pictured in a toast. */
   const subjectOf = (): { title: string; coverPath: string | null } => ({
     title: rom?.name ?? rom?.fs_name ?? t('game.fallbackTitle'),
@@ -697,7 +713,7 @@ export function GameScreen({
         />
 
         <div className="panel__body">
-          {activeTab === 'details' ? <DetailsTab rom={rom} entry={entry} /> : null}
+          {activeTab === 'details' ? <DetailsTab rom={rom} entry={entry} played={played} /> : null}
           {activeTab === 'saves' ? (
             <SavesTab assets={assets} entry={entry} onDelete={(asset) => setDeleting(asset)} />
           ) : null}

@@ -44,6 +44,7 @@
   "features.multidisc": "Los juegos de varios discos, desempaquetados y lanzados como uno",
   "features.saves": "Partidas y estados sincronizados en los dos sentidos",
   "features.marks": "Favoritos, progreso y tiempo de juego guardados en RomM",
+  "features.playtime": "El tiempo jugado en todos los dispositivos, junto a lo que dura el juego",
   "features.offline": "Modo sin conexión — juega a lo descargado sin internet",
   "features.resume": "Descargas y partidas pendientes se reanudan al volver a estar en línea",
   "features.manual": "El manual del juego, leído en pantalla",

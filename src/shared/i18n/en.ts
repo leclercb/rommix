@@ -662,6 +662,8 @@ export const en = {
   'details.languages': 'Languages',
   'details.tags': 'Tags',
   'details.lastPlayed': 'Last played',
+  'details.played': 'Time played',
+  'details.toBeat': 'Time to beat',
   'details.installedTo': 'Installed to',
   'details.systemFolder': 'System folder',
   'details.downloadedFor': 'Downloaded for',

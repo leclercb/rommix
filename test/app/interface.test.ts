@@ -890,6 +890,71 @@ describe('saying how far through a game you are', () => {
 })
 
 /**
+ * How long a game has taken, which is two numbers from two places.
+ *
+ * The time played is added up from the sessions RomM holds — every device's,
+ * not this one's — so nothing here can be read off the game the server sent;
+ * it is a request of its own, walked in pages, and summed on the way. The
+ * other half comes with the game and is an average of strangers' reports.
+ *
+ * Both are drawn as rows of the Details tab and left out entirely where there
+ * is nothing to say, which is the third thing asserted: a homebrew game
+ * matched to nothing would otherwise carry two rows saying zero.
+ */
+describe('how long a game has taken', () => {
+  /** What a row of the Details tab says, by the label beside it. */
+  const fact = (label: string): Promise<string | null> =>
+    app.read<string | null>(
+      `[...document.querySelectorAll('.kv__row')]
+         .find((row) => row.querySelector('dt')?.textContent?.includes(${JSON.stringify(label)}))
+         ?.querySelector('dd')?.textContent ?? null`
+    )
+
+  test('the time played is the sum of every session the server holds', async () => {
+    // Two sessions rather than one: the number drawn is a total, and one
+    // session cannot tell a sum from a copy. On the one game the fake holds a
+    // How Long To Beat figure for, so both rows are read off the same screen —
+    // and away from the game `what a game says about itself` reads, which is
+    // about a game nobody has played.
+    server.holdPlaySession({ romId: 1, seconds: 2 * 3600 })
+    server.holdPlaySession({ romId: 1, seconds: 3600 })
+
+    await app.goTo('library')
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    await app.waitFor(
+      `[...document.querySelectorAll('.kv__row dt')].some((one) =>
+         one.textContent?.includes(${JSON.stringify(en['details.played'])}))`,
+      'the time played'
+    )
+    assert.equal(
+      (await fact(en['details.played']))?.replace(/\s/gu, ' '),
+      '3 hours',
+      'the two sessions were not added up'
+    )
+  })
+
+  test('and beside it, what the game takes most people', async () => {
+    assert.equal(
+      (await fact(en['details.toBeat']))?.replace(/\s/gu, ' '),
+      '9 hours',
+      'the figure RomM carries with the game was not drawn'
+    )
+  })
+
+  test('and a game with neither is given neither row', async () => {
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await app.waitFor(`document.querySelector('.kv__row')`, 'the details')
+
+    assert.equal(await fact(en['details.toBeat']), null, 'a game RomM knows nothing about')
+    assert.equal(await fact(en['details.played']), null, 'a game nobody has played')
+  })
+})
+
+/**
  * The manual tab, which is a PDF drawn by the browser rather than by RomMix.
  *
  * Three things have to be true at once for a page of it to appear, and not one

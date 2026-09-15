@@ -69,6 +69,13 @@ export interface FakeRomm {
     /** The slot RomM pairs it under. Omitted, it is a save that pairs with none. */
     slot?: string
   }) => void
+  /**
+   * Put time already played on the server, as another device would have.
+   *
+   * Seconds, one call per session: what RomMix draws is the sum, so two of
+   * these on one game is the thing worth being able to set up.
+   */
+  holdPlaySession: (session: { romId: number; seconds: number }) => void
   /** The same for a save state, which RomM keeps at its own endpoint. */
   holdState: (state: { romId: number; fileName: string; emulator: string; content: string }) => void
   /** Saves and states this server was sent, in order. */
@@ -270,6 +277,26 @@ function shotPath(romId: number, index: number): string {
   return `/assets/romm/resources/roms/${romId}/screenshots/${index}.png`
 }
 
+/** What How Long To Beat says a matched game takes, in seconds: nine hours. */
+const HLTB_MAIN_STORY = 9 * 3600
+
+/**
+ * The one game the fake has that figure for.
+ *
+ * One rather than all of them, because the Details tab is as much about the
+ * rows it leaves out: a library where every game carried a time would leave
+ * nothing to read the absent row off.
+ */
+const HLTB_ROM = 1
+
+/**
+ * The play sessions this server holds, by the game they belong to.
+ *
+ * Kept as a list rather than a total, which is what RomM does and why the
+ * client adds them up: two evenings on two devices are two rows here.
+ */
+const PLAY_SESSIONS = new Map<number, number[]>()
+
 /** How many screenshots a game with artwork gets. More than one, so the
  * viewer's walk from one to the next has somewhere to go. */
 const SHOTS_PER_ROM = 3
@@ -397,6 +424,8 @@ function rom(
     path_cover_large: art ? coverPath(id, 'big') : null,
     url_cover: null,
     path_video: null,
+    // Seconds, the unit HowLongToBeat answers in. See `HLTB_ROM`.
+    hltb_metadata: id === HLTB_ROM ? { main_story: HLTB_MAIN_STORY } : null,
     // On whatever has artwork, so a library has games with a manual and games
     // without — the tab is drawn for one and not the other.
     has_manual: art,
@@ -803,6 +832,25 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         return res.end(pdf)
       }
 
+      // The history RomMix adds up. Paged the way RomM pages it, because the
+      // client walks the pages and stops on the first short one — a fake that
+      // answered with everything at once would never exercise that walk.
+      if (url.pathname === '/api/play-sessions' && req.method === 'GET') {
+        const romId = Number(url.searchParams.get('rom_id'))
+        const limit = Number(url.searchParams.get('limit') ?? 50)
+        const offset = Number(url.searchParams.get('offset') ?? 0)
+        const all = PLAY_SESSIONS.get(romId) ?? []
+        return json(
+          all.slice(offset, offset + limit).map((durationMs, index) => ({
+            id: offset + index + 1,
+            user_id: user.id,
+            device_id: 'some-other-device',
+            rom_id: romId,
+            duration_ms: durationMs
+          }))
+        )
+      }
+
       if (url.pathname === '/api/users/me') return json(user)
       if (url.pathname === '/api/platforms')
         return json([megadrive, gameboy, nintendoSwitch, segacd])
@@ -1107,6 +1155,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     asked,
     platforms: [megadrive, gameboy, nintendoSwitch, segacd],
     uploaded,
+    holdPlaySession: ({ romId, seconds }) => {
+      PLAY_SESSIONS.set(romId, [...(PLAY_SESSIONS.get(romId) ?? []), seconds * 1000])
+    },
     holdSave: ({ romId, fileName, emulator, content, slot }) => {
       held.push({
         content,

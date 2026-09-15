@@ -14,6 +14,7 @@ import type {
   RommDeviceCreatePayload,
   RommDeviceCreated,
   RommFirmware,
+  RommPlaySession,
   RommPlaySessionPayload,
   RommRomUserPayload,
   RommSaveDeletePayload,
@@ -91,6 +92,21 @@ export const REQUIRED_SCOPES = [
  * latency, few enough not to fall on a home server as a burst.
  */
 const COUNTS_AT_ONCE = 6
+
+/**
+ * How the play-session history is walked, for `playTime`.
+ *
+ * The page is the size RomM's own endpoint defaults to, deliberately: the
+ * walk stops on the first page that comes back short, and a server quietly
+ * capping a larger page than that would end it early with a total missing
+ * everything after it.
+ *
+ * The depth is a stop, not a budget. A game played every evening for years is
+ * still inside it, and a server answering with full pages forever cannot hold
+ * the screen open.
+ */
+const PLAY_SESSION_PAGE = 50
+const PLAY_SESSION_PAGES = 20
 
 /**
  * How long any one request that carries an *answer* may take.
@@ -1335,6 +1351,38 @@ export class RommClient {
     const saved = (await res.json()) as RommState
     log.info('romm', 'save state uploaded', { romId, stateId: saved.id, fileName })
     return saved
+  }
+
+  /**
+   * GET /api/play-sessions — how long this game has been played, in seconds.
+   *
+   * Added up here because RomM keeps the sessions and not the total: every
+   * device reports its own spans, and the sum across them is what "time
+   * played" means for a library one person plays from a sofa and a handheld.
+   *
+   * Paged until the server stops answering with a full page, since a game
+   * played every evening for a year is more sessions than one page holds. The
+   * cap is there so a server answering oddly cannot spin this forever; a total
+   * short by the tail of a very long history is still the right order of
+   * magnitude, which is all this number is read for.
+   */
+  async playTime(romId: number): Promise<number> {
+    let total = 0
+    let offset = 0
+
+    for (let page = 0; page < PLAY_SESSION_PAGES; page += 1) {
+      const res = await this.request(
+        `/api/play-sessions?rom_id=${romId}&limit=${PLAY_SESSION_PAGE}&offset=${offset}`
+      )
+      if (!res.ok) throw await this.toError(res)
+
+      const sessions = (await res.json()) as RommPlaySession[]
+      for (const session of sessions) total += session.duration_ms
+      if (sessions.length < PLAY_SESSION_PAGE) break
+      offset += PLAY_SESSION_PAGE
+    }
+
+    return Math.round(total / 1000)
   }
 
   /**

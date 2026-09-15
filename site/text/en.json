@@ -49,6 +49,7 @@
   "features.multidisc": "Multi-disc sets unpacked and launched as one game",
   "features.saves": "Saves and states synced both ways",
   "features.marks": "Favourites, progress and play time saved to RomM",
+  "features.playtime": "Time played on every device, beside how long the game takes",
   "features.offline": "Offline mode — play downloaded games with no connection",
   "features.resume": "Downloads and unsent saves resume when you are back online",
   "features.manual": "The game's manual, read on screen",

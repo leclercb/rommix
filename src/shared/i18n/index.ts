@@ -111,6 +111,17 @@ export interface I18n {
   formatNumber(value: number): string
   /** Human-readable byte size, with the language's own decimal separator. */
   formatBytes(bytes: number): string
+  /**
+   * A span of time in seconds, as words in the reader's own language.
+   *
+   * Null for nothing, so a row with no time in it is a row that is not drawn —
+   * the same answer `formatBytes` gives a zero, and for the same reason.
+   *
+   * Minutes below an hour and hours above it, never both: what this is read
+   * for is a sense of how long, and "3 hours 47 minutes" is a precision
+   * neither the play history nor an average of strangers' reports has.
+   */
+  formatDuration(seconds: number): string | null
   /** A date with no time of day, for a release year rather than a file's mtime. */
   formatDate(value: Date | number | string): string | null
   /**
@@ -139,6 +150,17 @@ export function createI18n(locale: Locale, dateFormat: DateFormat = DEFAULT_DATE
   const numbers = new Intl.NumberFormat(locale)
   const decimals = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
   const dates = dateFormatters(locale, dateFormat)
+  const hours = new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: 'hour',
+    unitDisplay: 'long',
+    maximumFractionDigits: 1
+  })
+  const minutes = new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: 'minute',
+    unitDisplay: 'long'
+  })
 
   const i18n: I18n = {
     locale,
@@ -162,6 +184,16 @@ export function createI18n(locale: Locale, dateFormat: DateFormat = DEFAULT_DATE
     },
 
     formatNumber: (value) => numbers.format(value),
+
+    formatDuration(seconds) {
+      if (!seconds || seconds < 0) return null
+      // The unit styles rather than a phrase per language: Intl already knows
+      // what an hour is called in each of the four, and in the plural forms
+      // that a catalogue entry would have to carry by hand.
+      return seconds < 3600
+        ? minutes.format(Math.max(1, Math.round(seconds / 60)))
+        : hours.format(Number((seconds / 3600).toFixed(1)))
+    },
 
     formatBytes(bytes) {
       if (!bytes) return '—'

@@ -44,6 +44,7 @@
   "features.multidisc": "Mehrteilige Disc-Sets entpackt und als ein Spiel gestartet",
   "features.saves": "Spielstände und States in beide Richtungen synchronisiert",
   "features.marks": "Favoriten, Fortschritt und Spielzeit auf RomM gespeichert",
+  "features.playtime": "Die Spielzeit aller Geräte, neben der Durchspielzeit",
   "features.offline": "Offline-Modus — heruntergeladene Spiele ohne Verbindung spielen",
   "features.resume": "Downloads und offene Spielstände laufen weiter, sobald Sie wieder online sind",
   "features.manual": "Das Handbuch des Spiels, auf dem Bildschirm",

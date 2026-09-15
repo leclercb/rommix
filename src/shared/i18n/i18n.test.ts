@@ -103,6 +103,28 @@ test('numbers are written the way the language writes them', () => {
   assert.equal(createI18n('en').formatBytes(0), '—')
 })
 
+test("a span of time is written in words, in the reader's language", () => {
+  // The space between the number and its unit is the language's own — French
+  // puts a narrow no-break space there — and is not what any of this is about,
+  // so every answer is read back with its spaces flattened.
+  const said = (value: string | null): string | null => value?.replace(/\s/gu, ' ') ?? null
+
+  // Hours above an hour and minutes below it, so a game somebody has had one
+  // evening with does not read as "0.4 hours".
+  assert.equal(said(createI18n('en').formatDuration(9 * 3600)), '9 hours')
+  assert.equal(said(createI18n('fr').formatDuration(3.3 * 3600)), '3,3 heures')
+  assert.equal(said(createI18n('de').formatDuration(45 * 60)), '45 Minuten')
+  assert.equal(said(createI18n('es').formatDuration(3600)), '1 hora')
+
+  // Anything at all is at least a minute: a game started and quit is time
+  // spent, and "0 minutes" reads as a total nobody kept.
+  assert.equal(said(createI18n('en').formatDuration(20)), '1 minute')
+
+  // And nothing at all is null rather than a zero — the row it would be drawn
+  // in is left out instead. Same answer `formatBytes` gives, same reason.
+  assert.equal(createI18n('en').formatDuration(0), null)
+})
+
 test('a value the caller does not supply is left standing', () => {
   // `EmulatorList` relies on this: it leaves `{homepage}` unfilled so that
   // `Filled` can split the sentence there and put an element in its place.

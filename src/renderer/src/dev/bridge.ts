@@ -93,6 +93,7 @@ const UNMATCHED: RommRom = {
   has_manual: false,
   path_manual: null,
   url_manual: null,
+  hltb_metadata: null,
   regions: [],
   languages: [],
   tags: [],
@@ -809,6 +810,10 @@ const bridge: RomMixBridge = {
         said === undefined ? rom : { ...rom, rom_user: { ...rom.rom_user, status: said } }
       )
     },
+    // The demo has no history to add up: nobody has played anything here, and
+    // a made-up total would be the one number on the page that is not the
+    // server's own.
+    playTime: () => later(0),
     favourite: (romId: number) => later(favourites.has(romId)),
     setFavourite: (romId: number, favourite: boolean) => {
       if (favourite) favourites.add(romId)

@@ -135,6 +135,22 @@ export interface RommRomUser {
   status: RomUserStatus | null
 }
 
+/**
+ * `RomHLTBMetadata` — how long How Long To Beat says this game takes.
+ *
+ * Seconds, which is the unit HowLongToBeat's own API answers in and RomM keeps
+ * unchanged. An average of what players reported rather than a fact about the
+ * game, so it is drawn as the typical time and never as a target.
+ *
+ * Only the main story is declared. The other three — the same run with the side
+ * content, the completionist's, and the average of all of them — are a second
+ * opinion about the same question, and a row of four numbers on a page that
+ * already has a banner full of them says less than one.
+ */
+export interface RommRomHltb {
+  main_story: number
+}
+
 /** `RomMetadataSchema` — merged metadata across providers. */
 export interface RommRomMetadata {
   genres: string[]
@@ -224,6 +240,7 @@ export interface RommRom {
   missing_from_fs: boolean
 
   metadatum: RommRomMetadata
+  hltb_metadata: RommRomHltb | null
   rom_user: RommRomUser
   files: RommRomFile[]
   merged_screenshots: string[]
@@ -461,6 +478,18 @@ export interface RommSaveDeletePayload {
 /** POST /api/states/delete body (`Body_delete_states_api_states_delete_post`). */
 export interface RommStateDeletePayload {
   states: number[]
+}
+
+/**
+ * GET /api/play-sessions items (`PlaySessionSchema`).
+ *
+ * One span somebody played for, on one device. Only the length of it is
+ * declared: what this is read for is a total, and RomM is the one keeping the
+ * history.
+ */
+export interface RommPlaySession {
+  rom_id: number | null
+  duration_ms: number
 }
 
 /** POST /api/play-sessions body (`PlaySessionIngestPayload`). */
