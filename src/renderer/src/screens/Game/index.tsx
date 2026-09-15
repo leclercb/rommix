@@ -508,15 +508,17 @@ export function GameScreen({
         />
 
         {/* Collections on RomM. Beside the heart because both mark the game on
-            the server rather than touching the copy on this disk. */}
+            the server rather than touching the copy on this disk — and icon
+            only for the same reason those two are: this is the third mark in a
+            row, the word was the longest thing on the line, and shelving a game
+            is not what anybody opened this screen to do. */}
         <FocusButton
           icon="collection"
           action="collections"
+          actionLabel={t('collections.button')}
           onSelect={() => setChoosingCollections(true)}
           disabled={offline === true}
-        >
-          {t('collections.button')}
-        </FocusButton>
+        />
 
         {/* The way back to a choice already made: without it, a platform
             answered once could only be changed by editing settings. Shown only
