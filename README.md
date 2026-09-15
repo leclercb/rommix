@@ -240,11 +240,12 @@ use the first time you play something on that platform.
 ## 🔧 Settings
 
 **General → Interface.** Language, **Theme** and **Scale**. A theme is a set of
-colours — the dark blue RomMix starts in, a light one, five taken from consoles,
-and two set in pixels: a cabinet with the lines of a tube across it, and a
-printed page. The list previews: everything around it is drawn in whichever
-theme the highlight is on, and leaving without choosing puts back the one in
-use. The
+colours — the dark blue RomMix starts in, a light one, a room at night, the
+consoles and the desks beside them, a cabinet with the lines of a tube across
+it, a printed page, and one in black, white and yellow for a screen that has to
+be read from further off than the room allows. The list previews: everything
+around it is drawn in whichever theme the highlight is on, and leaving without
+choosing puts back the one in use. The
 interface is laid out for a 1080p television, so **Auto** doubles the scale on a
 4K one; pick a number if your panel is nearer or further away.
 

@@ -1,0 +1,49 @@
+/*
+ * Black, white and one yellow, for a screen that has to be read from further
+ * away than the room allows.
+ *
+ * The only theme here that is not a picture of anything. Every other palette
+ * starts from what something looked like and keeps the interface readable
+ * inside it; this one starts from the reading and has no second thing to serve.
+ *
+ * So the ground is black and stays black — a raised surface is told apart by
+ * the line around it rather than by a shade nobody can see — and the borders
+ * are white rather than a wash of it. Every colour that carries meaning is
+ * taken to the top of its hue, far enough apart that none of them needs to be
+ * compared with another to be named.
+ */
+[data-theme='contrast'] {
+  --bg-sunken: #000000;
+  --bg: #000000;
+  --bg-raised: #101010;
+  --bg-hover: #242424;
+  --surface: rgba(255, 255, 255, 0.1);
+  --surface-soft: rgba(255, 255, 255, 0.06);
+  --surface-strong: rgba(255, 255, 255, 0.2);
+  --border: rgba(255, 255, 255, 0.65);
+  --border-strong: #ffffff;
+  /*
+   * The two quiet text colours are the ones a contrast theme cannot have: dim
+   * and faint are a hint and a caption, and drawn as faintly as they are
+   * elsewhere they are the text this theme exists to rescue. Both stay light
+   * enough to be read, and say their piece by size and position instead.
+   */
+  --text: #ffffff;
+  --text-dim: #e4e4e4;
+  --text-faint: #c2c2c2;
+  --kind-save: #b3a5ff;
+  --kind-state: #ff9de0;
+  --accent: #ffe000;
+  --accent-strong: #ffc400;
+  --accent-contrast: #000000;
+  --danger: #ff6b6b;
+  --danger-contrast: #000000;
+  --success: #3ff08a;
+  --warning: #ff9f1c;
+
+  /* And the ring is wider than the one every other theme is happy with, which
+     is the same answer in another token: see `--focus-ring` in `base.css`. */
+  --focus-ring: 0 0 0 5px var(--accent), var(--focus-lift);
+
+  color-scheme: dark;
+}

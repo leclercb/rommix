@@ -763,6 +763,7 @@ export const de: Catalog = {
   'settings.theme.crt': 'Röhre',
   'settings.theme.arcade': 'Spielhalle',
   'settings.theme.paper': 'Papier',
+  'settings.theme.contrast': 'Hoher Kontrast',
   'themes.noticeTitle': 'RomMix hat jetzt Designs',
   'themes.noticeBody':
     'Die Oberfläche kann in anderen Farben gezeichnet werden – ein helles Design oder eines von einer Konsole. Jedes wird auf dem Bildschirm gezeigt, bevor es bleibt.',

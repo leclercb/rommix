@@ -754,6 +754,7 @@ export const fr: Catalog = {
   'settings.theme.crt': 'Tube cathodique',
   'settings.theme.arcade': 'Arcade',
   'settings.theme.paper': 'Papier',
+  'settings.theme.contrast': 'Contraste élevé',
   'themes.noticeTitle': 'RomMix a des thèmes',
   'themes.noticeBody':
     'L’interface peut être dessinée dans d’autres couleurs : un thème clair, ou repris d’une console. Chacun s’affiche à l’écran avant d’être gardé.',

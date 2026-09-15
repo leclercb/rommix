@@ -753,6 +753,7 @@ export const en = {
   'settings.theme.crt': 'CRT',
   'settings.theme.arcade': 'Arcade',
   'settings.theme.paper': 'Paper',
+  'settings.theme.contrast': 'High contrast',
   'themes.noticeTitle': 'RomMix has themes now',
   'themes.noticeBody':
     'The interface can be drawn in other colours — a light theme, or one taken from a console. Each is shown on screen before you keep it.',

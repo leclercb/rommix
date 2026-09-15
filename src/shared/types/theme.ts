@@ -10,9 +10,11 @@
  * any of these names, and no component branches on one. Adding one is adding a
  * file, a name here and a line in each catalogue.
  *
- * Each entry is a place rather than a preference — a console somebody owned,
- * the light in a room, a cabinet. A theme nobody can name is one nobody picks
- * from a sofa.
+ * Most of them are a place — a console somebody owned, the light in a room, a
+ * cabinet — because that is what gives a palette somewhere to start and somewhere
+ * to stop. Nothing here requires it: what a theme owes is a name somebody can
+ * pick from a sofa, and `contrast` earns its place by being the easiest of them
+ * to read rather than by being anywhere.
  */
 export const THEMES = [
   /** The dark blue RomMix has always drawn itself in. */
@@ -40,7 +42,9 @@ export const THEMES = [
   /** A cabinet in a dark room: pixels, neon and scan lines. */
   'arcade',
   /** The light half of that: pixels printed on squared paper. */
-  'paper'
+  'paper',
+  /** Black, white and one yellow, for a screen read from across the room. */
+  'contrast'
 ] as const
 
 export type Theme = (typeof THEMES)[number]

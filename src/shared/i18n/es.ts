@@ -748,6 +748,7 @@ export const es: Catalog = {
   'settings.theme.crt': 'Tubo catódico',
   'settings.theme.arcade': 'Recreativa',
   'settings.theme.paper': 'Papel',
+  'settings.theme.contrast': 'Alto contraste',
   'themes.noticeTitle': 'RomMix ya tiene temas',
   'themes.noticeBody':
     'La interfaz puede dibujarse con otros colores: un tema claro o uno tomado de una consola. Cada uno se muestra en pantalla antes de conservarlo.',
