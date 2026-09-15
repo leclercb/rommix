@@ -4,6 +4,13 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.18.0-rc.1 — 2026-09-15
+
+- test(app): point the pointer at rows below the fold (caf2cbb)
+- feat: add a high-contrast theme (1e1d6c2)
+- feat: add the Lamplight, ZX Spectrum, Macintosh and Amiga themes (101ab99)
+- feat: add the Atari 2600, Commodore 64 and Virtual Boy themes (ce6e108)
+
 ## 0.18.0-rc.0 — 2026-09-15
 
 - feat: leave the Collections button its mark alone (99f9d63)
