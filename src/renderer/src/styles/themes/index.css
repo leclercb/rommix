@@ -33,9 +33,13 @@
 
 @import './midnight.css';
 @import './daylight.css';
+@import './lamplight.css';
 @import './atari.css';
 @import './c64.css';
+@import './spectrum.css';
 @import './famicom.css';
+@import './macintosh.css';
+@import './amiga.css';
 @import './megadrive.css';
 @import './gameboy.css';
 @import './superfamicom.css';

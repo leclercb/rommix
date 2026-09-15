@@ -1,0 +1,35 @@
+/*
+ * The desktop that came up on the machine: white and black on blue, with the
+ * orange of a dragged icon.
+ *
+ * Four colours were the whole of it, so everything past them is borrowed. The
+ * orange is the accent, which puts danger on a red told apart by hue rather
+ * than by lightness, and the two category colours are drawn in cyan and rose —
+ * violet, which the dark themes use, is the one pair of hues this ground
+ * swallows.
+ */
+[data-theme='amiga'] {
+  --bg-sunken: #003377;
+  --bg: #0055aa;
+  --bg-raised: #0063c4;
+  --bg-hover: #0d73d8;
+  --surface: rgba(255, 255, 255, 0.09);
+  --surface-soft: rgba(255, 255, 255, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.18);
+  --border: rgba(255, 255, 255, 0.26);
+  --border-strong: rgba(255, 255, 255, 0.44);
+  --text: #ffffff;
+  --text-dim: #c8dcf4;
+  --text-faint: #97b7dc;
+  --kind-save: #7fe8ff;
+  --kind-state: #ff9ad2;
+  --accent: #ff8800;
+  --accent-strong: #c46200;
+  --accent-contrast: #1a0c00;
+  --danger: #ff5b5b;
+  --danger-contrast: #2a0404;
+  --success: #4fd18a;
+  --warning: #ffd23f;
+
+  color-scheme: dark;
+}

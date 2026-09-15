@@ -1,0 +1,37 @@
+/*
+ * The rubber-key case, black, and the eight colours it could draw.
+ *
+ * Each of the eight has one job here and no second one: cyan is the accent,
+ * white the text, and red, yellow and green the three verdicts — which they
+ * already were. That leaves blue and magenta for what kind of file a row holds,
+ * a pair as far from the cyan as the palette goes.
+ *
+ * Drawn at the bright level rather than the dim one throughout: this is a
+ * television theme, and the dim half of that palette was never meant to be read
+ * at a distance.
+ */
+[data-theme='spectrum'] {
+  --bg-sunken: #000000;
+  --bg: #0a0a0c;
+  --bg-raised: #17171c;
+  --bg-hover: #23232b;
+  --surface: rgba(215, 215, 215, 0.06);
+  --surface-soft: rgba(215, 215, 215, 0.03);
+  --surface-strong: rgba(215, 215, 215, 0.12);
+  --border: rgba(215, 215, 215, 0.14);
+  --border-strong: rgba(215, 215, 215, 0.25);
+  --text: #e8e8e8;
+  --text-dim: #a6a6ad;
+  --text-faint: #6f6f78;
+  --kind-save: #8f8fff;
+  --kind-state: #ff7aff;
+  --accent: #2ce8e8;
+  --accent-strong: #009f9f;
+  --accent-contrast: #001414;
+  --danger: #ff4a4a;
+  --danger-contrast: #1a0000;
+  --success: #3ae83a;
+  --warning: #f0f04a;
+
+  color-scheme: dark;
+}

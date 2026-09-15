@@ -1,0 +1,34 @@
+/*
+ * One warm bulb in a dark room, which is the other half of the question
+ * `daylight` answers: not a machine, a time of night.
+ *
+ * Every colour is pulled towards the bulb and none of them is allowed to glare
+ * — the brightest thing on the screen is the accent, and it is a lamp rather
+ * than a light. The warning is the cost of that: a gold accent leaves it to be
+ * read by lightness, the split `megadrive.css` makes for the same reason.
+ */
+[data-theme='lamplight'] {
+  --bg-sunken: #0a0705;
+  --bg: #17110c;
+  --bg-raised: #221a12;
+  --bg-hover: #2e2418;
+  --surface: rgba(255, 214, 160, 0.05);
+  --surface-soft: rgba(255, 214, 160, 0.025);
+  --surface-strong: rgba(255, 214, 160, 0.11);
+  --border: rgba(255, 214, 160, 0.14);
+  --border-strong: rgba(255, 214, 160, 0.25);
+  --text: #f0e2cd;
+  --text-dim: #b8a68d;
+  --text-faint: #857762;
+  --kind-save: #c0a8ff;
+  --kind-state: #f0a0cf;
+  --accent: #ef9d4a;
+  --accent-strong: #bd7524;
+  --accent-contrast: #1a1006;
+  --danger: #e8695c;
+  --danger-contrast: #1d0605;
+  --success: #7fbf8a;
+  --warning: #dcc36b;
+
+  color-scheme: dark;
+}

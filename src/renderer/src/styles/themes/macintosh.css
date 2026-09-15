@@ -1,0 +1,95 @@
+/*
+ * The desktop grey, white windows on it, and black text in both.
+ *
+ * This is the one theme here that is a drawing style rather than a palette, so
+ * it goes further than colour in four places, each of them a token every
+ * section already reads: the corners, the shadow under a focused control, the
+ * rake across a card, and the hairline around everything. What that interface
+ * was is square, flat and outlined — a colour scheme alone gets none of it.
+ */
+[data-theme='macintosh'] {
+  --bg-sunken: #8c8c8c;
+  --bg: #dcdcdc;
+  --bg-raised: #ffffff;
+  --bg-hover: #ececec;
+  --surface: rgba(0, 0, 0, 0.05);
+  --surface-soft: rgba(0, 0, 0, 0.025);
+  --surface-strong: rgba(0, 0, 0, 0.1);
+  /*
+   * Hairlines rather than washes. Every other theme separates two surfaces by
+   * shading one of them; this one draws a line around each, which is why both
+   * borders are near-black where the rest of them are barely there.
+   */
+  --border: rgba(0, 0, 0, 0.62);
+  --border-strong: rgba(0, 0, 0, 0.88);
+  --text: #000000;
+  --text-dim: #4a4a4a;
+  --text-faint: #7d7d7d;
+  --kind-save: #5b3fb8;
+  --kind-state: #a8327c;
+  --accent: #1d4f91;
+  --accent-strong: #123566;
+  --accent-contrast: #ffffff;
+  --danger: #c0271f;
+  --danger-contrast: #fff2f0;
+  --success: #1a7a4a;
+  --warning: #8a6300;
+
+  /* Square, and a window is a flat white rather than a lit one. */
+  --radius: 0;
+  --radius-lg: 0;
+  --card: var(--bg-raised);
+  /*
+   * And the shadow is a black rectangle offset down and right, which is what a
+   * one-bit screen had instead of a blur. `--focus-ring` is built on this, so
+   * both focus treatments take it together.
+   */
+  --focus-lift: 4px 4px 0 rgba(0, 0, 0, 0.72);
+
+  color-scheme: light;
+}
+
+/*
+ * The corners the tokens cannot reach.
+ *
+ * A pill and a dot are drawn at a literal radius rather than at `--radius` —
+ * they are round because of what they are, not because of how the theme rounds
+ * things — and this is the one theme where that is wrong: nothing on that
+ * screen was round. Every one of those rules is a single class, so a selector
+ * carrying the attribute and an element beats all of them, and the themes are
+ * imported last for the ties.
+ */
+:root[data-theme='macintosh'] * {
+  border-radius: 0;
+}
+
+/* The dialog's own shadow, which is a literal blur for the same reason: see
+   `--focus-lift`, which this is the other half of. */
+:root[data-theme='macintosh'] .overlay__panel {
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.45);
+}
+
+/*
+ * The pinstripes, on the desktop rather than over it.
+ *
+ * `arcade.css` and `paper.css` put their texture on `body::after`, above
+ * everything, because a tube's lines and a sheet's squares are in front of what
+ * is drawn on them. This one is behind: the stripes were the desktop, and a
+ * window covered them. So they go on the shell's own ground, where a panel
+ * drawn in `--bg-raised` hides them and the translucent bar across the top lets
+ * them through — which is the difference between a desktop and a screen door.
+ *
+ * On `.app` rather than on `body`, which is what is actually visible: the shell
+ * fills the screen and paints the ground itself, so anything put behind it is
+ * behind an opaque fill. That rule is also where the wash of accent across the
+ * top corner is, and it goes here — a desktop has no light source.
+ */
+:root[data-theme='macintosh'] .app {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--text) 7%, transparent) 0 1px,
+      transparent 1px 2px
+    ),
+    var(--bg);
+}

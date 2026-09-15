@@ -19,9 +19,14 @@ export const THEMES = [
   'midnight',
   /** Light, for a room with the curtains open. */
   'daylight',
+  /** And the other half of that: one warm bulb in a dark room. */
+  'lamplight',
   'atari',
   'c64',
+  'spectrum',
   'famicom',
+  'macintosh',
+  'amiga',
   'megadrive',
   'gameboy',
   'superfamicom',
