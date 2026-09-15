@@ -33,10 +33,13 @@
 
 @import './midnight.css';
 @import './daylight.css';
+@import './atari.css';
+@import './c64.css';
 @import './famicom.css';
 @import './megadrive.css';
 @import './gameboy.css';
 @import './superfamicom.css';
+@import './virtualboy.css';
 @import './dreamcast.css';
 @import './vmu.css';
 @import './gamecube.css';

@@ -1,0 +1,66 @@
+/*
+ * Walnut veneer, the black panel across the front, and the orange of the label
+ * between them.
+ *
+ * The accent is that orange, which leaves the three verdicts to be told apart
+ * from it rather than from each other: danger is a true red and the warning a
+ * gold, the same lightness split `megadrive.css` makes below a gold accent.
+ *
+ * What kind of file a row holds moves off the violet pair the dark themes use —
+ * a violet on wood is a bruise — and is drawn in teal and rose, the two hues
+ * furthest from the orange everything else here leans towards.
+ */
+[data-theme='atari'] {
+  --bg-sunken: #170d06;
+  --bg: #2b190e;
+  --bg-raised: #3a2313;
+  --bg-hover: #4a2e1a;
+  --surface: rgba(255, 214, 168, 0.06);
+  --surface-soft: rgba(255, 214, 168, 0.03);
+  --surface-strong: rgba(255, 214, 168, 0.13);
+  --border: rgba(255, 204, 156, 0.17);
+  --border-strong: rgba(255, 204, 156, 0.29);
+  --text: #f4e5d2;
+  --text-dim: #c5ab8e;
+  --text-faint: #957b60;
+  --kind-save: #7fd4c8;
+  --kind-state: #f09ac8;
+  --accent: #f2751c;
+  --accent-strong: #b84c0b;
+  --accent-contrast: #1a0c04;
+  --danger: #ff5347;
+  --danger-contrast: #1d0402;
+  --success: #57bd82;
+  --warning: #e8b13a;
+
+  color-scheme: dark;
+}
+
+/*
+ * The grain, behind the interface rather than over it.
+ *
+ * `arcade.css` and `paper.css` put their texture above everything, because a
+ * tube's lines and a sheet's squares are in front of what is drawn on them.
+ * Veneer is not: it is the case the screen is set into, so it goes on the
+ * shell's own ground, where cover art covers it and a translucent surface lets
+ * it through. Over the top it would be lines across every piece of artwork in
+ * the library, which is a fault in the picture rather than a grain in the wood.
+ *
+ * Two runs of lines rather than one, at periods that share no factor: a single
+ * repeat at this width is a fence, and the second run breaking across it is
+ * what makes the two read as a board instead.
+ */
+:root[data-theme='atari'] .app {
+  background:
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--bg-sunken) 22%, transparent) 0 2px,
+      transparent 2px 9px
+    ),
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--text) 3%, transparent) 0 1px,
+      transparent 1px 23px
+    ),
+    var(--bg);
+}

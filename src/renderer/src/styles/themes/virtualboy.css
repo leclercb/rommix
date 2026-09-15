@@ -1,0 +1,38 @@
+/*
+ * One red LED and nothing else, which is what the console could draw.
+ *
+ * The accent is the brightest of the reds rather than the text, so the thing
+ * the highlight is on is above the page instead of level with it — every other
+ * theme gets that from hue, and this one has none to spend.
+ *
+ * The three verdicts are the departure `gameboy.css` makes for the same reason:
+ * nothing inside one hue can say "this failed" and be believed, so red, amber
+ * and green are kept as low versions of themselves, dark enough to sit in a
+ * black room. What kind of file a row holds stays in the family, a warm red and
+ * a cool one, which is all a category has to do.
+ */
+[data-theme='virtualboy'] {
+  --bg-sunken: #000000;
+  --bg: #0b0000;
+  --bg-raised: #1a0303;
+  --bg-hover: #2b0606;
+  --surface: rgba(255, 45, 45, 0.07);
+  --surface-soft: rgba(255, 45, 45, 0.035);
+  --surface-strong: rgba(255, 45, 45, 0.14);
+  --border: rgba(255, 45, 45, 0.2);
+  --border-strong: rgba(255, 45, 45, 0.34);
+  --text: #f04a4a;
+  --text-dim: #b13030;
+  --text-faint: #7a2020;
+  --kind-save: #ff8f7a;
+  --kind-state: #ff7ab8;
+  --accent: #ff2d2d;
+  --accent-strong: #c81616;
+  --accent-contrast: #0b0000;
+  --danger: #ff7a33;
+  --danger-contrast: #1d0600;
+  --success: #5ea864;
+  --warning: #d99a2b;
+
+  color-scheme: dark;
+}

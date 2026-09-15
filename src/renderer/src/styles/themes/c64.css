@@ -1,0 +1,38 @@
+/*
+ * The screen the machine booted to: light blue on blue, inside a lighter blue
+ * border.
+ *
+ * The ground is the one saturated colour any theme here is drawn on, so the
+ * surfaces are tinted with the text rather than with white — a white wash over
+ * this blue turns it to slate, which is the one thing it never looked like.
+ *
+ * Everything that is not the ground comes off the machine's own sixteen
+ * colours: cyan for the accent, because it is the only one of them that carries
+ * across a blue this strong, and light red, light green and yellow for the
+ * three verdicts, which is what those three were for there too.
+ */
+[data-theme='c64'] {
+  --bg-sunken: #1d1560;
+  --bg: #3529a0;
+  --bg-raised: #4035b5;
+  --bg-hover: #4e42c9;
+  --surface: rgba(176, 166, 255, 0.08);
+  --surface-soft: rgba(176, 166, 255, 0.04);
+  --surface-strong: rgba(176, 166, 255, 0.16);
+  --border: rgba(176, 166, 255, 0.24);
+  --border-strong: rgba(176, 166, 255, 0.4);
+  --text: #b0a6ff;
+  --text-dim: #9188e0;
+  --text-faint: #7269bd;
+  --kind-save: #cf8fe8;
+  --kind-state: #ee8fd0;
+  --accent: #aaffee;
+  --accent-strong: #6fd6c0;
+  --accent-contrast: #0f1030;
+  --danger: #ff7777;
+  --danger-contrast: #2a0505;
+  --success: #aaff66;
+  --warning: #eeee77;
+
+  color-scheme: dark;
+}
