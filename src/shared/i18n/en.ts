@@ -702,6 +702,8 @@ export const en = {
   'achievements.empty': 'RetroAchievements has nothing for this game.',
   'achievements.points_one': '{count} point',
   'achievements.points_other': '{count} points',
+  'achievements.earned': 'Earned',
+  'achievements.locked': 'Locked',
 
   // -- settings -------------------------------------------------------------
 

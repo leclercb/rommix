@@ -1,7 +1,9 @@
-import type { JSX } from 'react'
+import type { JSX, Ref } from 'react'
 import { emulatorById } from '@config/emulators'
 import { SHARED_LIBRARY, type InstalledRom, type RommRom } from '@shared/types'
 import { Icon } from '../../../icons'
+import { StatusBadge } from '../../../components'
+import { useFocusable } from '../../../input/focus'
 import { useApp, useI18n } from '../../../state'
 import { achievementsOf, type AchievementRow } from './achievements'
 
@@ -81,16 +83,25 @@ export function AchievementsTab({
  * One achievement, with the badge RetroAchievements draws for the state it is
  * in.
  *
- * Not focusable, and deliberately: there is nothing to press. The list is read
- * rather than driven, and a page of rows that take the highlight is a page the
- * pad has to be walked all the way down to leave.
+ * Focusable, though there is nothing to press: the highlight is how a page
+ * scrolls here — see `revealElement` — so a set of forty in a list nothing can
+ * land on is a set whose last thirty cannot be reached with a pad at all. No
+ * `onSelect` and no `actionLabel`, so the hint bar goes on offering whatever
+ * the screen offers rather than advertising a press that does nothing.
  */
 function Achievement({ row }: { row: AchievementRow }): JSX.Element {
   const { t } = useI18n()
+  const { ref, props } = useFocusable({})
   const badge = window.rommix.system.assetUrl(row.badge)
 
   return (
-    <li className="achievement" data-achievement={row.id} data-earned={row.earned}>
+    <li
+      ref={ref as Ref<HTMLLIElement>}
+      className="achievement"
+      data-achievement={row.id}
+      data-earned={row.earned}
+      {...props}
+    >
       {badge ? (
         <img className="achievement__badge" src={badge} alt="" loading="lazy" />
       ) : (
@@ -106,6 +117,15 @@ function Achievement({ row }: { row: AchievementRow }): JSX.Element {
         <div className="achievement__description">{row.description}</div>
       </div>
       <div className="achievement__points">{t('achievements.points', { count: row.points })}</div>
+      {/* Said in a word rather than left to the drawing. Earned and locked
+          badges are two pictures of the same thing and a dimmed row is a
+          difference nobody can name, which on a television three metres away
+          is no difference at all. */}
+      <StatusBadge
+        tone={row.earned ? 'ok' : 'off'}
+        icon={row.earned ? 'confirm' : 'locked'}
+        label={row.earned ? t('achievements.earned') : t('achievements.locked')}
+      />
     </li>
   )
 }

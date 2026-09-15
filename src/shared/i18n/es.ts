@@ -695,6 +695,8 @@ export const es: Catalog = {
   'achievements.empty': 'RetroAchievements no tiene nada para este juego.',
   'achievements.points_one': '{count} punto',
   'achievements.points_other': '{count} puntos',
+  'achievements.earned': 'Conseguido',
+  'achievements.locked': 'Pendiente',
 
   // -- ajustes --------------------------------------------------------------
 

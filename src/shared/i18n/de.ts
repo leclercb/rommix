@@ -709,6 +709,8 @@ export const de: Catalog = {
   'achievements.empty': 'RetroAchievements hat nichts für dieses Spiel.',
   'achievements.points_one': '{count} Punkt',
   'achievements.points_other': '{count} Punkte',
+  'achievements.earned': 'Erreicht',
+  'achievements.locked': 'Offen',
 
   // -- Einstellungen --------------------------------------------------------
 

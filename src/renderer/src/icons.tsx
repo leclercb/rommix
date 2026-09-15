@@ -39,6 +39,7 @@ import {
   LayoutGrid,
   Library,
   ListOrdered,
+  Lock,
   LogOut,
   Maximize,
   MonitorCog,
@@ -187,6 +188,8 @@ export const ICONS = {
   manual: BookOpen,
   /** One of a game's RetroAchievements. */
   achievement: Trophy,
+  /** One that has not been earned yet. */
+  locked: Lock,
   screenshots: Images,
   /** This machine's own copy of something, as opposed to the server's. */
   device: HardDrive

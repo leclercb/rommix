@@ -349,11 +349,12 @@
  * part that is actually read — half of them are the only clue about what to do
  * next — and a grid would put it under a picture in a column three words wide.
  *
- * An earned row is drawn at full strength and an unearned one is dimmed as a
- * whole, picture and words together. The badges differ as well,
- * RetroAchievements drawing its own locked version, but a set nobody has
- * started is a page of pictures that all look alike — so the dimming is what
- * says it at a glance.
+ * Which of the two a row is is said by the mark at its end, not by how hard the
+ * row is drawn: a dimmed row reads as a row that is not ready yet, and the two
+ * badges RetroAchievements draws for an achievement are the same picture twice
+ * to anyone who has not seen the set before. The earned row still sits on a
+ * stronger ground, which is what makes the set readable as a column — but
+ * nothing here is legible only because of it.
  */
 /* The line about where these are actually earned: quieter than the score above
    it, which is what the tab is for, and above the list rather than under it —
@@ -380,13 +381,25 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-soft);
-  opacity: 0.55;
 }
 
 .achievement[data-earned='true'] {
   background: var(--surface);
   border-color: var(--border-strong);
-  opacity: 1;
+}
+
+/* The highlight, which here is a reading position rather than a thing about to
+   be pressed: the ring, without the lift a control gets. */
+.achievement[data-focused='true'] {
+  box-shadow: var(--focus-ring);
+}
+
+/* The badge of one not earned yet, which RetroAchievements draws in grey
+   already. Held back a little further so the column reads at a glance, and not
+   so far that the picture stops being a picture — the word beside it is what
+   actually says which this is. */
+.achievement[data-earned='false'] .achievement__badge {
+  opacity: 0.6;
 }
 
 .achievement__badge {

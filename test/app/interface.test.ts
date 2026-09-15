@@ -917,6 +917,33 @@ describe('the achievements of a game', () => {
     )
   })
 
+  test('and each row says which of the two it is, in a word', async () => {
+    // The badge and the ground do not settle it — a locked badge is the same
+    // picture in grey, and neither reads across a room. See `AchievementsTab`.
+    assert.deepEqual(
+      await app.read<string[]>(
+        `[...document.querySelectorAll('.achievement .status--badge')].map(
+           (one) => one.textContent
+         )`
+      ),
+      [en['achievements.earned'], en['achievements.locked'], en['achievements.locked']]
+    )
+  })
+
+  test('and the pad can walk the set, which is the only way past the fold', async () => {
+    // Nothing here is pressable, so nothing here took the highlight — and a
+    // list the highlight cannot enter is a list that never scrolls: the set is
+    // longer than the panel on every game RetroAchievements covers properly.
+    // `choose` walks the pad there and presses A, which here does nothing —
+    // that being the point of a row with no `onSelect`. Arriving is the whole
+    // assertion.
+    await app.choose('.achievement[data-achievement="13"]')
+    await app.waitFor(
+      `document.querySelector('.achievement[data-achievement="13"]')?.dataset.focused === 'true'`,
+      'the last achievement to be reachable'
+    )
+  })
+
   test('and says where they are actually earned, RomMix not being what earns them', async () => {
     // Generic here: this game is not on the disk, so no emulator has been
     // settled for it. The named version is the same line with the emulator in
