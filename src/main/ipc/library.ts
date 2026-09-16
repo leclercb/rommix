@@ -2,7 +2,7 @@ import type { LibrarySyncResult, RommPlatform, RomUserStatus } from '@shared/typ
 import type { RomMixApp } from '../app.ts'
 import { log } from '../log.ts'
 import { refusedUs } from '../romm/index.ts'
-import { romFor } from './context.ts'
+import { romFor } from '../gamecontext.ts'
 import type { Handle } from './handler.ts'
 
 /** The library as RomM has it, reconciled with what is on this disk. */

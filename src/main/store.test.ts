@@ -12,7 +12,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { InstalledRom } from '@shared/types'
+import type { InstalledRom, Settings } from '@shared/types'
 import { Store } from './store.ts'
 
 /**
@@ -102,6 +102,55 @@ describe('settings', () => {
 
     assert.equal(store.settings.romStorage, 'rommix')
     assert.equal(store.server, null)
+  })
+
+  test('a setting of the wrong shape keeps its default, and the rest are read', () => {
+    // A hand edit: `null` where a map goes is the one that throws inside
+    // `resolveEmulator` on every call, and a theme nobody ships is a blank
+    // screen with nothing to say why.
+    const dir = scratch({
+      'settings.json': JSON.stringify({
+        settings: {
+          systemEmulators: null,
+          uiScale: 'big',
+          theme: 'neon',
+          emulatorPriority: ['eden', 7],
+          deviceName: 'kept'
+        },
+        server: 'https://romm.example'
+      })
+    })
+    const store = new Store(dir)
+
+    assert.deepEqual(store.settings.systemEmulators, {})
+    assert.equal(store.settings.uiScale, 0)
+    assert.equal(store.settings.theme, 'midnight')
+    assert.deepEqual(store.settings.emulatorPriority, [])
+    assert.equal(store.settings.deviceName, 'kept')
+    // A server that is not one is no server, rather than a string with no
+    // `baseUrl` on it.
+    assert.equal(store.server, null)
+    // Repaired on the disk as well, so the next start reads what this one
+    // settled on rather than repairing again — with a new device id each time.
+    assert.equal(new Store(dir).settings.deviceId, store.settings.deviceId)
+  })
+
+  test('a change of the wrong shape is refused, and the rest of the patch taken', () => {
+    const dir = scratch()
+    const store = new Store(dir)
+
+    store.updateSettings({
+      confirmUninstall: false,
+      systemEmulators: null as unknown as Record<string, string>,
+      unknown: true
+    } as Partial<Settings>)
+
+    assert.equal(store.settings.confirmUninstall, false)
+    assert.deepEqual(store.settings.systemEmulators, {})
+    // A key this build has no shape for is a newer build's, and rides through
+    // untouched rather than being erased by the next write.
+    assert.equal((store.settings as unknown as Record<string, unknown>).unknown, true)
+    assert.equal(new Store(dir).settings.confirmUninstall, false)
   })
 
   test('signing out is a server of null, written through to the file', () => {
@@ -354,9 +403,12 @@ describe('a state file that is not what RomMix wrote', () => {
   test('entries that are not records are skipped, and the rest are kept', () => {
     // A half-written list is still worth what is readable in it.
     const dir = scratch({
-      'downloaded_roms.json': '{"roms": [null, {"romId": 1}, 5, {"nope": true}, {"romId": 2}]}'
+      'downloaded_roms.json':
+        '{"roms": [null, {"romId": 1, "path": "/a"}, 5, {"nope": true}, {"romId": 3}, {"romId": 2, "path": "/b"}]}'
     })
 
+    // Three is a record with no path, which the prune at start-up cannot walk
+    // the disk by, so it goes with the ones that are not records at all.
     assert.deepEqual(
       new Store(dir).installed.map((entry) => entry.romId),
       [1, 2]

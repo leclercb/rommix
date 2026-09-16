@@ -7,7 +7,7 @@ import type {
   SaveSyncResult
 } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
-import { saveContext } from './context.ts'
+import { saveContext } from '../gamecontext.ts'
 import type { Handle } from './handler.ts'
 import { throttledProgress } from './progress.ts'
 

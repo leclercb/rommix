@@ -1,14 +1,14 @@
 /**
  * Where an emulator keeps the save data for one game.
  *
- * This replaces the two enums a descriptor used to carry (`saveLayout` and
- * `saveTree`). They were declared on the *frontend* — RetroDECK, EmuDeck — but
- * a frontend does not write saves; the emulator it dispatched to does, and each
- * of those has its own arrangement. One pair of enums per frontend cannot
- * describe a tree that holds `saves/ps2/pcsx2/memcards` beside `states/dolphin`
- * beside `saves/PSP/PPSSPP-SA`, and getting it wrong is not a failed search: a
- * pull writes a save into a folder the emulator never reads, and the game
- * starts with the save it had before.
+ * A question rather than a pair of enums on the descriptor, because a
+ * descriptor belongs to the *frontend* — RetroDECK, EmuDeck — and a frontend
+ * does not write saves; the emulator it dispatched to does, and each of those
+ * has its own arrangement. One shape per frontend cannot describe a tree that
+ * holds `saves/ps2/pcsx2/memcards` beside `states/dolphin` beside
+ * `saves/PSP/PPSSPP-SA`, and getting it wrong is not a failed search: a pull
+ * writes a save into a folder the emulator never reads, and the game starts
+ * with the save it had before.
  *
  * So a descriptor answers a question instead of declaring a shape. It is given
  * the roots that were discovered, the game that is about to run and a small

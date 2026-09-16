@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import { Blob } from 'node:buffer'
 import { readFile, rename, rm } from 'node:fs/promises'
-import { hostname } from 'node:os'
 import type {
   RommCollection,
   RommCollectionRomsPayload,
@@ -11,8 +10,6 @@ import type {
   RommDevice,
   RommDeviceAuthToken,
   RommDeviceAuthTokenPayload,
-  RommDeviceCreatePayload,
-  RommDeviceCreated,
   RommFirmware,
   RommPlaySession,
   RommPlaySessionPayload,
@@ -34,6 +31,7 @@ import { log } from '../log.ts'
 import { t } from '../i18n.ts'
 import type { Store } from '../store.ts'
 import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
+import { DeviceRegistry } from './devices.ts'
 import { RommError, UnreachableError, UnsupportedServerError } from './errors.ts'
 import { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 import {
@@ -147,30 +145,8 @@ export class RommClient {
   /** Guards against several 401s triggering parallel refreshes. */
   private refreshInFlight: Promise<void> | null = null
 
-  /**
-   * See `devices`. Carries the server *and* the token, so neither switching
-   * servers nor switching accounts on one server can reuse it — two accounts
-   * on the same RomM see different device lists, and the names off this list
-   * are what every Saves row is labelled with.
-   */
-  private cachedDevices: {
-    baseUrl: string
-    token: string | null
-    devices: RommDevice[]
-  } | null = null
-
-  /**
-   * See `deviceId`. Carries what it was resolved against, so nothing else
-   * inherits it: a device belongs to one account on one server, and both can
-   * change without this object being rebuilt.
-   */
-  private registration: {
-    baseUrl: string
-    token: string | null
-    deviceId: Promise<string | null>
-    /** Set where nothing answered, so `report` can let it be asked again. */
-    afterOutage?: boolean
-  } | null = null
+  /** What RomM knows this machine and its siblings as. See `DeviceRegistry`. */
+  private readonly registry: DeviceRegistry
 
   /**
    * Told after every request whether the server was there at all.
@@ -183,7 +159,9 @@ export class RommClient {
    */
   private reachability: ((reachable: boolean, reason?: string) => void) | null = null
 
-  constructor(private readonly store: Store) {}
+  constructor(private readonly store: Store) {
+    this.registry = new DeviceRegistry(store, (path, init) => this.json(path, init))
+  }
 
   /** Watch whether requests are reaching the server. See `reachability`. */
   observeReachability(listener: (reachable: boolean, reason?: string) => void): void {
@@ -200,13 +178,7 @@ export class RommClient {
    */
   private report(base: string, reachable: boolean, reason?: string): void {
     if (this.store.server?.baseUrl !== base) return
-    // A registration that failed because nothing answered is asked again once
-    // something does, rather than in front of every save while the server is
-    // away — which is three connection attempts each on the one path that
-    // already has a queue waiting to drain. See `deviceId`.
-    if (reachable && this.registration?.afterOutage && this.registration.baseUrl === base) {
-      this.registration = null
-    }
+    if (reachable) this.registry.serverAnswered(base)
     this.reachability?.(reachable, reason)
   }
 
@@ -251,42 +223,55 @@ export class RommClient {
      */
     const auth = (): Record<string, string> => (opts.baseUrl === undefined ? this.authHeader() : {})
 
-    const send = async (): Promise<Response> =>
-      fetch(`${base}${path}`, {
-        // A server that accepts the connection and then says nothing otherwise
-        // holds the screen for as long as the runtime's own default allows,
-        // behind a button that has already been pressed. The deadline covers
-        // the body as well as the reply, which is why the endpoints that carry
-        // bytes rather than an answer turn it off. See `REQUEST_TIMEOUT_MS`.
-        ...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
-        ...init,
-        headers: { Accept: 'application/json', ...auth(), ...(init.headers ?? {}) }
-      })
+    /**
+     * One attempt, with what a failure to send means settled here.
+     *
+     * Nothing answered — as against answering with a refusal, which comes back
+     * as an ordinary response — is the only shape of failure that says the
+     * server is not there, and every attempt has to read it the same way: the
+     * replay after a token refresh is as much a request as the first send, and
+     * a network that drops between the two must still put the interface into
+     * offline mode rather than hand it the runtime's own wording.
+     */
+    const attempt = async (): Promise<Response> => {
+      try {
+        const res = await fetch(`${base}${path}`, {
+          // A server that accepts the connection and then says nothing
+          // otherwise holds the screen for as long as the runtime's own default
+          // allows, behind a button that has already been pressed. The deadline
+          // covers the body as well as the reply, which is why the endpoints
+          // that carry bytes rather than an answer turn it off. See
+          // `REQUEST_TIMEOUT_MS`.
+          ...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
+          ...init,
+          headers: { Accept: 'application/json', ...auth(), ...(init.headers ?? {}) }
+        })
+        // Any status at all: a 404 is the server, present and answering.
+        this.report(base, true)
+        return res
+      } catch (cause) {
+        // The caller's own abort — a transfer paused, cancelled or overtaken
+        // while its request was out — says nothing about the server, and
+        // reported as an outage it would put the interface into offline mode.
+        if (init.signal?.aborted) throw cause
+        log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
+        this.report(base, false, (cause as Error).message)
+        throw new UnreachableError(
+          t('error.cannotReach', { url: base, reason: (cause as Error).message })
+        )
+      }
+    }
 
     // Every call to the server, with what came back. The path carries the query
     // string, so this doubles as the record of what RomMix asked *for* — which
     // page of the library, which ROM's saves, which platform's firmware.
     const took = log.since()
-    let res: Response
-    try {
-      res = await send()
-    } catch (cause) {
-      log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
-      // Nothing answered — as against answering with a refusal, which arrives
-      // below as an ordinary response. This is the only shape of failure that
-      // says the server is not there.
-      this.report(base, false, (cause as Error).message)
-      throw new UnreachableError(
-        t('error.cannotReach', { url: base, reason: (cause as Error).message })
-      )
-    }
-    // Any status at all: a 404 is the server, present and answering.
-    this.report(base, true)
+    let res = await attempt()
 
     if (res.status === 401 && retryOn401 && this.store.credentials.refreshToken) {
       log.info('romm', `${method} ${path} → 401, refreshing the access token and retrying`)
       await this.refreshAccessToken()
-      res = await send()
+      res = await attempt()
     }
 
     const line = `${method} ${path} → ${res.status}`
@@ -564,17 +549,15 @@ export class RommClient {
    * `type` is required, and naming one kind would fetch only that kind: there
    * is a shelf per genre, per franchise, per company and per play mode, and
    * RomM's own handler reads `all` as "do not filter". Without it the server
-   * answers 422 and the page shows nothing, which is exactly what it did.
+   * answers 422 and the page shows nothing.
    *
    * Only a 404 is answered with silence, and only because it is the one failure
    * that is not a failure: a server too old to have the endpoint has no virtual
    * collections to list, and a page that works is the right outcome.
    *
-   * Everything else is thrown, like every other call here. Swallowing the lot
-   * was how this shipped with a missing `type` — the server answered 422, the
-   * page showed an empty list, and the only evidence was a line in a log nobody
-   * had a reason to open. An error the user cannot see is an error nobody can
-   * report.
+   * Everything else is thrown, like every other call here. Swallowed, a 422
+   * is an empty page and a line in a log nobody has a reason to open — an
+   * error the user cannot see is an error nobody can report.
    */
   async virtualCollections(): Promise<RommVirtualCollection[]> {
     try {
@@ -1036,176 +1019,14 @@ export class RommClient {
 
   // -- saves and states -----------------------------------------------------
 
-  /**
-   * GET /api/devices — the devices paired with this account, so a save can say
-   * where it came from by name instead of by identifier.
-   *
-   * Never throws. An empty list costs a name and nothing else — the rows fall
-   * back to "another device" — while a throw would take down the Saves tab and
-   * the push dialog over a label. That matters for real servers, not just in
-   * theory: the endpoint post-dates the save sync it describes, so a RomM old
-   * enough to record `origin_device_id` may still 404 here, and a token issued
-   * before `devices.read` joined `REQUIRED_SCOPES` gets a 403.
-   *
-   * Held for as long as RomMix runs. Pairing a device, renaming one or
-   * removing it are all rare enough that a restart is a fair way to see it,
-   * and a name a few hours stale is a smaller cost than fetching the list
-   * again behind every game screen.
-   */
-  async devices(): Promise<RommDevice[]> {
-    // Read off the store rather than through `baseUrl`, which throws: there is
-    // no server to ask before one is configured, and that is not a failure.
-    const baseUrl = this.store.server?.baseUrl
-    if (!baseUrl) return []
-
-    const { clientToken, accessToken } = this.store.credentials
-    const token = clientToken ?? accessToken
-
-    const cached = this.cachedDevices
-    if (cached && cached.baseUrl === baseUrl && cached.token === token) return cached.devices
-
-    try {
-      const devices = await this.json<RommDevice[]>('/api/devices')
-      this.cachedDevices = { baseUrl, token, devices }
-      return devices
-    } catch (cause) {
-      log.warn('romm', 'the device list could not be read; saves will not be named', {
-        reason: (cause as Error).message
-      })
-      // Cached as empty, so one unsupported server is not asked on every row.
-      this.cachedDevices = { baseUrl, token, devices: [] }
-      return []
-    }
+  /** The devices paired with this account. See `DeviceRegistry.list`. */
+  devices(): Promise<RommDevice[]> {
+    return this.registry.list()
   }
 
-  /**
-   * The id RomM knows this machine by, or null where it has none.
-   *
-   * RomM resolves `device_id` against its own devices table and refuses an
-   * upload naming one that is not in it. Pairing hands that id back with the
-   * token; a client token typed in or a password does not, and the identifier
-   * RomMix generated for itself is not a device on the server until something
-   * asks for one. So the ask happens here, once, the first time a save has a
-   * device to name.
-   *
-   * Null is an answer rather than a failure. A save uploaded without a device
-   * is one RomM keeps — it only loses the label saying which machine wrote it,
-   * and `syncStateOf` falls back to treating the server's copy as somebody
-   * else's — which is a smaller loss than a save that never leaves the
-   * handheld. Registering is therefore attempted once per server and session,
-   * and a refusal remembered for as long as that session's token lasts rather
-   * than retried behind every push.
-   */
-  async deviceId(): Promise<string | null> {
-    const known = this.store.credentials.deviceId
-    if (known) return known
-
-    const baseUrl = this.store.server?.baseUrl
-    if (!baseUrl) return null
-    const { clientToken, accessToken } = this.store.credentials
-    const token = clientToken ?? accessToken
-    if (this.registration?.baseUrl !== baseUrl || this.registration.token !== token) {
-      this.registration = { baseUrl, token, deviceId: this.registerDevice(baseUrl, token) }
-    }
-
-    const id = await this.registration.deviceId
-    // Written down here rather than where it was obtained, so an answer this
-    // run already has still reaches the disk — and only while it is still the
-    // answer for the server and session that asked for it.
-    if (id && this.current(baseUrl, token) && this.store.credentials.deviceId !== id) {
-      this.store.setCredentials({ deviceId: id })
-    }
-    return id
-  }
-
-  /** Is the registration in hand still the one this server and session want? */
-  private current(baseUrl: string, token: string | null): boolean {
-    return this.registration?.baseUrl === baseUrl && this.registration.token === token
-  }
-
-  /**
-   * POST /api/devices — ask RomM to record this machine, and remember the id.
-   *
-   * Kept with the credentials rather than the settings: it is the account's
-   * device, so signing out or moving to another server has to lose it, and
-   * that is what `clearCredentials` already does.
-   *
-   * Never throws — see `deviceId`. An old server, a token issued before
-   * `devices.write` joined `REQUIRED_SCOPES`, or a server that answers
-   * something other than a device all come out as "this machine has no id".
-   */
-  private async registerDevice(baseUrl: string, token: string | null): Promise<string | null> {
-    const { deviceId, deviceName } = this.store.settings
-    try {
-      // Paired once and signed in again since with a token: RomM already holds
-      // this machine under the identifier RomMix chose for it, and registering
-      // would stand a second device beside the one that is already there.
-      const paired = (await this.pairedAs(deviceId))?.id
-      const id = paired ?? (await this.createDevice(deviceName))
-      if (id) {
-        // The list was read before the device was on it.
-        this.cachedDevices = null
-        log.info('romm', 'this machine is registered with RomM', { deviceId: id })
-        return id
-      }
-      log.warn('romm', 'RomM took the registration but named no id; saves will name no device')
-    } catch (cause) {
-      // A server that was not there has refused nothing, so it is not an answer
-      // to keep: `report` lets it be asked again once the server answers
-      // something. Marked rather than dropped, or every save would ask again
-      // for as long as the server stays away. A refusal is kept — see
-      // `deviceId`.
-      if (this.registration && cause instanceof UnreachableError && this.current(baseUrl, token)) {
-        this.registration.afterOutage = true
-      }
-      log.warn('romm', 'this machine could not be registered; saves will name no device', {
-        reason: (cause as Error).message
-      })
-    }
-    return null
-  }
-
-  /**
-   * The device RomM holds under this machine's own identifier, if any.
-   *
-   * Read fresh rather than off `devices`, which caches `[]` for the run after
-   * any failure: taking that for "this machine never paired" is how a second
-   * row appears beside the one already there. Only a paired device is ever
-   * found this way, `DeviceCreatePayload` having no field for the identifier —
-   * what keeps a registered one from doubling is the server's `allow_existing`.
-   * A failure is silence, since it is not an answer either and what follows is
-   * a registration, which is the right move when the list cannot be read.
-   */
-  private async pairedAs(identifier: string): Promise<RommDevice | null> {
-    try {
-      const devices = await this.json<RommDevice[]>('/api/devices')
-      return devices.find((device) => device.client_device_identifier === identifier) ?? null
-    } catch (cause) {
-      log.debug('romm', 'the device list could not be read before registering', {
-        reason: (cause as Error).message
-      })
-      return null
-    }
-  }
-
-  /** The registration itself, so `registerDevice` is the policy around it. */
-  private async createDevice(name: string): Promise<string | null> {
-    const created = await this.json<RommDeviceCreated>('/api/devices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        hostname: hostname(),
-        client: 'rommix',
-        platform: 'linux',
-        // From the packaged app, for the reason `startDevicePairing` gives.
-        client_version: app.getVersion(),
-        allow_existing: true
-      } satisfies RommDeviceCreatePayload)
-    })
-    // Asked because the id is the whole point of the call, and a reply without
-    // one would otherwise be sent as the string "undefined" on every upload.
-    return created.device_id || null
+  /** The id RomM knows this machine by, or null. See `DeviceRegistry.id`. */
+  deviceId(): Promise<string | null> {
+    return this.registry.id()
   }
 
   saves(romId: number): Promise<RommSave[]> {
@@ -1266,8 +1087,8 @@ export class RommClient {
    *
    * `slot` is what RomM pairs the upload against on the next client to ask —
    * see `AUTOSAVE_SLOT`. Left off, the save is stored as an archival upload
-   * that pairs with nothing, which is what every RomMix save was until now. A
-   * server too old to know the parameter ignores it and stores exactly that,
+   * that pairs with nothing. A server too old to know the parameter ignores it
+   * and stores exactly that,
    * so nothing here has to ask what version it is talking to.
    *
    * A slot is a history and not a file: RomM files each upload into it as a new

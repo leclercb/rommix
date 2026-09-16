@@ -215,15 +215,21 @@ export async function fetchToFile(
       total = (resumed ? received + declared : declared) || sizeHint
 
       const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
-      source.on('data', (chunk: Buffer) => {
-        received += chunk.length
-        waitForBytes()
-        onProgress({ received, total })
-      })
-
-      await pipeline(source, createWriteStream(partial, { flags: resumed ? 'a' : 'w' }), {
-        signal: attemptStopped.signal
-      })
+      await pipeline(
+        source,
+        // Counted as the bytes pass through, the same way `streamToFile` and
+        // `fetchfile.ts` count, so the three transfers read alike.
+        async function* (chunks: AsyncIterable<Buffer>) {
+          for await (const chunk of chunks) {
+            received += chunk.length
+            waitForBytes()
+            onProgress({ received, total })
+            yield chunk
+          }
+        },
+        createWriteStream(partial, { flags: resumed ? 'a' : 'w' }),
+        { signal: attemptStopped.signal }
+      )
       break
     } catch (cause) {
       // Cancelling is not a failure to retry: the user asked for it, and the

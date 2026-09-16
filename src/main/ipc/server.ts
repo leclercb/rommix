@@ -28,11 +28,11 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
     /**
      * What was signed in before this attempt, kept whole.
      *
-     * The rollback below used to clear the credentials outright, which made
-     * mistyping a password for server B a sign-out from server A. That is not
-     * a hypothetical route to the Connect screen: `UnsupportedServerError`
-     * sends a user there with perfectly good credentials on disk, and the
-     * screen's own comment says it leaves the app as it found it.
+     * A rollback that cleared the credentials would make mistyping a password
+     * for server B a sign-out from server A — and that route to the Connect
+     * screen is real: `UnsupportedServerError` sends a user there with
+     * perfectly good credentials on disk, and the screen's own comment says it
+     * leaves the app as it found it.
      */
     const previousCredentials = store.credentials
 

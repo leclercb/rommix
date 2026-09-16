@@ -11,8 +11,8 @@ import {
 } from 'node:fs'
 import { hostname } from 'node:os'
 import { dirname, join } from 'node:path'
-import { DEFAULT_DATE_FORMAT } from '@shared/i18n'
-import { DEFAULT_THEME } from '@shared/types'
+import { DATE_FORMATS, DEFAULT_DATE_FORMAT, LOCALES } from '@shared/i18n'
+import { AUTH_MODES, DEFAULT_THEME, ROM_STORAGES, THEMES, UPDATE_POLICIES } from '@shared/types'
 import type {
   InstalledRom,
   PendingDownload,
@@ -106,6 +106,95 @@ function defaultSettings(): Settings {
   }
 }
 
+/** Does a value have the shape a settings field is declared with? */
+type Check<T> = (value: unknown) => value is T
+
+const isBoolean: Check<boolean> = (value): value is boolean => typeof value === 'boolean'
+const isNumber: Check<number> = (value): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+const isString: Check<string> = (value): value is string => typeof value === 'string'
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+const isStringList: Check<string[]> = (value): value is string[] =>
+  Array.isArray(value) && value.every(isString)
+const isStringRecord: Check<Record<string, string>> = (value): value is Record<string, string> =>
+  isRecord(value) && Object.values(value).every(isString)
+const oneOf =
+  <T extends string>(options: readonly T[]): Check<T> =>
+  (value): value is T =>
+    isString(value) && (options as readonly string[]).includes(value)
+
+/**
+ * What each setting is allowed to hold.
+ *
+ * The file is RomMix's own, but it is also the one file people edit by hand,
+ * and a value of the wrong shape is worse than a missing one: `readJson`
+ * settles the top level, and a `"systemEmulators": null` inside it would pass
+ * that check and then throw inside `resolveEmulator` on every call. Every field
+ * is checked against this on the way in, from the disk and from the interface
+ * alike, and one that fails keeps the value it had.
+ */
+const SETTINGS_SHAPE: { [K in keyof Settings]: Check<Settings[K]> } = {
+  systemEmulators: isStringRecord,
+  emulatorPaths: isStringRecord,
+  systemLaunchers: isStringRecord,
+  emulatorRoots: isStringRecord,
+  systemOverrides: isStringRecord,
+  emulatorPriority: isStringList,
+  romStorage: oneOf(ROM_STORAGES),
+  setupComplete: isBoolean,
+  syncSavesDown: isBoolean,
+  syncSavesUp: isBoolean,
+  navigationSounds: isBoolean,
+  confirmUninstall: isBoolean,
+  confirmSavePush: isBoolean,
+  dismissedNotices: isStringList,
+  uiScale: isNumber,
+  theme: oneOf(THEMES),
+  language: oneOf(['auto', ...LOCALES]),
+  dateFormat: oneOf(DATE_FORMATS),
+  updates: oneOf(UPDATE_POLICIES),
+  updatePrereleases: isBoolean,
+  deviceId: isString,
+  deviceName: isString
+}
+
+/**
+ * `onto` with every well-shaped field of `patch` written over it.
+ *
+ * A key this build does not know is carried through untouched. Nothing
+ * updates an AppImage on the user's behalf, so a newer build's setting is a
+ * real thing to find in the file, and dropping it here would have the next
+ * write erase it — an upgrade that then finds the setting quietly back at its
+ * default.
+ *
+ * What was refused is named, so the caller can say so: a setting the
+ * interface tried to write and lost is a bug worth a line, and one the disk
+ * held and lost is a hand edit worth telling its author about.
+ */
+function acceptSettings(patch: unknown, onto: Settings): { settings: Settings; refused: string[] } {
+  if (!isRecord(patch)) return { settings: onto, refused: [] }
+  const settings: Record<string, unknown> = { ...onto }
+  const refused: string[] = []
+  for (const [key, value] of Object.entries(patch)) {
+    const check = Object.hasOwn(SETTINGS_SHAPE, key) ? SETTINGS_SHAPE[key as keyof Settings] : null
+    if (!check || check(value)) settings[key] = value
+    else refused.push(key)
+  }
+  return { settings: settings as unknown as Settings, refused }
+}
+
+/** The stored server, or null where what is there is not one. */
+function acceptServer(value: unknown): ServerConfig | null {
+  if (!isRecord(value) || !isString(value.baseUrl)) return null
+  if (!oneOf(AUTH_MODES)(value.authMode)) return null
+  return {
+    baseUrl: value.baseUrl,
+    authMode: value.authMode,
+    ...(isString(value.username) ? { username: value.username } : {})
+  }
+}
+
 /** Atomic JSON write, so a crash mid-write cannot truncate the file. */
 function writeJsonAtomic(path: string, value: unknown): void {
   const tmp = `${path}.tmp`
@@ -138,18 +227,19 @@ function readJson<T>(path: string, fallback: T): T {
  *
  * The key can hold the wrong thing even in a file that parses as an object, and
  * `{ "roms": null }` is not a shape a spread over a default protects against —
- * it replaces the default with the null. Both files here are lists of things
- * with a `romId`, which is the one field every reader needs and therefore the
- * one worth insisting on.
+ * it replaces the default with the null. Every file here is a list of things
+ * with a `romId`, which is the one field every reader needs; `shape` names
+ * what one reader insists on beyond it.
  */
-function readRecords<T extends { romId: number }>(path: string, key: string): T[] {
+function readRecords<T extends { romId: number }>(
+  path: string,
+  key: string,
+  shape: (entry: Record<string, unknown>) => boolean = () => true
+): T[] {
   const value = readJson<Record<string, unknown>>(path, {})[key]
   if (!Array.isArray(value)) return []
   return value.filter(
-    (entry): entry is T =>
-      typeof entry === 'object' &&
-      entry !== null &&
-      typeof (entry as { romId?: unknown }).romId === 'number'
+    (entry): entry is T => isRecord(entry) && isNumber(entry.romId) && shape(entry)
   )
 }
 
@@ -181,14 +271,28 @@ export class Store {
     this.migrationsPath = join(this.dir, 'migrations.json')
     this.unsentPath = join(this.dir, 'unsent_saves.json')
 
-    const raw = readJson<{ settings: Settings; server: ServerConfig | null }>(this.settingsPath, {
-      settings: defaultSettings(),
-      server: null
-    })
-    this.settingsCache = { ...defaultSettings(), ...raw.settings }
-    this.serverCache = raw.server ?? null
+    const raw = readJson<{ settings?: unknown; server?: unknown }>(this.settingsPath, {})
+    const taken = acceptSettings(raw.settings, defaultSettings())
+    this.settingsCache = taken.settings
+    this.serverCache = acceptServer(raw.server)
+    if (taken.refused.length > 0) {
+      log.warn('store', 'settings of the wrong shape were left at their defaults', {
+        path: this.settingsPath,
+        refused: taken.refused
+      })
+      // Written back, or the repair is made again on every start: a refused
+      // `deviceId` in particular is a fresh identifier per launch until this
+      // lands on the disk, and a machine signed in with a token registers
+      // itself under each one.
+      this.persistSettings()
+    }
     this.installedCache = new Map(
-      readRecords<InstalledRom>(this.installedPath, 'roms').map((r) => [r.romId, r])
+      // The path, because the prune at start-up walks the disk by it before
+      // there is a window: an entry without one is a start-up that never
+      // reaches one.
+      readRecords<InstalledRom>(this.installedPath, 'roms', (entry) => isString(entry.path)).map(
+        (r) => [r.romId, r]
+      )
     )
 
     // What RomMix believes at the moment it starts. Which credential kind is
@@ -210,7 +314,13 @@ export class Store {
   }
 
   updateSettings(patch: Partial<Settings>): Settings {
-    this.settingsCache = { ...this.settingsCache, ...patch }
+    const taken = acceptSettings(patch, this.settingsCache)
+    if (taken.refused.length > 0) {
+      log.warn('store', 'a settings change of the wrong shape was refused', {
+        refused: taken.refused
+      })
+    }
+    this.settingsCache = taken.settings
     this.persistSettings()
     return this.settingsCache
   }
@@ -248,10 +358,9 @@ export class Store {
    * `safeStorage` throws outright before the app is ready, and the store is
    * built while `RomMixApp` is being constructed — which is before
    * `app.whenReady()`, because the single-instance handlers need the object to
-   * exist. Decrypting there therefore failed on every single start, and the
-   * failure is indistinguishable from having no tokens: RomMix asked the user
-   * to pair, encrypted the new tokens successfully (that write happens after
-   * ready), and then could not read them back the next time either.
+   * exist. Decrypting there fails on every start, and the failure is
+   * indistinguishable from having no tokens: a pairing prompt on every launch,
+   * with tokens that were written perfectly well after ready.
    *
    * Lazy is not a workaround here but the correct lifetime: nothing wants the
    * tokens until a request is made, and by then Electron is up.
@@ -260,7 +369,7 @@ export class Store {
     this.credentialsCache ??= this.loadCredentials()
     // A read that *failed* is deliberately not cached. "Could not be read" and
     // "there are none" are different facts, and caching the first as the second
-    // is what turned one bad read into a permanent signed-out state.
+    // turns one bad read into a permanent signed-out state.
     return this.credentialsCache ?? { ...EMPTY_CREDENTIALS }
   }
 

@@ -343,12 +343,12 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
        * The highlight and the caret are one thing, and this is where they are
        * kept that way.
        *
-       * `TextField` focuses its input when it is selected, and until now nothing
-       * but the field's own Escape handler ever blurred it. So moving the mouse
-       * over a game card or pressing Down on the pad moved the highlight off the
-       * field while the caret stayed in it — and `keyboard.ts` stands down while
-       * an input holds the caret, which left every arrow key and Enter going
-       * nowhere for the rest of the screen with no cause on screen.
+       * `TextField` focuses its input when it is selected, and only its own
+       * Escape handler blurs it. Left alone, moving the mouse over a game card
+       * or pressing Down on the pad moves the highlight off the field while the
+       * caret stays in it — and `keyboard.ts` stands down while an input holds
+       * the caret, leaving every arrow key and Enter going nowhere for the rest
+       * of the screen with no cause on screen.
        */
       const active = document.activeElement
       if (
@@ -424,8 +424,8 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     // the time a screen has been replaced its focused element is gone from the
     // registry and cannot be asked what zone it was in. Falling back to
     // document order hands focus to the navigation rail every time a screen
-    // changes, the rail being the first thing in the document, which is exactly
-    // how opening a game used to leave the highlight sitting in the menu.
+    // changes, the rail being the first thing in the document — opening a game
+    // would leave the highlight sitting in the menu.
     const visible = visibleEntries()
     const first =
       visible.find((entry) => entry.zone === lastZone.current) ??
@@ -924,11 +924,11 @@ export function useFocusable(options: {
    * Autofocus is a thing that happens on arrival, not every time a button is
    * usable again.
    *
-   * `FocusButton` passes `disabled` straight through as `enabled`, so listing
-   * it as a dependency fired this on every false→true transition: finishing a
-   * firmware install threw the highlight onto "Install all", and Play took
-   * focus back the moment `working` cleared after a save pull — so a second A
-   * press launched the game instead of repeating what had just been pressed.
+   * `FocusButton` passes `disabled` straight through as `enabled`, so acting on
+   * every false→true transition would throw the highlight onto "Install all"
+   * as a firmware install finishes, and back onto Play the moment `working`
+   * clears after a save pull — where a second A press launches the game
+   * instead of repeating what was just pressed.
    */
   const claimed = useRef(false)
   useEffect(() => {
@@ -977,10 +977,10 @@ export function useFocusable(options: {
        *
        * Focusables nest: a download row is one, and the Pause and Cancel
        * buttons inside it are others. A click on a button reaches the row as
-       * well unless it is stopped here, so pausing a transfer also opened the
-       * game — two things happening from one press, only one of which was
-       * asked for. The controller has never had this problem, because a press
-       * goes to whatever is focused and to nothing else.
+       * well unless it is stopped here, and pausing a transfer would also open
+       * the game — two things from one press, only one of which was asked
+       * for. The controller has no such problem, because a press goes to
+       * whatever is focused and to nothing else.
        */
       onClick: (event: ReactMouseEvent) => {
         event.stopPropagation()

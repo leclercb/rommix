@@ -99,14 +99,14 @@ export function SetupScreen(): JSX.Element {
   }, [settings, step, status])
 
   /**
-   * B, which means two things on this screen and used to mean neither.
+   * B, which means two things on this screen.
    *
    * Inside setup it steps back a page, the same thing the Back button does, so
    * the two agree. Outside it there is nowhere behind — this screen is the
    * bottom of the stack and has no menu bar to climb into — so it offers to
-   * quit, which is what every console does when Back runs out. Before this it
-   * was simply unbound, leaving a controller with no way out of RomMix at all
-   * until a server had been configured.
+   * quit, which is what every console does when Back runs out. Unbound, it
+   * leaves a controller with no way out of RomMix at all until a server has
+   * been configured.
    *
    * One binding rather than two: the shell deliberately leaves `back` alone on
    * this route, and a second handler registered here would shadow this one.

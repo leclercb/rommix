@@ -92,8 +92,8 @@ let fileDisabled = false
  * Lines the log has to say about itself, held until there is a file for them.
  *
  * Rolling a file over and sweeping the old ones are the two things in here that
- * delete something of the user's, and both did it without a word — so "where
- * did last week's log go" had no answer anywhere, least of all in the log. They
+ * delete something of the user's, and "where did last week's log go" has to
+ * have an answer — in the log, which is where anybody asking will look. They
  * cannot call `write`, which is what calls them; they leave the line here and
  * the write that provoked it carries it into the fresh file, which is where
  * somebody looking for the old one will be.

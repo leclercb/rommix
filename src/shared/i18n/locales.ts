@@ -65,7 +65,7 @@ export const FLAG_VIEWBOX = '0 0 24 18'
  * are here because a flag is picked out of a row of five faster than a word is,
  * and the word is next to it either way.
  *
- * Drawn rather than typed, which these used to be. Having a glyph for the emoji
+ * Drawn rather than typed as emoji. Having a glyph for the emoji
  * is not the same as drawing a flag: Noto Emoji — the *monochrome* one — ligates
  * the pair exactly as a colour font does and renders it as the two-letter
  * country code in a box, and fontconfig ranks it ahead of Noto Color Emoji

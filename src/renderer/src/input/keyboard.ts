@@ -39,10 +39,10 @@ export function keyboardLabel(key: string, t: I18n['t']): string | undefined {
  * What one key press means, or null where it means nothing here.
  *
  * Split out of the handler so it can be tested, the same reason `geometry.ts`
- * was split out of `focus.tsx`: the rule worth pinning is that every key
- * `keyboardLabel` advertises is one this answers for — the hint bar drew `M`
- * uppercase while the switch tested `'m'`, so with Caps Lock on the press that
- * matched the label did nothing, and nothing anywhere could have caught it.
+ * is apart from `focus.tsx`: the rule worth pinning is that every key
+ * `keyboardLabel` advertises is one this answers for. A hint bar drawing `M`
+ * over a switch testing `'m'` is a press that does nothing with Caps Lock on,
+ * and nothing but a test catches that.
  *
  * Letters are lower-cased for that reason. `event.key` is what the shift state
  * produced, and which case a letter arrives in says nothing about what was

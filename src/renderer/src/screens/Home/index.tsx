@@ -38,10 +38,9 @@ interface Shelf {
  * One shelf: a query paged on its own, so walking one to its end fetches for
  * that shelf and leaves the others where they are.
  *
- * `useRomPages` does the paging — it is the same paging the library grid does,
- * and was written twice before it was one thing. What a shelf adds is where the
- * message goes and what being away from the server means to a row of the
- * server's own games.
+ * `useRomPages` does the paging — the same paging the library grid does. What
+ * a shelf adds is where the message goes and what being away from the server
+ * means to a row of the server's own games.
  */
 function useShelf(query: RomQuery, offline: boolean | null): Shelf {
   /**
@@ -154,12 +153,12 @@ export function HomeScreen(): JSX.Element {
     <div className="content">
       {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
 
-      {/* Above the shelves rather than instead of them. One shelf's query
-          failing used to replace the whole screen — including "Ready to play",
-          which is built from the download index and is the one part that works
-          with no server at all — and nothing came back for it: navigating to a
-          section only replaces the history entry, so this screen never
-          remounts and the fetch never runs again. Hence the button. */}
+      {/* Above the shelves rather than instead of them: "Ready to play" is
+          built from the download index and works with no server at all, so
+          one shelf's query failing must not take it down. The button is there
+          because nothing else retries — navigating to a section only replaces
+          the history entry, so this screen never remounts and the fetch never
+          runs again. */}
       {error ? (
         <div className="notice notice--error">
           <span>{error}</span>

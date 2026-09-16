@@ -54,10 +54,9 @@ applyDisplayFlags()
 // Only one instance may own the ROM tree and the download queue.
 if (!app.requestSingleInstanceLock()) {
   // Nothing is written here and nothing is read: everything below touches the
-  // *running* instance's files. A duplicate launch used to append a full
-  // starting banner to the live log and then run the sweep and the rollover
-  // against a file the first process was appending to — splitting one session
-  // across two files with no marker in either.
+  // *running* instance's files, and a second process writing a banner, a
+  // rollover or a sweep into them splits one session across two files with no
+  // marker in either.
   app.quit()
 } else {
   // The root has to exist before the Store reads from it. Electron's own

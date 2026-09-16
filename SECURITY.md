@@ -31,6 +31,14 @@ Worth knowing before deciding whether something is a security issue here:
   server and nowhere else. Emulator builds come from Flathub or the project's
   own releases; libretro cores come from the libretro buildbot over HTTPS, which
   is forced even when RetroArch's own config names a plain-http mirror.
+- **What checks them.** Nothing RomMix downloads is signed, by RomMix or by
+  anyone else. A new version of RomMix is held to the digest GitHub publishes
+  on the release asset, and refused without one; an emulator build is held to
+  the digest its release states, where it states one; a libretro core has no
+  digest to be held to. Every one of those digests arrives over the same
+  connection as the file it describes, so what they catch is a truncated or
+  substituted download, not a publisher whose account has been taken over. The
+  trust anchor is TLS and the hosting account, and that is the whole of it.
 
 ## What is not a vulnerability
 

@@ -161,10 +161,10 @@ export class BiosManager {
    * knowable, the game is about to start regardless, and a notification about
    * a warning that could not be computed helps nobody.
    *
-   * Anything else throws. A refusal used to return null as well, and the game
-   * page then drew exactly what it draws for a platform with nothing wrong —
-   * no warning at all. The page still opens either way, because the caller
-   * keeps its own `catch`; what changes is that the user is told.
+   * Anything else throws. A refusal answered with null would have the game
+   * page draw exactly what it draws for a platform with nothing wrong — no
+   * warning at all. The page still opens either way, because the caller keeps
+   * its own `catch`; the difference is that the user is told.
    */
   async platformReport(platformId: number): Promise<BiosPlatform | null> {
     // Deliberately not `serverHalf`, which asks after every platform's

@@ -54,10 +54,10 @@ export function SystemTab({
   /**
    * Run the pre-flight check again, and say what it found.
    *
-   * The button used to replace the report silently, which on a machine where
-   * nothing had changed was indistinguishable from a button that does nothing —
-   * the same list of notes, redrawn. The count is the part that answers "did
-   * that do anything", so the notification leads with it.
+   * A report replaced silently is, on a machine where nothing has changed,
+   * indistinguishable from a button that does nothing — the same list of
+   * notes, redrawn. The count is the part that answers "did that do
+   * anything", so the notification leads with it.
    */
   const recheck = async (): Promise<void> => {
     setRechecking(true)

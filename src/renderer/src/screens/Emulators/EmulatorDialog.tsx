@@ -8,13 +8,13 @@ import { Status } from './EmulatorList'
 /**
  * Which emulator runs one platform, asked as a list.
  *
- * The row used to cycle: one press advanced to the next candidate, which for
- * two of them is the cheapest control there is and for five is a walk with no
- * way back. Every step of it was also a write and a re-probe, and a change of
- * emulator to be agreed to — so passing an emulator on the way to the one
- * wanted cost a question about a move nobody was making.
+ * Not a row that cycles: one press to the next candidate is the cheapest
+ * control there is for two of them and a walk with no way back for five, and
+ * every step of it is a write, a re-probe and a change of emulator to be
+ * agreed to — passing an emulator on the way to the one wanted costs a
+ * question about a move nobody is making.
  *
- * Listed instead, what a platform can run is readable before anything is
+ * Listed, what a platform can run is readable before anything is
  * pressed, each with whether it is actually here, and one press makes one
  * change.
  */

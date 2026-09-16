@@ -13,7 +13,9 @@ import type { RommUser } from './romm.ts'
 import type { Theme } from './theme.ts'
 import type { UpdatePolicy } from './updates.ts'
 
-export type AuthMode = 'password' | 'device' | 'token'
+/** How RomMix is signed in. The list is what `Store` checks a stored one against. */
+export const AUTH_MODES = ['password', 'device', 'token'] as const
+export type AuthMode = (typeof AUTH_MODES)[number]
 
 export interface ServerConfig {
   /** Base URL with no trailing slash, e.g. https://romm.example.org */
@@ -69,7 +71,8 @@ export interface ConnectionStatus {
  * changes their mind about which emulator runs a platform, which is a thing
  * Settings actively invites.
  */
-export type RomStorage = 'emulator' | 'rommix'
+export const ROM_STORAGES = ['emulator', 'rommix'] as const
+export type RomStorage = (typeof ROM_STORAGES)[number]
 
 export interface Settings {
   /**
@@ -120,9 +123,9 @@ export interface Settings {
   /**
    * True once the first-run wizard has been completed.
    *
-   * Separate from "is there a server configured", which is what the connect
-   * screen used to infer this from. Signing out clears the server and would
-   * otherwise put someone who has been using RomMix for months back through a
+   * Separate from "is there a server configured". Signing out clears the
+   * server, and a wizard inferred from that would put someone who has been
+   * using RomMix for months back through a
    * page asking how big they would like the text — the wizard is about choices
    * made once, not about being disconnected.
    */

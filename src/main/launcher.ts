@@ -49,12 +49,10 @@ interface LaunchOptions {
  * Ask a running emulator to quit.
  *
  * A flatpak has to be stopped through flatpak: the process spawned here is only
- * a client of it, and signalling that one is what the close button used to do —
- * nothing.
+ * a client of it, and a signal to that one reaches nothing.
  *
  * Anything else is asked through its process group, because the process spawned
- * here is usually not the emulator either — and signalling that one alone was
- * the same do-nothing button by a different route. See `signalProcessGroup`.
+ * here is usually not the emulator either. See `signalProcessGroup`.
  *
  * Shared by the two things that can have the screen: a game's session, and an
  * emulator started on its own from the Emulators page.
@@ -692,13 +690,12 @@ export class Launcher {
    * has no business syncing saves or claiming a game is running while that
    * happens. `unref` means quitting RomMix does not take the emulator with it.
    *
-   * It is not, however, unwatched. It used to be spawned with its output thrown
-   * away and nothing but an `error` listener, which fires only when the process
-   * could not be created at all — so an emulator that started and immediately
-   * died said nothing whatsoever, and Settings went on reporting "Eden started"
-   * over a window that never appeared. Anything that fails inside
-   * `OPEN_SETTLE_MS` is therefore reported, using the emulator's own words; the
-   * process is released as soon as it has survived that long.
+   * It is not, however, unwatched. An `error` listener fires only when the
+   * process could not be created at all, so an emulator that starts and
+   * immediately dies would say nothing while Settings reports it started over
+   * a window that never appeared. Anything that fails inside `OPEN_SETTLE_MS`
+   * is therefore reported, using the emulator's own words; the process is
+   * released as soon as it has survived that long.
    */
   async runEmulator(emulator: EmulatorState, onExit?: () => void): Promise<string> {
     const descriptor = emulatorById(emulator.id)

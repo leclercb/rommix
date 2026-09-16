@@ -67,11 +67,10 @@ export interface PagedRoms {
  * The whole of the paging: which fetch is the live one, whether a request is
  * already out, what a page does to what is held, and what standing down means.
  * Both things in RomMix that page a query are this plus a way of asking for the
- * next page — a sentinel below a grid, or a row that reports reaching its end —
- * and they were written twice. They drifted both ways while they were: one
- * cleared its in-flight flag on behalf of a request it had stopped listening
- * to, and only one of them exempted a first page from the guard, which is what
- * left a shelf empty after a handheld came back into range.
+ * next page — a sentinel below a grid, or a row that reports reaching its end.
+ * One implementation, because two drift: an in-flight flag cleared on behalf
+ * of a request nothing is listening to, or a first page refused by the guard,
+ * is a shelf left empty after a handheld comes back into range.
  */
 export function useRomPages(
   query: RomQuery,

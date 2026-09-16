@@ -4,9 +4,9 @@
  * Split by what each part is answerable for rather than by endpoint: the
  * client says what to ask the server for, `transfer.ts` owns what happens to
  * bytes on their way to the disk, `checksums.ts` decides which hash — if any —
- * describes what is arriving, `version.ts` says which servers this build can
- * read at all, and `errors.ts` holds the failures the rest of RomMix branches
- * on.
+ * describes what is arriving, `devices.ts` keeps what RomM knows this machine
+ * as, `version.ts` says which servers this build can read at all, and
+ * `errors.ts` holds the failures the rest of RomMix branches on.
  *
  * One import for the lot, because every caller wants the client and at least
  * one of the error types: a download that has to tell an outage from a

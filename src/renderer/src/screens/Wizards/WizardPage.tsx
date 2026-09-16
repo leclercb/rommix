@@ -9,8 +9,7 @@ import { useI18n } from '../../state'
  *
  * Both flows in this folder draw their pages here, so a sequence walked with a
  * pad looks the same whichever one it is — the line above the heading, where
- * Back sits, and what B does. They were two components saying the same thing
- * before, and the second was written by copying the first.
+ * Back sits, and what B does.
  *
  * What differs between them is the line above the heading. Setup counts its
  * pages because it has three of them, fixed; the install flow cannot, because

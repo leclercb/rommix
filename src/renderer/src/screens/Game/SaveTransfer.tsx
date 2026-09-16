@@ -7,9 +7,9 @@ import { useI18n } from '../../state'
 /**
  * A pull or a push while it is running.
  *
- * The two buttons used to grey themselves out and say nothing else, which on a
- * home connection is a screen that has stopped: a save folder is a hundred
- * files on some systems, and a Switch title's archive is minutes of it.
+ * Two greyed buttons saying nothing else are, on a home connection, a screen
+ * that has stopped: a save folder is a hundred files on some systems, and a
+ * Switch title's archive is minutes of it.
  *
  * The same panel the download above it uses, because it is the same fact —
  * bytes crossing the wire against this game — and one that looked different

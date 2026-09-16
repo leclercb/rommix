@@ -154,8 +154,8 @@ function signal(pids: readonly number[], sig: NodeJS.Signals = 'SIGTERM'): void 
  * What RomMix spawns is usually not the emulator. An AppImage runs its payload
  * as a child of the runtime that carries it, an EmuDeck launcher is a shell
  * script that starts one and waits, and neither forwards a signal — bash does
- * not forward SIGTERM, it dies on it, which left the emulator holding the
- * screen and its parent gone from under it.
+ * not forward SIGTERM, it dies on it, leaving the emulator holding the screen
+ * with its parent gone from under it.
  *
  * A group rather than a walk down the process table, because the two ways a
  * program leaves a tree are the two ways the walk misses it. A process that
@@ -198,8 +198,8 @@ export function signalProcessGroup(pid: number, sig: NodeJS.Signals): boolean {
  * A signal cannot simply be sent to the process RomMix spawned either. `flatpak
  * run` hands off to bubblewrap and the application ends up parented to the
  * session, so the spawned process is a bystander and bubblewrap forwards
- * nothing — which is why the close button did nothing at all. The application's
- * own processes are visible on the host, though, and SIGTERM to those is an
+ * nothing. The application's own processes are visible on the host, though,
+ * and SIGTERM to those is an
  * ordinary quit that RetroArch and the rest handle by shutting down cleanly.
  *
  * Returns false when the application was not running.
@@ -271,12 +271,11 @@ export async function killProcessTree(pid: number): Promise<void> {
  * been told the app is not responding and has chosen to lose whatever it had
  * not written.
  *
- * `flatpak kill` alone was not enough, and answered as though it were. It fails
+ * `flatpak kill` alone is not enough, and answers as though it were: it fails
  * silently for an instance flatpak is not tracking and returns without waiting
- * for the app to actually go, so the one press that was supposed to be the way
- * out of a hung emulator sometimes did nothing at all — with nothing in the
- * result to say so. What is still listed afterwards is the only honest answer,
- * and what is still there is signalled the way `stopFlatpakApp` signals.
+ * for the app to actually go. What is still listed afterwards is the only
+ * honest answer, and what is still there is signalled the way `stopFlatpakApp`
+ * signals.
  *
  * Reports whether the app is gone, so a caller with another way to reach it can
  * use it. See `forceQuit`.

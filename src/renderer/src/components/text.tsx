@@ -6,9 +6,9 @@ import type { JSX, ReactNode } from 'react'
  *
  * Two things in RomMix are a sentence wrapped around something that is not
  * text: the heart in the footer's signature, and the emphasised address in
- * "installed by hand, from …". Both used to be built by concatenating fragments
- * of English around the element, which is exactly the shape that cannot be
- * translated — word order is the first thing a language changes.
+ * "installed by hand, from …". Fragments of English concatenated around the
+ * element are exactly the shape that cannot be translated — word order is the
+ * first thing a language changes.
  *
  * So the whole sentence stays one catalogue entry, placeholder included, and
  * this splits it at the placeholder. A phrase that has moved the placeholder to

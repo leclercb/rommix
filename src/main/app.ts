@@ -18,7 +18,7 @@ import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
 import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
-import { saveContext } from './ipc/context.ts'
+import { saveContext } from './gamecontext.ts'
 import type { EmulatorState, SavesWaiting } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
@@ -184,10 +184,9 @@ export class RomMixApp {
    * Deliberately not a migration, though it runs on the same trigger: a
    * migration is recorded once and never runs again, and this is a list that
    * has to keep up with a server that gains platforms and firmware. Nor is it
-   * left to the screens that read it — before this, the platform list was
-   * written only if somebody happened to open the Library, the Emulators page
-   * or BIOS while connected, so whether RomMix worked out of range depended on
-   * where the user had been.
+   * left to the screens that read it: a list written only when one of them is
+   * opened while connected makes whether RomMix works out of range depend on
+   * where the user has been.
    *
    * One request for the platforms, every time. The firmware behind them is one
    * request *per platform*, so it is taken only when there is none at all, and

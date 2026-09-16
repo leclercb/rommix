@@ -180,6 +180,18 @@ const AppContext = createContext<AppState | null>(null)
 const DownloadsContext = createContext<DownloadItem[] | null>(null)
 const ToastsContext = createContext<Toast[] | null>(null)
 
+/**
+ * How the first load is tried again, where the two answers it cannot draw
+ * without do not come.
+ *
+ * A handful of goes a couple of seconds apart: what could be in the way is the
+ * main process, not the network, and every second of it is a blank screen with
+ * nothing to press. Past the last go the screen stays as it is, the failure
+ * having been reported the way every failed call is.
+ */
+const BOOT_RETRY_MS = 2000
+const BOOT_ATTEMPTS = 5
+
 let toastId = 0
 
 export function AppProvider({ children }: { children: ReactNode }): JSX.Element {
@@ -280,26 +292,60 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const canGoBack = history.length > 1
 
-  // Initial load: decide between setup and the library.
+  /**
+   * Initial load: decide between setup and the library.
+   *
+   * Two answers the interface cannot be drawn without, and three it can. The
+   * status and the settings are tried again if they do not come — see
+   * `BOOT_ATTEMPTS` — since without them there is nothing on screen to press.
+   * The rest are asked once each and left to the report every failed call
+   * makes: a queue that cannot be read back is a toast over a working library,
+   * not a reason to ask for the settings again.
+   */
   useEffect(() => {
-    void (async () => {
-      const [nextStatus, nextSettings] = await Promise.all([
-        window.rommix.server.status(),
-        window.rommix.system.settings()
-      ])
-      setStatus(nextStatus)
-      setSettings(nextSettings)
-      setDownloads(await window.rommix.downloads.list())
-      setInstalled(await window.rommix.library.installed())
-      // Whatever the main process already knows — a check that ran before this
-      // window existed, or an image downloaded during the previous session.
-      setUpdate(await window.rommix.updates.status())
+    let timer: number | null = null
+    let listening = true
+    const load = async (attempt: number): Promise<void> => {
+      let nextStatus: ConnectionStatus
+      try {
+        const [answered, nextSettings] = await Promise.all([
+          window.rommix.server.status(),
+          window.rommix.system.settings()
+        ])
+        if (!listening) return
+        nextStatus = answered
+        setStatus(answered)
+        setSettings(nextSettings)
+      } catch {
+        if (listening && attempt < BOOT_ATTEMPTS) {
+          timer = window.setTimeout(() => void load(attempt + 1), BOOT_RETRY_MS)
+        }
+        return
+      }
       // A server that did not answer is not a reason to ask for the sign-in
       // form again: the credentials are fine, the games are on the disk, and
       // Home shows them. Anything else — never set up, or credentials RomM
       // refuses — has nowhere to go but Connect.
       if (!nextStatus.connected && !nextStatus.offline) setHistory([{ name: 'setup' }])
-    })()
+
+      const [queue, onDisk, known] = await Promise.all([
+        window.rommix.downloads.list().catch(() => null),
+        window.rommix.library.installed().catch(() => null),
+        // Whatever the main process already knows — a check that ran before
+        // this window existed, or an image downloaded during the previous
+        // session.
+        window.rommix.updates.status().catch(() => null)
+      ])
+      if (!listening) return
+      if (queue) setDownloads(queue)
+      if (onDisk) setInstalled(onDisk)
+      if (known) setUpdate(known)
+    }
+    void load(1)
+    return () => {
+      listening = false
+      if (timer !== null) window.clearTimeout(timer)
+    }
   }, [])
 
   /**

@@ -213,9 +213,9 @@ function rankOf(fileName: string): number {
  * dispatched to, so RetroDECK running PCSX2 says `pcsx2` — and the descriptor
  * id otherwise, which is already right for a standalone.
  *
- * One function because both directions must agree. A push sends this and a pull
- * matches on it, and while those were two separate expressions a frontend's
- * uploads could not match its own downloads.
+ * One function because both directions must agree: a push sends this and a
+ * pull matches on it, and two expressions of it can let a frontend's uploads
+ * fail to match its own downloads.
  */
 export function localTag(paths: SavePaths, emulatorId: string): string {
   return paths.emulator ?? emulatorId
@@ -438,8 +438,9 @@ export async function keepBackup(path: string, into: string, isDirectory = false
 /**
  * One best-effort step of the backup chain, with what went wrong written down.
  *
- * Each of these swallows its failure — see `keepBackup` — and a chain that half
- * happened used to leave exactly what a chain that went through leaves: nothing.
+ * Each of these swallows its failure — see `keepBackup` — and without a line
+ * apiece a chain that half happened leaves exactly what a chain that went
+ * through leaves: nothing.
  *
  * A missing file is not worth a line. Rotation renames slots nothing has
  * written yet on every save backed up fewer times than there are slots, and a

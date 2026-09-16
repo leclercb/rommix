@@ -65,8 +65,8 @@ export interface ReleaseSource {
  * Each entry answers both halves of "can this emulator be here": how to
  * recognise an install of that kind, and how to obtain one. They are the same
  * question — where a program comes from is what decides how it is found — and
- * splitting them once meant an emulator both on Flathub and published as an
- * AppImage could only offer whichever half the screen happened to check.
+ * split, an emulator both on Flathub and published as an AppImage can only
+ * offer whichever half the screen happens to check.
  *
  * What "obtain" means follows the kind, so a descriptor cannot describe a
  * route RomMix has no way to take:

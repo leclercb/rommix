@@ -83,9 +83,8 @@ interface ForgejoRelease {
  */
 export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRelease[]> {
   // Both spellings, because the two hosts disagree and neither minds the other:
-  // Forgejo reads `limit`, GitHub reads `per_page` and ignores `limit` — which
-  // is why the shadPS4 list used to come back at GitHub's default page size
-  // whatever this asked for. An unknown query parameter is discarded by both.
+  // Forgejo reads `limit`, GitHub reads `per_page` and ignores `limit`, and an
+  // unknown query parameter is discarded by both.
   const response = await fetch(`${source.api}?limit=20&per_page=20`, {
     headers: { Accept: 'application/json' }
   })

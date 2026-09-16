@@ -16,8 +16,8 @@ import { useI18n } from '../../state'
  * ones this device holds and the server may not, the accent for the ones RomM
  * has and this device does not, green where the two agree and red where they
  * never will. Two rows to a colour is the point — the colour carries the
- * direction across a room and the label supplies the degree, where the amber
- * that used to cover both directions could be read only by reading it.
+ * direction across a room and the label supplies the degree; one amber for
+ * both directions can be read only by reading it.
  *
  * Nothing is grey. `off` said "there is nothing here" about a file the server is
  * holding, which is the one thing it is not.

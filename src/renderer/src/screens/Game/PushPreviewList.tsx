@@ -47,8 +47,8 @@ export function PushPreviewList({ files }: { files: PendingSave[] }): JSX.Elemen
               </span>
               {/* The same badge the Saves tab puts on the same file. It carries
                   the one thing that decides the answer — whether RomM already
-                  holds something newer — which used to be a phrase at the end
-                  of the row, after everything that did not decide anything. */}
+                  holds something newer — ahead of everything on the row that
+                  does not decide anything. */}
               <SyncBadge sync={pushSyncState(file)} />
               <span className="chip chip--icon chip--emulator">
                 <Icon name="emulator" size={14} />

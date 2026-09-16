@@ -199,9 +199,9 @@ export class ConnectionWatch {
    * What a request that was made anyway just found out.
    *
    * The fast half of this class, and the one that matters on a handheld: a
-   * connection lost mid-session used to go unnoticed until the next poll, which
-   * is a screenful of failures and a mode that arrives long after the user has
-   * worked out for themselves what happened. Every call RomMix makes now says
+   * connection lost mid-session and noticed only by the next poll is a
+   * screenful of failures and a mode that arrives long after the user has
+   * worked out for themselves what happened. Every call RomMix makes says
    * whether it got there, so the interface changes shape on the first failure.
    *
    * A failure is acted on without asking anything — there is nothing to ask,

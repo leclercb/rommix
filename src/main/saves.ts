@@ -33,7 +33,6 @@ import {
   primarySave,
   romStemOf,
   sameContent,
-  sameFormat,
   sizeOf,
   stampMtime,
   stemMatches,
@@ -42,6 +41,17 @@ import {
   SYNC_TOLERANCE_MS,
   timesAgree
 } from './savefiles.ts'
+import {
+  bySlot,
+  contentHashOf,
+  deviceNamer,
+  originIdOf,
+  pairsOnName,
+  pairsOnSlot,
+  slotOf,
+  slotToSend
+} from './savepairing.ts'
+import { progressRun, type SaveRun } from './saveprogress.ts'
 import { extractZip, zipDirectory } from './zip.ts'
 
 /**
@@ -54,7 +64,8 @@ import { extractZip, zipDirectory } from './zip.ts'
  * is everything that is the same whatever the answer turned out to be: what to
  * upload, what to bring down, and in which order. Which files belong to the
  * game, which end of a pair is ahead, and whose emulator's files they are, are
- * decided in `savefiles.ts`.
+ * decided in `savefiles.ts`, and which copy on the server answers to which
+ * file here in `savepairing.ts`.
  *
  * Three shapes of save exist and each is handled differently:
  *
@@ -149,200 +160,6 @@ interface LocalAsset {
   mtimeMs: number
   /** True when `path` is a directory to be archived rather than a file. */
   isDirectory?: boolean
-}
-
-/**
- * The device a copy on the server came from, where it records one.
- *
- * Saves alone: RomM's `StateSchema` has no origin field, so a state's answer is
- * that there is nothing to answer with.
- */
-function originIdOf(item: RommSave | RommState): string | null {
-  return 'origin_device_id' in item && typeof item.origin_device_id === 'string'
-    ? item.origin_device_id
-    : null
-}
-
-/**
- * The server's saves as one per slot, with whatever carries no slot beside it.
- *
- * A slot is a history rather than a file: RomM keeps what each client uploaded
- * into it and only the newest is the copy a client is meant to read back. Taken
- * as they come, a game played on three devices puts a row on this screen per
- * revision any of them ever sent, all but one of them a save nothing here can
- * act on.
- *
- * The rest are the saves RomM pairs with nothing — uploaded through the web UI,
- * or by RomMix before it sent a slot at all — and they keep being matched on
- * their names, which is the only handle they have.
- */
-function bySlot(assets: readonly (RommSave | RommState)[]): {
-  slots: Map<string, RommSave | RommState>
-  loose: (RommSave | RommState)[]
-} {
-  const slots = new Map<string, RommSave | RommState>()
-  const loose: (RommSave | RommState)[] = []
-
-  for (const asset of assets) {
-    const slot = slotOf(asset)
-    if (slot === null) {
-      loose.push(asset)
-      continue
-    }
-    const held = slots.get(slot)
-    if (!held || Date.parse(asset.updated_at) > Date.parse(held.updated_at)) slots.set(slot, asset)
-  }
-  return { slots, loose }
-}
-
-/**
- * The slot RomM filed a copy under, where the copy is the kind that has one.
- *
- * Asked the way `originIdOf` asks about the origin, and for the same reason:
- * `StateSchema` carries no slot, and neither does a save from a RomM too old
- * to keep one. Both answer that there is nothing to pair on.
- */
-function slotOf(item: RommSave | RommState): string | null {
-  // Emptiness included: a slot nothing can be filed under is not one to pair
-  // on, and taking it for a name would lose the only handle such a copy has.
-  return 'slot' in item && typeof item.slot === 'string' && item.slot !== '' ? item.slot : null
-}
-
-/**
- * The md5 RomM holds for a copy, where the copy is the kind that has one.
- *
- * States have none — `StateSchema` records no hash — so a state is left to its
- * timestamps, which is all it ever had.
- */
-function contentHashOf(item: RommSave | RommState): string | null {
-  return 'content_hash' in item && typeof item.content_hash === 'string' ? item.content_hash : null
-}
-
-/**
- * The slot a file on its way up will be filed under.
- *
- * Asked twice — once by the upload and once by the dialog that describes it —
- * and the two must not be able to differ. A preview naming a slot the push then
- * does not use is a promise about where a save is going, made to the one person
- * in a position to say no.
- */
-function slotToSend(fileName: string, primary: string | null): string | null {
-  return primary !== null && fileName === primary ? AUTOSAVE_SLOT : null
-}
-
-/**
- * Does a copy filed under the shared slot answer to this file on disk?
- *
- * Three callers ask it — the listing, the push preview and the pull — and each
- * used to ask in its own shape, from its own direction. They agreed until they
- * did not: every review of this code so far has found the same fault in a
- * different one of them, once a pairing the others would have refused and once
- * a guard two of them had and the third did not. One rule, so the next change
- * to it cannot reach two sites out of three.
- *
- * Three things have to hold. It is the shared slot, other slots belonging to
- * whoever set them aside. It is the file this device would send there, which
- * `primarySave` decides and which is null where nothing qualifies. And the two
- * are the same kind of file — see `sameFormat`, which is what stands between a
- * battery save and the clock file beside it, the names having been given up as
- * evidence the moment a slot became what pairs them.
- */
-function pairsOnSlot(
-  localName: string,
-  primary: string | null,
-  item: RommSave | RommState,
-  slot: string | null
-): boolean {
-  if (slot !== AUTOSAVE_SLOT || primary === null) return false
-  return localName === primary && sameFormat(localName, item.file_name)
-}
-
-/**
- * Does a copy on the server answer to this file on disk, by name?
- *
- * What is left where no slot pairs them, and the question each of the three
- * callers used to answer for itself. A server holding `SONIC.SRM` against a
- * local `Sonic.srm` had `listAssets` draw one row and call it synced, while
- * the push preview found nothing to replace, decided the file was new on RomM
- * and let the drain send it unasked over a copy it had never compared against;
- * the pull wrote a second file beside the one the emulator opens.
- *
- * Case-insensitively, the way `listAssets` already keyed its map and the other
- * two did not: a save's name is not the file's identity here — the copy on the
- * server was written by some other client on some other filesystem, and a name
- * RomMix would refuse to create twice in one folder is one name. See
- * `pairsOnSlot`, which this sits beside for the same reason: one rule, so the
- * next change to it cannot reach two sites out of three.
- */
-function pairsOnName(localName: string, remoteName: string): boolean {
-  return localName.toLowerCase() === remoteName.toLowerCase()
-}
-
-/**
- * A save's `origin_device_id` turned into the name of the machine it came from.
- *
- * Matched against both identifiers a device carries, because either can be the
- * one a save was uploaded under — see `RommDevice`. Falls back to `hostname`
- * where the device was never named: RomM leaves `name` null for a client that
- * sent none, and the machine's own name still beats "another device".
- */
-function deviceNamer(devices: readonly RommDevice[]): (id: string | null) => string | null {
-  return (id) => {
-    if (!id) return null
-    const device = devices.find(
-      (candidate) => candidate.id === id || candidate.client_device_identifier === id
-    )
-    return device?.name ?? device?.hostname ?? null
-  }
-}
-
-/** What a transfer in progress tells the screen. See `SaveProgress`. */
-export interface SaveRun {
-  /** The file being moved, and how much of it is here where that is countable. */
-  moving(fileName: string, receivedBytes?: number, totalBytes?: number): void
-  /** One file has gone by, whether it arrived or was left. */
-  moved(): void
-}
-
-/**
- * Count one run of transfers for the screen watching it.
- *
- * One counter across the whole run rather than one per kind: saves and states
- * are two passes over one button press, and a count that starts again half way
- * through reads as a transfer that started again.
- *
- * The first report goes out as this is made, before anything is asked of the
- * server, because that is the wait this exists for: on a slow connection the
- * listing alone is seconds of a screen with nothing on it.
- */
-function progressRun(
-  romId: number,
-  direction: 'pull' | 'push',
-  total: number | null,
-  onProgress?: (progress: SaveProgress) => void
-): SaveRun {
-  let done = 0
-  let fileName: string | null = null
-  let totalBytes = 0
-  const send = (receivedBytes: number): void =>
-    onProgress?.({ romId, direction, fileName, done, total, receivedBytes, totalBytes })
-
-  send(0)
-  return {
-    moving(name, receivedBytes = 0, bytes = 0) {
-      fileName = name
-      totalBytes = bytes
-      send(receivedBytes)
-    },
-    moved() {
-      done += 1
-      // The file that has just gone reads as full rather than as nothing. A
-      // screen with no size to divide by draws a bar that travels instead of
-      // filling, and a counter that dropped to zero between files would send it
-      // there once per file. See `SaveTransfer`.
-      send(totalBytes)
-    }
-  }
 }
 
 /** One kind's files, ready to go, with what sending them needs. */

@@ -9,9 +9,9 @@ import { useI18n } from '../../state'
  * One transfer.
  *
  * Selecting the row opens the game, the same as everywhere else in the app.
- * Cancelling is a labelled button of its own: it used to be what the row itself
- * did, so pressing A on a download in progress — the obvious thing to do to a
- * thing you are watching — threw away the transfer with nothing on screen
+ * Cancelling is a labelled button, never what the row itself does: pressing
+ * A on a download in progress is the obvious thing to do to a thing you are
+ * watching, and it must not throw the transfer away with nothing on screen
  * saying that it would.
  */
 export function ProgressRow({
@@ -55,7 +55,7 @@ export function ProgressRow({
    *
    * The three states after the last byte are past that point: the game is
    * being hashed, unpacked or written into the index, and the queue refuses to
-   * cancel a row in any of them — so the button did nothing where it was drawn.
+   * cancel a row in any of them — a button drawn there does nothing.
    * A transfer that stopped is not past it: cancelling is how its bytes are
    * thrown away.
    */

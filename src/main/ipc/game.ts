@@ -5,7 +5,7 @@ import { i18n, t } from '../i18n.ts'
 import { log } from '../log.ts'
 import { RommError } from '../romm/index.ts'
 import { shouldRefreshAchievements } from '../retroachievements.ts'
-import { launchContext, launcherKey, launchOptions, romFor } from './context.ts'
+import { launchContext, launcherKey, launchOptions, romFor } from '../gamecontext.ts'
 import type { Handle } from './handler.ts'
 
 /** Starting a game, and stopping the emulator that is running one. */

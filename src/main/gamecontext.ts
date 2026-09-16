@@ -1,12 +1,12 @@
 import { emulatorById } from '@config/emulators'
 import type { EmulatorDescriptor, LaunchVariant } from '@config/emulators'
 import type { EmulatorState, InstalledRom, RommRom } from '@shared/types'
-import type { RomMixApp } from '../app.ts'
-import type { SaveTarget } from '../saves.ts'
-import { usableVariants } from '../emulators.ts'
-import { log } from '../log.ts'
-import { refusedUs, RommError } from '../romm/index.ts'
-import { t } from '../i18n.ts'
+import type { RomMixApp } from './app.ts'
+import type { SaveTarget } from './saves.ts'
+import { usableVariants } from './emulators.ts'
+import { log } from './log.ts'
+import { refusedUs, RommError } from './romm/index.ts'
+import { t } from './i18n.ts'
 
 /**
  * What a call about one game has to work out before it can do anything: which

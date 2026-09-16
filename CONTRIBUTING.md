@@ -179,8 +179,9 @@ thrown error into a message the renderer can show.
 `src/main/romm/` is everything that talks to the server, split by what each part
 answers for rather than by endpoint: `client.ts` says what to ask for,
 `transfer.ts` owns what happens to bytes on their way to the disk, `checksums.ts`
-decides which hash describes what is arriving, and `errors.ts` holds the three
-failures the rest of RomMix branches on. A new endpoint is a method on the
+decides which hash describes what is arriving, `devices.ts` keeps what RomM
+knows this machine as, and `errors.ts` holds the three failures the rest of
+RomMix branches on. A new endpoint is a method on the
 client; everything else there is imported through `index.ts`.
 
 ### Talking to RomM's API

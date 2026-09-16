@@ -9,9 +9,8 @@ import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
  *
  *     <nand>/user/save/0000000000000000/<32-hex profile>/<title id>/
  *
- * Nothing in that path is the ROM's name, which is why save sync used to skip
- * these emulators entirely. Both unknowns are findable, though, and neither
- * needs the emulator running:
+ * Nothing in that path is the ROM's name. Both unknowns are findable, though,
+ * and neither needs the emulator running:
  *
  *  - the **title id** is declared by the game itself. Every NSP and XCI carries
  *    its content-metadata entry as a file named `<title id>.cnmt`, and the name

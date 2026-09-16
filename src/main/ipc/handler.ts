@@ -9,10 +9,10 @@ import { RommError } from '../romm/index.ts'
  *
  * The same wrapper announces the failure on `app:error`, so *every* call that
  * fails is reported to the user whether or not the screen that made it thought
- * to catch it. A screen that wants to say something better still can — it just
- * no longer has to, and a call made on a screen's behalf (a refresh, a probe,
- * something started by a keypress two screens ago) can no longer fail in
- * silence and leave the UI quietly showing nothing.
+ * to catch it. A screen that wants to say something better still can — it does
+ * not have to, and a call made on a screen's behalf (a refresh, a probe,
+ * something started by a keypress two screens ago) cannot fail in silence and
+ * leave the UI quietly showing nothing.
  *
  * It is also where every action the user took is written to the log. One line
  * per call, from the one place every call already passes through, which is what
@@ -60,11 +60,9 @@ export function handler(report: (message: string) => void): Handle {
         return result
       } catch (cause) {
         // `instanceof Error` rather than reading `.message` off whatever it is:
-        // something rejecting with `null` or `undefined` threw a `TypeError`
-        // inside this catch, so the log line below never ran and `report` never
-        // fired — leaving the channel to fail with Electron's opaque default,
-        // which is the thing this module exists to prevent, and nothing in the
-        // log to say which call it was.
+        // something rejecting with `null` or `undefined` would throw a
+        // `TypeError` inside this catch, skipping the log line and the report
+        // and leaving the channel to fail with Electron's opaque default.
         const message =
           cause instanceof RommError || cause instanceof Error ? cause.message : String(cause)
         log.error('ipc', `✗ ${channel}`, cause, { ms: took() })

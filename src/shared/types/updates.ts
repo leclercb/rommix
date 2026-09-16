@@ -10,13 +10,15 @@
  * be told about a release without a hundred megabytes arriving behind it, and
  * `off` is for an installation somebody else's package manager owns.
  */
-export type UpdatePolicy =
+export const UPDATE_POLICIES = [
   /** Check, fetch, and swap the image in on the next start. */
-  | 'auto'
+  'auto',
   /** Check and say so; download only when asked. */
-  | 'notify'
+  'notify',
   /** Never check on its own. The button in Settings still works. */
-  | 'off'
+  'off'
+] as const
+export type UpdatePolicy = (typeof UPDATE_POLICIES)[number]
 
 /** Where RomMix's update of *itself* has got to. See `Updater`. */
 export type UpdateState =

@@ -94,9 +94,9 @@ async function bytesHeld(holding: Holding): Promise<number> {
  * them.
  *
  * The folder matters as much as the files. An empty directory named after a
- * game is what `adopt` reads as a multi-file game already on disk, so a
- * cancelled download that left one behind came back after a restart as a game
- * RomMix believed it had — installed, unplayable, and refusing to download.
+ * game is what `adopt` reads as a multi-file game already on disk, so one left
+ * behind comes back after a restart as a game RomMix believes it has —
+ * installed, unplayable, and refusing to download.
  */
 async function discardHeld(holding: Holding): Promise<void> {
   for (const path of pathsHeld(holding)) {
@@ -134,6 +134,14 @@ export class DownloadManager extends EventEmitter {
    * an abort.
    */
   private readonly requeueing = new Set<number>()
+  /**
+   * The transfer on the wire, as a promise of its own tidying-up.
+   *
+   * What `cancel` waits on: the bytes are thrown away inside the transfer's
+   * own failure path, and a cancel that returned before it had run would leave
+   * the next press free to resume onto a partial still being removed.
+   */
+  private readonly transfers = new Map<number, Promise<void>>()
 
   constructor(
     private readonly store: Store,
@@ -308,11 +316,10 @@ export class DownloadManager extends EventEmitter {
    * Where a row sits in the array is the order it will be run in.
    *
    * `pump` takes the first row still queued, so the two are the same list and
-   * a row that changes state has to be moved as well as marked. They drifted
-   * apart once — a resumed transfer was marked queued in the place it had been
-   * paused in, which could be ahead of whatever was on the wire — and every
-   * question asked of the queue after that had two answers: what runs next, and
-   * what a promoted transfer has to be put in front of.
+   * a row that changes state has to be moved as well as marked. A resumed
+   * transfer marked queued where it was paused can sit ahead of whatever is on
+   * the wire, and every question asked of the queue then has two answers: what
+   * runs next, and what a promoted transfer has to be put in front of.
    */
   private moveToFront(item: DownloadItem): void {
     this.queue.splice(this.queue.indexOf(item), 1)
@@ -409,28 +416,48 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
-   * Await the deletion rather than starting it: the same button that cancels a
-   * download is one press away from starting it again, and a partial file
-   * halfway through being removed is exactly what must not be resumed onto.
+   * Resolves once the bytes are gone, whichever path removes them: the same
+   * button that cancels a download is one press away from starting it again,
+   * and a partial file halfway through being removed is exactly what must not
+   * be resumed onto.
+   *
+   * A transfer on the wire is aborted and then waited for — its own failure
+   * path is what throws the bytes away and marks the row. A stopped one has no
+   * transfer to wait on, so the removal is done here.
    */
   async cancel(romId: number): Promise<void> {
-    this.controllers.get(romId)?.abort()
     const item = this.queue.find((i) => i.romId === romId)
     if (!item) return
     if (item.state !== 'queued' && item.state !== 'downloading' && !isStopped(item.state)) return
 
+    // Both intents, or an abort still unwinding from a pause or a promote is
+    // read by `runOne` as that rather than as this.
     this.pausing.delete(romId)
+    this.requeueing.delete(romId)
     log.info('download', 'cancelled', { romId, name: item.name, was: item.state })
-    // Cancelling a paused download is what says the part-downloaded file is not
-    // wanted; nothing else ever deletes it.
-    if (isStopped(item.state)) {
+
+    // Cancelling is what says the part-downloaded file is not wanted; nothing
+    // else ever deletes it. By the record rather than by the row's state: a
+    // paused transfer resumed behind another is `queued` again with its bytes
+    // and its record intact, and a cancel that left them would offer the game
+    // again on the next start.
+    if (item.state !== 'downloading') {
       const recorded = this.store.pending.find((entry) => entry.romId === romId)
       if (recorded) await discardHeld(recorded)
       this.library.forgetListings()
       this.store.removePending(romId)
     }
+    // Said before the wait below rather than after it: the row answers the
+    // press at once, and the transfer's own failure path says it again once
+    // the bytes are gone.
     item.state = 'cancelled'
     this.emitUpdate()
+
+    const transfer = this.transfers.get(romId)
+    this.controllers.get(romId)?.abort()
+    // Waited for, never answered for: what a transfer failing means is the
+    // queue's to record — see `pump` — and this only has to know it is over.
+    await transfer?.catch(() => undefined)
   }
 
   /**
@@ -486,7 +513,13 @@ export class DownloadManager extends EventEmitter {
           // so we have the current file list. There is no seed at all when the
           // queue was started by `promote`, which has only an id to hand.
           const rom = seed && item.romId === seed.id ? seed : await this.client.rom(item.romId)
-          await this.runOne(item, rom)
+          // Asked again after the wait: a row cancelled while its ROM was being
+          // fetched has already been answered, and starting it would put it
+          // back on the wire.
+          if (item.state !== 'queued') continue
+          const transfer = this.runOne(item, rom)
+          this.transfers.set(item.romId, transfer)
+          await transfer.finally(() => this.transfers.delete(item.romId))
         } catch (cause) {
           // Reached when the ROM could not even be fetched from the server, so
           // `runOne` never got to record the failure against the item itself.
