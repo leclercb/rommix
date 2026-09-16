@@ -4,6 +4,10 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.18.0-rc.2 — 2026-09-16
+
+- fix: act on the code and architecture review (95310e2)
+
 ## 0.18.0-rc.1 — 2026-09-15
 
 - test(app): point the pointer at rows below the fold (caf2cbb)
