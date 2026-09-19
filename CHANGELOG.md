@@ -4,19 +4,15 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
-## 0.18.0-rc.2 — 2026-09-16
+## 0.18.0 — 2026-09-19
 
+- docs: record why the full-library mirror is not done (51a210e)
+- fix: open the theme picker only on arrival in Settings (5878fa9)
 - fix: act on the code and architecture review (95310e2)
-
-## 0.18.0-rc.1 — 2026-09-15
-
 - test(app): point the pointer at rows below the fold (caf2cbb)
 - feat: add a high-contrast theme (1e1d6c2)
 - feat: add the Lamplight, ZX Spectrum, Macintosh and Amiga themes (101ab99)
 - feat: add the Atari 2600, Commodore 64 and Virtual Boy themes (ce6e108)
-
-## 0.18.0-rc.0 — 2026-09-15
-
 - feat: leave the Collections button its mark alone (99f9d63)
 - feat: drop the Back button from a game's page (653cdae)
 - feat: open a game's manual full screen (8add4d1)
