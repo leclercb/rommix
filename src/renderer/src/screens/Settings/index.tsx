@@ -44,6 +44,15 @@ export function SettingsScreen({ open }: { open?: SettingsTarget }): JSX.Element
   // Whichever tab holds what was asked for, and the first otherwise. Initial
   // state rather than an effect, so the tabs answer normally from then on.
   const [tab, setTab] = useState<SettingsTab>(open ? TAB_OF[open] : 'general')
+  // What was asked for, until the first move to another tab. The route keeps
+  // saying it for as long as this screen is up, and a tab is drawn afresh each
+  // time it is returned to: passing the route's own value down would open the
+  // same thing again on every visit back to its tab.
+  const [arrival, setArrival] = useState(open)
+  const changeTab = (next: SettingsTab): void => {
+    setArrival(undefined)
+    setTab(next)
+  }
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
   const [root, setRoot] = useState<RootLocation | null>(null)
 
@@ -82,7 +91,7 @@ export function SettingsScreen({ open }: { open?: SettingsTarget }): JSX.Element
       <div className="panel">
         <Tabs<SettingsTab>
           active={tab}
-          onChange={setTab}
+          onChange={changeTab}
           tabs={[
             { id: 'general', label: t('settings.tabGeneral'), icon: 'preferences' },
             { id: 'games', label: t('settings.tabGames'), icon: 'roms' },
@@ -102,7 +111,7 @@ export function SettingsScreen({ open }: { open?: SettingsTarget }): JSX.Element
         />
 
         <div className="panel__body">
-          {tab === 'general' ? <GeneralTab open={open} /> : null}
+          {tab === 'general' ? <GeneralTab open={arrival} /> : null}
           {tab === 'games' ? <GamesTab root={root} /> : null}
           {tab === 'system' ? (
             <SystemTab diagnostics={diagnostics} root={root} onRecheck={refreshDiagnostics} />
