@@ -571,6 +571,20 @@ export class RomMixApp {
      */
     window.webContents.on('will-frame-navigate', (event) => {
       if (event.url === window.webContents.getURL()) return
+      /**
+       * The manual, which is what the frame is there to draw.
+       *
+       * It is the one navigation inside the interface that is not the
+       * interface: a frame pointed at RomMix's own scheme, whose handler
+       * serves asset paths and refuses everything else — see `isAssetPath`.
+       * Refusing it here refuses the manual itself, so the frame stays empty,
+       * nothing is ever fetched, and the tab opens onto nothing at all.
+       *
+       * A link inside the PDF still cannot leave: anything but this scheme
+       * falls through to the refusal below, and a target within it can only be
+       * another asset off the user's own server.
+       */
+      if (event.url.startsWith(`${IMAGE_SCHEME}:`)) return
       log.warn('window', 'refused to navigate a frame away from the interface', { url: event.url })
       event.preventDefault()
     })
