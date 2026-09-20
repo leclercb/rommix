@@ -164,6 +164,8 @@ readable only by you where no keyring is reachable.
 | Previous / next tab | LB / RB            | Shift-Tab / Tab  |
 | Back from a game    | Start, held        | —                |
 
+Search is bound on Home and in the Library; elsewhere the button does nothing.
+
 Back at the top of a section asks whether to quit. Where the machine can be
 asked — anything with `systemctl`, which is most desktop Linux — that dialog
 also offers **Sleep**, **Restart** and **Turn off**, for the sessions where
@@ -212,17 +214,16 @@ could not be sent is sent.
 
 **The list.** Buttons install an emulator, or **Run** one on its own — needed
 for the setup only the emulator can do: RetroDECK creates its folders on first
-run, RetroArch needs its cores, Eden its keys, shadPS4 to be told where the
-games are.
+run, Eden needs its keys, shadPS4 to be told where the games are.
 
 The order is the preference: a platform you have not chosen for goes to the
 first emulator in the list that is installed and covers it, so **Move up** makes
 one the default for everything it can run.
 
 **Platforms.** One row per platform, showing which emulator runs it; press to
-cycle. Each emulator keeps games in its own folder, so pointing a platform
-elsewhere means RomMix offers those games for download again. Nothing is
-deleted, and pointing it back brings them straight back.
+pick another. Where **Games on disk** puts games in each emulator's own folder,
+pointing a platform elsewhere means RomMix offers those games for download
+again. Nothing is deleted, and pointing it back brings them straight back.
 
 ### EmuDeck
 
@@ -328,9 +329,11 @@ somewhere RomMix would not look.
 | Log file                              | `~/rommix/logs/app.log`                                |
 | What happened before it started       | `~/rommix/logs/launcher.log`                           |
 
-By default ROMs go into each emulator's own library, so a game is still there
-when you start that emulator yourself. Settings → Games → **Games on disk**
-switches that to one RomMix folder instead.
+By default ROMs go into one RomMix folder, so a game can be fetched before the
+emulator that runs it is installed, and a platform pointed at another emulator
+moves nothing. Settings → Games → **Games on disk** switches that to each
+emulator's own library instead, where a game is still there when you start that
+emulator yourself.
 
 ---
 
@@ -446,7 +449,8 @@ tail -f ~/rommix/logs/app.log
 ```
 
 A new file each day, or sooner if one gets large; the old ones sit beside it
-under the date they cover and are deleted after a fortnight. `ROMMIX_LOG=debug`
+under the date they cover and are deleted once they have aged out.
+`ROMMIX_LOG=debug`
 adds every request and probe; `ROMMIX_LOG=off` writes nothing.
 
 ---
