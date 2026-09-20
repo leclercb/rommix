@@ -42,6 +42,12 @@ interface Sent {
   method: string
   headers: Headers
   body: string | null
+  /**
+   * Whatever was going to abort the request, which is how a deadline is
+   * visible from out here: `AbortSignal.timeout` is the only shape one takes.
+   * See the deadline suite at the end of this file.
+   */
+  signal: AbortSignal | null
 }
 
 const real = globalThis.fetch
@@ -66,7 +72,8 @@ function serve(reply: (sent: Sent, index: number) => Response): Sent[] {
       url: String(input),
       method: init.method ?? 'GET',
       headers: new Headers(init.headers as Record<string, string> | undefined),
-      body: typeof init.body === 'string' ? init.body : null
+      body: typeof init.body === 'string' ? init.body : null,
+      signal: init.signal ?? null
     }
     sent.push(record)
     return reply(record, sent.length - 1)
@@ -651,6 +658,39 @@ describe('downloading a ROM', () => {
     assert.equal(sent[1].headers.get('range'), 'bytes=5-')
     // Progress never goes backwards past what is on disk, and ends at the whole
     // ROM rather than at what the second leg carried.
+    assert.equal(seen.at(-1), 10)
+  })
+
+  test('a part-file with nothing left to fetch is finished rather than asked for again', async () => {
+    /**
+     * RomMix can be stopped between the last byte and the rename — `verify` is
+     * minutes of hashing on a large ROM, with the queue's record still in
+     * place — so the next start resumes a `.part` that is already whole.
+     *
+     * Asking for `bytes=10-` on a ten-byte file is an unsatisfiable range, and
+     * a server answering 416 is refusing rather than failing: the row goes back
+     * to paused carrying no error, and every press of Resume repeats it. So the
+     * request is not made at all.
+     */
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    writeFileSync(`${destination}.part`, '0123456789')
+    const seen: number[] = []
+    const sent = serve(() => new Response('should never be asked for', { status: 416 }))
+
+    await new RommClient(store).downloadRom(
+      rom,
+      destination,
+      (progress) => seen.push(progress.received),
+      new AbortController().signal,
+      // What the queue passes for a row it has a record of. Without it the
+      // part-file is of unknown provenance and is thrown away instead.
+      { resume: true }
+    )
+
+    assert.deepEqual(sent, [], 'the server was asked for a file that was already on disk')
+    assert.equal(readFileSync(destination, 'utf8'), '0123456789')
+    assert.equal(existsSync(`${destination}.part`), false)
     assert.equal(seen.at(-1), 10)
   })
 
@@ -1881,5 +1921,91 @@ describe('the oldest server this build can read', () => {
     // own server's version string is the worse failure.
     assert.equal(atLeast('5.0.0-rc.1', '5.0.0'), true)
     assert.equal(atLeast('4.9.0-rc.1', '5.0.0'), false)
+  })
+})
+
+/**
+ * The deadline, and the calls that must not have one.
+ *
+ * `REQUEST_TIMEOUT_MS` is there so that a server which accepts the connection
+ * and then stops answering cannot hold the interface behind a button that has
+ * already been pressed. It covers the body as well as the reply, which is what
+ * makes it wrong for everything carrying bytes: on a slow link a firmware dump
+ * or a large save takes longer than any deadline worth setting, and one
+ * applied there is a transfer that breaks off for no reason the user can see.
+ * A BIOS that cannot be installed is a console that hangs on a black screen.
+ *
+ * Nothing about `timeoutMs: null` fails when it is deleted. The calls go on
+ * working against a fast server and against this file's, and the failure only
+ * appears on somebody else's connection — so it is asserted from outside, on
+ * what was handed to `fetch`.
+ *
+ * The resumable transfers are not here. `fetchToFile` hands `fetch` a
+ * controller of its own carrying the caller's cancellation and the stall
+ * timeout, so the deadline could never have been seen on one anyway, and what
+ * that controller does is `transfer.ts`'s to prove — see the ROM downloads
+ * above, which give up and resume.
+ */
+describe('what may take as long as it takes', () => {
+  const firmware = {
+    id: 3,
+    file_name: 'scph5501.bin',
+    md5_hash: null
+  } as unknown as RommFirmware
+
+  /** The requests carrying bytes, each a `timeoutMs: null` that can be lost. */
+  const CARRIES_BYTES: readonly { what: string; method: string; path: RegExp }[] = [
+    { what: 'the streamed asset fetch', method: 'GET', path: /^\/assets\/cover\.png$/ },
+    { what: 'a save pulled down', method: 'GET', path: /^\/api\/saves\/1\/content$/ },
+    { what: 'a state pulled down', method: 'GET', path: /^\/api\/states\/2\/content$/ },
+    { what: 'a BIOS', method: 'GET', path: /^\/api\/firmware\/3\/content\// },
+    { what: 'a save pushed up', method: 'POST', path: /^\/api\/saves\?/ },
+    { what: 'a state pushed up', method: 'POST', path: /^\/api\/states\?/ }
+  ]
+
+  test('a call that carries an answer is given a deadline', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json({ id: 1 }))
+
+    await new RommClient(store).me()
+
+    // Not that it fires — waiting one out is the whole length of it — but that
+    // one was attached at all, which is the half a deletion takes away.
+    assert.ok(sent[0].signal instanceof AbortSignal)
+  })
+
+  test('the calls that carry bytes are given none', async () => {
+    const { store } = fakeStore()
+    const dir = scratch()
+    const client = new RommClient(store)
+    const upload = join(dir, 'ffvii.srm')
+    writeFileSync(upload, 'save bytes')
+
+    const sent = serve((request) =>
+      request.method === 'POST' && /\/api\/(saves|states)\?/.test(request.url)
+        ? json({ id: 9 })
+        : new Response('0123456789')
+    )
+
+    await client.asset('/assets/cover.png')
+    await client.downloadSave(1, join(dir, 'pulled.srm'))
+    await client.downloadState(2, join(dir, 'pulled.state'))
+    await client.downloadFirmware(firmware, join(dir, 'scph5501.bin'))
+    await client.uploadSave(5, upload, 'ffvii.srm', 'duckstation', null)
+    await client.uploadState(5, upload, 'ffvii.state', 'duckstation')
+
+    // Named one by one rather than swept, because an upload registers this
+    // device on its way past and that call carries an answer like any other:
+    // a sweep would either fail on it or have to forgive everything.
+    for (const { what, method, path } of CARRIES_BYTES) {
+      const requests = sent.filter(
+        (one) =>
+          one.method === method && path.test(new URL(one.url).pathname + new URL(one.url).search)
+      )
+      assert.ok(requests.length > 0, `nothing in this test sent ${what}`)
+      for (const one of requests) {
+        assert.equal(one.signal, null, `${what} went out with a deadline on it`)
+      }
+    }
   })
 })

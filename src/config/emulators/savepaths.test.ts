@@ -2,6 +2,12 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
+import {
+  emuDeckSaveFolder,
+  FOLDERS,
+  SAVE_FOLDER_BY_SCRIPT,
+  SWITCH_FOLDERS
+} from './emudeck/saves.ts'
 import { example } from './example/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -1184,5 +1190,108 @@ test('the example descriptor claims only systems it can launch', () => {
       }),
       `${system} is offered but cannot be launched`
     )
+  }
+})
+
+/**
+ * The save tables against the launchers that reach them.
+ *
+ * `emuDeckSavePaths` looks its folder up in a bare `Record` and falls back to
+ * `standard(root)` on a miss, which is per-game files under `<root>/saves`. For
+ * an emulator that keeps one shared memory card that is not a near miss: every
+ * game's card is read and written at the same path, so a push files one game's
+ * card under another game's id on the server and a pull hands it back to the
+ * wrong game. Nothing says so at the time. The launcher table and the save
+ * tables are edited in different files, months apart, and a row added to one
+ * and not the other is silent in exactly this way.
+ *
+ * So the two are checked against each other here, in both directions, and
+ * neither list below is a judgement about an emulator — each records what the
+ * code does today, so that changing it has to be deliberate.
+ */
+
+/** Every folder some EmuDeck launcher writes into. See `emuDeckSaveFolder`. */
+function emuDeckFolders(): { folders: Set<string>; scripts: Set<string> } {
+  const folders = new Set<string>()
+  const scripts = new Set<string>()
+  for (const launchers of Object.values(EMUDECK_LAUNCHERS)) {
+    for (const one of launchers) {
+      scripts.add(one.script)
+      folders.add(emuDeckSaveFolder(one.script))
+    }
+  }
+  return { folders, scripts }
+}
+
+/**
+ * Folders that reach no entry and take `standard(root)`.
+ *
+ * Not an approval of any of them. It is the list of emulators nobody has
+ * described yet, written down so that a launcher added tomorrow fails this
+ * test instead of quietly joining it — and so that shortening it is a visible
+ * change rather than a silent one. Anything here keeping a shared card rather
+ * than per-game files is a bug waiting on somebody with that emulator.
+ */
+const UNDESCRIBED = new Set([
+  'BigPEmu',
+  'RMG',
+  'citra',
+  'lime3ds',
+  'melonds',
+  'mgba',
+  'scummvm',
+  'supermodel'
+])
+
+/**
+ * Rows no launcher reaches yet.
+ *
+ * Kept rather than deleted: each wires itself up the moment EmuDeck ships the
+ * launcher, and deleting one throws away a save layout somebody verified. The
+ * list exists so that "prepared" cannot quietly become "wrong".
+ */
+const PREPARED = {
+  folders: new Set(['Vita3K', 'primehack', 'suyu']),
+  scripts: new Set(['vita3k.sh'])
+}
+
+test('every EmuDeck launcher lands in a folder something has described', () => {
+  const { folders } = emuDeckFolders()
+  const undescribed = [...folders]
+    .filter((folder) => !(folder in FOLDERS) && !(folder in SWITCH_FOLDERS))
+    .sort()
+
+  assert.deepEqual(
+    undescribed,
+    [...UNDESCRIBED].sort(),
+    'a launcher reaches no save layout: describe it in FOLDERS, or add it to UNDESCRIBED having checked it keeps per-game files'
+  )
+})
+
+test('every row in the save tables is one some launcher can reach', () => {
+  const { folders, scripts } = emuDeckFolders()
+
+  assert.deepEqual(
+    [...Object.keys(FOLDERS), ...Object.keys(SWITCH_FOLDERS)]
+      .filter((folder) => !folders.has(folder))
+      .sort(),
+    [...PREPARED.folders].sort(),
+    'a save layout nothing can reach: either EmuDeck stopped shipping it, or a launcher is missing'
+  )
+  assert.deepEqual(
+    Object.keys(SAVE_FOLDER_BY_SCRIPT)
+      .filter((script) => !scripts.has(script))
+      .sort(),
+    [...PREPARED.scripts].sort(),
+    'a script name nothing launches: the table and the launchers disagree about what it is called'
+  )
+})
+
+test('the Switch emulators are described as a NAND rather than as save files', () => {
+  // The one overlap worth stating: these folders are in SWITCH_FOLDERS and not
+  // in FOLDERS, and a row added to the wrong one would file a title-id NAND
+  // save as a per-game file named after the ROM.
+  for (const folder of Object.keys(SWITCH_FOLDERS)) {
+    assert.equal(folder in FOLDERS, false, `${folder} is described twice, in two shapes`)
   }
 })

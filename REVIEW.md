@@ -94,18 +94,3 @@ None of these can be settled by reading, and each changes a finding's severity.
       `--type-scale: 1.24` against a fixed `padding-bottom` — `scrollParentsOf`
       returns the shelf as the vertical scroller and the page stops scrolling as focus
       walks down. `npm run test:app` under that theme is where to settle it.
-
-## Tests worth adding
-
-- [ ] That the byte-carrying calls go out with no deadline attached. The fix is in —
-      `transport` passes `timeoutMs: null` — but nothing fails if it is undone, and
-      undone it makes firmware uninstallable on a slow link.
-- [ ] That a complete `.part` finishes the download instead of re-requesting it, and
-      that `unpack` cannot promote a file left by an earlier attempt. Both are plain
-      filesystem assertions that need no screen.
-- [ ] That the variant a launch runs is the variant `saves()` is resolved from:
-      `LaunchOptions.effective` against the id `game:launch` passes on. This is the
-      rule behind the worst finding in the review and nothing pins it.
-- [ ] That every `FOLDERS` / `SAVE_FOLDER_BY_SCRIPT` / `SWITCH_FOLDERS` key is
-      produced by some launcher, and that every launcher's folder has an entry. The
-      second direction is the one that is silently wrong today.

@@ -25,7 +25,7 @@ import type { SaveContext, SavePaths } from '../savepaths.ts'
  */
 
 /** The folder under `Emulation/saves/` a launcher script's emulator uses. */
-const SAVE_FOLDER_BY_SCRIPT: Readonly<Record<string, string>> = {
+export const SAVE_FOLDER_BY_SCRIPT: Readonly<Record<string, string>> = {
   'rosaliesmupengui.sh': 'RMG',
   'dolphin-emu.sh': 'dolphin',
   'pcsx2-qt.sh': 'pcsx2',
@@ -47,7 +47,7 @@ export function emuDeckSaveFolder(script: string): string {
 }
 
 /** Emulators whose per-game data is a title-id folder in a Switch NAND. */
-const SWITCH_FOLDERS: Readonly<Record<string, string>> = {
+export const SWITCH_FOLDERS: Readonly<Record<string, string>> = {
   eden: 'Eden',
   citron: 'Citron',
   ryujinx: 'Ryujinx',
@@ -80,7 +80,7 @@ function cards(root: string, reason: Text): SavePaths {
   }
 }
 
-const FOLDERS: Readonly<Record<string, FolderSaves>> = {
+export const FOLDERS: Readonly<Record<string, FolderSaves>> = {
   /**
    * EmuDeck ships every RetroArch sort flag off, so saves land flat in
    * `retroarch/saves`. Read from the config all the same rather than assumed —

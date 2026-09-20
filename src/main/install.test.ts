@@ -193,6 +193,39 @@ describe('an unpack that cannot finish', () => {
     )
   })
 
+  test('what an earlier attempt left in the staging folder is never promoted', async () => {
+    /**
+     * The staging directory is named for the game and not for the attempt, so
+     * the same name is reached again on the next try. A kill or a power cut
+     * part-way through unpacking leaves it behind with nothing that knows to
+     * remove it, and extracting into it a second time would promote files from
+     * two runs under one name — which `installedFiles` then records and
+     * `pickLaunchFile` can choose from, so the Play button can end up aimed at
+     * a track from a download nobody finished.
+     *
+     * Clearing it first is one line and reads as tidiness. This is what it is
+     * actually for.
+     */
+    const { zip, dir } = await archiveOf({ 'disc.cue': 'the real one' })
+    scratches.push(dir)
+
+    // What the interrupted attempt got as far as writing, under the name this
+    // one will use: hidden, and named for the game. See `staging` in unpack.
+    const leftovers = join(dir, '.Sonic (USA).rommix-tmp')
+    mkdirSync(leftovers, { recursive: true })
+    writeFileSync(join(leftovers, 'track02.bin'), 'from the attempt that died')
+
+    const installed = await unpack(rom(), zip, dir, 'genesis', join(dir, 'Sonic (USA)'), true)
+
+    const names = (installed.files ?? []).map((one) => basename(one))
+    assert.deepEqual(names, ['disc.cue'])
+    assert.deepEqual(
+      readdirSync(installed.path).sort(),
+      ['disc.cue'],
+      'the file from the earlier attempt was promoted with the game'
+    )
+  })
+
   test('a name that climbs out of the system folder is refused', async () => {
     // `targetPath` came through `Library.plan`, which has already refused one;
     // the staging name is derived here and gets the same check, because a name
