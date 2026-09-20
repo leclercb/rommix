@@ -38,6 +38,23 @@ export interface UpdateStatus {
   current: string
   /** The newest published version, once a check has found one. */
   latest: string | null
+  /**
+   * The short commit this copy was built from, or null where nothing stamped
+   * one — a source tarball, or a checkout with no history.
+   *
+   * Beside `current` rather than folded into it: only one of the two is
+   * ordered, and `compareVersions` is what reads the version.
+   *
+   * Given whatever channel the copy is on, which is the part worth stating.
+   * A version names a release and not a build — package.json is bumped when a
+   * release is cut, so everything made between two releases reports the
+   * earlier one — and the copies where that matters are exactly the ones
+   * nobody knows are unusual: a build taken from the tip of `main`, by an
+   * owner who has since stopped asking for them, reads as the release
+   * everybody else is running. The footer is the one thing a photograph of a
+   * television carries into a bug report, so it carries this too.
+   */
+  buildCommit: string | null
   /** The release notes, as GitHub holds them. Null when the release has none. */
   notes: string | null
   /** The release page, which is the way out when RomMix cannot update itself. */

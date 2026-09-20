@@ -47,8 +47,130 @@ const RELEASE_API = 'https://api.github.com/repos/leclercb/rommix/releases/lates
  */
 const RELEASE_LIST_API = 'https://api.github.com/repos/leclercb/rommix/releases?per_page=30'
 
+/**
+ * The rolling pre-release holding the tip of `main`, one commit at a time.
+ *
+ * Its tag never moves off the name, so there is no list to read and nothing to
+ * sort — the release attached to it is always the newest build there is. What
+ * separates it from the running copy is not a version, every build between two
+ * releases carrying the same one, but the commit each was made from. See
+ * `canaryWanted`.
+ */
+const CANARY_TAG = 'canary'
+const CANARY_API = `https://api.github.com/repos/leclercb/rommix/releases/tags/${CANARY_TAG}`
+
+/**
+ * The commit the canary tag names, which is what the images on its release
+ * were built from.
+ *
+ * A ref rather than anything written into the release, because this is the one
+ * thing on the channel that is a commit rather than a description of one: a
+ * note can be edited, and a sha read out of prose is only ever as true as the
+ * last person to touch it left it.
+ *
+ * `target_commitish` is the field that looks like this and is not. GitHub
+ * documents it as unused where the tag already exists, and this name is reused
+ * on every push, so a release updated in place reports the commit it was first
+ * created with for as long as the channel lives.
+ *
+ * The order the publishing job works in is what makes it worth reading: the
+ * images go up, and the tag is moved afterwards. A tag moved first would name
+ * a build whose images were still uploading, and every copy on the channel
+ * would fetch the previous ones, verify them against their own digest and sit
+ * on a restart that changed nothing. See the canary job in
+ * .github/workflows/release.yml.
+ *
+ * It narrows the window rather than closing it — nothing GitHub offers makes
+ * the assets and the tag move together. A copy behind both, checking between
+ * the upload and the tag, takes the new image against the old commit and is
+ * told about it once more on its next check, where it fetches the same bytes
+ * again. One repeat, and only for a copy that was already behind.
+ *
+ * `vnd.github.sha` answers with the commit alone, rather than the commit with
+ * its diff attached.
+ */
+const CANARY_COMMIT_API = `https://api.github.com/repos/leclercb/rommix/commits/${CANARY_TAG}`
+const CANARY_COMMIT_ACCEPT = 'application/vnd.github.sha'
+
 /** Where to send someone whose copy cannot replace itself. */
 export const RELEASES_PAGE = 'https://github.com/leclercb/rommix/releases'
+
+declare const BUILD_COMMIT: string | undefined
+
+/**
+ * The commit this copy of RomMix was built from, or empty where none was
+ * stamped.
+ *
+ * Substituted into the bundle at build time — see `define` in
+ * electron.vite.config.ts — which is why it is reached through `typeof` rather
+ * than named outright: the name is a constant in the shipped main process and
+ * an undeclared global everywhere else, and everywhere else includes every
+ * test that imports this module.
+ *
+ * Read on each call rather than captured once, which costs nothing after the
+ * substitution folds it and leaves the tests somewhere to state a commit from.
+ *
+ * A build made over an uncommitted working tree carries a `-dirty` suffix, so
+ * this is not always a bare commit. `runningCommit` is what compares.
+ */
+function buildStamp(): string {
+  return typeof BUILD_COMMIT === 'string' ? BUILD_COMMIT : ''
+}
+
+/**
+ * The commit half of the stamp, which is the only half that can be compared.
+ *
+ * The canary check is an equality against a sha the tag hands back, so both
+ * sides have to be shas or the answer is "different" whatever is true — and
+ * "different" is an image fetched, verified, staged and restarted into on
+ * every check, for ever, for every copy on the channel at once. A suffix is
+ * one bad `git status` away, so it is taken off here rather than trusted not
+ * to appear: the comparison is sha against sha and cannot be anything else.
+ *
+ * What that gives up is small and in the right direction. A build made over
+ * local changes, at the commit the tag names, is told it is current — which
+ * for somebody running their own build of that commit is the better answer
+ * anyway, RomMix having nothing to offer them but the bytes they compiled.
+ */
+function runningCommit(): string {
+  return buildStamp().split('-')[0] ?? ''
+}
+
+/**
+ * The build as the footer names it: the commit shortened, keeping whatever the
+ * stamp said about it.
+ *
+ * Shortened here rather than where it is drawn, because the renderer is handed
+ * a label and not a commit — and `-dirty` is the half of that label a bug
+ * report most needs, so it survives the shortening.
+ */
+function shortBuild(): string {
+  const [commit, ...rest] = buildStamp().split('-')
+  return commit ? [commit.slice(0, 7), ...rest].join('-') : ''
+}
+
+/** What `ROMMIX_CANARY` has to say to be a no. Unset is one of them. */
+const CANARY_OFF: ReadonlySet<string> = new Set(['', '0', 'off', 'no', 'false'])
+
+/**
+ * Whether this launch takes builds from the tip of `main`.
+ *
+ * The environment and nowhere else, which is the whole difference between this
+ * and `Settings.updatePrereleases`. A candidate is a release somebody decided
+ * was worth handing out; a canary build is whatever was merged an hour ago,
+ * and CI is the only thing that has looked at it. A stored flag is how an
+ * installation stays on that channel long after the person who turned it on
+ * stopped meaning to be there, so this is consented to at every launch or not
+ * at all — `ROMMIX_CANARY=1 %command%` in a Steam shortcut's launch options,
+ * which reaches the image through `rommix-steam.sh`.
+ *
+ * Anything but a plain no turns it on. The value is typed once, into a box
+ * nobody opens twice, and refusing `yes` for not being `1` would be a flag
+ * that silently did nothing.
+ */
+function canaryWanted(): boolean {
+  return !CANARY_OFF.has((process.env.ROMMIX_CANARY ?? '').trim().toLowerCase())
+}
 
 /**
  * How long after start the first check waits, and how often it repeats.
@@ -146,6 +268,13 @@ export function compareVersions(a: string, b: string): number {
  * Drafts are dropped — a draft is visible to the account that can edit it and to
  * nobody else, so offering one is offering a download that answers 404.
  *
+ * The canary release is dropped by name. It is a pre-release like a candidate
+ * is, so it arrives here whenever somebody has volunteered for candidates, and
+ * its tag is not a version — asking `compareVersions` about it would answer
+ * from a parse rather than from a decision. Volunteering to test a release is
+ * not volunteering to run whatever was merged this afternoon, and the only way
+ * into that is the environment. See `canaryWanted`.
+ *
  * An empty list comes back as a release with no tag, which is the same answer as
  * a repository with no releases and is already refused by name.
  */
@@ -154,6 +283,7 @@ function newestOf(releases: readonly GithubRelease[]): GithubRelease {
   let tag = ''
   for (const release of releases) {
     if (release.draft || !release.tag_name) continue
+    if (release.tag_name === CANARY_TAG) continue
     if (tag && compareVersions(release.tag_name, tag) <= 0) continue
     newest = release
     tag = release.tag_name
@@ -262,6 +392,9 @@ function initialStatus(): UpdateStatus {
     state: 'idle',
     current: app.getVersion(),
     latest: null,
+    // Decided once, at start, like the Steam block below: the commit in the
+    // bundle cannot change under a running process.
+    buildCommit: shortBuild() || null,
     notes: null,
     url: null,
     receivedBytes: 0,
@@ -343,6 +476,7 @@ export class Updater {
     log.info('update', 'checking for new versions', {
       policy: this.policy(),
       prereleases: this.store.settings.updatePrereleases,
+      canary: canaryWanted(),
       current: this.current.current,
       everyHours: CHECK_EVERY_MS / 3_600_000
     })
@@ -383,6 +517,12 @@ export class Updater {
    * is this newer than what is running — because `compareVersions` already knows
    * a candidate is older than the release it is a candidate for.
    *
+   * `ROMMIX_CANARY` overrules both and asks the rolling tag instead, where the
+   * question changes shape: a canary build is newer when it was made from a
+   * different commit, there being no version that tells two of them apart. The
+   * rest of the run — the asset for this machine, the block, the download — is
+   * the same code on either path.
+   *
    * Under `auto` the download follows, started once this has finished rather
    * than awaited: the question here is "is there something new", which is
    * settled the moment the release is read, and a caller that waited would sit
@@ -395,6 +535,30 @@ export class Updater {
     // already fetched — the running version does not change when the file
     // does — and download it again for as long as RomMix stays up.
     if (this.current.state === 'ready') return this.current
+
+    // Settled before anything is asked of GitHub, because nothing GitHub could
+    // answer makes a build carrying no commit comparable to one: a source
+    // tarball, or a checkout with no history to stamp from. Every scheduled
+    // check would otherwise spend a request to arrive back here — see
+    // `Updater.schedule` for how often that is.
+    //
+    // It still records that it looked, and still says why this copy could not
+    // have taken an update anyway: this is an exit from a check like any other,
+    // and a panel showing an error beside "last checked: never" reads as a
+    // check that never ran.
+    const canary = canaryWanted()
+    if (canary && !runningCommit()) {
+      const refusal = t('update.noBuildCommit')
+      log.error('update', 'could not check for a new version', new Error(refusal))
+      this.update({
+        state: 'error',
+        error: refusal,
+        checkedAt: new Date().toISOString(),
+        blockedReason: this.blockedReason()
+      })
+      return this.current
+    }
+
     this.busy = true
     this.update({ state: 'checking', error: null })
 
@@ -402,36 +566,52 @@ export class Updater {
     let fetchIt = false
 
     // Named here rather than inside, so a failure can say what was asked.
-    const api = this.store.settings.updatePrereleases ? RELEASE_LIST_API : RELEASE_API
+    const api = canary
+      ? CANARY_API
+      : this.store.settings.updatePrereleases
+        ? RELEASE_LIST_API
+        : RELEASE_API
 
     try {
-      const response = await fetch(api, {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          // GitHub refuses an anonymous request with no agent, and an honest one
-          // is what makes RomMix's share of the rate limit attributable.
-          'User-Agent': `RomMix/${this.current.current}`
-        }
-      })
-      if (!response.ok) {
-        throw new Error(t('update.githubResponded', { status: response.status }))
-      }
+      // The tag first, so that a channel which cannot be compared fails on the
+      // question rather than after the answer has been fetched. Empty off the
+      // canary path, where nothing reads it.
+      const commit = canary ? await this.canaryCommit() : ''
 
+      const response = await this.ask(api, 'application/vnd.github+json')
       // The shape says which endpoint answered: the list one is an array, and
       // it is the only one that leaves the choosing to us.
       const payload = (await response.json()) as GithubRelease | GithubRelease[]
       const release = Array.isArray(payload) ? newestOf(payload) : payload
-      const latest = (release.tag_name ?? '').replace(/^v/i, '')
+
+      // The channel and the commit together, because this is what the interface
+      // shows where a version number would be and a bare seven characters of
+      // hex says nothing about where they came from.
+      const latest = canary
+        ? `canary ${commit.slice(0, 7)}`
+        : (release.tag_name ?? '').replace(/^v/i, '')
       if (!latest) throw new Error(t('update.noVersionTag'))
 
       const checkedAt = new Date().toISOString()
-      const newer = compareVersions(latest, this.current.current) > 0
+      // Different rather than greater, on the canary path alone. The channel is
+      // whatever `main` points at, so a tag that moves back — history rewritten,
+      // a commit dropped — takes every copy on the channel back with it. There
+      // is no order to appeal to the way `compareVersions` gives the releases
+      // one, and inventing one would leave a copy stuck ahead of the branch it
+      // exists to follow.
+      const newer = canary
+        ? commit !== runningCommit()
+        : compareVersions(latest, this.current.current) > 0
 
       if (!newer) {
-        log.info('update', 'already on the newest version', {
-          current: this.current.current,
-          latest
-        })
+        log.info(
+          'update',
+          canary ? 'already on the commit the tag names' : 'already on the newest version',
+          {
+            current: this.current.current,
+            latest
+          }
+        )
         this.pending = null
         this.update({
           state: 'idle',
@@ -476,7 +656,7 @@ export class Updater {
         ? this.blockedReason()
         : t('update.noBuildForMachine', { version: latest, arch: process.arch })
 
-      log.info('update', 'a newer version is published', {
+      log.info('update', canary ? 'the canary tag has moved' : 'a newer version is published', {
         current: this.current.current,
         latest,
         asset: this.pending?.name ?? null,
@@ -510,6 +690,37 @@ export class Updater {
         })
       }
     }
+  }
+
+  /**
+   * One anonymous request to GitHub, refused by its status rather than by
+   * whatever a failure put in the body.
+   */
+  private async ask(url: string, accept: string): Promise<Response> {
+    const response = await fetch(url, {
+      headers: {
+        Accept: accept,
+        // GitHub refuses an anonymous request with no agent, and an honest one
+        // is what makes RomMix's share of the rate limit attributable.
+        'User-Agent': `RomMix/${this.current.current}`
+      }
+    })
+    if (!response.ok) {
+      throw new Error(t('update.githubResponded', { status: response.status }))
+    }
+    return response
+  }
+
+  /** The commit the canary tag resolves to. See `CANARY_COMMIT_API`. */
+  private async canaryCommit(): Promise<string> {
+    const response = await this.ask(CANARY_COMMIT_API, CANARY_COMMIT_ACCEPT)
+    const commit = (await response.text()).trim()
+    // A media type GitHub stopped honouring, or an annotated tag where the job
+    // writes a lightweight one: either way what came back describes a commit
+    // rather than being one, and a document compared against a commit is
+    // unequal on every check for ever. Refused by name instead.
+    if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(t('update.noCanaryCommit'))
+    return commit
   }
 
   /**

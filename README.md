@@ -314,6 +314,31 @@ editing it.
 platform RomMix has none for. `emulatorPaths` points at an emulator kept
 somewhere RomMix would not look.
 
+### Builds from the tip of `main`
+
+`ROMMIX_CANARY=1` points the updater at a rolling pre-release carrying whatever
+was merged last, rather than at the releases. Those builds have been through CI
+and nothing else, and each is replaced by the next commit. **Release
+candidates** above does not reach them, and turning it on never will: a
+candidate is a release somebody decided was worth handing out.
+
+Nothing is stored. It applies to the launch it is set for, so a copy is on this
+channel only while something keeps setting the variable — from Steam, that is
+the shortcut's launch options:
+
+```bash
+ROMMIX_CANARY=1 %command%
+```
+
+The commit in the footer is what identifies one of these builds. The version
+beside it names the release the build came after, and every build between two
+releases carries the same one.
+
+Unsetting the variable puts the updater back on the releases, but leaves you on
+the build you are running: it reports that earlier version, so nothing newer is
+found until the next release is published. Download one from the
+[releases page](https://github.com/leclercb/rommix/releases) to leave sooner.
+
 ---
 
 ## 📁 Where your files go

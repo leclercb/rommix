@@ -93,6 +93,7 @@ export const en = {
   'app.qrCode': 'QR code',
   'app.credit': 'Developed with {heart} by leclercb',
   'app.version': 'v{version}',
+  'app.buildVersion': 'v{version} · {commit}',
   'app.quitTitle': 'Quit RomMix?',
   'app.stay': 'Stay',
   'app.sleep': 'Sleep',
@@ -890,6 +891,7 @@ export const en = {
     'Test builds, tagged like 1.0.0-rc.1. They come before a finished release and have had ' +
     'less use.',
   'update.installed': 'Installed',
+  'update.installedBuild': '{version} · {commit}',
   'update.newestPublished': 'Newest published',
   'update.checking': 'checking…',
   'update.notCheckedYet': 'not checked yet',
@@ -914,6 +916,9 @@ export const en = {
     'Play again — the new version is already in place.',
   'update.noBuildForMachine': 'Release {version} has no build for this machine ({arch}).',
   'update.noVersionTag': 'The newest release has no version tag',
+  'update.noBuildCommit':
+    'This build carries no commit, so RomMix cannot tell it apart from the canary one.',
+  'update.noCanaryCommit': 'The canary tag does not name a commit.',
   'update.nothingToDownload': 'There is no new version to download',
   'update.nothingToRestartInto': 'There is no downloaded version to restart into',
   'update.devBuild': 'This is a development build, so RomMix will not replace it.',

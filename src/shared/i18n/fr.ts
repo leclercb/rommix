@@ -81,6 +81,7 @@ export const fr: Catalog = {
   'app.qrCode': 'QR code',
   'app.credit': 'Développé avec {heart} par leclercb',
   'app.version': 'v{version}',
+  'app.buildVersion': 'v{version} · {commit}',
   'app.quitTitle': 'Quitter RomMix ?',
   'app.stay': 'Rester',
   'app.sleep': 'Veille',
@@ -900,6 +901,7 @@ export const fr: Catalog = {
     'Versions de test, étiquetées comme 1.0.0-rc.1. Elles arrivent avant une version finie et ' +
     'ont moins servi.',
   'update.installed': 'Installée',
+  'update.installedBuild': '{version} · {commit}',
   'update.newestPublished': 'Dernière publiée',
   'update.checking': 'vérification…',
   'update.notCheckedYet': 'pas encore vérifié',
@@ -925,6 +927,9 @@ export const fr: Catalog = {
     'et appuyez de nouveau sur Jouer — la nouvelle version est déjà en place.',
   'update.noBuildForMachine': 'La version {version} n’a aucun build pour cette machine ({arch}).',
   'update.noVersionTag': 'La version la plus récente n’a pas d’étiquette de version',
+  'update.noBuildCommit':
+    'Cette version ne porte aucun commit, RomMix ne peut donc pas la distinguer de la version canary.',
+  'update.noCanaryCommit': 'L’étiquette canary ne désigne aucun commit.',
   'update.nothingToDownload': 'Il n’y a aucune nouvelle version à télécharger',
   'update.nothingToRestartInto': 'Il n’y a aucune version téléchargée vers laquelle redémarrer',
   'update.devBuild': 'Ceci est un build de développement, RomMix ne le remplacera pas.',

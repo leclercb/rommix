@@ -160,6 +160,79 @@ jobs:
             dist/rommix-steam.sh
           if-no-files-found: error
 
+  # The tip of main, attached to one rolling pre-release so that a copy running
+  # with ROMMIX_CANARY set has somewhere to fetch it from — see `CANARY_API` in
+  # src/main/update.ts. The images are the build job's, unchanged: a channel
+  # that packaged its own would be testing something nobody is going to be sent.
+  #
+  # Not a release. It has been through the four gates above and nothing else,
+  # and is published as a pre-release with `make_latest` off so that neither
+  # `/releases/latest` nor somebody who volunteered for release candidates can
+  # be handed one.
+  canary:
+    needs: build
+    # Main, however this run was started — a push or a hand-started one, both
+    # of which publish the tip of the branch, which is what the channel is. Not
+    # a pull request, which builds the same images from something nobody has
+    # merged, and not a tag, which the release job below answers for.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      # For the tag moved at the end of the job.
+      - uses: actions/checkout@v7
+
+      # Both legs, exactly as the release job takes them.
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: appimage-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish the canary build
+        # Pinned for the same reason the release job pins it: the job holds
+        # `contents: write`.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            dist/*.AppImage
+            dist/rommix-steam.sh
+          tag_name: canary
+          name: RomMix canary
+          # Shown and not read: the commit a copy on this channel compares
+          # itself against comes from the tag. This is what the release page
+          # says to whoever is looking at it, which is what the channel is
+          # rather than what changed — the commit log is a click away and a
+          # television is not where it is read.
+          body: |
+            Built from the tip of `main`, at ${{ github.sha }}.
+
+            This is not a release. It has passed CI and nothing else, and it is
+            replaced by the next commit. `ROMMIX_CANARY=1` is what asks for it.
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+
+      # Last, and that is the whole of what makes the channel safe to read. A
+      # copy on it compares itself against the commit this tag names — see
+      # `CANARY_COMMIT_API` in src/main/update.ts — so a tag moved before the
+      # step above names a build whose images are still uploading. Every copy
+      # would fetch the previous ones, verify them against the digest those
+      # images really have, and sit on a restart that changed nothing.
+      #
+      # Moved with git rather than asked for from the API, because GitHub uses
+      # `target_commitish` only where the tag does not already exist and this
+      # name is reused on every push. The step above creates it on the first
+      # run, at the commit this job was started for; from then on this is what
+      # moves it.
+      - name: Move the canary tag
+        run: |
+          git tag -f canary "$GITHUB_SHA"
+          git push -f origin refs/tags/canary
+
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')

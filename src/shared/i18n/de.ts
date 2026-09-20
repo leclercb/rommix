@@ -84,6 +84,7 @@ export const de: Catalog = {
   'app.qrCode': 'QR-Code',
   'app.credit': 'Mit {heart} entwickelt von leclercb',
   'app.version': 'v{version}',
+  'app.buildVersion': 'v{version} · {commit}',
   'app.quitTitle': 'RomMix beenden?',
   'app.stay': 'Bleiben',
   'app.sleep': 'Ruhezustand',
@@ -910,6 +911,7 @@ export const de: Catalog = {
     'Testversionen, gekennzeichnet wie 1.0.0-rc.1. Sie kommen vor einer fertigen Version und ' +
     'waren weniger im Einsatz.',
   'update.installed': 'Installiert',
+  'update.installedBuild': '{version} · {commit}',
   'update.newestPublished': 'Neueste veröffentlichte',
   'update.checking': 'wird geprüft…',
   'update.notCheckedYet': 'noch nicht geprüft',
@@ -935,6 +937,9 @@ export const de: Catalog = {
     'RomMix und drücken Sie erneut auf Spielen — die neue Version liegt bereits an ihrem Platz.',
   'update.noBuildForMachine': 'Release {version} hat keinen Build für diesen Rechner ({arch}).',
   'update.noVersionTag': 'Das neueste Release hat kein Versions-Tag',
+  'update.noBuildCommit':
+    'Dieser Build trägt keinen Commit, deshalb kann RomMix ihn nicht vom Canary-Build unterscheiden.',
+  'update.noCanaryCommit': 'Das Canary-Tag benennt keinen Commit.',
   'update.nothingToDownload': 'Es gibt keine neue Version zum Herunterladen',
   'update.nothingToRestartInto':
     'Es gibt keine heruntergeladene Version, in die neu gestartet werden könnte',

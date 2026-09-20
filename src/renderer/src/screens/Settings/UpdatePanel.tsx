@@ -97,7 +97,14 @@ export function UpdatePanel(): JSX.Element {
 
       <dl className="kv">
         <dt>{t('update.installed')}</dt>
-        <dd>{update?.current ?? '—'}</dd>
+        {/* With the commit where there is one, because the line below it may
+            be naming a commit rather than a version — and two lines that
+            cannot be compared read as a copy permanently out of step. */}
+        <dd>
+          {update?.buildCommit && update.current
+            ? t('update.installedBuild', { version: update.current, commit: update.buildCommit })
+            : (update?.current ?? '—')}
+        </dd>
         <dt>{t('update.newestPublished')}</dt>
         {/* Never checked and checked-and-current are different answers, and the
             second one is the reassuring one. */}

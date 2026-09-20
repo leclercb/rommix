@@ -1972,17 +1972,31 @@ describe('what RomMix says about its own version', () => {
 
     // The version is the running process's own, carried over IPC — the panel
     // draws no other statement of what this copy is, and the one thing every
-    // bug report needs is which version wrote it.
-    const status = await app.read<{ current: string; checkedAt: string | null }>(
-      `await window.rommix.updates.status()`
-    )
+    // bug report needs is which version wrote it. The commit stands beside it
+    // rather than instead of it, so the line is read for what it contains: a
+    // version names the release a build came after, not the build.
+    const status = await app.read<{
+      current: string
+      buildCommit: string | null
+      checkedAt: string | null
+    }>(`await window.rommix.updates.status()`)
     const shown = await app.read<string[]>(
       `[...document.querySelectorAll('.kv dd')].map((one) => one.textContent)`
     )
     assert.ok(
-      shown.includes(status.current),
+      shown.some((one) => (one ?? '').includes(status.current)),
       `the installed version was not among ${JSON.stringify(shown)}`
     )
+    // Only where this copy was built from a checkout. The suite runs against a
+    // bundle built here, so it normally is — but a build from a source tarball
+    // has no commit to have been stamped with, and that is not a failure.
+    if (status.buildCommit) {
+      const commit = status.buildCommit
+      assert.ok(
+        shown.some((one) => (one ?? '').includes(commit)),
+        `the build was not named among ${JSON.stringify(shown)}`
+      )
+    }
 
     // Never checked and checked-and-current are different answers, and the
     // harness turns automatic checks off — so this is the honest one.

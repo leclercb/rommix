@@ -29,6 +29,7 @@ const realFetch = globalThis.fetch
 const BODY = 'new bytes'
 const scratches: string[] = []
 const heldAppImage = process.env.APPIMAGE
+const heldCanary = process.env.ROMMIX_CANARY
 // Electron's, and undefined out here — the launcher refresh reads the copy the
 // image carries from it, so a test about that has to say where it is.
 const heldResources = process.resourcesPath
@@ -55,6 +56,9 @@ afterEach(() => {
   app.exit = realExit
   if (heldAppImage === undefined) delete process.env.APPIMAGE
   else process.env.APPIMAGE = heldAppImage
+  if (heldCanary === undefined) delete process.env.ROMMIX_CANARY
+  else process.env.ROMMIX_CANARY = heldCanary
+  delete (globalThis as { BUILD_COMMIT?: string }).BUILD_COMMIT
   resourcesAt(heldResources)
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
@@ -147,6 +151,32 @@ describe('checking for a new version', () => {
 
     assert.equal(subject.status.current, '1.0.0')
     assert.equal(subject.status.state, 'idle')
+  })
+
+  test('the footer is given the commit, which is the only thing that names a build', () => {
+    // Whatever channel this copy is on. A version names the release it was cut
+    // after, so it cannot tell two builds apart on its own — and read off a
+    // fresh updater, because the question is about this copy and has an answer
+    // before anything has been asked of GitHub.
+    ;(globalThis as { BUILD_COMMIT?: string }).BUILD_COMMIT = `d${'e'.repeat(39)}`
+
+    const { updater: subject } = updater()
+
+    assert.equal(subject.status.buildCommit, 'deeeeee')
+    assert.equal(subject.status.current, '1.0.0')
+  })
+
+  test('a build made over changes says so, which is the half a report needs', () => {
+    // `git rev-parse` answers the same commit whatever is uncommitted on top
+    // of it, so the stamp carries the working tree's state beside it — see
+    // `buildCommit` in electron.vite.config.ts.
+    ;(globalThis as { BUILD_COMMIT?: string }).BUILD_COMMIT = `${'a'.repeat(40)}-dirty`
+
+    assert.equal(updater().updater.status.buildCommit, 'aaaaaaa-dirty')
+  })
+
+  test('a build nothing stamped has no commit to give the footer', () => {
+    assert.equal(updater().updater.status.buildCommit, null)
   })
 
   test('a release that is not newer leaves nothing to download', async () => {
@@ -273,6 +303,127 @@ describe('release candidates', () => {
     serve(() => releaseList([]))
 
     assert.equal((await subject.check()).state, 'error')
+  })
+})
+
+describe('the canary channel', () => {
+  const COMMITS_API = 'https://api.github.com/repos/leclercb/rommix/commits/canary'
+  const RELEASE_API = 'https://api.github.com/repos/leclercb/rommix/releases/tags/canary'
+
+  /**
+   * A canary run: the flag set, and a build that knows which commit it is.
+   *
+   * The commit is a global because that is what it is in a shipped bundle —
+   * `define` puts it there and nothing else declares it, so this is the same
+   * name the main process reads rather than a seam opened for the tests. See
+   * `runningCommit` in update.ts.
+   */
+  function builtAt(commit: string): void {
+    process.env.ROMMIX_CANARY = '1'
+    ;(globalThis as { BUILD_COMMIT?: string }).BUILD_COMMIT = commit
+  }
+
+  /** GitHub with the canary tag on `commit`, and a release of images on it. */
+  function publishedAt(commit: string, assets: string[] = [image]): string[] {
+    return serve((url) =>
+      url.includes('/commits/') ? new Response(commit) : release('canary', assets)
+    )
+  }
+
+  test('the tag is asked what it names, and the release what it carries', async () => {
+    builtAt('a'.repeat(40))
+    const { updater: subject } = updater()
+    const asked = publishedAt('a'.repeat(40))
+
+    await subject.check()
+
+    // The tag first: a channel that cannot be compared fails on the question
+    // rather than after the answer has been fetched.
+    assert.deepEqual(asked, [COMMITS_API, RELEASE_API])
+  })
+
+  test('the commit the tag names is the build already running, whatever the version says', async () => {
+    // Every build between two releases carries the version of the last one, so
+    // the one thing that cannot answer this is the version.
+    builtAt('a'.repeat(40))
+    const { updater: subject } = updater()
+    publishedAt('a'.repeat(40))
+
+    assert.equal((await subject.check()).state, 'idle')
+  })
+
+  test('a tag that has moved is a new build, and is named by the commit', async () => {
+    process.env.APPIMAGE = join(scratch(), image)
+    builtAt('a'.repeat(40))
+    const { updater: subject } = updater()
+    publishedAt(`b${'c'.repeat(39)}`)
+
+    const status = await subject.check()
+
+    assert.equal(status.state, 'available')
+    assert.equal(status.latest, 'canary bcccccc')
+  })
+
+  test('a build made over changes is compared on its commit, suffix and all', async () => {
+    process.env.APPIMAGE = join(scratch(), image)
+    builtAt(`${'a'.repeat(40)}-dirty`)
+    const { updater: subject } = updater()
+    publishedAt('a'.repeat(40))
+
+    // The comparison is sha against sha or it is nothing: a stamp that could
+    // never equal a tag is an image fetched, staged and restarted into on
+    // every check, for every copy on the channel, for ever. The suffix stays
+    // in the footer and goes no further.
+    assert.equal((await subject.check()).state, 'idle')
+  })
+
+  test('the tag moving back takes the channel back with it', async () => {
+    // No order to appeal to: the channel is whatever main points at, and a
+    // history that was rewritten points at something earlier.
+    process.env.APPIMAGE = join(scratch(), image)
+    builtAt('b'.repeat(40))
+    const { updater: subject } = updater()
+    publishedAt('a'.repeat(40))
+
+    assert.equal((await subject.check()).state, 'available')
+  })
+
+  test('a build that was never stamped refuses without spending a request', async () => {
+    process.env.ROMMIX_CANARY = '1'
+    const { updater: subject } = updater()
+    const asked = publishedAt('a'.repeat(40))
+
+    assert.equal((await subject.check()).state, 'error')
+    assert.deepEqual(asked, [])
+  })
+
+  test('a tag that does not resolve to a commit refuses too', async () => {
+    builtAt('a'.repeat(40))
+    const { updater: subject } = updater()
+    // What the endpoint answers when the tag is not there, or when GitHub
+    // stops honouring the media type that asks for the commit alone.
+    serve(() => new Response('{"message":"Not Found"}'))
+
+    assert.equal((await subject.check()).state, 'error')
+  })
+
+  test('the flag is off unless it is set to something that is not a no', async () => {
+    const { updater: subject } = updater()
+    for (const value of ['', '0', 'off', 'no', 'false', ' OFF ']) {
+      process.env.ROMMIX_CANARY = value
+      const asked = serve(() => release('v0.9.0', [image]))
+      await subject.check()
+      assert.match(asked[0] ?? '', /releases\/latest$/, value)
+    }
+  })
+
+  test('volunteering for release candidates is not volunteering for this', async () => {
+    // The canary release is a pre-release, so it is in the list every copy on
+    // that setting reads.
+    const { updater: subject } = updater('notify', true)
+    serve(() => releaseList([{ tag: 'canary' }, { tag: 'v1.1.0-rc.2' }]))
+
+    assert.equal((await subject.check()).latest, '1.1.0-rc.2')
   })
 })
 

@@ -634,6 +634,10 @@ function previewUpdate(): UpdateStatus {
     state: 'idle',
     current: import.meta.env.VITE_ROMMIX_VERSION ?? 'preview',
     latest: import.meta.env.VITE_ROMMIX_VERSION ?? 'preview',
+    // Nothing stamps the demo — it is the renderer on its own, built by
+    // vite.web.config.ts — and a commit here would name a build of RomMix
+    // nobody watching it is running.
+    buildCommit: null,
     notes: null,
     url: 'https://github.com/leclercb/rommix/releases',
     receivedBytes: 0,

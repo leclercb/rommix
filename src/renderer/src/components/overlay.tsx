@@ -252,7 +252,18 @@ export function Hints({ items }: { items: { key: string; label: string }[] }): J
         {/* Absent for the moment before the main process has answered, rather
             than a placeholder that would be read as the version itself. */}
         {update && (
-          <span className="hints__version">{t('app.version', { version: update.current })}</span>
+          <span className="hints__version">
+            {/* The version names a release, not a build: everything made
+                between two releases reports the earlier one. This strip is
+                the one thing a photograph of a television carries into a bug
+                report, so the commit goes beside it wherever there is one. */}
+            {update.buildCommit
+              ? t('app.buildVersion', {
+                  version: update.current,
+                  commit: update.buildCommit
+                })
+              : t('app.version', { version: update.current })}
+          </span>
         )}
       </span>
       {items.map((item) => (
