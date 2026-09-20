@@ -505,8 +505,16 @@ export async function installFlatpak(appId: string, onLine: (line: string) => vo
         code,
         output: tail.slice(-1000)
       })
+      // flatpak's own last words where it said anything, and RomMix's where it
+      // said nothing — a killed child, or an installation another process has
+      // locked. This message is drawn in a toast, so the fallback cannot be
+      // English: `sources.test.ts` only inspects what follows `new Error(`
+      // directly, which is how a literal reached through `||` walked past it.
       rejectPromise(
-        new Error(tail.trim().split('\n').slice(-3).join(' ') || `flatpak install exited ${code}`)
+        new Error(
+          tail.trim().split('\n').slice(-3).join(' ') ||
+            t('host.flatpakExited', { code: code ?? 0 })
+        )
       )
     })
   })

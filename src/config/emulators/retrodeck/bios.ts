@@ -46,7 +46,7 @@ function manifestPath(installDir: string, component: string): string {
  * Parsed manifests, keyed by the environment that read them.
  *
  * A scan asks about every BIOS file of every platform, and the RetroArch
- * manifest alone holds five hundred entries — parsing it once per file would
+ * manifest alone runs to hundreds of entries — parsing it once per file would
  * be the most expensive thing the BIOS screen does. Keyed by the `env` object
  * rather than by path so the cache dies with whatever handed it out, which in
  * a test is one fake machine and in the app is the process.
@@ -78,12 +78,11 @@ function entries(ctx: BiosContext, component: string): ManifestEntry[] {
  * melonDS at the top level. Following the shape means a component that moves
  * its list, or a new one that puts it somewhere else again, still reads.
  *
- * Arrays are walked as well as objects. They were skipped, which quietly
- * undercut the whole point: a `bios` list is only reachable if every container
- * between it and the root happens to be an object, so a component that keeps
- * its cores as a *list* of core objects — rather than a map keyed by name —
- * yields nothing at all. The failure is silent and looks like success: every
- * file falls back to the root of `bios/`, gets copied there, is reported as
+ * Arrays are walked as well as objects, because a `bios` list is only reachable
+ * if every container between it and the root is one: a component that keeps its
+ * cores as a *list* of core objects, rather than a map keyed by name, would
+ * otherwise yield nothing. That failure is silent and looks like success — every
+ * file falls back to the root of `bios/`, is copied there, is reported as
  * installed, and the emulator does not find it.
  */
 function read(text: string | null): ManifestEntry[] {

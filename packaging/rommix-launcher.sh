@@ -49,7 +49,13 @@ case " $* " in
     chose="a backend was named on the command line"
     ;;
   *)
-    if [ "${XDG_SESSION_TYPE-}" != wayland ]; then
+    # The same choice by the other route. ELECTRON_OZONE_PLATFORM_HINT is what
+    # Electron reads when no switch is given, so somebody who set it has already
+    # named a backend — and prepending `--ozone-platform` below would silently
+    # overrule them, on exactly the setup they would have reached for it on.
+    if [ -n "${ELECTRON_OZONE_PLATFORM_HINT-}" ]; then
+      chose="a backend was named in ELECTRON_OZONE_PLATFORM_HINT"
+    elif [ "${XDG_SESSION_TYPE-}" != wayland ]; then
       chose="the session does not say wayland, so Chromium chooses for itself"
     elif [ -e "$socket" ]; then
       chose="a wayland session with a compositor where Chromium will look"

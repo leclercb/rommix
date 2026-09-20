@@ -132,8 +132,12 @@ export const BIOS_REQUIREMENTS: Readonly<Record<string, BiosRequirement>> = {
       },
       {
         name: 'title.keys',
+        // Not required: a Yuzu-lineage emulator boots on `prod.keys` alone, and
+        // most dumps do not carry this one. Marked required it puts the Switch at
+        // the head of the BIOS screen for good — `missingRequired` ranks an
+        // uninstalled required file first — naming a file nothing needs.
         note: 'bios.note.titleKeys',
-        required: true
+        required: false
       }
     ],
     setupNote: 'bios.setup.switch'

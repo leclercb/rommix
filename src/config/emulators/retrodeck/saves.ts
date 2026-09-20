@@ -14,8 +14,8 @@ import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
  * RetroDECK's own components repository, and verified against a live
  * `~/retrodeck`.
  *
- * The shape is *mostly* `<saves>/<system>/<component>/…`, and the exceptions
- * are what made the old single `system-nested` flag wrong: Dolphin and
+ * The shape is *mostly* `<saves>/<system>/<component>/…`, and the exceptions are
+ * why each component answers for itself rather than setting a flag: Dolphin and
  * PrimeHack put their states at `<states>/<component>` with no system at all,
  * MAME uses `mame-sa` in place of a system, PPSSPP's folder is `PSP` in capitals
  * where the ES-DE system is `psp`, and XRoar inverts the two.
@@ -61,8 +61,8 @@ const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
   /**
    * Dolphin keeps GameCube memory cards under a region folder and the Wii NAND
    * as one tree, neither of which is per-game. Its states are, and they sit at
-   * `<states>/dolphin` — no system component, which is exactly the kind of
-   * exception the old flag could not express.
+   * `<states>/dolphin` — no system component at all, which is why the layout is
+   * spelled out per component here rather than derived.
    */
   dolphin: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'dolphin'), shared),

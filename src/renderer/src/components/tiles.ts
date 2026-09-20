@@ -87,10 +87,21 @@ export function tileFromRom(rom: RommRom, grouped = false): GameTile {
   }
 }
 
+/**
+ * What a downloaded game is listed, sorted and searched under.
+ *
+ * `library.ts` writes `rom.name ?? rom.fs_name`, so a RomM record with an empty
+ * name reaches the index as one — and a row that draws it bare shows a blank
+ * title and a blank cover. Exported because four readers need the same answer.
+ */
+export function titleOf(entry: InstalledRom): string {
+  return entry.name || fileNameOf(entry.path)
+}
+
 export function tileFromInstalled(entry: InstalledRom): GameTile {
   return {
     romId: entry.romId,
-    title: entry.name || fileNameOf(entry.path),
+    title: titleOf(entry),
     coverPath: entry.coverPath,
     platformName: entry.platformName,
     // The index records the ES-DE system rather than RomM's slug, which the

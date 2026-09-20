@@ -10,7 +10,7 @@
  *
  * Every field is required, including the ones that are usually empty. An
  * optional field lets an emulator quietly inherit a default that is written
- * nowhere near it, and the reader of `eden.ts` then has to know what `open`
+ * nowhere near it, and the reader of `eden/index.ts` then has to know what `open`
  * does when absent in order to know what Eden does. Spelling out `open:
  * undefined` costs a line and answers the question in place — and makes adding
  * a field to this interface a compile error in every emulator rather than a
@@ -334,8 +334,8 @@ export type CoreContext = Pick<SaveContext, 'system' | 'home' | 'configDir' | 'e
 /**
  * A libretro core a launch needs and the install does not ship.
  *
- * RetroArch's packages contain no cores at all — its flatpak carries 291 core
- * *info* files and not one `.so` — and a missing core is not fetched on demand
+ * RetroArch's packages contain no cores at all — its flatpak carries core *info*
+ * files and not one `.so` — and a missing core is not fetched on demand
  * either: `-L` naming a core that is not on disk is a fatal error, not a
  * download. The only thing that installs one is a user walking RetroArch's
  * Online Updater menu, which is exactly the trip to a second program that a

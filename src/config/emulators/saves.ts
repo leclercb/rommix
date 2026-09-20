@@ -32,7 +32,8 @@ export const SAVE_CONVENTIONS: SaveFileConventions = {
   // The real-time clock a GBC or GBA game keeps beside its battery save. Synced
   // like any other save file, and never the one a slot is paired on.
   companionExtensions: ['.rtc'],
-  // Three levels covers `<system>/<emulator>/<file>` and stops a large library
-  // turning every launch into a full-tree walk.
+  // Deep enough for `<system>/<emulator>/<file>`, which is the longest shape any
+  // frontend here nests a save under, and shallow enough that a large library
+  // does not turn every launch into a full-tree walk.
   maxDepth: 3
 }

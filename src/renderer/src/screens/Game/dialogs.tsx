@@ -35,7 +35,11 @@ export function LaunchVariantDialog({
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('game.variantTitle', { system: choice.system })} icon="play">
+    <Overlay
+      title={t('game.variantTitle', { system: choice.system })}
+      icon="play"
+      onDismiss={onCancel}
+    >
       <p className="muted">
         {t('game.variantBody', { emulator: choice.emulatorName, system: choice.system })}
       </p>
@@ -90,7 +94,7 @@ export function NoEmulatorDialog({
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('game.noEmulatorTitle', { platform })} icon="emulator">
+    <Overlay title={t('game.noEmulatorTitle', { platform })} icon="emulator" onDismiss={onCancel}>
       <p className="muted">
         {t(canInstall ? 'game.noEmulatorBody' : 'game.noEmulatorNone', { platform })}
       </p>
@@ -150,6 +154,7 @@ export function DeleteAssetDialog({
     <Overlay
       title={t(asset.kind === 'save' ? 'game.deleteSaveTitle' : 'game.deleteStateTitle')}
       icon="delete"
+      onDismiss={onKeep}
     >
       <p className="muted">
         {/* The file, and where this device keeps it when it has it at all. */}
@@ -201,7 +206,7 @@ export function UninstallDialog({
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
   return (
-    <Overlay title={t('uninstall.title')} icon="uninstall">
+    <Overlay title={t('uninstall.title')} icon="uninstall" onDismiss={onKeep}>
       <p className="muted">{t('uninstall.body', { folder: folderOf(entry.path) })}</p>
       <div className="btn-row">
         <FocusButton icon="keep" action="keep-game" onSelect={onKeep} autoFocus>
@@ -248,7 +253,11 @@ export function PushConfirmDialog({
 }): JSX.Element {
   const { t } = useI18n()
   return (
-    <Overlay title={t('game.pushTitle', { count: preview.files.length })} icon="push">
+    <Overlay
+      title={t('game.pushTitle', { count: preview.files.length })}
+      icon="push"
+      onDismiss={onCancel}
+    >
       <p className="muted">{t('game.pushUploadedAs', { device: preview.deviceName })}</p>
       <PushPreviewList files={preview.files} />
       {/* Sending first and focused, because it is what the dialog is for: a

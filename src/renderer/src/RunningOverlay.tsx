@@ -79,6 +79,13 @@ export function RunningOverlay(): JSX.Element {
       <Overlay title={t('app.gettingReady')} icon="play">
         <p className="muted">{runningStage}</p>
         <Spinner />
+        {/* The same Stop and Force a running game gets, because this is the part
+            of a launch that can take the longest and the part that can fail to
+            end on its own: a core fetched from a server that accepts the
+            connection and then says nothing. Without them the panel claims the
+            focus layer with nothing focusable and no handler on it, so B, Start,
+            the D-pad and A are all dead and there is no way out of RomMix. */}
+        <RunningActions />
       </Overlay>
     )
   }

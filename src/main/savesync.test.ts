@@ -58,12 +58,18 @@ const rom = {
   platform_fs_slug: 'megadrive'
 } as RommRom
 
+/** The bytes the download stub sends, named so the fixtures can size to it. */
+const REMOTE_BYTES = 'from the server'
+
 function save(fields: Partial<RommSave> = {}): RommSave {
   return {
     id: 1,
     rom_id: 7,
     file_name: 'Sonic the Hedgehog (USA).srm',
-    file_size_bytes: 8192,
+    // What the stub above actually sends, because `restoreFile` holds a pull to
+    // the length RomM recorded where the asset carries no hash — which is every
+    // state. A figure picked out of the air here would refuse every pull.
+    file_size_bytes: REMOTE_BYTES.length,
     emulator: 'retroarch',
     updated_at: '2026-08-01T12:00:00.000Z',
     origin_device_id: null,
@@ -138,10 +144,10 @@ function setUp(
      * tab offers to push the truncated copy over the good one.
      */
     if (options.breakAfter !== undefined) {
-      await writeFile(to, 'from the server'.slice(0, options.breakAfter))
+      await writeFile(to, REMOTE_BYTES.slice(0, options.breakAfter))
       throw new Error('the transfer from RomM broke off')
     }
-    if (!options.archive) return writeFile(to, 'from the server')
+    if (!options.archive) return writeFile(to, REMOTE_BYTES)
     const staging = scratch()
     for (const [name, contents] of Object.entries(options.archive)) {
       mkdirSync(join(staging, name, '..'), { recursive: true })
@@ -926,7 +932,7 @@ describe('saying what a transfer is doing while it runs', () => {
         done: 0,
         total: null,
         receivedBytes: 4096,
-        totalBytes: 8192
+        totalBytes: REMOTE_BYTES.length
       }
     )
     assert.equal(seen.at(-1)?.done, 1)
@@ -963,6 +969,31 @@ describe('saying what a transfer is doing while it runs', () => {
     // pass started would be a bar that went backwards half way through.
     assert.deepEqual([...new Set(seen.map((progress) => progress.total))], [2])
     assert.equal(seen.at(-1)?.done, 2)
+  })
+
+  test('a game whose name holds a dot keeps both its save and its states', async () => {
+    const made = setUp()
+    const name = 'Super Mario Bros. 3 (USA)'
+    made.target = {
+      ...made.target,
+      rom: { ...made.target.rom, fs_name: `${name}.md`, fs_name_no_ext: name } as RommRom,
+      romPath: join(made.target.romPath, '..', `${name}.md`)
+    }
+    writeFileSync(join(made.saveDir, `${name}.srm`), 'local')
+    writeFileSync(join(made.stateDir, `${name}.state1`), 'local')
+
+    const result = await made.sync.pushNow(made.target)
+
+    // The two suffixes are not the same shape. A battery save carries a real
+    // extension; a state's slot is appended to the ROM's whole name, so taking
+    // an extension off afterwards would leave `Super Mario Bros` and match no
+    // game at all — a session's snapshots never reaching RomM, and nothing said.
+    assert.equal(result.saves, 1)
+    assert.equal(result.states, 1)
+    assert.deepEqual(made.uploaded.map((entry) => entry.fileName).sort(), [
+      `${name}.srm`,
+      `${name}.state1`
+    ])
   })
 })
 

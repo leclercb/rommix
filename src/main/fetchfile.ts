@@ -40,7 +40,8 @@ export async function fetchToFile(
     sizeHint = 0,
     everyMs = PROGRESS_EVERY_MS,
     refused,
-    onProgress
+    onProgress,
+    signal
   }: {
     /**
      * What the file is known to weigh, for a server that does not say.
@@ -65,9 +66,19 @@ export async function fetchToFile(
      */
     refused: (status: number) => Error
     onProgress?: (progress: Fetched) => void
+    /**
+     * Gives the transfer up, for a caller that can be told to stop.
+     *
+     * A core installed on the way into a launch is fetched with the interface
+     * showing "installing core" and Stop and Force both on screen; without this
+     * there is nothing behind either of them until the download ends of its own
+     * accord, which a server that accepts the connection and then says nothing
+     * never does.
+     */
+    signal?: AbortSignal
   }
 ): Promise<Fetched> {
-  const response = await fetch(url)
+  const response = await fetch(url, { signal })
   if (!response.ok || !response.body) throw refused(response.status)
 
   const totalBytes = Number(response.headers.get('content-length') ?? 0) || sizeHint
@@ -91,7 +102,8 @@ export async function fetchToFile(
         yield chunk
       }
     },
-    createWriteStream(destination)
+    createWriteStream(destination),
+    { signal }
   )
 
   return { receivedBytes, totalBytes }

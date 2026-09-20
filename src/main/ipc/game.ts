@@ -36,11 +36,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
 
   handle('game:launch', async (romId: number, variant?: string): Promise<LaunchResult> => {
     const { installed, emulator } = await launchContext(rommix, romId)
-    const {
-      options,
-      chosen: settled,
-      noLauncher
-    } = launchOptions(rommix, emulator, installed.system)
+    const { effective, noLauncher } = launchOptions(rommix, emulator, installed.system)
 
     // An emulator that claims the system but has no launcher here for it. Said
     // plainly and before the spawn: the alternative is a script that is not
@@ -54,10 +50,11 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
     // Remembered so the question is asked once per system rather than before
     // every game.
     const key = launcherKey(emulator.id, installed.system)
-    // `settled` before the descriptor's own default, and the first *usable*
-    // option before neither: passing nothing would let the descriptor fall back
-    // to the head of its table, which is the one row this machine may not have.
-    const chosen = variant ?? settled ?? options[0]?.id
+    // What was asked for, then what a launch resolves to by itself — which is
+    // the recorded choice, or the first *usable* option. Passing nothing would
+    // let the descriptor fall back to the head of its table, the one row this
+    // machine may not have. `saveContext` reads the same field.
+    const chosen = variant ?? effective
     if (variant && variant !== store.settings.systemLaunchers[key]) {
       store.updateSettings({
         systemLaunchers: { ...store.settings.systemLaunchers, [key]: variant }

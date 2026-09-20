@@ -80,19 +80,29 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
   })
 
   /**
-   * Every folder a download could land in, for whatever wants to measure them.
+   * Every folder a download could land in, each with something to call it.
    *
-   * The same rule the pre-flight check applies below: one folder with shared
-   * storage, and otherwise one per emulator that is actually here and knows
-   * where its library is.
+   * One rule, in one place: one folder with shared storage, and otherwise one per
+   * emulator that is actually here and knows where its library is. Both readers
+   * need it — the drives panel measures these folders and the pre-flight check
+   * tests whether they can be written to — and written twice it is how the two
+   * come to disagree about which folders exist.
+   *
+   * The name is the emulator's, or RomMix's own for the shared folder, because
+   * the pre-flight check names the folder it is complaining about.
    */
-  const romFolders = async (): Promise<string[]> => {
-    if (store.settings.romStorage === 'rommix') return [rootPaths().roms]
+  const romRoots = async (): Promise<{ name: string; path: string }[]> => {
+    if (store.settings.romStorage === 'rommix') {
+      return [{ name: 'RomMix', path: rootPaths().roms }]
+    }
     const emulators = await rommix.ensureEmulators()
     return emulators
       .filter((emulator) => emulator.available && emulator.paths.roms)
-      .map((emulator) => emulator.paths.roms as string)
+      .map((emulator) => ({ name: emulator.name, path: emulator.paths.roms as string }))
   }
+
+  /** Just the paths, for whatever only wants to measure them. */
+  const romFolders = async (): Promise<string[]> => (await romRoots()).map((root) => root.path)
 
   /**
    * How much room is left where games go.
@@ -141,20 +151,13 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       }
     }
 
-    // Whichever tree downloads actually go to. With shared storage that is one
-    // folder for the lot; otherwise it is one per emulator, and each is checked
-    // separately — one unwritable folder is a real failure even when the others
+    // Whichever tree downloads actually go to — see `romRoots`. Each is checked
+    // separately: one unwritable folder is a real failure even when the others
     // are fine, and naming it is the difference between a fixable message and
     // "download failed".
     const shared = store.settings.romStorage === 'rommix'
-    const romRoots = shared
-      ? [{ name: 'RomMix', path: rootPaths().roms }]
-      : emulators
-          .filter((emulator) => emulator.available && emulator.paths.roms)
-          .map((emulator) => ({ name: emulator.name, path: emulator.paths.roms as string }))
-
     const writable = await Promise.all(
-      romRoots.map(async (root) => ({ ...root, ok: await isWritable(root.path) }))
+      (await romRoots()).map(async (root) => ({ ...root, ok: await isWritable(root.path) }))
     )
     for (const entry of writable.filter((e) => !e.ok)) {
       notes.push(t('diagnostics.romsNotWritable', { name: entry.name, path: entry.path }))
@@ -185,7 +188,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       flathubConfigured: hasFlathub,
       emulators,
       romsWritable,
-      drives: await drivesOf(romRoots.map((root) => root.path)),
+      drives: await drivesOf(await romFolders()),
       logPath: log.path(),
       notes
     }
@@ -244,6 +247,13 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     // Checked against the table rather than trusted: this crosses the bridge,
     // and the value goes to a command.
     if (!(await powerActions()).includes(action)) throw new Error(t('error.powerUnavailable'))
+    // Restarting or turning the machine off ends this process as surely as
+    // quitting does, so the session in progress has to be accounted for first —
+    // otherwise the emulator is orphaned, RomM goes on reporting the game as up,
+    // and the session's saves are neither pushed nor written down. Sleep is the
+    // one that genuinely skips it: a session that comes back from sleep comes
+    // back to the game it left.
+    if (action !== 'suspend') await rommix.shutdown()
     await power(action)
   })
 

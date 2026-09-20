@@ -229,7 +229,12 @@ export function BiosScreen(): JSX.Element {
           variant="primary"
           onSelect={() => void syncAll()}
           disabled={busy !== null || fetchable === 0 || offline === true}
-          autoFocus
+          // Only where it can actually take it: `useFocusable` wants
+          // `autoFocus && enabled`, so on a machine with every file already in
+          // place this asked for the highlight and was refused it — and Re-check
+          // only asks when offline, leaving the screen with no ring at all until
+          // the first press of the pad.
+          autoFocus={fetchable > 0 && offline !== true}
         >
           {fetchable === 0 ? t('bios.nothingToInstall') : t('action.installAll')}
         </FocusButton>
@@ -238,7 +243,9 @@ export function BiosScreen(): JSX.Element {
           action="recheck-bios"
           onSelect={() => void recheck()}
           disabled={busy !== null || rechecking}
-          autoFocus={offline === true}
+          // The complement of Install all above, so exactly one of the two claims
+          // the highlight whatever state the screen is in.
+          autoFocus={fetchable === 0 || offline === true}
         >
           {rechecking ? t('action.checking') : t('bios.recheck')}
         </FocusButton>

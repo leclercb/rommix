@@ -139,7 +139,9 @@ export async function missingCore(
  */
 export async function installCore(
   core: RequiredCore,
-  onProgress: (progress: CoreProgress) => void
+  onProgress: (progress: CoreProgress) => void,
+  /** Gives the download up where the caller can be told to stop. */
+  signal?: AbortSignal
 ): Promise<void> {
   const url = archiveUrl(core)
   if (!url) {
@@ -171,7 +173,8 @@ export async function installCore(
         log.error('core', 'the buildbot refused the download', undefined, { url, status })
         return new Error(t('core.downloadFailed', { core: core.name, url, status }))
       },
-      onProgress: (progress) => onProgress({ core: core.name, ...progress })
+      onProgress: (progress) => onProgress({ core: core.name, ...progress }),
+      signal
     })
 
     /**

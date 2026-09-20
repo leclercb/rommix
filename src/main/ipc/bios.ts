@@ -2,7 +2,7 @@ import type { BiosProgress } from '@shared/api'
 import type { BiosPlatform, BiosReport, BiosSyncResult } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import type { Handle } from './handler.ts'
-import { throttledProgress } from './progress.ts'
+import { throttledProgress } from './handler.ts'
 
 /** The progress of one install, on its way to the firmware screen. */
 const biosProgress = (rommix: RomMixApp): ((progress: BiosProgress) => void) =>

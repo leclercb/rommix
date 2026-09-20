@@ -230,7 +230,6 @@ export const de: Catalog = {
 
   // -- Start ----------------------------------------------------------------
 
-  'home.title': 'Start',
   'home.continuePlaying': 'Weiterspielen',
   'home.readyToPlay': 'Spielbereit',
   'home.favourites': 'Favoriten',
@@ -591,7 +590,8 @@ export const de: Catalog = {
   'saves.scopeLocal': 'von diesem Gerät',
   'saves.scopeRemote': 'von RomM',
   'saves.empty': 'Keine Spielstände für dieses Spiel, weder hier noch auf RomM.',
-  'saves.emptyPlayIt': 'Spielen Sie es einmal, dann erscheint sein Spielstand hier.',
+  'saves.emptyPlayable':
+    'Keine Spielstände für dieses Spiel, weder hier noch auf RomM. Spiele es einmal, dann erscheint der Spielstand hier.',
   'saves.nothingNewer': 'Nichts Neueres auf RomM',
   'saves.pulling': 'Spielstände werden geholt',
   'saves.pushing': 'Spielstände werden gesendet',
@@ -845,8 +845,6 @@ export const de: Catalog = {
   'emulator.setupIntro':
     'Was übrig bleibt, geschieht in {name} selbst — RomMix kann es von außen weder erledigen noch ' +
     'nachprüfen:',
-  'emulator.installedToast': '{name} installiert',
-  'emulator.installingFlathub': 'Installation von Flathub',
   'emulator.contactingFlathub': 'Flathub wird kontaktiert…',
   'emulator.installTitle': '{name} installieren',
   'emulator.fromFlathub': '{appId}, von Flathub',
@@ -863,13 +861,14 @@ export const de: Catalog = {
   'platforms.noneInstalled': 'Keiner installiert',
   'platforms.meta_one': '{system} · {count} Spiel',
   'platforms.meta_other': '{system} · {count} Spiele',
-  'platforms.default': '(Vorgabe)',
+  'platforms.defaultNamed': '{name} (Vorgabe)',
   'platforms.dialogTitle': 'Was führt {platform} aus?',
   'platforms.useDefault': 'Standard',
   'platforms.inUse': 'In Benutzung',
 
   // -- einen Build zum Installieren wählen ----------------------------------
 
+  'host.flatpakExited': 'Die Flatpak-Installation endete ohne Angabe eines Grundes (Code {code}).',
   'install.installing': '{name} wird installiert',
   'install.title': '{name} installieren',
   'install.flow': 'Emulator installieren',
@@ -893,7 +892,6 @@ export const de: Catalog = {
   'install.whichBuild':
     'Wählen Sie den Build, der zu Ihrer Hardware passt. Im Zweifel ist der schlichteste Name ' +
     'der allgemeine.',
-  'install.otherVersions': 'Andere Versionen',
 
   // -- RomMix' eigene Updates -----------------------------------------------
 
@@ -917,14 +915,14 @@ export const de: Catalog = {
   'update.notCheckedYet': 'noch nicht geprüft',
   'update.lastChecked': 'Zuletzt geprüft',
   'update.available': 'RomMix {version} ist verfügbar.',
-  'update.availableBlocked': 'Laden Sie es von der Releases-Seite herunter.',
-  'update.availableAuto': 'Es wird gerade geholt.',
-  'update.availableManual':
-    'Holen Sie es, wann es Ihnen passt — bis dahin wird nichts heruntergeladen.',
+  'update.availableAutoLine': '{version} Sie wird jetzt geladen.',
+  'update.availableManualLine':
+    '{version} Lade sie, wann es dir passt — vorher wird nichts heruntergeladen.',
+  'update.availableBlockedLine': '{version} Lade sie von der Releases-Seite herunter.',
+  'update.readyLine':
+    '{version} Sie läuft beim nächsten Start von RomMix, oder jetzt, wenn du neu startest.',
   'update.downloadingLine': 'RomMix {version} wird heruntergeladen: {size}',
   'update.ready': 'RomMix {version} ist bereit.',
-  'update.readyDefault':
-    'Es läuft beim nächsten Start von RomMix, oder sofort, wenn Sie neu starten.',
   'update.upToDate': 'RomMix ist aktuell.',
   'update.checkNow': 'Jetzt prüfen',
   'update.downloadVersion': '{version} herunterladen',
@@ -1050,6 +1048,12 @@ export const de: Catalog = {
   'error.downloadCorrupt':
     'Was angekommen ist, ist nicht die Datei, die RomM hält, und wurde verworfen',
   'error.emptyResponseBody': 'RomM hat einen leeren Antwortkörper geliefert',
+  'error.transferEndedEarly':
+    'Der Download endete, bevor die ganze Datei angekommen war. Er wird fortgesetzt.',
+  'error.saveEndedEarly':
+    'Von {name} kam nur ein Teil von RomM an, daher blieb die Datei unberührt.',
+  'error.saveTreeTooLarge':
+    'Dieser Spielstand-Ordner ist zu groß, um als ein Archiv gesendet zu werden.',
   'error.emptyAssetBody': 'Leerer Dateiinhalt',
   'error.credentialsRequired': 'Benutzername und Passwort sind erforderlich',
   'error.tokenRequired': 'Ein API-Token ist erforderlich',

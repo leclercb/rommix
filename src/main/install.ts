@@ -157,6 +157,13 @@ export async function unpack(
     archive: archivePath,
     into: staging
   })
+  // Cleared first, because the name is derived from the game rather than from
+  // this attempt: a kill or a power cut part-way through unpacking leaves the
+  // directory behind with nothing that knows to remove it, and extracting into
+  // it again would promote files from two different runs under one name — which
+  // `installedFiles` then records and `pickLaunchFile` can choose from.
+  await rm(staging, { recursive: true, force: true })
+
   let extracted: string[]
   try {
     extracted = await extractZip(archivePath, staging)

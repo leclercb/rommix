@@ -109,6 +109,15 @@ describe('reading a value the way the shell would', () => {
     assert.equal(expandShell("'$emulationPath'", above), '$emulationPath')
   })
 
+  test('HOME expands by name as well as through a tilde', () => {
+    // EmuDeck's own config writes `$HOME`, and ES-DE writes `${HOME}`; the
+    // braced form is not a second syntax to support so much as the same one
+    // spelled unambiguously.
+    process.env.HOME = '/home/player'
+    assert.equal(expandShell('$HOME/Emulation', known), '/home/player/Emulation')
+    assert.equal(expandShell('${HOME}/Emulation', known), '/home/player/Emulation')
+  })
+
   test('a tilde is home only at the very front, and only unquoted', () => {
     process.env.HOME = '/home/player'
     assert.equal(expandShell('~/Emulation', known), '/home/player/Emulation')

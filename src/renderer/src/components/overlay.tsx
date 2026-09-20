@@ -62,16 +62,6 @@ export function Overlay({
    */
   icon?: IconName
   /**
-   * What B does, where the panel has nothing to press.
-   *
-   * A panel claims the focus layer whether or not anything in it is focusable,
-   * and `fireAction` only runs handlers on the top layer — so a progress
-   * overlay over work that has stopped answering leaves B, Start, the D-pad
-   * and A all dead for as long as that work takes. This is the way out. It
-   * puts the panel away and leaves the work running, which is the honest
-   * offer: what is behind it was never blocked, only covered.
-   */
-  /**
    * For a dialog whose subject is the screen behind it.
    *
    * The veil is there so a modal is read as the only thing that can be
@@ -80,13 +70,34 @@ export function Overlay({
    * where hiding the page hides the answer, so it asks for less of it.
    */
   sheer?: boolean
+  /**
+   * What B does — the way out, and every panel wants one.
+   *
+   * A panel claims the focus layer whether or not anything in it is focusable,
+   * and `fireAction` only runs handlers on the top layer, so the shell's own
+   * back binding cannot fire underneath one. Without this B is dead for as long
+   * as the panel is up: on a dialog that has buttons the player has to walk the
+   * highlight to Cancel, and on one that has none — a progress panel over work
+   * that has stopped answering — B, Start, the D-pad and A are all dead
+   * together. It puts the panel away and leaves the work running, which is the
+   * honest offer: what is behind it was never blocked, only covered.
+   */
   onDismiss?: () => void
   children: ReactNode
 }): JSX.Element {
+  /**
+   * Tying the panel to its own heading, for anything reading the page aloud.
+   *
+   * The focus engine keeps the highlight in its own state and never moves DOM
+   * focus — `tabIndex: -1` and a `data-focused` attribute — so without these a
+   * modal is announced as more of the page it is covering. Derived from the
+   * title so two panels open at once cannot share an id.
+   */
+  const headingId = `overlay-title-${title.replace(/\W+/g, '-').toLowerCase()}`
   return (
     <div className={sheer ? 'overlay overlay--sheer' : 'overlay'}>
-      <div className="overlay__panel">
-        <h2 className="overlay__title">
+      <div className="overlay__panel" role="dialog" aria-modal="true" aria-labelledby={headingId}>
+        <h2 className="overlay__title" id={headingId}>
           {icon ? <Icon name={icon} size={22} /> : null}
           {title}
         </h2>

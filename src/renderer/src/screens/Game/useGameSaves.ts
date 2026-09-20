@@ -75,7 +75,11 @@ export function useGameSaves(
     // because there is no reason to ask twice. See `AppState.offline`.
     if (offline === null) return
     const mine = (run.current += 1)
-    const listed = await window.rommix.saves.list(romId).catch(() => [])
+    // Null rather than an empty list where the call failed. The two are read
+    // differently on purpose: the Saves tab draws `saves.empty` — "no saves for
+    // this game, here or on RomM" — for an empty array and then advises playing
+    // it, which is how a stale local save gets pushed over a good remote one.
+    const listed = await window.rommix.saves.list(romId).catch(() => null)
     // The same guard the paging hooks have. Two games opened in quick
     // succession, and this list decides what every save button acts on.
     if (run.current === mine) setAssets(listed)

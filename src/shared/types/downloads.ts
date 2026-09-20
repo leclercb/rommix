@@ -62,6 +62,28 @@ export function isStopped(state: DownloadState): boolean {
   return state === 'paused' || state === 'stalled'
 }
 
+/**
+ * Still the queue's, rather than finished with.
+ *
+ * Everything before the row leaves the active list: on the wire, waiting its
+ * turn, or in one of the three stages after the last byte — hashing, unpacking,
+ * being written into the index. Not `paused` or `stalled`, which are stopped
+ * with the bytes kept; ask `isStopped` as well where those count.
+ *
+ * Stated once, because two hand-written copies of this list over a union that
+ * expects to grow is how the menu badge comes to say nothing is happening while
+ * the Downloads screen is counting a transfer.
+ */
+export function isInProgress(state: DownloadState): boolean {
+  return (
+    state === 'queued' ||
+    state === 'downloading' ||
+    state === 'checking' ||
+    state === 'extracting' ||
+    state === 'installing'
+  )
+}
+
 export interface DownloadItem {
   romId: number
   name: string

@@ -1,7 +1,7 @@
 import { type JSX, useState } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import type { UpdatePolicy } from '@shared/types'
-import { Choice, FocusButton, ProgressBar, Spinner, Toggle } from '../../components'
+import { Choice, Filled, FocusButton, ProgressBar, Spinner, Toggle } from '../../components'
 import { useApp, useI18n } from '../../state'
 
 /**
@@ -120,12 +120,22 @@ export function UpdatePanel(): JSX.Element {
       {state === 'available' && update?.latest ? (
         <div className="notice notice--warn">
           <div>
-            <strong>{t('update.available', { version: update.latest })}</strong>{' '}
-            {update.blockedReason
-              ? t('update.availableBlocked')
-              : policy === 'auto'
-                ? t('update.availableAuto')
-                : t('update.availableManual')}
+            {/* One entry for the whole line, split at `{version}` by `Filled`,
+                rather than an emphasised half joined to a plain one with a
+                space: a language that wants the version last, or the modal verb
+                at the end of the clause, cannot move either half from here. */}
+            <Filled
+              text={t(
+                update.blockedReason
+                  ? 'update.availableBlockedLine'
+                  : policy === 'auto'
+                    ? 'update.availableAutoLine'
+                    : 'update.availableManualLine'
+              )}
+              name="version"
+            >
+              <strong>{t('update.available', { version: update.latest })}</strong>
+            </Filled>
           </div>
           {update.notes ? <div className="update__notes">{update.notes}</div> : null}
         </div>
@@ -151,11 +161,20 @@ export function UpdatePanel(): JSX.Element {
       {state === 'ready' && update?.latest ? (
         <div className="notice notice--ok">
           <div>
-            <strong>{t('update.ready', { version: update.latest })}</strong>{' '}
             {/* Where Steam owns the process, "restart" is quit and press Play,
                 and saying so is the difference between one press and a session
-                that ends with nothing coming back. */}
-            {update.restartBlocked ?? t('update.readyDefault')}
+                that ends with nothing coming back. The sentence RomMix owns is
+                one entry; the one Steam owns arrives already whole. */}
+            {update.restartBlocked ? (
+              <>
+                <strong>{t('update.ready', { version: update.latest })}</strong>{' '}
+                {update.restartBlocked}
+              </>
+            ) : (
+              <Filled text={t('update.readyLine')} name="version">
+                <strong>{t('update.ready', { version: update.latest })}</strong>
+              </Filled>
+            )}
           </div>
           {/* The path, which is the same one RomMix was started from. */}
           {update.readyPath ? <div className="update__notes">{update.readyPath}</div> : null}

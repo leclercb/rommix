@@ -46,10 +46,10 @@ export function SavesTab({
   if (!assets) return <Spinner />
   if (assets.length === 0) {
     return (
-      <div className="empty">
-        {t('saves.empty')}
-        {entry ? ` ${t('saves.emptyPlayIt')}` : ''}
-      </div>
+      // One entry per sentence rather than two joined with a space: the second
+      // half does not follow the first in every language, and a translator
+      // editing either cannot see the other.
+      <div className="empty">{entry ? t('saves.emptyPlayable') : t('saves.empty')}</div>
     )
   }
 

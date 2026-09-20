@@ -7,7 +7,7 @@ import { CoverArt, PlatformIcon } from './art'
 
 // What a tile is and which ROM is behind it are in `tiles.ts` — pure, and
 // testable for it. Re-exported because every screen reaches for them here.
-export { romToOpen, tileFromInstalled, tileFromRom, tileInstalled } from './tiles.ts'
+export { romToOpen, tileFromInstalled, tileFromRom, tileInstalled, titleOf } from './tiles.ts'
 export type { GameTile } from './tiles.ts'
 
 import { tileInstalled, type GameTile } from './tiles.ts'
@@ -40,7 +40,11 @@ export function GameCard({
       <div style={{ position: 'relative' }}>
         <CoverArt path={tile.coverPath} name={tile.title} />
         {installed ? (
-          <span className="card__installed" title={t('library.downloadedMark')} />
+          // A label rather than a `title`, which only a pointer ever sees. The
+          // rest of the interface says this in a word — see `StatusBadge` — for
+          // the reason `status.tsx` gives: a colour alone is easy to miss on a
+          // television, and on a card there is no room for the word.
+          <span className="card__installed" aria-label={t('library.downloadedMark')} />
         ) : null}
         {/* Said on the tile rather than left to the game's page: a grouped grid
             is one cover where there were three, and without this the two that

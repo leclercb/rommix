@@ -124,10 +124,32 @@ function sameRoute(a: Route, b: Route): boolean {
  * on the path, in which case this is a walk back to it and everything above it
  * goes.
  */
-export function pushRoute(history: readonly Route[], next: Route): Route[] {
-  if (SECTIONS.includes(next.name)) return [next]
+export function pushRoute(history: readonly Route[], next: Route): readonly Route[] {
+  /**
+   * The same path back, by identity, where the press changes nothing.
+   *
+   * Pressing Home while on Home, or the card for the game already open, would
+   * otherwise hand back a new array with the same contents — a new `route`, an
+   * invalidated `AppState`, and a re-render of every card on screen for a press
+   * that did nothing. `popRoute` and `prunedForOffline` both keep identity for
+   * this reason.
+   */
+  if (SECTIONS.includes(next.name)) {
+    return history.length === 1 && sameRoute(history[0], next) ? history : [next]
+  }
   const at = history.findIndex((step) => sameRoute(step, next))
-  return at >= 0 ? history.slice(0, at + 1) : [...history, next]
+  if (at < 0) return [...history, next]
+  /**
+   * Walking back to a route keeps the route *as newly described*.
+   *
+   * `sameRoute` compares only what identifies a screen, so the entry already on
+   * the path and the one being navigated to can carry different payloads — and
+   * the payload is what decides how the screen opens. Keeping the old one loses
+   * `fromVersions`, so a game reached from another dump's Versions tab opens on
+   * Details with the highlight dropped onto Play, and a collection keeps a title
+   * it has since been renamed out of.
+   */
+  return [...history.slice(0, at), next]
 }
 
 /**

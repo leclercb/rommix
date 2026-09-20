@@ -139,7 +139,11 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
       </div>
 
       {supporting ? (
-        <Overlay title={t('settings.buyCoffee')} icon="coffee">
+        <Overlay
+          title={t('settings.buyCoffee')}
+          icon="coffee"
+          onDismiss={() => setSupporting(false)}
+        >
           <p className="muted">{t('settings.scanOrOpen')}</p>
           <ScanToOpen url={SUPPORT_URL} />
           <div className="btn-row">

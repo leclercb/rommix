@@ -19,11 +19,11 @@ import { t } from './i18n.ts'
  * them individually would leave a pile of `01.dat`s on the server belonging to
  * nothing in particular.
  *
- * The writer is about eighty lines rather than a dependency. A zip is a
+ * The writer is short enough rather than a dependency. A zip is a
  * concatenation of stored entries followed by a directory of where each one
  * went, `deflateRaw` is in Node's standard library, and the alternative is
- * pulling a package into a project that has three runtime dependencies in order
- * to emit a format that has not changed since 1993.
+ * another runtime dependency — of which this project keeps very few — to emit a
+ * format that has not changed since 1993.
  */
 
 const deflate = promisify(deflateRaw)
@@ -224,11 +224,32 @@ export async function zipDirectory(dir: string, zipPath: string): Promise<number
   const names = await entryNamesUnder(dir)
   if (names.length === 0) return 0
 
+  /**
+   * What the format itself can describe, which is where this stops.
+   *
+   * Every offset and size below goes out through `writeUInt32LE`, so a tree past
+   * this would throw `ERR_OUT_OF_RANGE` from somewhere in the middle of building
+   * it — and the archive is assembled in memory, so one merely approaching it
+   * takes the main process down instead. Reachable because `entryNamesUnder`
+   * deliberately follows symlinks into the emulator's real tree, so what looks
+   * like one game's save folder can be a NAND. Refused by name, and early, so the
+   * push says what is wrong rather than failing as a crash.
+   */
+  const ZIP32_LIMIT = 0xffffffff
+
   const entries: PendingEntry[] = []
   const chunks: Buffer[] = []
   let offset = 0
 
   for (const name of names) {
+    if (offset > ZIP32_LIMIT) {
+      log.error('zip', 'this folder is too large for the archive format', undefined, {
+        archive: zipPath,
+        dir,
+        bytes: offset
+      })
+      throw new Error(t('error.saveTreeTooLarge'))
+    }
     let data: Buffer
     try {
       data = await readFile(join(dir, name))

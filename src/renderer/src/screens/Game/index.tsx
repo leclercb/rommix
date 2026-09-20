@@ -98,20 +98,38 @@ export function GameScreen({
    * game is about to be started, and a missing BIOS is the most common reason
    * one refuses to — with a failure that says nothing about BIOS at all.
    */
+  /**
+   * Which request each of this screen's answers belongs to.
+   *
+   * One counter per fetch rather than one for the screen: they are independent,
+   * and a shared counter would have each of them discarding the others' replies.
+   */
+  const biosRun = useRef(0)
+  const playedRun = useRef(0)
   // Read out before the effect so the effect closes over a number rather than
   // over `rom` while claiming to depend on one field of it.
   const platformId = rom?.platform_id ?? null
   useEffect(() => {
     setBios(null)
     if (platformId === null) return
+    // Sequenced like the ROM fetch above, and for the same reason: stepping
+    // through a grouped game's versions starts one of these per press, and a
+    // slower earlier answer landing last puts an amber "BIOS missing for
+    // <other platform>" notice over the game now on screen. Its own counter,
+    // because a shared one would have each fetch invalidating the others.
+    const mine = (biosRun.current += 1)
     // Asked away from the server too: the answer is what the platform needs and
     // what is in place here, and only the list of what RomM holds comes from
     // the server — which it saved the last time it was asked. See
     // `BiosManager.platformReport`.
     void window.rommix.bios
       .platform(platformId)
-      .then(setBios)
-      .catch(() => setBios(null))
+      .then((report) => {
+        if (biosRun.current === mine) setBios(report)
+      })
+      .catch(() => {
+        if (biosRun.current === mine) setBios(null)
+      })
   }, [platformId])
 
   /**
@@ -156,10 +174,17 @@ export function GameScreen({
   const [played, setPlayed] = useState<number | null>(null)
   useEffect(() => {
     setPlayed(null)
+    // Sequenced, on its own counter: otherwise the hours of the version pressed a
+    // moment ago land on the page of the one pressed since.
+    const mine = (playedRun.current += 1)
     void window.rommix.library
       .playTime(romId)
-      .then(setPlayed)
-      .catch(() => setPlayed(null))
+      .then((total) => {
+        if (playedRun.current === mine) setPlayed(total)
+      })
+      .catch(() => {
+        if (playedRun.current === mine) setPlayed(null)
+      })
   }, [romId, running])
 
   /** How this game is named and pictured in a toast. */
@@ -610,7 +635,10 @@ export function GameScreen({
           <div className="download__figures">
             <DownloadBadge state={download?.state ?? 'downloading'} />
             <span className="download__size">
-              {formatBytes(download?.receivedBytes ?? 0)} / {formatBytes(download?.totalBytes ?? 0)}
+              {t('value.progressBytes', {
+                received: formatBytes(download?.receivedBytes ?? 0),
+                total: formatBytes(download?.totalBytes ?? 0)
+              })}
             </span>
           </div>
           <DownloadBar state={download?.state ?? 'downloading'} percent={progress} />

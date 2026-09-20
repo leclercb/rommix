@@ -86,8 +86,9 @@ export const shadps4: EmulatorDescriptor = {
    * The executable inside the game directory, not whatever file happened to be
    * the largest.
    *
-   * `chooseLaunchFile` ranks by descriptor extension and then by size, which
-   * across ~195 systems is right; for a PS4 game it is not, because the entry
+   * `chooseLaunchFile` ranks by descriptor extension and then by size, which is
+   * right for nearly every system in `SYSTEMS`; for a PS4 game it is not, because
+   * the entry
    * point is a small file with a fixed name sitting beside multi-gigabyte data
    * files. A `.pkg` is passed through untouched — that is a package for
    * shadPS4 to install rather than a game directory to run.

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -410,9 +410,26 @@ export async function rememberInstalledGames(
   if (skipped > 0) log.info('offline', 'games the server could not describe', { skipped })
 }
 
-/** Written aside and renamed, so an interrupted write cannot leave half a file. */
+/**
+ * Written aside and renamed, so an interrupted write cannot leave half a file.
+ *
+ * The aside name is this write's alone. Two writers sharing one `.tmp` each
+ * truncate what the other is filling, and the one that renames second fails with
+ * ENOENT having had its file taken — while its own descriptor goes on writing
+ * into the live file. Neither writer is hypothetical: `catchUp` runs un-awaited
+ * at start-up and reaches `savePlatforms` at the same moment the renderer asks
+ * for the platform list, and `rememberInstalledGames` and `adopt`'s back-fill
+ * fetch the same platform icon for two games sharing a platform. An ENOENT is
+ * not a `RommError`, so `answered` reads it as the server having gone away and
+ * the whole remaining pass is abandoned.
+ */
 async function writeAtomic(path: string, contents: string | Buffer): Promise<void> {
-  const tmp = `${path}.tmp`
-  await writeFile(tmp, contents)
-  await rename(tmp, path)
+  const tmp = `${path}.${process.pid}-${randomUUID()}.tmp`
+  try {
+    await writeFile(tmp, contents)
+    await rename(tmp, path)
+  } catch (cause) {
+    await rm(tmp, { force: true }).catch(() => undefined)
+    throw cause
+  }
 }

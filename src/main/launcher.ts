@@ -81,23 +81,22 @@ function askToQuit(child: ChildProcess, install: ResolvedInstall | null): void {
  *
  * `askToQuit` sends a request the emulator is free to handle — and free to sit
  * on, which some do: Eden raises its own confirmation dialog, and one opened
- * off-screen or hung never answers it. A direct emulator then had nothing left
- * to try, so RomMix waited on it for as long as it stayed up.
+ * off-screen or hung never answers it. This is what is left for a direct
+ * emulator that will not take the hint.
  *
  * The group, not the process that was spawned: an AppImage's runtime and a
  * launcher script both stand between RomMix and the emulator, and killing one
- * of those leaves the emulator exactly where it was — which is what a force
- * close that appeared to do nothing was. See `signalProcessGroup`.
+ * of those leaves the emulator exactly where it was, so the press appears to do
+ * nothing. See `signalProcessGroup`.
  *
  * Anything the emulator had not written is lost, which is why nothing calls
  * this until the user has been told so and pressed again.
  *
  * Every way in is tried, rather than the first one that applies. Asking a
- * flatpak to quit already falls back to signalling what RomMix spawned when
- * flatpak lists no instance, and forcing one did not — so the press that was
- * meant to be the last resort had fewer ways to reach the emulator than the
- * polite one before it, and on a flatpak that flatpak had lost track of it did
- * nothing whatsoever.
+ * flatpak to quit falls back to signalling what RomMix spawned where flatpak
+ * lists no instance, and the last resort must not have fewer ways to reach the
+ * emulator than the polite press before it — least of all on a flatpak that
+ * flatpak itself has lost track of, which is the case with nothing else left.
  *
  * The tree after the group for the same reason: the one thing a group does not
  * hold is a process that has called `setsid`, and a walk down from what was
@@ -136,6 +135,16 @@ const OPEN_SETTLE_MS = 2500
  * one when the emulator ignores being closed. See `Launcher.shutdown`.
  */
 const SHUTDOWN_GRACE_MS = 8000
+
+/**
+ * How long a quit waits again once it has stopped asking and forced the issue.
+ *
+ * Short, because what it is waiting on is a process that has had a signal it
+ * cannot decline and the accounting that follows it — not an emulator making up
+ * its mind. Long enough for the push already under way to finish, rather than
+ * nothing at all. See `Launcher.shutdown`.
+ */
+const FORCE_SETTLE_MS = 2000
 
 /**
  * How much of an emulator's output is kept for the failure report.
@@ -280,14 +289,30 @@ export class Launcher {
     const settled = new Promise<void>((resolve) => {
       finish = resolve
     })
+    /**
+     * What Stop reaches before there is a process to signal.
+     *
+     * The work ahead of the spawn is not instant — a missing libretro core is
+     * fetched here, which on a slow link or against a server that accepts the
+     * connection and then says nothing is indefinite. Recording the intention is
+     * not enough on its own: nothing reads it until the download returns, so the
+     * overlay's Stop and Force would both sit there doing nothing, no other game
+     * could be launched, and RomMix could not be quit cleanly either.
+     */
+    const beforeSpawn = new AbortController()
     const session = {
       romId: rom.id,
       kill: (): void => {
         session.stopped = true
+        beforeSpawn.abort()
       },
-      // Assigned once there is a process. Before that there is nothing to
-      // force: `kill` above only marks the session abandoned.
-      forceKill: null,
+      // Replaced with the real thing once there is a process. Until then forcing
+      // is giving up the work ahead of the spawn, which is the same as asking:
+      // a force press that quietly does nothing is the worst answer available.
+      forceKill: (): void => {
+        session.stopped = true
+        beforeSpawn.abort()
+      },
       stopped: false,
       settled,
       finish
@@ -311,9 +336,16 @@ export class Launcher {
         const core = await missingCore(emulator, system)
         if (core) {
           options.onStage?.(t('launch.installingCore', { core: core.name }))
-          await installCore(core, (progress) => options.onStage?.(stageFor(progress)))
+          await installCore(
+            core,
+            (progress) => options.onStage?.(stageFor(progress)),
+            beforeSpawn.signal
+          )
         }
       } catch (cause) {
+        // Giving the download up is the user's own press rather than a failure of
+        // the emulator, and an abort arrives here wearing the runtime's wording.
+        if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
         return failure((cause as Error).message, command)
       } finally {
         options.onStage?.(null)
@@ -572,7 +604,15 @@ export class Launcher {
         signalled = true
         askToQuit(child, install)
       }
-      session.forceKill = () => void forceQuit(child, install)
+      session.forceKill = () => {
+        // Marked as signalled here too, not only in `kill`. A flatpak's force
+        // path signals the sandbox rather than this child, so the child exits
+        // with an ordinary non-zero code and no signal of its own — which
+        // `readExit` would otherwise read as a crash, report as "quit
+        // immediately", and skip the play session for.
+        signalled = true
+        void forceQuit(child, install)
+      }
 
       child.on('error', (err) => {
         log.error('emulator', 'the process could not be started', err, { command: argv.join(' ') })
@@ -583,6 +623,13 @@ export class Launcher {
       })
 
       child.on('close', (code, signal) => {
+        // Nothing to signal any more. The pid is the kernel's to reuse from here,
+        // and the save push that follows keeps the overlay up for seconds on a
+        // slow link — long enough for a Stop press to arrive and be aimed at a
+        // process group that is no longer this game's.
+        session.kill = () => {}
+        session.forceKill = () => {}
+
         const ranMs = Date.now() - startedAt
         // The exit itself, before any of it is interpreted: the code and the
         // signal are what an emulator's own bug tracker asks for, and the
@@ -654,31 +701,53 @@ export class Launcher {
    * pushed nor written down as unsent, so the catch-up has no record to act
    * on.
    *
-   * Bounded, because an emulator that ignores being asked to close must not be
-   * able to hold a quit open: past the deadline the process goes anyway, which
-   * is no worse than what happened before and no better than it has to be. The
-   * force kill is what `RunningOverlay` offers a person, used here without
-   * asking — the alternative is a window that will not close.
+   * Asked before it is forced, which is the whole point of the wait. A libretro
+   * core writes its `.srm` out as it closes, so killing the emulator outright
+   * loses the session that is about to be pushed — and then sends the
+   * pre-session file up as this device's newest copy, which is exactly why
+   * `stopFlatpakApp` will not reach for `flatpak kill`.
+   *
+   * Bounded at both stages, because an emulator that ignores being asked must
+   * not be able to hold a quit open: past the deadline it is forced, and past the
+   * second one the process goes anyway. The force kill is what `RunningOverlay`
+   * offers a person, used here without asking — the alternative is a window that
+   * will not close.
+   *
+   * An emulator opened on its own is left alone. It is deliberately `unref`ed and
+   * has no session to account for, so quitting RomMix does not take it with it —
+   * which is what the Run button beside it promises.
    */
   async shutdown(timeoutMs = SHUTDOWN_GRACE_MS): Promise<void> {
     const session = this.current
-    this.stop(true)
     if (!session) return
-    await Promise.race([
-      session.settled,
-      new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
-          log.warn('launch', 'the session did not settle before the deadline; quitting anyway', {
-            romId: session.romId
-          })
-          resolve()
-        }, timeoutMs)
-        // Nothing else keeps the loop alive for this: the quit is already
-        // under way, and a timer that outlives the wait is five seconds of a
-        // process that has nothing left to do.
-        timer.unref()
-      })
-    ])
+
+    /** Whether the session accounted for itself inside `ms`. */
+    const settledWithin = (ms: number): Promise<boolean> =>
+      Promise.race([
+        session.settled.then(
+          () => true,
+          () => true
+        ),
+        new Promise<boolean>((resolve) => {
+          // Nothing else keeps the loop alive for this: the quit is already under
+          // way, and a timer that outlives the wait is a wait a process with
+          // nothing left to do would sit through.
+          const timer = setTimeout(() => resolve(false), ms)
+          timer.unref()
+        })
+      ])
+
+    this.stop(false)
+    if (await settledWithin(timeoutMs)) return
+
+    log.warn('launch', 'the session did not close when asked; forcing it', {
+      romId: session.romId
+    })
+    this.stop(true)
+    if (await settledWithin(FORCE_SETTLE_MS)) return
+    log.warn('launch', 'the session did not settle after being forced; quitting anyway', {
+      romId: session.romId
+    })
   }
 
   /**

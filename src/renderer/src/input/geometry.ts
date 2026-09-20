@@ -41,6 +41,17 @@ export function rectOf(element: HTMLElement): Rect {
  */
 export const SAME_STEP_PX = 24
 
+/**
+ * How far a neighbour may overlap and still count as lying in that direction.
+ *
+ * Adjacent rows and columns commonly share a boundary exactly, and a rect read
+ * back from the browser can land a fraction the wrong side of it — so a strict
+ * comparison would drop the neighbour a press is aiming at. Wide enough for that
+ * rounding and no wider: anything more would let a candidate genuinely behind
+ * the current one answer for a press forwards.
+ */
+export const TOUCHING_PX = 1
+
 export interface Measure {
   /** Distance to travel, edge to edge. */
   gap: number
@@ -121,8 +132,9 @@ export function measure(
           ? to.left - from.right
           : from.left - to.right
 
-  // A one-pixel tolerance: adjacent rows often share a boundary exactly.
-  if (gap < -1) return null
+  // Adjacent rows and columns often share a boundary exactly, and a rect read
+  // back can land a fraction the wrong side of it. See `TOUCHING_PX`.
+  if (gap < -TOUCHING_PX) return null
 
   const cross = vertical
     ? Math.max(0, to.left - anchor, anchor - to.right)

@@ -181,16 +181,55 @@ const DownloadsContext = createContext<DownloadItem[] | null>(null)
 const ToastsContext = createContext<Toast[] | null>(null)
 
 /**
+ * The words, apart from the state that changes under them.
+ *
+ * `useI18n` is the line nearly every component in the interface starts with —
+ * `GameCard` among them — so reading it off `AppState` made every cover on
+ * screen a consumer of everything on that object. A self-update reports progress
+ * several times a second through `update`, and `installed` changes as library
+ * pages land, so a grid of a few hundred cards was re-rendering on a timer for
+ * words that had not changed. This changes only with the language and the date
+ * format, which is to say twice in a session at most.
+ *
+ * `input/focus.test.tsx` counts what one focus move wakes up; nothing counts
+ * what a tick of the other contexts wakes up, which is why this is worth
+ * keeping apart rather than measuring.
+ */
+const I18nContext = createContext<I18n | null>(null)
+
+/** What the updater is doing, which it reports as often as bytes arrive. */
+const UpdateContext = createContext<UpdateStatus | null>(null)
+
+/**
  * How the first load is tried again, where the two answers it cannot draw
  * without do not come.
  *
- * A handful of goes a couple of seconds apart: what could be in the way is the
- * main process, not the network, and every second of it is a blank screen with
+ * Retried, and not for long: what could be in the way is the main process
+ * rather than the network, and every moment of it is a blank screen with
  * nothing to press. Past the last go the screen stays as it is, the failure
  * having been reported the way every failed call is.
  */
 const BOOT_RETRY_MS = 2000
 const BOOT_ATTEMPTS = 5
+
+/**
+ * How long a toast stays up.
+ *
+ * Long enough to be read from a sofa without being chased, and short enough
+ * that two in a row do not stack into a wall. Nothing depends on it having
+ * gone: every toast is also a line in the log.
+ */
+const TOAST_MS = 5200
+
+/**
+ * How long the same error is treated as the same error.
+ *
+ * One failure in the main process can surface on several channels at once — a
+ * server that went away answers every call in flight — and a toast apiece says
+ * the same sentence three times. Long enough to cover one burst, short enough
+ * that a fault which is genuinely recurring is still reported as recurring.
+ */
+const REPEAT_ERROR_MS = 5000
 
 let toastId = 0
 
@@ -255,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           platform: subject?.platform
         }
       ])
-      setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 5200)
+      setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), TOAST_MS)
     },
     []
   )
@@ -576,7 +615,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     return window.rommix.system.onError((message) => {
       if (!import.meta.env.VITE_WEB_PREVIEW) {
         const previous = lastError.current
-        if (previous && previous.message === message && Date.now() - previous.at < 5000) return
+        if (previous && previous.message === message && Date.now() - previous.at < REPEAT_ERROR_MS)
+          return
         lastError.current = { message, at: Date.now() }
       }
       notify(message, 'error')
@@ -654,11 +694,15 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   )
 
   return (
-    <AppContext.Provider value={value}>
-      <DownloadsContext.Provider value={downloads}>
-        <ToastsContext.Provider value={toasts}>{children}</ToastsContext.Provider>
-      </DownloadsContext.Provider>
-    </AppContext.Provider>
+    <I18nContext.Provider value={i18n}>
+      <AppContext.Provider value={value}>
+        <UpdateContext.Provider value={update}>
+          <DownloadsContext.Provider value={downloads}>
+            <ToastsContext.Provider value={toasts}>{children}</ToastsContext.Provider>
+          </DownloadsContext.Provider>
+        </UpdateContext.Provider>
+      </AppContext.Provider>
+    </I18nContext.Provider>
   )
 }
 
@@ -685,10 +729,18 @@ export function useToasts(): Toast[] {
 /**
  * The catalogue and the formatters, for a component that only needs words.
  *
- * The same object `useApp().i18n` returns — this exists so that a button or a
- * badge can be translated without reaching for the whole application state, and
- * so `const { t } = useI18n()` is the one line every screen starts with.
+ * Its own context rather than a field of `AppState`, so that a button or a badge
+ * is translated without becoming a consumer of everything else on that object —
+ * see `I18nContext`. `const { t } = useI18n()` stays the one line every screen
+ * starts with; what changed is what it costs.
  */
 export function useI18n(): I18n {
-  return useApp().i18n
+  const ctx = useContext(I18nContext)
+  if (!ctx) throw new Error('useI18n must be used inside an AppProvider')
+  return ctx
+}
+
+/** What the updater is doing, for the one panel that draws it. */
+export function useUpdate(): UpdateStatus | null {
+  return useContext(UpdateContext)
 }

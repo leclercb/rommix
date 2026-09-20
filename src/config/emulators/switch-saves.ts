@@ -14,8 +14,8 @@ import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
  *
  *  - the **title id** is declared by the game itself. Every NSP and XCI carries
  *    its content-metadata entry as a file named `<title id>.cnmt`, and the name
- *    appears in the archive's own header near the front of the file, so 256 KB
- *    of a multi-gigabyte ROM is enough to read it without loading the ROM.
+ *    appears in the archive's own header near the front of the file, so a short
+ *    read is enough to find it without loading the ROM — see `HEADER_BYTES`.
  *  - the **profile** is a directory on disk. A Switch emulator normally has one
  *    user, so there is normally one candidate; where there are several, the one
  *    already holding a save for this title is the answer, and failing that the
@@ -39,8 +39,8 @@ const SAVE_DATA_SPACE = '0000000000000000'
  * How much of the ROM to read looking for the metadata entry.
  *
  * The NSP/XCI header and its file table live at the front, so the entry name is
- * within the first few tens of kilobytes in practice. A quarter of a megabyte
- * is generous enough to absorb the variation and still a single short read.
+ * within the first few tens of kilobytes in practice. Enough to absorb where the
+ * file table lands, and still a single short read.
  */
 const HEADER_BYTES = 262144
 
@@ -82,8 +82,8 @@ function isRomContainer(path: string): boolean {
  *  3. the file name, for the many dumps that carry the id in brackets.
  *
  * The `.cnmt` scan runs only on a real container, and the loose name pattern is
- * never run against the *contents* of one. A quarter of a megabyte of
- * compressed data contains any sixteen-character pattern you care to look for,
+ * never run against the *contents* of one. A stretch of compressed data that
+ * long contains any sixteen-character pattern you care to look for,
  * so inside a binary only the anchored form is trusted — that is the difference
  * between reading a title id and inventing one.
  */

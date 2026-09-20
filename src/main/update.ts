@@ -350,7 +350,7 @@ export class Updater {
     const tick = (): void => {
       void this.check().catch(() => {
         // `check` records its own failure; this only keeps a network that is
-        // down from becoming an unhandled rejection every six hours.
+        // down from becoming an unhandled rejection on every scheduled check.
       })
     }
 
@@ -391,9 +391,9 @@ export class Updater {
   async check(): Promise<UpdateStatus> {
     if (this.busy) return this.current
     // An image already staged ends the subject until RomMix is restarted.
-    // Without this the six-hourly check would find the same release it has
+    // Without this every scheduled check would find the same release it has
     // already fetched — the running version does not change when the file
-    // does — and download it again, every six hours, forever.
+    // does — and download it again for as long as RomMix stays up.
     if (this.current.state === 'ready') return this.current
     this.busy = true
     this.update({ state: 'checking', error: null })

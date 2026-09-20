@@ -11,6 +11,20 @@
  * other way, in the rest of this folder.
  */
 
+/**
+ * GET /api/heartbeat response (`HeartbeatResponse`), of which RomMix reads the
+ * version and nothing else.
+ *
+ * Declared here rather than cast at the call site because this is the shape the
+ * version guard is built on: a field that moved upstream has to be caught by the
+ * sweep in `romm.test.ts` against `schema/`, or `heartbeat` reads `null`,
+ * `UnsupportedServerError` can never be raised, and a server too old to read is
+ * let straight through with the suite still green. See `SYSTEM` (`SystemDict`).
+ */
+export interface RommHeartbeat {
+  SYSTEM?: { VERSION?: string }
+}
+
 /** POST /api/token response (`TokenResponse`). */
 export interface RommTokenResponse {
   access_token: string
@@ -341,8 +355,8 @@ export interface RommRomPage {
   /**
    * How many the query matches, where the server counted them.
    *
-   * Null since RomM 5.2.0, which stopped promising a count. Nothing may decide
-   * whether to ask for another page by counting up to this — see `hasMorePages`
+   * Null where the server answered without a count, which it may. Nothing may
+   * decide whether to ask for another page by counting up to this — see `hasMorePages`
    * — because `checked < null` is false, and a pass that walks the library
    * would stop after its first page and call the job done.
    */

@@ -224,7 +224,6 @@ export const es: Catalog = {
 
   // -- inicio ---------------------------------------------------------------
 
-  'home.title': 'Inicio',
   'home.continuePlaying': 'Seguir jugando',
   'home.readyToPlay': 'Listos para jugar',
   'home.favourites': 'Favoritos',
@@ -579,7 +578,8 @@ export const es: Catalog = {
   'saves.scopeLocal': 'de este dispositivo',
   'saves.scopeRemote': 'de RomM',
   'saves.empty': 'No hay partidas de este juego, ni aquí ni en RomM.',
-  'saves.emptyPlayIt': 'Juega una vez y su partida aparecerá aquí.',
+  'saves.emptyPlayable':
+    'No hay partidas guardadas de este juego, ni aquí ni en RomM. Juégalo una vez y su partida aparecerá aquí.',
   'saves.nothingNewer': 'No hay nada más reciente en RomM',
   'saves.pulling': 'Obteniendo partidas',
   'saves.pushing': 'Enviando partidas',
@@ -827,8 +827,6 @@ export const es: Catalog = {
   'emulator.setupIntro':
     'Lo que queda pasa dentro del propio {name} — RomMix no puede hacerlo desde fuera ni ' +
     'comprobar que se ha hecho:',
-  'emulator.installedToast': '{name} instalado',
-  'emulator.installingFlathub': 'Instalando desde Flathub',
   'emulator.contactingFlathub': 'Contactando con Flathub…',
   'emulator.installTitle': 'Instalar {name}',
   'emulator.fromFlathub': '{appId}, desde Flathub',
@@ -843,13 +841,14 @@ export const es: Catalog = {
   'platforms.noneInstalled': 'Ninguno instalado',
   'platforms.meta_one': '{system} · {count} juego',
   'platforms.meta_other': '{system} · {count} juegos',
-  'platforms.default': '(predeterminado)',
+  'platforms.defaultNamed': '{name} (predeterminado)',
   'platforms.dialogTitle': '¿Qué ejecuta {platform}?',
   'platforms.useDefault': 'Predeterminado',
   'platforms.inUse': 'En uso',
 
   // -- elegir una compilación que instalar ----------------------------------
 
+  'host.flatpakExited': 'La instalación de Flatpak se detuvo sin decir por qué (código {code}).',
   'install.installing': 'Instalando {name}',
   'install.title': 'Instalar {name}',
   'install.flow': 'Instalación de un emulador',
@@ -873,7 +872,6 @@ export const es: Catalog = {
   'install.whichBuild':
     'Elige la compilación que corresponda a tu hardware. En caso de duda, el nombre más ' +
     'sencillo es el de uso general.',
-  'install.otherVersions': 'Otras versiones',
 
   // -- las actualizaciones del propio RomMix --------------------------------
 
@@ -897,12 +895,14 @@ export const es: Catalog = {
   'update.notCheckedYet': 'aún sin comprobar',
   'update.lastChecked': 'Última comprobación',
   'update.available': 'RomMix {version} está disponible.',
-  'update.availableBlocked': 'Descárgalo desde la página de versiones.',
-  'update.availableAuto': 'Se está descargando ahora.',
-  'update.availableManual': 'Descárgalo cuando te venga bien — no se baja nada hasta que lo hagas.',
+  'update.availableAutoLine': '{version} Se está descargando ahora.',
+  'update.availableManualLine':
+    '{version} Descárgala cuando quieras: no se descarga nada hasta entonces.',
+  'update.availableBlockedLine': '{version} Descárgala desde la página de versiones.',
+  'update.readyLine':
+    '{version} Se ejecutará la próxima vez que inicies RomMix, o ahora si reinicias.',
   'update.downloadingLine': 'Descargando RomMix {version}: {size}',
   'update.ready': 'RomMix {version} está listo.',
-  'update.readyDefault': 'Se usará la próxima vez que RomMix arranque, o ahora mismo si reinicias.',
   'update.upToDate': 'RomMix está al día.',
   'update.checkNow': 'Comprobar ahora',
   'update.downloadVersion': 'Descargar {version}',
@@ -1025,6 +1025,11 @@ export const es: Catalog = {
   'error.downloadCorrupt':
     'Lo que ha llegado no es el archivo que RomM tiene, así que se ha descartado',
   'error.emptyResponseBody': 'RomM ha devuelto un cuerpo de respuesta vacío',
+  'error.transferEndedEarly':
+    'La descarga terminó antes de que llegara el archivo completo. Se reanudará donde se quedó.',
+  'error.saveEndedEarly': 'Solo llegó parte de {name} desde RomM, así que no se tocó el archivo.',
+  'error.saveTreeTooLarge':
+    'Esta carpeta de partidas es demasiado grande para enviarse como un solo archivo.',
   'error.emptyAssetBody': 'Cuerpo de archivo vacío',
   'error.credentialsRequired': 'El usuario y la contraseña son obligatorios',
   'error.tokenRequired': 'Hace falta un token de API',

@@ -31,7 +31,7 @@ export function ThemesNotice(): JSX.Element | null {
   }
 
   return (
-    <Overlay title={t('themes.noticeTitle')} icon="theme">
+    <Overlay title={t('themes.noticeTitle')} icon="theme" onDismiss={() => void dismiss()}>
       <p className="muted">{t('themes.noticeBody')}</p>
       <div className="btn-row">
         {/* The way to the thing being announced is what this dialog is for, and

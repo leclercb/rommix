@@ -237,8 +237,8 @@ export function localTag(paths: SavePaths, emulatorId: string): string {
  * two differ: RetroDECK uploads `pcsx2` and its id is `retrodeck`, so comparing
  * ids would reject every save it ever wrote. Comparing tags accepts a PCSX2
  * save from any of the three ways of running PCSX2 and nothing else — where an
- * id comparison, once widened far enough to let frontends through at all, took
- * a Yabause save into mednafen's folder.
+ * id comparison, once widened far enough to let frontends through at all, would
+ * take a Yabause save into mednafen's folder.
  *
  * An untagged asset is refused, and that is the strict reading on purpose. What
  * is asked about here is a state or an emulator's own save tree, where being

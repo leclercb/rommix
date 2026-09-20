@@ -72,7 +72,7 @@ export function AchievementsTab({
       </p>
       <ul className="achievements">
         {progress.rows.map((row) => (
-          <Achievement key={row.id} row={row} />
+          <Achievement key={row.key} row={row} />
         ))}
       </ul>
     </>
@@ -98,7 +98,7 @@ function Achievement({ row }: { row: AchievementRow }): JSX.Element {
     <li
       ref={ref as Ref<HTMLLIElement>}
       className="achievement"
-      data-achievement={row.id}
+      data-achievement={row.key}
       data-earned={row.earned}
       {...props}
     >

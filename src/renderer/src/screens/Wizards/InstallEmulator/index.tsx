@@ -331,7 +331,12 @@ function VersionPage({
   useEffect(() => {
     void window.rommix.system
       .emulatorReleases(descriptor.id)
-      .then(setReleases)
+      // Only the releases with something on them. `main` drops the builds for
+      // another architecture before the renderer sees them, so a project that
+      // publishes a source tarball plus arm64 binaries leaves releases with no
+      // assets at all — and pressing one gave a "Which build?" page holding a
+      // Back button and nothing else.
+      .then((list) => setReleases(list.filter((release) => release.assets.length > 0)))
       .catch((cause: Error) => setError(cause.message))
   }, [descriptor.id])
 

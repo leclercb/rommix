@@ -52,8 +52,8 @@ export class DeviceRegistry {
    *
    * A registration that failed because nothing answered is asked again once
    * something does, rather than in front of every save while the server is
-   * away — which is three connection attempts each on the one path that
-   * already has a queue waiting to drain. See `id`.
+   * away — which is a round trip per save on the one path that already has a
+   * queue waiting to drain. See `id`.
    */
   serverAnswered(baseUrl: string): void {
     if (this.registration?.afterOutage && this.registration.baseUrl === baseUrl) {

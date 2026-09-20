@@ -11,6 +11,7 @@ import type {
   RommDeviceAuthToken,
   RommDeviceAuthTokenPayload,
   RommFirmware,
+  RommHeartbeat,
   RommPlaySession,
   RommPlaySessionPayload,
   RommRomUserPayload,
@@ -78,7 +79,11 @@ export const REQUIRED_SCOPES = [
   'assets.write',
   'devices.read',
   'devices.write',
-  'firmware.read'
+  'firmware.read',
+  // `POST /api/users/{id}/ra/refresh`, which every document under `schema/`
+  // attaches this scope to. Without it the RetroAchievements refresh after a
+  // session is a 403 the interface can only swallow.
+  'me.write'
 ]
 
 /**
@@ -115,11 +120,11 @@ const PLAY_SESSION_PAGES = 20
  * been pressed. Generous enough for a home server indexing a large library on
  * the far end of a slow link.
  *
- * Not applied to the calls that carry *bytes*: the streamed asset fetch and the
- * two uploads pass `timeoutMs: null`, because how long those take is a function
- * of the file's size and the link, and a deadline there is a transfer that
- * breaks off for no reason the user can see. `transfer.ts` owns those instead,
- * and can resume.
+ * Not applied to the calls that carry *bytes*: the streamed asset fetch, the two
+ * uploads and everything reached through `transport` pass `timeoutMs: null`,
+ * because how long those take is a function of the file's size and the link, and
+ * a deadline there is a transfer that breaks off for no reason the user can see.
+ * `transfer.ts` owns those instead, and can resume.
  */
 const REQUEST_TIMEOUT_MS = 30_000
 
@@ -138,6 +143,12 @@ export function normaliseBaseUrl(input: string): string {
   // with a token, so there is nothing here to keep.
   parsed.username = ''
   parsed.password = ''
+  // Request paths are concatenated onto what this returns, so anything the URL
+  // carries after the path would sit between the base and `/api/...`. A pasted
+  // web UI address is the realistic source of both: a fragment is never sent,
+  // so every call would fetch `/`.
+  parsed.search = ''
+  parsed.hash = ''
   return parsed.toString().replace(/\/+$/, '')
 }
 
@@ -310,7 +321,11 @@ export class RommClient {
    */
   private get transport(): Transport {
     return {
-      request: (path, init) => this.request(path, init),
+      // `timeoutMs: null` because everything reached through here carries bytes
+      // rather than an answer: a deadline on a firmware dump or a large save is
+      // a transfer that breaks off for no reason the user can see, and the
+      // deadline covers the body, not just the reply. See `REQUEST_TIMEOUT_MS`.
+      request: (path, init) => this.request(path, init, { timeoutMs: null }),
       toError: (res) => this.toError(res),
       onOutage: (reason) => this.report(this.store.server?.baseUrl ?? '', false, reason)
     }
@@ -337,7 +352,7 @@ export class RommClient {
   async heartbeat(baseUrl?: string): Promise<{ version: string | null }> {
     const res = await this.request('/api/heartbeat', {}, { baseUrl, retryOn401: false })
     if (!res.ok) throw await this.toError(res)
-    const body = (await res.json()) as { SYSTEM?: { VERSION?: string } }
+    const body = (await res.json()) as RommHeartbeat
     const version = body.SYSTEM?.VERSION ?? null
     log.debug('romm', 'heartbeat', { baseUrl: baseUrl ?? this.baseUrl, serverVersion: version })
 
@@ -732,13 +747,25 @@ export class RommClient {
         // Grouped, because the grid this number is a promise about is grouped:
         // a chip offering two where pressing it draws one tile is a chip that
         // has been read as a filter that lost something.
+        //
+        // One platform's failure leaves that platform out, which is what this
+        // method promises above. Through `Promise.all` an uncaught rejection
+        // would instead lose every count — and `ipc/handler.ts` reports it to
+        // the renderer whatever the caller does with it, so a shelf of chips
+        // would raise a toast per keystroke over one platform that 500s.
         const page = await this.roms({
           search_term: searchTerm,
           platform_ids: [id],
           group_by_meta_id: true,
           limit: 1
+        }).catch((cause: unknown) => {
+          log.warn('romm', 'a platform would not be counted', {
+            platformId: id,
+            reason: cause instanceof Error ? cause.message : String(cause)
+          })
+          return null
         })
-        if (page.total !== null) counts[id] = page.total
+        if (page && page.total !== null) counts[id] = page.total
       }
     }
     await Promise.all(Array.from({ length: Math.min(COUNTS_AT_ONCE, queue.length) }, ask))

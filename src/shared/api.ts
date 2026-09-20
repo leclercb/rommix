@@ -33,7 +33,7 @@ import type {
   Settings,
   AuthMode
 } from './types/index.ts'
-import type { GameFile } from './gamefiles'
+import type { GameFile } from './gamefiles.ts'
 
 /** Payload for `server:connect`. */
 export interface ConnectPayload {

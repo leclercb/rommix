@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { log } from '../log.ts'
 import { RommError } from '../romm/index.ts'
+import type { RomMixApp } from '../app.ts'
 
 /**
  * The wrapper every channel in this folder is registered through, so a thrown
@@ -74,5 +75,70 @@ export function handler(report: (message: string) => void): Handle {
         throw new Error(message, { cause })
       }
     })
+  }
+}
+
+/**
+ * Throttling a per-file byte counter on its way to the renderer.
+ *
+ * Saves and firmware both report the same shape of progress for the same
+ * reason, and both wrote the same eight lines: a chunk lands thousands of
+ * times over a directory save or a console's firmware, the bar cannot show the
+ * difference between one and the next, and every message crosses IPC and
+ * redraws the screen. The download queue has a third copy, differently shaped,
+ * because its unit is a queue rather than a run of files.
+ */
+
+/**
+ * How often the bytes of the file in flight are reported.
+ *
+ * Fast enough that a bar moves smoothly at any transfer speed, slow enough
+ * that a large file costs a few hundred messages rather than thousands.
+ */
+const PROGRESS_INTERVAL_MS = 250
+
+/** What both kinds of progress carry, and all this needs of either. */
+interface Step {
+  done: number
+  /** Null between files, which is a step of its own. */
+  fileName: string | null
+  /** How far into the file in flight, where the caller counts bytes. */
+  receivedBytes?: number
+  /** What that file weighs, where either end could say. */
+  totalBytes?: number
+}
+
+/**
+ * One run's progress, throttled per file.
+ *
+ * Anything that moves the run along — a new file, a file finished — goes
+ * straight out, so the count and the name are never stale. Only the byte
+ * counter inside one file is held back.
+ */
+export function throttledProgress<T extends Step>(
+  rommix: RomMixApp,
+  channel: 'saves:progress' | 'bios:progress'
+): (progress: T) => void {
+  let sentAt = 0
+  let sentFor: string | null = null
+
+  return (progress) => {
+    const step = `${progress.done}:${progress.fileName}`
+    const now = Date.now()
+    /**
+     * The report that completes a file, which is never held back.
+     *
+     * The last chunk is almost never on a throttle boundary, so without this
+     * the bar for that file stops wherever the throttle last let it through
+     * and jumps straight to the next one, never reaching full.
+     */
+    const whole =
+      progress.totalBytes !== undefined &&
+      progress.totalBytes > 0 &&
+      progress.receivedBytes === progress.totalBytes
+    if (!whole && step === sentFor && now - sentAt < PROGRESS_INTERVAL_MS) return
+    sentAt = now
+    sentFor = step
+    rommix.send(channel, progress)
   }
 }

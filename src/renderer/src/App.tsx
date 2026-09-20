@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState, type JSX, type Ref } from 'react'
+import { isInProgress } from '@shared/types'
 import { Logo, QuitOverlay } from './components'
 import {
   FocusZone,
@@ -304,14 +305,9 @@ export function App(): JSX.Element {
 function DownloadsNavItem({ active }: { active: boolean }): JSX.Element {
   const { t } = useI18n()
   const downloads = useDownloads()
-  const busy = downloads.filter(
-    (item) =>
-      item.state === 'downloading' ||
-      item.state === 'queued' ||
-      item.state === 'checking' ||
-      item.state === 'extracting' ||
-      item.state === 'installing'
-  ).length
+  // Deliberately not the stopped rows: a badge is about work in flight, and one
+  // that counted a paused transfer would never go out. See `isInProgress`.
+  const busy = downloads.filter((item) => isInProgress(item.state)).length
 
   return (
     <NavItem

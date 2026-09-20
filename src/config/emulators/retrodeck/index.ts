@@ -19,7 +19,7 @@ const RETRODECK_CORES_DIR = '/app/retrodeck/components/retroarch/rd_extras/cores
  * Systems RetroDECK covers with a bundled standalone emulator rather than
  * through libretro.
  *
- * Taken from the components it actually ships (verified against 0.10.9b):
+ * Taken from the components it actually ships:
  * azahar, cemu, dolphin, duckstation, gzdoom, mame, melonds, openbor, pcsx2,
  * pico-8, ppsspp, primehack, retroarch, rpcs3, ruffle, solarus, vita3k, xemu,
  * xroar.
@@ -135,7 +135,7 @@ export const retrodeck: EmulatorDescriptor = {
   /**
    * Resolved per game, because RetroDECK's answer is "wherever the component I
    * chose puts them" — and which component that is comes out of the user's own
-   * ES-DE configuration. See `retrodeck-saves.ts`.
+   * ES-DE configuration. See `saves.ts` beside this file.
    */
   saves: retroDeckSavePaths,
   /**

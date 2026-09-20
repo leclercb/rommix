@@ -5,12 +5,14 @@ import { archiveIsTheRom, chooseLaunchFile } from '@shared/gamefiles'
 import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
 import { fits, spaceOf } from './disk.ts'
 import { unpack, type InstallResult } from './install.ts'
+import { hashOf } from './integrity.ts'
 import { i18n, t } from './i18n.ts'
 import { log } from './log.ts'
 import { Library } from './library.ts'
 import {
   checkDeferredToUnpacking,
   CorruptDownloadError,
+  digestOf,
   partialPathOf,
   RommClient,
   RommError,
@@ -555,8 +557,58 @@ export class DownloadManager extends EventEmitter {
    * leave the transfer to try, which is what RomMix did before there was a
    * check at all.
    */
-  private async checkThereIsRoom(item: DownloadItem, dir: string): Promise<void> {
-    const needed = item.totalBytes - item.receivedBytes
+  /**
+   * The row is reading a file back off the disk rather than fetching it.
+   *
+   * On a large game that is minutes under a bar that is already full, so it is
+   * worth a state of its own wherever a hash is taken.
+   */
+  private sayChecking(item: DownloadItem | undefined): void {
+    if (!item) return
+    item.state = 'checking'
+    this.emitUpdate()
+  }
+
+  /**
+   * Whether the file already on disk is the one RomM holds.
+   *
+   * Asked only where the size already matches, so this is the hash and nothing
+   * else. A file RomM publishes no hash for has nothing to be held against and
+   * is taken as it stands — the same answer `verify` gives for the same input.
+   */
+  private async fileAlreadyHere(
+    rom: RommRom,
+    file: RommRom['files'][number],
+    destination: string
+  ): Promise<boolean> {
+    const digest = digestOf(file)
+    if (!digest) return true
+    this.sayChecking(this.queue.find((entry) => entry.romId === rom.id))
+    const actual = await hashOf(destination, digest.algorithm).catch(() => null)
+    if (actual === digest.expected.toLowerCase()) return true
+    log.warn('download', 'the file already here is not the one RomM holds, fetching it again', {
+      romId: rom.id,
+      fileName: file.file_name,
+      algorithm: digest.algorithm
+    })
+    return false
+  }
+
+  private async checkThereIsRoom(
+    item: DownloadItem,
+    dir: string,
+    { carried, unpacks }: { carried: number; unpacks: boolean }
+  ): Promise<void> {
+    /**
+     * What still has to fit, which for an archive is the game twice over.
+     *
+     * `unpack` extracts beside the archive and only removes it once the
+     * extraction has finished, so both exist at the same moment — and RomM
+     * stores rather than compresses, making the contents the same size as the
+     * archive around them. Budgeting the download alone is how a game that
+     * passed this check fails at whatever percentage the disk filled at.
+     */
+    const needed = item.totalBytes - carried + (unpacks ? item.totalBytes : 0)
     const space = await spaceOf(dir)
     // A drive that would not answer is not grounds for refusing to try.
     if (!space || fits(needed, space.freeBytes)) return
@@ -606,8 +658,6 @@ export class DownloadManager extends EventEmitter {
        * The archive stays as the answer for a server too old to serve files
        * individually, and for a game that is one file to begin with.
        */
-      await this.checkThereIsRoom(item, dir)
-
       const perFile = await this.client.fileTransfers(rom)
       const resumable = perFile.available ? perFile.resumable : await this.client.supportsRange(rom)
       item.resumable = resumable
@@ -695,6 +745,15 @@ export class DownloadManager extends EventEmitter {
         totalBytes: rom.fs_size_bytes
       })
       this.emitUpdate()
+
+      // Asked here rather than before the transfer is planned, because what it
+      // has to budget for is not known until then: bytes on disk only count
+      // against the total where they are actually going to be resumed from, and
+      // an archive needs room for its extracted copy as well as itself.
+      await this.checkThereIsRoom(item, dir, {
+        carried: resume ? item.receivedBytes : 0,
+        unpacks: !perFile.available && asDirectory
+      })
 
       const transfer = { resume, resumable, controller }
       const installed = perFile.available
@@ -886,7 +945,15 @@ export class DownloadManager extends EventEmitter {
       this.emitUpdate()
 
       const already = (await stat(destination).catch(() => null))?.size ?? 0
-      if (transfer.resume && already === file.file_size_bytes) {
+      // The size says a file is all here; only the hash says it is the right
+      // one. Skipping on the size alone is the one place a multi-file game can
+      // take a track that arrived wrong in an earlier run and never look at it
+      // again — nothing downstream reads these files a second time.
+      const settled =
+        transfer.resume &&
+        already === file.file_size_bytes &&
+        (await this.fileAlreadyHere(rom, file, destination))
+      if (settled) {
         log.debug('download', 'this file is already here in full', {
           romId: rom.id,
           fileName: file.file_name
@@ -900,7 +967,13 @@ export class DownloadManager extends EventEmitter {
             this.throttledUpdate()
           },
           transfer.controller.signal,
-          { resume: transfer.resume, resumable: transfer.resumable }
+          {
+            resume: transfer.resume,
+            resumable: transfer.resumable,
+            // Hashing a track of a large game is minutes of work; without this
+            // the row goes on saying "Downloading" throughout it.
+            onChecking: () => this.sayChecking(item)
+          }
         )
       }
 
@@ -978,12 +1051,7 @@ export class DownloadManager extends EventEmitter {
       {
         resume: transfer.resume,
         resumable: transfer.resumable,
-        // The check reads the whole game back off the disk, which on a large
-        // one is minutes under a bar that is already full.
-        onChecking: () => {
-          item.state = 'checking'
-          this.emitUpdate()
-        }
+        onChecking: () => this.sayChecking(item)
       }
     )
     // The last chunk is almost never on a throttle boundary, so the final byte
@@ -1028,11 +1096,9 @@ export class DownloadManager extends EventEmitter {
        */
       if (!unpacked.isDirectory && unpacked.files === undefined) {
         // Said before it starts, for the same reason `onChecking` exists on the
-        // way in: this reads the whole game back off the disk, which on a large
-        // one is minutes of a row that would otherwise still say "Extracting"
-        // — the state it was in for the second or two the unpacking took.
-        item.state = 'checking'
-        this.emitUpdate()
+        // way in: a row that would otherwise still say "Extracting" — the state
+        // it was in for the second or two the unpacking took.
+        this.sayChecking(item)
         await this.client.verifyUnpacked(rom, unpacked.path)
       }
       return unpacked
@@ -1097,7 +1163,15 @@ export class DownloadManager extends EventEmitter {
     // rather than being told it is done. `resumeAfterOutage` asks for this and
     // then reads the queue, and a screen asking at the same moment would
     // otherwise have it read an empty one.
-    this.restored ??= this.readBackPending()
+    // Forgotten again if it fails, so one bad start does not settle the question
+    // for the whole run. `??=` over a rejected promise keeps the rejection: a
+    // disk that was full when the first list was asked for would otherwise leave
+    // every later `downloads:list` and every reconnection throwing, long after
+    // there was room again.
+    this.restored ??= this.readBackPending().catch((cause: unknown) => {
+      this.restored = null
+      throw cause
+    })
     return this.restored
   }
 

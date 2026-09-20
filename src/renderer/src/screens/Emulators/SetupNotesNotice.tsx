@@ -44,6 +44,7 @@ export function SetupNotesNotice({
         name: emulator.name
       })}
       icon="note"
+      onDismiss={onClose}
     >
       <p className="muted">{t('emulator.setupIntro', { name: emulator.name })}</p>
       <ul className="notice__list muted">

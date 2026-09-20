@@ -179,7 +179,11 @@ export function HomeScreen(): JSX.Element {
         <Hero
           rom={highlight}
           reason={highlightReason}
-          onSelect={() => navigate({ name: 'game', romId: highlight.id })}
+          // Through `open`, like every tile below it. The hero can be drawn from
+          // the grouped `recentlyAdded` shelf, so it stands for the same cover as
+          // the first tile — and `tiles.ts` states the rule both are held to: the
+          // version a tile says is downloaded is the version pressing it opens.
+          onSelect={() => open(tileFromRom(highlight))}
         />
       ) : null}
 

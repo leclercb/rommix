@@ -166,7 +166,29 @@ export async function fetchToFile(
     onProgress({ received, total })
   }
 
+  /**
+   * Already whole, which a resume can arrive at.
+   *
+   * RomMix can be stopped between the last byte and the rename — `verify` is
+   * minutes of hashing on a large ROM, with the queue's record still in place —
+   * so the next start resumes a `.part` with nothing left to fetch. Asking for
+   * `bytes=<size>-` is an unsatisfiable range, and a server that answers 416 is
+   * refusing rather than failing: the row would go back to paused carrying no
+   * error, and every press of Resume would repeat it. The file-by-file path
+   * guards the same case by size; see `downloads.ts`.
+   */
+  const whole = sizeHint > 0 && received >= sizeHint
+
   for (let attempt = 1; ; attempt += 1) {
+    if (whole) {
+      log.info('romm', 'the part-file is already whole, so nothing is fetched', {
+        ...subject,
+        received,
+        total
+      })
+      break
+    }
+
     // One controller per attempt: it carries the caller's cancellation and
     // the stall timeout below, so the transfer can be given up on without the
     // caller having asked for anything.
@@ -188,6 +210,16 @@ export async function fetchToFile(
         signal: attemptStopped.signal,
         headers: received > 0 ? { Range: `bytes=${received}-` } : {}
       })
+      // The server saying there is nothing past what is already on disk, which
+      // makes the `.part` complete rather than the attempt a failure. Reached
+      // where `sizeHint` was 0 or wrong and so could not settle it above.
+      if (received > 0 && res.status === 416) {
+        log.info('romm', 'the range is past the end, so the part-file is whole', {
+          ...subject,
+          received
+        })
+        break
+      }
       if (!res.ok) throw await transport.toError(res)
       if (!res.body) throw new RommError(t('error.emptyResponseBody'))
 
@@ -214,6 +246,17 @@ export async function fetchToFile(
       const declared = Number(res.headers.get('content-length') ?? 0)
       total = (resumed ? received + declared : declared) || sizeHint
 
+      /**
+       * What this reply promised, which is not the same as `total`.
+       *
+       * Only a length the server put on this response is worth holding the
+       * result to: `sizeHint` comes from `fs_size_bytes`, which RomM derives and
+       * can report as 0 or simply wrong, so comparing against it would fail
+       * transfers that are in fact complete. Zero means the server declared
+       * nothing and there is nothing to check.
+       */
+      const promised = declared > 0 ? received + declared : 0
+
       const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
       await pipeline(
         source,
@@ -230,6 +273,16 @@ export async function fetchToFile(
         createWriteStream(partial, { flags: resumed ? 'a' : 'w' }),
         { signal: attemptStopped.signal }
       )
+
+      // A body that ended early — a proxy re-encoding the reply, a host that
+      // closed mid-stream — otherwise leaves a short file that passes for a
+      // complete one. For the shapes nothing hashes, this is the whole of what
+      // stands behind them; see `checkDeferredToUnpacking` in `downloads.ts`.
+      // Thrown rather than returned, so the catch below picks up from what
+      // reached the disk instead of starting the game again.
+      if (promised > 0 && received < promised) {
+        throw new RommError(t('error.transferEndedEarly'))
+      }
       break
     } catch (cause) {
       // Cancelling is not a failure to retry: the user asked for it, and the
@@ -238,6 +291,30 @@ export async function fetchToFile(
       // one's — cancelling throws it away, an interruption keeps it.
       if (signal.aborted) {
         log.info('romm', 'transfer cancelled', { ...subject, received, total, ms: took() })
+        throw cause
+      }
+
+      /**
+       * A status the server chose, which asking again does not change.
+       *
+       * Checked before the attempts are spent rather than after: a ROM deleted
+       * server-side answers 404 and a lapsed token 401, and re-issuing either
+       * costs a request and a delay apiece to arrive at the same answer. Only a
+       * transfer that broke off — nothing answered — is worth another go.
+       *
+       * Reported as the refusal it is, too. Treated as an outage it would say
+       * the server was unreachable a moment after every attempt had reached it,
+       * put the interface into offline mode, and leave the row to be retried on
+       * every reconnection for a reason no amount of waiting fixes.
+       */
+      if (answered(cause)) {
+        log.error('romm', 'the server refused the transfer', cause, {
+          ...subject,
+          received,
+          total,
+          attempts: attempt,
+          ms: took()
+        })
         throw cause
       }
 
@@ -257,20 +334,6 @@ export async function fetchToFile(
         // Sized the way the rest of the interface sizes things: this sentence
         // is read beside a progress bar counting in gigabytes, and a raw byte
         // count is a number nobody converts in their head.
-        /**
-         * Whether this was the network, which is not the only thing caught
-         * here.
-         *
-         * The loop also sees a status RomM answered with — a ROM deleted
-         * server-side is a 404 — and a non-resumable transfer is allowed one
-         * attempt, so that 404 arrives on the first pass. Treated as an
-         * outage it would report the server unreachable a moment after every
-         * attempt had reported it reachable, put the interface into offline
-         * mode, and leave the row to be tried again on every reconnection for
-         * a reason no amount of waiting fixes.
-         */
-        if (answered(cause)) throw cause
-
         const size = i18n().formatBytes
         // A transfer that broke off and would not pick up again is the server
         // being gone, which is worth telling the connection watch as loudly

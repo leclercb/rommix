@@ -24,6 +24,20 @@ import type { EmulatorState, SavesWaiting } from '@shared/types'
 export const IMAGE_SCHEME = 'rommix-img'
 
 /**
+ * Whether a path is one the image protocol may fetch.
+ *
+ * Asserted rather than assumed, because the renderer builds these URLs itself —
+ * `assetUrl` is a pure string builder — and the handler behind them signs the
+ * request with the user's token. `..` is refused as well as the prefix: RomM
+ * serves these from a static mount, and a traversal inside the query is the one
+ * way `/assets/` could still name something else.
+ */
+export function isAssetPath(path: string): boolean {
+  const rooted = path.startsWith('/') ? path : `/${path}`
+  return rooted.startsWith('/assets/') && !rooted.includes('..')
+}
+
+/**
  * The screen the interface is drawn for: 1080p, the resolution a living-room
  * layout has been designed around for fifteen years.
  */
@@ -321,6 +335,23 @@ export class RomMixApp {
   }
 
   /**
+   * Record that a game's saves are still only on this disk.
+   *
+   * The post-session push writes this for itself — see `rememberUnsent` — but a
+   * push the user approved from a dialog does not: `previewPush` succeeded, so
+   * nothing was noted on the way in, and the upload can still be refused file by
+   * file afterwards. Without a record there is nothing for `recheckUnsentSaves`
+   * to look at and nothing for a later `drain` to find.
+   *
+   * `since` is 0 for a push asked for by hand, which has no session to bound it:
+   * what is owed is whatever is here and not on the server.
+   */
+  noteUnsentSaves(romId: number, since: number): void {
+    this.store.noteUnsentSaves({ romId, since })
+    log.info('saves', 'saves are waiting for a server', { romId, since })
+  }
+
+  /**
    * Look again at what this game still owes, after a push.
    *
    * Asked rather than assumed. A push that was refused file by file resolves
@@ -527,6 +558,23 @@ export class RomMixApp {
      * is a target equal to the document already loaded, which is that same
      * document again rather than a move away from it.
      */
+    /**
+     * And again for a frame, which `will-navigate` is not asked about.
+     *
+     * The manual tab frames a PDF straight off the user's own server, drawn by
+     * Chromium's plugin viewer. A link inside a hostile or tampered manual that
+     * targets its own frame is a subframe navigation, and only
+     * `will-frame-navigate` sees those — so without this the "cannot navigate
+     * away" below is true of the window and not of everything in it. The preload
+     * is not injected into subframes, so the bridge is out of reach either way;
+     * what this keeps out is remote content loading inside the interface.
+     */
+    window.webContents.on('will-frame-navigate', (event) => {
+      if (event.url === window.webContents.getURL()) return
+      log.warn('window', 'refused to navigate a frame away from the interface', { url: event.url })
+      event.preventDefault()
+    })
+
     window.webContents.on('will-navigate', (event, url) => {
       if (url === window.webContents.getURL()) return
       log.warn('window', 'refused to navigate away from the interface', { url })
@@ -543,8 +591,9 @@ export class RomMixApp {
      * goes through `setWindowOpenHandler` above and out to the browser.
      *
      * No route to a page that could ask is known — the window loads its own
-     * bundle under a `default-src 'self'` policy and cannot navigate away, per
-     * the two guards above. This is the floor under all of that rather than a
+     * bundle under a `default-src 'self'` policy, and neither it nor a frame
+     * inside it can navigate away, per the guards above. This is the floor under
+     * all of that rather than a
      * fix for a way through it: a default that says yes is the wrong default to
      * be one mistake away from, and a request refused here is one line in the
      * log instead of a permission prompt on a television nobody can answer.
@@ -634,6 +683,21 @@ export class RomMixApp {
     protocol.handle(IMAGE_SCHEME, async (request) => {
       const path = new URL(request.url).searchParams.get('p')
       if (!path) return new Response('missing path', { status: 400 })
+      /**
+       * Pictures only, and nothing else the server would answer for.
+       *
+       * This scheme is registered `supportFetchAPI` and `bypassCSP`, and what
+       * comes out the other end is an authenticated request carrying the bearer
+       * token — so an unconstrained `p` is a way for the page to read any RomM
+       * endpoint's body, outside the page's CSP and outside the named channels
+       * the bridge exposes. Every path that legitimately arrives here is an
+       * asset: RomM's own resources under `/assets/romm/`, and the platform
+       * icons in `PLATFORM_ICON_PATHS`.
+       */
+      if (!isAssetPath(path)) {
+        log.warn('window', 'refused an image request that is not an asset path', { path })
+        return new Response('not an asset path', { status: 400 })
+      }
 
       try {
         /**

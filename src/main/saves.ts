@@ -20,6 +20,7 @@ import type {
   SaveSyncState
 } from '@shared/types'
 import { partialPathOf, refusedUs, verify } from './romm/index.ts'
+import { safeJoin } from './safepath.ts'
 import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
@@ -172,6 +173,39 @@ interface UploadBatch {
 
 export class SaveSync {
   private readonly env = fileSystemEnvironment()
+
+  /**
+   * One sync at a time per game, whoever asked for it.
+   *
+   * A pull renames the server's copy over the file the emulator opens while a
+   * push reads the same file to send it, so the two overlapping is how the copy
+   * that was just replaced goes up as this device's newest — and from there a
+   * third device pulls it. Nothing else prevents the overlap: the drain
+   * `catchUp` runs on a reconnection guards only against a running emulator, and
+   * the screen's own busy flag cannot see into the main process, so pressing
+   * "Pull saves" as the connection returns is enough.
+   *
+   * Keyed on the ROM, because two games have nothing to contend over.
+   */
+  private readonly inFlight = new Map<number, Promise<unknown>>()
+
+  private oneAtATime<T>(romId: number, work: () => Promise<T>): Promise<T> {
+    const previous = this.inFlight.get(romId) ?? Promise.resolve()
+    // `then(work, work)`: a sync that failed is finished, and must not leave the
+    // next one waiting on it forever.
+    const mine = previous.then(work, work)
+    const settled = mine.then(
+      () => undefined,
+      () => undefined
+    )
+    this.inFlight.set(romId, settled)
+    void settled.then(() => {
+      // Only where nothing queued behind this one, or the map grows by a game
+      // every time one is played.
+      if (this.inFlight.get(romId) === settled) this.inFlight.delete(romId)
+    })
+    return mine
+  }
 
   constructor(
     private readonly store: Store,
@@ -340,7 +374,15 @@ export class SaveSync {
         if (!matchesKind) continue
 
         // Emulators name the save after the ROM file, sometimes with a suffix.
-        const fileStem = name.replace(STATE_PATTERN, '').replace(/\.[^.]+$/, '')
+        //
+        // A state's suffix is not an extension: `Game.state1` is the ROM's own
+        // name with the slot appended, so taking an extension off afterwards
+        // eats into any name that has a dot in it — `Super Mario Bros. 3
+        // (USA).state1` becomes `Super Mario Bros`, which matches no game, and
+        // the state is invisible to every direction of the sync. A battery save
+        // does carry a real extension and keeps losing it.
+        const fileStem =
+          kind === 'state' ? name.replace(STATE_PATTERN, '') : name.replace(/\.[^.]+$/, '')
         if (!stemMatches(fileStem, stem, ext)) continue
 
         let info
@@ -448,19 +490,21 @@ export class SaveSync {
    * whoever is reading the log is trying to tell them apart.
    */
   async pull(target: SaveTarget): Promise<PullCount> {
-    if (!this.store.settings.syncSavesDown) {
-      log.debug('saves', 'automatic pull is switched off', { romId: target.rom.id })
-      return { written: 0, offered: 0, failed: 0 }
-    }
-    const paths = this.locate(target)
+    return this.oneAtATime(target.rom.id, async () => {
+      if (!this.store.settings.syncSavesDown) {
+        log.debug('saves', 'automatic pull is switched off', { romId: target.rom.id })
+        return { written: 0, offered: 0, failed: 0 }
+      }
+      const paths = this.locate(target)
 
-    const saves = await this.pullKind(target, paths, 'save')
-    const states = await this.pullKind(target, paths, 'state')
-    return {
-      written: saves.written + states.written,
-      offered: saves.offered + states.offered,
-      failed: saves.failed + states.failed
-    }
+      const saves = await this.pullKind(target, paths, 'save')
+      const states = await this.pullKind(target, paths, 'state')
+      return {
+        written: saves.written + states.written,
+        offered: saves.offered + states.offered,
+        failed: saves.failed + states.failed
+      }
+    })
   }
 
   /**
@@ -540,9 +584,9 @@ export class SaveSync {
      * The saves, paired on the slot first and on the name only after.
      *
      * Which is the order that matters: the client that wrote the copy up there
-     * named it whatever its own emulator names saves, so insisting the two
-     * names agree is exactly what left a save made on a phone sitting here as
-     * a second row nothing could line up with. A slot pairs them whatever they
+     * named it whatever its own emulator names saves, so insisting the two names
+     * agree leaves a save made on a phone sitting here as a second row nothing can
+     * line up with. A slot pairs them whatever they
      * are called; a name is what is left for the saves that carry no slot.
      */
     const { slots, loose } = bySlot(saves)
@@ -693,28 +737,30 @@ export class SaveSync {
     target: SaveTarget,
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
-    const paths = this.locate(target)
-    const run = progressRun(target.rom.id, 'pull', null, onProgress)
-    const saves = await this.pullKind(target, paths, 'save', run)
-    const states = await this.pullKind(target, paths, 'state', run)
-    const failed = saves.failed + states.failed
-    const result = {
-      saves: saves.written,
-      states: states.written,
-      failed,
-      // A pull that lost files has something to say whatever else it did, and
-      // the renderer's own `failed > 0` branch is what says it.
-      skippedReason: failed > 0 ? null : this.reasonFor(paths, saves.written + states.written)
-    }
-    // `offered` here and not in the result: what the server held explains the
-    // counts above to whoever is reading the log, and says nothing to the
-    // screen, which is showing both ends of the list anyway.
-    log.info('saves', 'pulled on request', {
-      romId: target.rom.id,
-      ...result,
-      offered: saves.offered + states.offered
+    return this.oneAtATime(target.rom.id, async () => {
+      const paths = this.locate(target)
+      const run = progressRun(target.rom.id, 'pull', null, onProgress)
+      const saves = await this.pullKind(target, paths, 'save', run)
+      const states = await this.pullKind(target, paths, 'state', run)
+      const failed = saves.failed + states.failed
+      const result = {
+        saves: saves.written,
+        states: states.written,
+        failed,
+        // A pull that lost files has something to say whatever else it did, and
+        // the renderer's own `failed > 0` branch is what says it.
+        skippedReason: failed > 0 ? null : this.reasonFor(paths, saves.written + states.written)
+      }
+      // `offered` here and not in the result: what the server held explains the
+      // counts above to whoever is reading the log, and says nothing to the
+      // screen, which is showing both ends of the list anyway.
+      log.info('saves', 'pulled on request', {
+        romId: target.rom.id,
+        ...result,
+        offered: saves.offered + states.offered
+      })
+      return result
     })
-    return result
   }
 
   /**
@@ -728,14 +774,16 @@ export class SaveSync {
     target: SaveTarget,
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
-    const paths = this.locate(target)
-    const pushed = await this.upload(target, paths, 0, onProgress)
-    const result = {
-      ...pushed,
-      skippedReason: this.reasonFor(paths, pushed.saves + pushed.states)
-    }
-    log.info('saves', 'pushed on request', { romId: target.rom.id, ...result })
-    return result
+    return this.oneAtATime(target.rom.id, async () => {
+      const paths = this.locate(target)
+      const pushed = await this.upload(target, paths, 0, onProgress)
+      const result = {
+        ...pushed,
+        skippedReason: this.reasonFor(paths, pushed.saves + pushed.states)
+      }
+      log.info('saves', 'pushed on request', { romId: target.rom.id, ...result })
+      return result
+    })
   }
 
   /**
@@ -874,47 +922,49 @@ export class SaveSync {
     since: number,
     options: { sendUnasked: boolean }
   ): Promise<{ sent: number; conflicts: number; ready: number }> {
-    const preview = await this.previewPush(target, since)
-    const unasked = preview.files.filter((file) => mayBeSentUnasked(file))
-    const conflicts = preview.files.length - unasked.length
+    return this.oneAtATime(target.rom.id, async () => {
+      const preview = await this.previewPush(target, since)
+      const unasked = preview.files.filter((file) => mayBeSentUnasked(file))
+      const conflicts = preview.files.length - unasked.length
 
-    // Nothing to send, or a user who has asked to be asked. Either way this
-    // pass moves no bytes, and the files stay where they are with the record
-    // still pointing at them.
-    if (!options.sendUnasked || unasked.length === 0) {
-      if (preview.files.length > 0) {
-        log.info('saves', 'saves written away from the server are waiting', {
-          romId: target.rom.id,
-          ready: unasked.length,
-          conflicts,
-          asked: !options.sendUnasked
-        })
+      // Nothing to send, or a user who has asked to be asked. Either way this
+      // pass moves no bytes, and the files stay where they are with the record
+      // still pointing at them.
+      if (!options.sendUnasked || unasked.length === 0) {
+        if (preview.files.length > 0) {
+          log.info('saves', 'saves written away from the server are waiting', {
+            romId: target.rom.id,
+            ready: unasked.length,
+            conflicts,
+            asked: !options.sendUnasked
+          })
+        }
+        return { sent: 0, conflicts, ready: unasked.length }
       }
-      return { sent: 0, conflicts, ready: unasked.length }
-    }
 
-    const result = await this.pushSelected(
-      target,
-      unasked.map((file) => file.path)
-    )
-    const sent = result.saves + result.states
-    /**
-     * What was meant to go, did not, and is still here.
-     *
-     * The server's refusals, rather than everything that did not arrive:
-     * uploading passes over a save folder that turns out to be empty without
-     * either sending or failing it, and counted as still waiting that game
-     * would never clear — a permanent notice about a folder an emulator made
-     * and never wrote to.
-     */
-    const ready = result.failed
-    log.info('saves', 'sent what was written away from the server', {
-      romId: target.rom.id,
-      sent,
-      ready,
-      conflicts
+      const result = await this.sendChosen(
+        target,
+        unasked.map((file) => file.path)
+      )
+      const sent = result.saves + result.states
+      /**
+       * What was meant to go, did not, and is still here.
+       *
+       * The server's refusals, rather than everything that did not arrive:
+       * uploading passes over a save folder that turns out to be empty without
+       * either sending or failing it, and counted as still waiting that game
+       * would never clear — a permanent notice about a folder an emulator made
+       * and never wrote to.
+       */
+      const ready = result.failed
+      log.info('saves', 'sent what was written away from the server', {
+        romId: target.rom.id,
+        sent,
+        ready,
+        conflicts
+      })
+      return { sent, conflicts, ready }
     })
-    return { sent, conflicts, ready }
   }
 
   /**
@@ -932,6 +982,20 @@ export class SaveSync {
    * already answered.
    */
   async pushSelected(
+    target: SaveTarget,
+    chosen: readonly string[],
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<SaveSyncResult> {
+    return this.oneAtATime(target.rom.id, () => this.sendChosen(target, chosen, onProgress))
+  }
+
+  /**
+   * The body of a push the user has approved, without the per-game lock.
+   *
+   * `drain` already holds it and then asks for exactly this, so the two cannot
+   * share the public entry point without waiting on themselves.
+   */
+  private async sendChosen(
     target: SaveTarget,
     chosen: readonly string[],
     onProgress?: (progress: SaveProgress) => void
@@ -1118,10 +1182,10 @@ export class SaveSync {
      * wrote it and not who can load it. RomM keeps one file per name per game
      * and records the emulator beside it rather than filing under it, so
      * refusing the only copy there is means sitting down to a game with no save
-     * at all. That is the worse of the two mistakes, and it is the one this made
-     * on every save RomM's own browser player wrote. The newer-wins rule still
-     * applies and `keepBackup` still keeps what was displaced, so the other
-     * mistake is recoverable.
+     * at all. That is the worse of the two mistakes, and the one every save RomM's
+     * own browser player writes would run into. The newer-wins rule still applies
+     * and `keepBackup` still keeps what was displaced, so the other mistake is
+     * recoverable.
      *
      * A state is the opposite, and takes the strictest reading there is: only a
      * tag that matches. It is a snapshot of one core's memory under a name every
@@ -1143,8 +1207,8 @@ export class SaveSync {
       ? remote.filter((item) => acceptsTag(tag, item.emulator, paths.alsoAccepts))
       : remote
     // What was left, and why. A pull that brings nothing down is otherwise a
-    // count of zero against a screen that is still listing the file — which is
-    // the shape this arrived as a bug report in.
+    // count of zero against a screen that is still listing the file, which reads
+    // as a sync that silently did nothing.
     if (usable.length < remote.length) {
       log.info('saves', `left ${kind}s that another emulator wrote`, {
         romId: target.rom.id,
@@ -1157,6 +1221,31 @@ export class SaveSync {
 
     const wanted = this.toPull(kind, usable)
     if (wanted.length === 0) return { written: 0, offered: remote.length, failed: 0 }
+
+    /**
+     * At most one archive, and the newest of them.
+     *
+     * A directory save is the whole folder under a single name, so two archives
+     * are two descriptions of one place rather than two files — which is what
+     * the server holds once a game has been renamed on it and the old name is
+     * still carrying a copy. Unpacking both means whichever is listed second
+     * takes the folder, so an older save wins on every launch; and each pass
+     * calls `keepBackup`, which rotates the real save out of the copies it was
+     * displaced into within three of them.
+     */
+    const isArchive = (item: RommSave | RommState): boolean =>
+      item.file_name.endsWith(ARCHIVE_SUFFIX)
+    const newestArchive = wanted
+      .filter((entry) => isArchive(entry.item))
+      .sort((a, b) => Date.parse(b.item.updated_at) - Date.parse(a.item.updated_at))[0]
+    const pulling = wanted.filter((entry) => !isArchive(entry.item) || entry === newestArchive)
+    if (pulling.length !== wanted.length) {
+      log.info('saves', 'older archives of this folder are left alone', {
+        romId: target.rom.id,
+        keeping: newestArchive?.item.file_name,
+        left: wanted.filter((entry) => isArchive(entry.item) && entry !== newestArchive).length
+      })
+    }
 
     const stem = romStemOf(target.rom, target.romPath)
     const local = await this.findLocal(location, target.rom, target.romPath, kind)
@@ -1179,7 +1268,7 @@ export class SaveSync {
     let written = 0
     let failed = 0
 
-    for (const { item, slot } of wanted) {
+    for (const { item, slot } of pulling) {
       const remoteTime = Date.parse(item.updated_at)
       const match =
         slot === null
@@ -1197,9 +1286,39 @@ export class SaveSync {
        *
        * A save with no slot has only its name to be known by, and keeps it.
        */
-      const destination =
-        match?.path ??
-        join(location.dir, slot === null ? item.file_name : `${stem}${extname(item.file_name)}`)
+      /**
+       * An archive lands on the folder, which is what it is unpacked over.
+       *
+       * Named here as well as at `restoreArchive` below, because both the claim
+       * and the freshness check are asked of this path: pointed at a zip file
+       * that is never written, an archive under a name this game no longer uses
+       * compares against nothing and is unpacked over a newer save.
+       */
+      const archive = isArchive(item)
+      /**
+       * `safeJoin` because `file_name` is the server's, and a save uploaded
+       * through RomM's own web interface can be called anything. The rest of the
+       * main process already guards this input — see `bios.ts`, `downloads.ts`
+       * and `library.ts` — and `restoreFile` creates the parent and renames over
+       * whatever is there.
+       */
+      const fresh = archive
+        ? location.dir
+        : safeJoin(
+            location.dir,
+            slot === null ? item.file_name : `${stem}${extname(item.file_name)}`
+          )
+      if (fresh === null) {
+        log.error('saves', `refused a ${kind} name that leaves the save folder`, undefined, {
+          romId: target.rom.id,
+          id: item.id,
+          fileName: item.file_name,
+          dir: location.dir
+        })
+        failed += 1
+        continue
+      }
+      const destination = match?.path ?? fresh
       // The same tolerance the badge uses, so a copy the screen calls "in sync"
       // is never one this loop downloads again. Asked of the file that is
       // there rather than of the match, since an unmatched one would otherwise
@@ -1221,7 +1340,12 @@ export class SaveSync {
       // which copy the file belongs to.
       claimed.add(destination)
 
-      const landed = match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs
+      // For an archive that is the newest thing in the folder, which is what
+      // `findLocal` stamps its synthetic asset with — a directory's own mtime
+      // says nothing about the saves inside it.
+      const landed = archive
+        ? this.env.newest(location.dir) || undefined
+        : (match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs)
       if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
 
       /**
@@ -1268,7 +1392,14 @@ export class SaveSync {
         if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {
           await this.restoreArchive(location.dir, backups, download, remoteTime)
         } else {
-          await this.restoreFile(destination, backups, download, remoteTime, contentHashOf(item))
+          await this.restoreFile(
+            destination,
+            backups,
+            download,
+            remoteTime,
+            contentHashOf(item),
+            item.file_size_bytes
+          )
         }
         written += 1
         log.info('saves', `${kind} pulled`, {
@@ -1316,7 +1447,8 @@ export class SaveSync {
     backups: string,
     download: (to: string) => Promise<void>,
     remoteTime: number,
-    contentHash: string | null
+    contentHash: string | null,
+    expectedBytes: number
   ): Promise<void> {
     await mkdir(join(destination, '..'), { recursive: true })
 
@@ -1343,6 +1475,21 @@ export class SaveSync {
           { algorithm: 'md5', expected: contentHash },
           { kind: 'save', fileName: basename(destination) }
         )
+      } else if (expectedBytes > 0) {
+        // The length, where the server states no hash — which is every state,
+        // `StateSchema` carrying none, and any save on a RomM that records one
+        // for nothing. Without it a body that ended early is renamed over the
+        // good file once the backup has been taken, which is the single outcome
+        // this function exists to prevent.
+        const arrived = await sizeOf(partial, false)
+        if (arrived !== expectedBytes) {
+          log.error('saves', 'the copy that arrived is not the length RomM recorded', undefined, {
+            fileName: basename(destination),
+            arrived,
+            expected: expectedBytes
+          })
+          throw new Error(t('error.saveEndedEarly', { name: basename(destination) }))
+        }
       }
       // Never clobber a local save without keeping a copy. Asked of the path
       // rather than of the match, because a file can be sitting there without
@@ -1385,9 +1532,9 @@ export class SaveSync {
        * `findLocal` reads a directory save's age as the newest mtime anywhere
        * under it, so a file the archive did not carry keeps the whole folder
        * reading as newer — which is the truth: it holds something the server
-       * does not, and the next push is what settles that. Stamping those too
-       * made the folder read as synced and the local-only file never left this
-       * machine. A second player's profile that exists on one device alone is
+       * does not, and the next push is what settles that. Stamping those too would
+       * make the folder read as synced and the local-only file would never leave
+       * this machine — a second player's profile that exists on one device alone is
        * exactly that file.
        */
       for (const file of extracted) await stampMtime(file, remoteTime)
@@ -1406,8 +1553,10 @@ export class SaveSync {
     target: SaveTarget,
     since: number
   ): Promise<{ saves: number; states: number; failed: number }> {
-    if (!this.store.settings.syncSavesUp) return { saves: 0, states: 0, failed: 0 }
-    return this.upload(target, this.locate(target), since)
+    return this.oneAtATime(target.rom.id, async () => {
+      if (!this.store.settings.syncSavesUp) return { saves: 0, states: 0, failed: 0 }
+      return this.upload(target, this.locate(target), since)
+    })
   }
 
   /**

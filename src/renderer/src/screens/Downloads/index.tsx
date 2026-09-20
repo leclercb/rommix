@@ -1,11 +1,10 @@
 import type { MessageKey } from '@shared/i18n'
-import { isStopped, type DownloadItem, type InstalledRom } from '@shared/types'
-import { FocusButton, Hints, Overlay, PageTitle, Spinner, Tabs } from '../../components'
+import { isInProgress, isStopped, type DownloadItem, type InstalledRom } from '@shared/types'
+import { FocusButton, Hints, Overlay, PageTitle, Spinner, Tabs, titleOf } from '../../components'
 import { useApp, useDownloads, useI18n } from '../../state'
 import { UninstallDialog } from '../Game/dialogs'
 import { startedMessage } from '../Game/useGameCopy'
 import { useEffect, useMemo, useState, type JSX } from 'react'
-import { fileNameOf } from '@shared/gamefiles'
 import { Drives } from './Drives'
 import { InstalledRow } from './InstalledRow'
 import { PlatformGroup } from './PlatformGroup'
@@ -30,8 +29,7 @@ const SORTS = [
 /** Order two games by the chosen rule. Used flat and inside each group. */
 function compare(a: InstalledRom, b: InstalledRom, sort: SortMode): number {
   if (sort === 'largest') return b.sizeBytes - a.sizeBytes
-  if (sort === 'name')
-    return (a.name || fileNameOf(a.path)).localeCompare(b.name || fileNameOf(b.path))
+  if (sort === 'name') return titleOf(a).localeCompare(titleOf(b))
   return b.installedAt.localeCompare(a.installedAt)
 }
 
@@ -51,14 +49,7 @@ const FLAT_PAGE = 40
  * to when they want to finish it. See `DownloadState`.
  */
 function isActive(item: DownloadItem): boolean {
-  return (
-    item.state === 'queued' ||
-    item.state === 'downloading' ||
-    item.state === 'checking' ||
-    item.state === 'extracting' ||
-    item.state === 'installing' ||
-    isStopped(item.state)
-  )
+  return isInProgress(item.state) || isStopped(item.state)
 }
 
 /** Transfer queue plus everything currently on local disk. */

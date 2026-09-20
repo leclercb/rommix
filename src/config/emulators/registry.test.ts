@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { isKnownSystem } from '../systems.ts'
 import {
   EMULATORS,
@@ -15,7 +17,6 @@ import {
   resolveEmulator,
   supportsSystem
 } from './index.ts'
-import { readFileSync } from 'node:fs'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
@@ -642,4 +643,32 @@ test("a project publishing every platform as a zip offers only this one's", () =
   assert.equal(isInstallableAsset('shadps4-linux-sdl-0.18.0.zip', source), true)
   assert.equal(isInstallableAsset('shadps4-macos-sdl-0.18.0.zip', source), false)
   assert.equal(isInstallableAsset('shadps4-win64-sdl-0.18.0.zip', source), false)
+})
+
+test('nothing under src/config imports a node builtin', () => {
+  /**
+   * The rule CONTRIBUTING states twice, held where `npm test` can see it.
+   *
+   * The registry is loaded by the renderer as well as by the main process, so a
+   * `node:` import here is a bundle that fails — and anything that has to look at
+   * the machine is meant to ask through the `SaveEnvironment` handed to `saves()`
+   * instead. It holds today; this is what fails the moment it stops.
+   */
+  const root = join(import.meta.dirname, '..')
+  const offenders: string[] = []
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(path)
+      } else if (entry.name.endsWith('.ts') && !entry.name.includes('.test.')) {
+        // The specifier, not the word: `node:` appears in prose in these files.
+        if (/from\s+['"]node:|require\(['"]node:/.test(readFileSync(path, 'utf8'))) {
+          offenders.push(relative(root, path))
+        }
+      }
+    }
+  }
+  walk(root)
+  assert.deepEqual(offenders, [])
 })

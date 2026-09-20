@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useMemo, useState, type Ref } from 'react'
 import { resolveSystem } from '@config/systems'
-import type { InstalledRom, RommPlatform } from '@shared/types'
+import type { RommPlatform } from '@shared/types'
 import {
   GameCard,
   Hints,
@@ -12,18 +12,15 @@ import {
   romToOpen,
   tileFromInstalled,
   tileFromRom,
-  tileInstalled
+  tileInstalled,
+  titleOf
 } from '../../components'
 import { useAction, useFocusable, useFocusContext, useKeyLabel } from '../../input/focus'
 import { usePagedRoms } from '../../paging'
 import { useApp, useI18n } from '../../state'
-import { fileNameOf } from '@shared/gamefiles'
 
 /** The search box's name in the focus registry, for the shortcut that jumps to it. */
 const SEARCH_FIELD = 'library-search'
-
-/** What a downloaded game is listed, sorted and searched under. */
-const titleOf = (entry: InstalledRom): string => entry.name || fileNameOf(entry.path)
 
 /**
  * Which games the grid is drawn from.

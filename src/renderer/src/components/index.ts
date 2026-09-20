@@ -36,6 +36,7 @@ export {
   GameCard,
   GameRow,
   romToOpen,
+  titleOf,
   tileFromInstalled,
   tileFromRom,
   tileInstalled,

@@ -19,6 +19,15 @@ import { t } from './i18n.ts'
  * by `resolveInstall`, not fetched.
  */
 
+/**
+ * How long listing a forge's releases may take.
+ *
+ * Only the listing, which is an answer. The download that follows carries bytes
+ * and is `fetchToFile`'s, which has no deadline for the same reason the RomM
+ * transfers do not.
+ */
+const RELEASE_TIMEOUT_MS = 30_000
+
 /** Where RomMix keeps emulators it installed itself. */
 export function managedEmulatorDir(id: string): string {
   // Inside RomMix's own root, so a whole installation is one movable folder.
@@ -86,7 +95,12 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
   // Forgejo reads `limit`, GitHub reads `per_page` and ignores `limit`, and an
   // unknown query parameter is discarded by both.
   const response = await fetch(`${source.api}?limit=20&per_page=20`, {
-    headers: { Accept: 'application/json' }
+    headers: { Accept: 'application/json' },
+    // A forge that accepts the connection and then stops answering otherwise
+    // holds the install screen for as long as the runtime's own default allows,
+    // behind a version list that has already been asked for. The same reason
+    // every RomM call carries one; see `REQUEST_TIMEOUT_MS` in `romm/client.ts`.
+    signal: AbortSignal.timeout(RELEASE_TIMEOUT_MS)
   })
   if (!response.ok) {
     log.error('release', 'could not list releases', undefined, {

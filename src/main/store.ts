@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync
 } from 'node:fs'
 import { hostname } from 'node:os'
@@ -275,17 +276,32 @@ export class Store {
     const taken = acceptSettings(raw.settings, defaultSettings())
     this.settingsCache = taken.settings
     this.serverCache = acceptServer(raw.server)
+    /**
+     * Fields the file did not carry at all, now holding a generated default.
+     *
+     * `acceptSettings` walks what it was given, so an *absent* key is never
+     * refused and never reported — and `deviceId` defaults to a fresh
+     * `randomUUID`. A settings file written before that field existed, or hand
+     * edited without it, therefore mints a new identifier on every start, and a
+     * machine signed in with a token registers itself on RomM under each one.
+     * Written back for exactly the same reason a refusal is.
+     */
+    const held = isRecord(raw.settings) ? raw.settings : {}
+    const filledIn = Object.keys(SETTINGS_SHAPE).filter((key) => !Object.hasOwn(held, key))
+
     if (taken.refused.length > 0) {
       log.warn('store', 'settings of the wrong shape were left at their defaults', {
         path: this.settingsPath,
         refused: taken.refused
       })
-      // Written back, or the repair is made again on every start: a refused
-      // `deviceId` in particular is a fresh identifier per launch until this
-      // lands on the disk, and a machine signed in with a token registers
-      // itself under each one.
-      this.persistSettings()
     }
+    if (filledIn.length > 0) {
+      log.info('store', 'settings this file did not carry were given defaults', {
+        path: this.settingsPath,
+        filledIn
+      })
+    }
+    if (taken.refused.length > 0 || filledIn.length > 0) this.persistSettings()
     this.installedCache = new Map(
       // The path, because the prune at start-up walks the disk by it before
       // there is a window: an entry without one is a start-up that never
@@ -421,8 +437,24 @@ export class Store {
    * read is still nobody else's to read.
    */
   private writeCredentials(payload: Buffer): void {
-    writeFileSync(this.credentialsPath, payload, { mode: 0o600 })
-    chmodSync(this.credentialsPath, 0o600)
+    // Aside and renamed, like every JSON file this class writes. `writeFileSync`
+    // truncates before it writes, and this runs on every token refresh — so a
+    // handheld losing power in that window is left with a blob that will not
+    // decode, `loadCredentials` answers null, and the user is signed out with
+    // nothing said and no way back but pairing again.
+    const tmp = `${this.credentialsPath}.${process.pid}.tmp`
+    try {
+      writeFileSync(tmp, payload, { mode: 0o600 })
+      chmodSync(tmp, 0o600)
+      renameSync(tmp, this.credentialsPath)
+    } catch (cause) {
+      try {
+        rmSync(tmp, { force: true })
+      } catch {
+        // The write is the failure worth reporting; the leftover is not.
+      }
+      throw cause
+    }
   }
 
   /** The stored tokens, or null when the file is there and could not be read. */

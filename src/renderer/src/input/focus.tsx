@@ -321,6 +321,16 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   /** The zone focus is in, kept where a removed element cannot take it away. */
   const lastZone = useRef('root')
   /**
+   * Where in its zone the highlight was, counted in visible entries.
+   *
+   * The id alone cannot answer this once the element has gone: `zoneMemory` is
+   * pointed at the entry that has just unregistered, and the registry no longer
+   * holds it. Kept so that a row leaving a list — a transfer finishing, a save
+   * deleted — hands the highlight to whatever took its place rather than to the
+   * first thing in the zone, which is the top of the page.
+   */
+  const lastZoneIndex = useRef(0)
+  /**
    * Where focus last was in each group, so a shelf is re-entered where it was
    * left rather than at whatever card the column happens to point at.
    */
@@ -359,11 +369,17 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
         active.blur()
       zoneMemory.current.set(entry.zone, id)
       lastZone.current = entry.zone
+      lastZoneIndex.current = Math.max(
+        0,
+        visibleEntries()
+          .filter((candidate) => candidate.zone === entry.zone)
+          .findIndex((candidate) => candidate.id === id)
+      )
       if (entry.group) groupMemory.current.set(entry.group, id)
       publishFocus(id)
       revealElement(entry.element)
     },
-    [publishFocus]
+    [publishFocus, visibleEntries]
   )
 
   const setFocus = useCallback(
@@ -417,6 +433,11 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
 
     const restored = restorePoints.current.get(top)
     if (restored && entries.current.get(restored)?.layer === top) {
+      // Spent once used. Left in place it answers the *next* focus loss on this
+      // layer as well, so deleting a row further down a screen would send the
+      // highlight back to whatever held it when a dialog was last closed — and
+      // scroll the page up to it.
+      restorePoints.current.delete(top)
       setFocus(restored)
       return
     }
@@ -427,8 +448,13 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
     // changes, the rail being the first thing in the document — opening a game
     // would leave the highlight sitting in the menu.
     const visible = visibleEntries()
+    // Where the highlight was in that zone, before which entry it was. A row
+    // removed from the middle of a list is replaced by the one that followed it;
+    // the last row falls back to the new last. Only then document order, which
+    // hands focus to the navigation rail — the first thing in the document.
+    const inZone = visible.filter((entry) => entry.zone === lastZone.current)
     const first =
-      visible.find((entry) => entry.zone === lastZone.current) ??
+      inZone[Math.min(lastZoneIndex.current, inZone.length - 1)] ??
       visible[0] ??
       [...entries.current.values()].find((e) => e.layer === top)
     if (first) {

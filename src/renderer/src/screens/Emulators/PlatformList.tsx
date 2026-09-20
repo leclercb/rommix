@@ -2,7 +2,7 @@ import { type JSX, useEffect, useState } from 'react'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem, systemLabel } from '@config/systems'
 import type { DiagnosticsReport, EmulatorId, RommPlatform } from '@shared/types'
-import { FocusButton, PlatformIcon, StatusPill } from '../../components'
+import { FocusButton, PlatformIcon, Spinner, StatusPill } from '../../components'
 import { useApp, useI18n } from '../../state'
 import { EmulatorDialog } from './EmulatorDialog'
 import { Status } from './EmulatorList'
@@ -36,19 +36,45 @@ export function PlatformList({
   // The same order the Emulators list is showing, so "Default" here names the
   // emulator that would actually run the platform.
   const { t } = useI18n()
+  /**
+   * What the emulator button says, as one phrase.
+   *
+   * Built from a single catalogue entry rather than a name with `(default)`
+   * appended: the two do not go in that order in every language, and a
+   * translator handed the bracket on its own cannot see what it attaches to.
+   */
+  const label = (effective: EmulatorId | undefined, byDefault: boolean): string => {
+    if (!effective) return t('value.none')
+    const name = emulatorById(effective)?.name ?? effective
+    return byDefault ? t('platforms.defaultNamed', { name }) : name
+  }
   const { settings } = useApp()
   const priority = settings?.emulatorPriority ?? []
-  const [platforms, setPlatforms] = useState<RommPlatform[]>([])
+  /** Null until the server has answered, which is not the same as none. */
+  const [platforms, setPlatforms] = useState<RommPlatform[] | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
   /** The platform whose emulator is being picked, with nothing chosen yet. */
   const [picking, setPicking] = useState<{ platform: RommPlatform; system: string } | null>(null)
 
   useEffect(() => {
     void window.rommix.library
       .platforms()
-      .then((list) => setPlatforms(list.filter((platform) => platform.rom_count > 0)))
-      .catch(() => setPlatforms([]))
+      .then((list) => {
+        setFailed(null)
+        setPlatforms(list.filter((platform) => platform.rom_count > 0))
+      })
+      .catch((cause: unknown) => {
+        setFailed(cause instanceof Error ? cause.message : String(cause))
+        setPlatforms([])
+      })
   }, [])
 
+  // Three answers, not two. A request still out is a spinner — on a slow server
+  // this sat reading "connect to RomM first" for seconds on a connected machine
+  // — and one that failed says so, rather than reporting a server error as a
+  // configuration problem the player has already solved. `Library` does the same.
+  if (platforms === null) return <Spinner />
+  if (failed) return <p className="notice notice--error">{failed}</p>
   if (platforms.length === 0) {
     return <p className="faint">{t('platforms.connectFirst')}</p>
   }
@@ -135,8 +161,7 @@ export function PlatformList({
                 disabled={candidates.length === 0}
                 onSelect={() => setPicking({ platform, system })}
               >
-                {effective ? (emulatorById(effective)?.name ?? effective) : t('value.none')}
-                {chosen[system] == null && effective ? ` ${t('platforms.default')}` : ''}
+                {label(effective, chosen[system] == null)}
               </FocusButton>
             </div>
           </div>

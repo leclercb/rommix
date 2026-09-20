@@ -8,6 +8,7 @@ import type { RommDevice, RommFirmware, RommRom, RommRomFile } from '@shared/typ
 import {
   RommClient,
   RommError,
+  REQUIRED_SCOPES,
   UnsupportedServerError,
   atLeast,
   isComparable,
@@ -1742,6 +1743,50 @@ describe('firmware, saves and states', () => {
   })
 })
 
+/** As much of an OpenAPI document as the checks below read. */
+interface SchemaDocument {
+  paths?: Record<
+    string,
+    Record<string, { security?: { OAuth2PasswordBearer?: string[] }[] } | undefined>
+  >
+}
+
+/**
+ * The calls `RommClient` actually makes, as a method and a path pattern.
+ *
+ * Both halves matter: RomMix reads `/api/platforms` and `/api/roms/{id}`, and
+ * RomM also publishes writes on those same paths that want scopes RomMix has no
+ * business holding. Written out rather than derived, because the client builds
+ * most of these by template and a regex over its source would be a second parser
+ * to get wrong.
+ */
+const CALLED: readonly { method: string; path: RegExp }[] = [
+  { method: 'get', path: /^\/api\/heartbeat$/ },
+  { method: 'post', path: /^\/api\/token$/ },
+  { method: 'post', path: /^\/api\/auth\/device\/(init|token)$/ },
+  { method: 'get', path: /^\/api\/users\/me$/ },
+  { method: 'post', path: /^\/api\/users\/\{[^}]+\}\/ra\/refresh$/ },
+  { method: 'get', path: /^\/api\/platforms$/ },
+  { method: 'get', path: /^\/api\/roms$/ },
+  { method: 'get', path: /^\/api\/roms\/\{[^}]+\}$/ },
+  { method: 'get', path: /^\/api\/roms\/\{[^}]+\}\/content/ },
+  { method: 'get', path: /^\/api\/roms\/\{[^}]+\}\/files\// },
+  { method: 'put', path: /^\/api\/roms\/\{[^}]+\}\/props$/ },
+  { method: 'get', path: /^\/api\/collections(\/virtual)?$/ },
+  { method: 'post', path: /^\/api\/collections$/ },
+  { method: 'post', path: /^\/api\/collections\/\{[^}]+\}\/roms$/ },
+  { method: 'delete', path: /^\/api\/collections\/\{[^}]+\}\/roms$/ },
+  { method: 'get', path: /^\/api\/(saves|states)$/ },
+  { method: 'post', path: /^\/api\/(saves|states)$/ },
+  { method: 'post', path: /^\/api\/(saves|states)\/delete$/ },
+  { method: 'get', path: /^\/api\/firmware$/ },
+  { method: 'get', path: /^\/api\/firmware\/\{[^}]+\}\/content/ },
+  { method: 'get', path: /^\/api\/play-sessions$/ },
+  { method: 'post', path: /^\/api\/play-sessions$/ },
+  { method: 'get', path: /^\/api\/devices$/ },
+  { method: 'post', path: /^\/api\/devices$/ }
+]
+
 /**
  * Which servers this build will talk to at all.
  *
@@ -1761,6 +1806,45 @@ describe('the oldest server this build can read', () => {
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0]
 
     assert.equal(MINIMUM_SERVER_VERSION, oldest)
+  })
+
+  test('every scope an endpoint RomMix calls requires is one RomMix asks for', () => {
+    /**
+     * The token is asked for once, with a fixed list — see `REQUIRED_SCOPES` —
+     * and a scope missing from it cannot be recovered without pairing again. So a
+     * 403 on one endpoint is not a failure anybody can act on from the interface:
+     * it is a build that was never going to be allowed to make that call.
+     *
+     * Read off `schema/` rather than listed here, because the server is what
+     * decides, and checked against every supported version: a scope a newer RomM
+     * added to an endpoint RomMix already calls is the case this exists for.
+     */
+    const documents = readdirSync(new URL('../../schema/', import.meta.url))
+      .filter((name) => name.startsWith('romm-') && name.endsWith('.json'))
+      .map(
+        (name) =>
+          JSON.parse(
+            readFileSync(new URL(`../../schema/${name}`, import.meta.url), 'utf8')
+          ) as SchemaDocument
+      )
+
+    const missing = new Set<string>()
+    for (const document of documents) {
+      for (const [path, operations] of Object.entries(document.paths ?? {})) {
+        for (const [method, operation] of Object.entries(operations)) {
+          if (!operation) continue
+          // Only the calls RomMix actually makes. The rest of RomM's surface is
+          // nothing to hold this build's token to.
+          if (!CALLED.some((called) => called.method === method && called.path.test(path))) continue
+          for (const scheme of operation.security ?? []) {
+            for (const scope of scheme.OAuth2PasswordBearer ?? []) {
+              if (!REQUIRED_SCOPES.includes(scope)) missing.add(`${scope} (${path})`)
+            }
+          }
+        }
+      }
+    }
+    assert.deepEqual([...missing].sort(), [])
   })
 
   test('a version is compared as numbers, not as text', () => {

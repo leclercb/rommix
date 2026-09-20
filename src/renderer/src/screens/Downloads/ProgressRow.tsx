@@ -113,7 +113,10 @@ export function ProgressRow({
             about it read as a download about to start from nothing. */}
         {item.receivedBytes > 0 && item.state !== 'done' ? (
           <span className="download__size">
-            {formatBytes(item.receivedBytes)} / {formatBytes(item.totalBytes)}
+            {t('value.progressBytes', {
+              received: formatBytes(item.receivedBytes),
+              total: formatBytes(item.totalBytes)
+            })}
           </span>
         ) : null}
       </div>

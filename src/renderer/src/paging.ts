@@ -154,8 +154,14 @@ export function useRomPages(
         // asked for once there is something to ask would be refused on behalf
         // of a request nothing is listening to any more.
         inFlight.current = false
+        // And with it the flag that says one is out, or the hook goes on
+        // reporting a request in flight for the rest of the run: the disowned
+        // fetch's `finally` is skipped, its run number no longer being current.
+        setLoading(false)
         if (forgetOnStandDown) {
           setRoms([])
+          // The count belongs to the list that has just been emptied.
+          setTotal(null)
           setMore(false)
           onError(null)
           setSettled(true)

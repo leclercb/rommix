@@ -41,7 +41,7 @@ export function folderOf(path: string): string {
  * Emulators take a file, never the directory holding it, so an extracted game
  * needs exactly one of its files nominated. The rule is kept here, separate
  * from the filesystem walk that feeds it, because it is a heuristic applied
- * across ~195 systems and is the part worth testing. Which extensions count
+ * across every system in `SYSTEMS` and is the part worth testing. Which extensions count
  * as what is data, and lives in `src/config/romfiles.ts`.
  */
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { emulatorById } from '@config/emulators'
 import type { InstalledRom, LaunchChoice, SavePushPreview } from '@shared/types'
 import { useApp, useI18n } from '../../state'
@@ -59,7 +59,10 @@ export function useGameLaunch(options: {
   // `entry` is the shape that goes wrong quietly: the entry can be replaced by
   // one the effect never re-runs for.
   const installedFor = entry ? `${entry.emulatorId}:${entry.system}` : null
+  /** Which request the answer on screen belongs to. See `Game`'s own guard. */
+  const run = useRef(0)
   useEffect(() => {
+    const mine = (run.current += 1)
     if (installedFor === null) {
       setVariants([])
       setSetup(null)
@@ -68,10 +71,15 @@ export function useGameLaunch(options: {
     void window.rommix.game
       .variants(romId)
       .then((choice) => {
+        // A late answer sets both the gate on the "Run with" button and a notice
+        // naming an emulator — so without this, stepping between two dumps can
+        // leave the previous game's warning over this one.
+        if (run.current !== mine) return
         setVariants(choice.options)
         setSetup({ emulatorId: choice.emulatorId, notes: choice.setupNotes })
       })
       .catch(() => {
+        if (run.current !== mine) return
         setVariants([])
         setSetup(null)
       })

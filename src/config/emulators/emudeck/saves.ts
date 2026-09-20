@@ -8,8 +8,8 @@ import type { SaveContext, SavePaths } from '../savepaths.ts'
 /**
  * Where EmuDeck's emulators keep their saves.
  *
- * EmuDeck's arrangement is the tidiest of the three and the old flags described
- * it worst. It gathers every emulator under one root:
+ * EmuDeck's arrangement is the tidiest of the three. It gathers every emulator
+ * under one root:
  *
  *     Emulation/saves/<emulator>/saves
  *     Emulation/saves/<emulator>/states
@@ -55,8 +55,13 @@ const SWITCH_FOLDERS: Readonly<Record<string, string>> = {
   suyu: 'Suyu'
 }
 
-/** How each emulator arranges what is under its folder. */
-type FolderSaves = (ctx: SaveContext, root: string) => SavePaths
+/**
+ * How each emulator arranges what is under its folder.
+ *
+ * `core` is the libretro core the chosen launcher actually loads, for the one
+ * entry that needs it. Null for a standalone, which has no core.
+ */
+type FolderSaves = (ctx: SaveContext, root: string, core: string | null) => SavePaths
 
 /** The common shape: files named after the ROM, in `saves/` and `states/`. */
 function standard(root: string): SavePaths {
@@ -82,7 +87,7 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
    * the flags are one menu entry away from being changed, and the config is
    * where the answer actually is.
    */
-  retroarch: (ctx, root) =>
+  retroarch: (ctx, root, core) =>
     libretroSavePaths(
       ctx,
       readLibretroConfig(
@@ -100,7 +105,11 @@ const FOLDERS: Readonly<Record<string, FolderSaves>> = {
         ],
         ctx.home
       ),
-      coreForSystem(ctx.system),
+      // The launcher's own core, not the system table's default. EmuDeck leads
+      // with `melondsds` where the table says `melonds`, and `mednafen_lynx`
+      // where it says `handy` — and with RetroArch's sort-by-core flag on, the
+      // folder written to is named after whichever of the two this is.
+      core ?? coreForSystem(ctx.system),
       { saves: joinPath(root, 'saves'), states: joinPath(root, 'states') }
     ),
 
@@ -211,6 +220,6 @@ export function emuDeckSavePaths(
   }
 
   const known = FOLDERS[folder]
-  const paths = known ? known(ctx, root) : standard(root)
+  const paths = known ? known(ctx, root, core) : standard(root)
   return { ...paths, emulator, ...legacy }
 }

@@ -14,6 +14,11 @@ import type { RommRom, RommUser } from '@shared/types'
 export interface AchievementRow {
   /** RetroAchievements' own id, which is what the earned list names. */
   id: string
+  /**
+   * Unique per row, which `id` is not: a scraped set can carry entries with no
+   * `ra_id` at all. Drawn as the React key and as `data-achievement`.
+   */
+  key: string
   title: string
   description: string
   points: number
@@ -70,11 +75,17 @@ export function achievementsOf(rom: RommRom, user: RommUser | null): Achievement
     // game. Sorted rather than trusted to arrive that way, and stable where a
     // scraped row has no order at all.
     .sort((left, right) => (left.display_order ?? 0) - (right.display_order ?? 0))
-    .map((achievement): AchievementRow => {
+    .map((achievement, index): AchievementRow => {
       const id = String(achievement.ra_id ?? '')
       const has = id !== '' && earned.has(id)
       return {
         id,
+        // Unique whatever the server sent. A scraped set can carry two entries
+        // with no `ra_id` — the same shape `display_order ?? 0` is written for —
+        // and two `<li key="">` siblings reconcile by position, so a badge and an
+        // Earned pill can swap rows when the list re-sorts. `npm run test:app`
+        // cannot address either row through `data-achievement` either.
+        key: id || `row-${index}`,
         title: achievement.title ?? '',
         description: achievement.description ?? '',
         points: achievement.points ?? 0,

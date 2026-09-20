@@ -1,8 +1,22 @@
+import { EMULATORS } from '@config/emulators'
 import { artFor, PLATFORMS, ROMS as LIBRARY } from './library'
 import { DEFAULT_DATE_FORMAT, createI18n, localeFor, type MessageKey } from '@shared/i18n'
 import { fileNameOf } from '@shared/gamefiles'
 import { DEFAULT_THEME, THEMES_NOTICE } from '@shared/types'
 import type { RomMixBridge } from '@shared/api'
+
+/**
+ * The emulator the stub pretends is installed.
+ *
+ * Read off the registry rather than named. No code outside `src/config/` may
+ * name an emulator — the preview is code — and a stub that spelled one would go
+ * on describing it after the descriptor had been renamed or dropped.
+ */
+const STUB_EMULATOR = EMULATORS[0]
+const STUB_EMULATOR_ID = STUB_EMULATOR.id
+const STUB_EMULATOR_NAME = STUB_EMULATOR.name
+/** Somewhere plausible for it to keep BIOS files, built from its own id. */
+const STUB_BIOS_DIR = `/home/deck/${STUB_EMULATOR_ID}/bios`
 import type {
   BiosPlatform,
   DownloadItem,
@@ -280,7 +294,7 @@ const INSTALLED: InstalledRom[] = (
     sizeBytes: rom.fs_size_bytes,
     installedAt,
     isDirectory: false,
-    emulatorId: 'retrodeck'
+    emulatorId: STUB_EMULATOR_ID
   }
 })
 
@@ -473,9 +487,9 @@ const biosReport = (): BiosPlatform[] => [
     platformSlug: 'gba',
     platformName: 'Game Boy Advance',
     system: 'gba',
-    emulatorId: 'retrodeck',
-    emulatorName: 'RetroDECK',
-    biosDir: '/home/deck/retrodeck/bios',
+    emulatorId: STUB_EMULATOR_ID,
+    emulatorName: STUB_EMULATOR_NAME,
+    biosDir: STUB_BIOS_DIR,
     stagingNote: null,
     blockedReason: null,
     setupNote: null,
@@ -485,7 +499,7 @@ const biosReport = (): BiosPlatform[] => [
         note: say('bios.note.gbaBios'),
         required: false,
         installed: false,
-        dir: '/home/deck/retrodeck/bios',
+        dir: STUB_BIOS_DIR,
         staged: false,
         firmwareId: 501,
         sizeBytes: 16_384,
@@ -498,9 +512,9 @@ const biosReport = (): BiosPlatform[] => [
     platformSlug: 'atari7800',
     platformName: 'Atari 7800',
     system: 'atari7800',
-    emulatorId: 'retrodeck',
-    emulatorName: 'RetroDECK',
-    biosDir: '/home/deck/retrodeck/bios',
+    emulatorId: STUB_EMULATOR_ID,
+    emulatorName: STUB_EMULATOR_NAME,
+    biosDir: STUB_BIOS_DIR,
     stagingNote: null,
     blockedReason: null,
     setupNote: null,
@@ -510,7 +524,7 @@ const biosReport = (): BiosPlatform[] => [
         note: say('bios.note.atari7800'),
         required: false,
         installed: true,
-        dir: '/home/deck/retrodeck/bios',
+        dir: STUB_BIOS_DIR,
         staged: false,
         firmwareId: 502,
         sizeBytes: 4096,
@@ -525,9 +539,9 @@ const biosReport = (): BiosPlatform[] => [
     platformSlug: 'nes',
     platformName: 'Nintendo Entertainment System',
     system: 'nes',
-    emulatorId: 'retrodeck',
-    emulatorName: 'RetroDECK',
-    biosDir: '/home/deck/retrodeck/bios',
+    emulatorId: STUB_EMULATOR_ID,
+    emulatorName: STUB_EMULATOR_NAME,
+    biosDir: STUB_BIOS_DIR,
     stagingNote: null,
     blockedReason: null,
     setupNote: null,
@@ -942,8 +956,8 @@ const bridge: RomMixBridge = {
       const system = systemOf(rom)
       return later({
         system,
-        emulatorId: 'retrodeck',
-        emulatorName: 'RetroDECK',
+        emulatorId: STUB_EMULATOR_ID,
+        emulatorName: STUB_EMULATOR_NAME,
         setupNotes: [],
         // Two answers for the Mega Drive only, so both the "Run with" button
         // and its absence can be seen. Both are cores RetroDECK really ships.

@@ -78,7 +78,7 @@ export function StatusDialog({
   const { t } = useI18n()
 
   return (
-    <Overlay title={t('status.dialogTitle')} icon="confirm">
+    <Overlay title={t('status.dialogTitle')} icon="confirm" onDismiss={onClose}>
       <ul className="asset-list">
         {CHOICES.map((choice) => (
           <StatusRow

@@ -232,7 +232,6 @@ export const en = {
 
   // -- home -----------------------------------------------------------------
 
-  'home.title': 'Home',
   'home.continuePlaying': 'Continue playing',
   'home.readyToPlay': 'Ready to play',
   'home.favourites': 'Favourites',
@@ -581,7 +580,8 @@ export const en = {
   'saves.scopeLocal': 'from this device',
   'saves.scopeRemote': 'from RomM',
   'saves.empty': 'No saves for this game, here or on RomM.',
-  'saves.emptyPlayIt': 'Play it once and its save will appear here.',
+  'saves.emptyPlayable':
+    'No saves for this game, here or on RomM. Play it once and its save will appear here.',
   'saves.nothingNewer': 'Nothing newer on RomM',
   'saves.pulling': 'Pulling saves',
   'saves.pushing': 'Pushing saves',
@@ -829,8 +829,6 @@ export const en = {
   'emulator.setupIntro':
     'What is left is inside {name} itself — RomMix can neither do these from outside it nor check ' +
     'that they are done:',
-  'emulator.installedToast': '{name} installed',
-  'emulator.installingFlathub': 'Installing from Flathub',
   'emulator.contactingFlathub': 'Contacting Flathub…',
   'emulator.installTitle': 'Install {name}',
   'emulator.fromFlathub': '{appId}, from Flathub',
@@ -845,13 +843,14 @@ export const en = {
   'platforms.noneInstalled': 'None installed',
   'platforms.meta_one': '{system} · {count} game',
   'platforms.meta_other': '{system} · {count} games',
-  'platforms.default': '(default)',
+  'platforms.defaultNamed': '{name} (default)',
   'platforms.dialogTitle': 'What runs {platform}?',
   'platforms.useDefault': 'Default',
   'platforms.inUse': 'In use',
 
   // -- picking a build to install -------------------------------------------
 
+  'host.flatpakExited': 'The Flatpak install stopped without saying why (code {code}).',
   'install.installing': 'Installing {name}',
   'install.title': 'Install {name}',
   'install.flow': 'Installing an emulator',
@@ -875,7 +874,6 @@ export const en = {
   'install.whichBuild':
     'Pick the build that matches your hardware. In doubt, the plainest name is the ' +
     'general-purpose one.',
-  'install.otherVersions': 'Other versions',
 
   // -- RomMix's own updates -------------------------------------------------
 
@@ -897,12 +895,13 @@ export const en = {
   'update.notCheckedYet': 'not checked yet',
   'update.lastChecked': 'Last checked',
   'update.available': 'RomMix {version} is available.',
-  'update.availableBlocked': 'Download it from the releases page.',
-  'update.availableAuto': 'It is being fetched now.',
-  'update.availableManual': 'Fetch it whenever suits you — nothing is downloaded until you do.',
+  'update.availableAutoLine': '{version} It is being fetched now.',
+  'update.availableManualLine':
+    '{version} Fetch it whenever suits you — nothing is downloaded until you do.',
+  'update.availableBlockedLine': '{version} Download it from the releases page.',
+  'update.readyLine': '{version} It runs the next time RomMix starts, or now if you restart.',
   'update.downloadingLine': 'Downloading RomMix {version}: {size}',
   'update.ready': 'RomMix {version} is ready.',
-  'update.readyDefault': 'It runs the next time RomMix starts, or now if you restart.',
   'update.upToDate': 'RomMix is up to date.',
   'update.checkNow': 'Check now',
   'update.downloadVersion': 'Download {version}',
@@ -1019,6 +1018,10 @@ export const en = {
     '{name} is not the file that was published. It has been deleted rather than installed.',
   'error.downloadCorrupt': 'What arrived is not the file RomM holds, so it has been discarded',
   'error.emptyResponseBody': 'RomM returned an empty response body',
+  'error.transferEndedEarly':
+    'The download ended before the whole file arrived. It will pick up where it left off.',
+  'error.saveEndedEarly': 'Only part of {name} arrived from RomM, so it was left alone.',
+  'error.saveTreeTooLarge': 'This save folder is too large to send as one archive.',
   'error.emptyAssetBody': 'Empty asset body',
   'error.credentialsRequired': 'Username and password are required',
   'error.tokenRequired': 'An API token is required',

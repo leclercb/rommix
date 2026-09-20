@@ -9,7 +9,7 @@ import type {
 import type { RomMixApp } from '../app.ts'
 import { saveContext } from '../gamecontext.ts'
 import type { Handle } from './handler.ts'
-import { throttledProgress } from './progress.ts'
+import { throttledProgress } from './handler.ts'
 
 /** One transfer's progress, on its way to the game screen. */
 const saveProgress = (rommix: RomMixApp): ((progress: SaveProgress) => void) =>
@@ -83,8 +83,12 @@ export function registerSaveIpc(rommix: RomMixApp, handle: Handle): void {
       paths,
       saveProgress(rommix)
     )
-    // The list that was approved is the list that was waiting, so answering
-    // it is the end of the matter however many files went.
+    // Approving the list is not the same as the list having gone. `uploadAssets`
+    // carries on past a file the server refused, so this resolves with a count
+    // of what failed — and because `previewPush` succeeded there is no record
+    // from the way in for `recheckUnsentSaves` to find, so without this the
+    // files sit on the disk with one transient toast as their only trace.
+    if (result.failed > 0) rommix.noteUnsentSaves(romId, 0)
     await rommix.recheckUnsentSaves(romId)
     return result
   })

@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RommRom } from '@shared/types'
 import { installName, listDir } from './install.ts'
-import { expandShell } from './emulators.ts'
 import { builtForThisMachine } from './releases.ts'
 import { normaliseBaseUrl } from './romm/index.ts'
 
@@ -113,69 +112,6 @@ test('a missing folder lists as empty rather than throwing', async () => {
   assert.equal(listing.byStem.size, 0)
 })
 
-// -- expandShell ------------------------------------------------------------
-
-test('a settings value referring to another is resolved', () => {
-  // EmuDeck writes exactly this, and handling only `$HOME` left it as a folder
-  // literally named `$emulationPath`.
-  const known = new Map([['emulationPath', '/run/media/sd/Emulation']])
-  assert.equal(expandShell('$emulationPath/roms', known), '/run/media/sd/Emulation/roms')
-  assert.equal(expandShell('${emulationPath}/bios', known), '/run/media/sd/Emulation/bios')
-})
-
-test('$HOME and a leading tilde both expand', () => {
-  const home = process.env.HOME ?? ''
-  assert.equal(expandShell('$HOME/Emulation', new Map()), `${home}/Emulation`)
-  assert.equal(expandShell('${HOME}/Emulation', new Map()), `${home}/Emulation`)
-  assert.equal(expandShell('~/Emulation', new Map()), `${home}/Emulation`)
-})
-
-test('a tilde inside a path is left alone', () => {
-  // Only the shell's own rule: `~` is a home reference at the front and a
-  // character everywhere else.
-  assert.equal(expandShell('/games/back~up', new Map()), '/games/back~up')
-})
-
-test('an unresolvable reference makes the whole value null', () => {
-  // Dropped rather than used: a ROM folder called `$nope` is worse than none,
-  // because the missing one is reported and the named one is silently created.
-  assert.equal(expandShell('$nope/roms', new Map()), null)
-})
-
-test('a plain absolute path passes through untouched', () => {
-  assert.equal(expandShell('/home/deck/Emulation', new Map()), '/home/deck/Emulation')
-})
-
-test('quotes around part of a value do not survive into the path', () => {
-  // What EmuDeck writes today, and what an outermost-pair strip got wrong: the
-  // opening quote came off, the one before `/Emulation` did not, and the
-  // library root became `/home/user"/Emulation` — unopenable, on a machine
-  // where EmuDeck was installed and working.
-  const home = process.env.HOME ?? ''
-  assert.equal(expandShell('"$HOME"/Emulation', new Map()), `${home}/Emulation`)
-  assert.equal(expandShell('"$HOME"/Emulation/tools', new Map()), `${home}/Emulation/tools`)
-  assert.equal(expandShell('"${HOME}"/Emulation', new Map()), `${home}/Emulation`)
-})
-
-test('a fully quoted value reads the same as an unquoted one', () => {
-  const known = new Map([['emulationPath', '/run/media/sd/Emulation']])
-  assert.equal(expandShell('"$emulationPath/roms"', known), '/run/media/sd/Emulation/roms')
-  assert.equal(expandShell("'/games/Emulation'", known), '/games/Emulation')
-})
-
-test('single quotes keep a value literal, as the shell does', () => {
-  // Rare in these files, but the difference is not cosmetic: expanding inside
-  // them would invent a path, and refusing to would drop a real one.
-  assert.equal(expandShell("'$HOME/Emulation'", new Map()), '$HOME/Emulation')
-})
-
-test('an unquoted space ends the value', () => {
-  // `path=/a/b # note` is an assignment followed by two more words, and a
-  // trailing comment is not part of the directory name.
-  assert.equal(expandShell('/games/Emulation # the good one', new Map()), '/games/Emulation')
-  assert.equal(expandShell('"/games/My Emulation"', new Map()), '/games/My Emulation')
-})
-
 // -- builtForThisMachine ----------------------------------------------------
 
 test('a build for another architecture is refused', () => {
@@ -210,6 +146,16 @@ test('a pasted /api is dropped, since RomMix adds it back', () => {
 
 test('a subpath the server is actually hosted under is kept', () => {
   assert.equal(normaliseBaseUrl('https://example.org/romm/'), 'https://example.org/romm')
+})
+
+test('a query string or a fragment from a pasted web UI address is dropped', () => {
+  // The field asks for "the same address you use for the RomM web interface", so
+  // both of these are what a browser's own URL bar hands over. Request paths are
+  // concatenated onto the result, and a fragment is never sent — so kept, every
+  // call would fetch `/` and sign-in would fail against a working server.
+  assert.equal(normaliseBaseUrl('https://romm.example.org/?tab=1'), 'https://romm.example.org')
+  assert.equal(normaliseBaseUrl('https://romm.example.org/#/library'), 'https://romm.example.org')
+  assert.equal(normaliseBaseUrl('https://example.org/romm/?x=1#/roms'), 'https://example.org/romm')
 })
 
 test('plain http is left as it was typed', () => {

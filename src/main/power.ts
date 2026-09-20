@@ -58,8 +58,10 @@ export async function powerActions(): Promise<PowerAction[]> {
  * Returns as soon as the request is accepted, which is well before the machine
  * acts on it: a suspend is a few hundred milliseconds of disks being flushed,
  * and a poweroff ends this process on its own. Nothing here waits for that, and
- * nothing closes RomMix first — a session that comes back from sleep comes back
- * to the library it left.
+ * nothing here closes RomMix either — a session that comes back from sleep comes
+ * back to the library it left. Restarting and turning off are a different matter
+ * and are not this function's to settle: `system:power` accounts for the session
+ * in progress before asking for either, because both end this process.
  *
  * A refusal is the case worth being loud about: polkit answers "Interactive
  * authentication required" to a user who is not on the active local session,

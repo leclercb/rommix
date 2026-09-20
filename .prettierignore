@@ -7,3 +7,4 @@ dist
 packaging/icon.png
 package-lock.json
 *.tsbuildinfo
+.claude/worktrees

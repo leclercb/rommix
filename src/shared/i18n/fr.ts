@@ -225,7 +225,6 @@ export const fr: Catalog = {
 
   // -- accueil --------------------------------------------------------------
 
-  'home.title': 'Accueil',
   'home.continuePlaying': 'Reprendre une partie',
   'home.readyToPlay': 'Prêts à jouer',
   'home.favourites': 'Favoris',
@@ -586,7 +585,8 @@ export const fr: Catalog = {
   'saves.scopeLocal': 'de cet appareil',
   'saves.scopeRemote': 'de RomM',
   'saves.empty': 'Aucune sauvegarde pour ce jeu, ni ici ni sur RomM.',
-  'saves.emptyPlayIt': 'Jouez-y une fois et sa sauvegarde apparaîtra ici.',
+  'saves.emptyPlayable':
+    'Aucune sauvegarde pour ce jeu, ni ici ni sur RomM. Lancez-le une fois et sa sauvegarde apparaîtra ici.',
   'saves.nothingNewer': 'Rien de plus récent sur RomM',
   'saves.pulling': 'Récupération des sauvegardes',
   'saves.pushing': 'Envoi des sauvegardes',
@@ -836,8 +836,6 @@ export const fr: Catalog = {
   'emulator.setupIntro':
     'Ce qui reste se passe dans {name} même — RomMix ne peut ni le faire depuis l’extérieur ni ' +
     'vérifier que c’est fait :',
-  'emulator.installedToast': '{name} installé',
-  'emulator.installingFlathub': 'Installation depuis Flathub',
   'emulator.contactingFlathub': 'Contact de Flathub…',
   'emulator.installTitle': 'Installer {name}',
   'emulator.fromFlathub': '{appId}, depuis Flathub',
@@ -853,13 +851,14 @@ export const fr: Catalog = {
   'platforms.noneInstalled': 'Aucun installé',
   'platforms.meta_one': '{system} · {count} jeu',
   'platforms.meta_other': '{system} · {count} jeux',
-  'platforms.default': '(par défaut)',
+  'platforms.defaultNamed': '{name} (par défaut)',
   'platforms.dialogTitle': 'Qu’est-ce qui fait tourner {platform} ?',
   'platforms.useDefault': 'Par défaut',
   'platforms.inUse': 'Utilisé',
 
   // -- choisir une version à installer --------------------------------------
 
+  'host.flatpakExited': "L'installation Flatpak s'est arrêtée sans explication (code {code}).",
   'install.installing': 'Installation de {name}',
   'install.title': 'Installer {name}',
   'install.flow': 'Installation d’un émulateur',
@@ -883,7 +882,6 @@ export const fr: Catalog = {
   'install.whichBuild':
     'Choisissez la version qui correspond à votre matériel. Dans le doute, le nom le plus ' +
     'simple est celui à usage général.',
-  'install.otherVersions': 'Autres versions',
 
   // -- les mises à jour de RomMix -------------------------------------------
 
@@ -907,14 +905,14 @@ export const fr: Catalog = {
   'update.notCheckedYet': 'pas encore vérifié',
   'update.lastChecked': 'Dernière vérification',
   'update.available': 'RomMix {version} est disponible.',
-  'update.availableBlocked': 'Téléchargez-le depuis la page des versions.',
-  'update.availableAuto': 'Il est en cours de récupération.',
-  'update.availableManual':
-    'Récupérez-le quand cela vous arrange — rien n’est téléchargé tant que vous ne le faites pas.',
+  'update.availableAutoLine': '{version} Elle est en cours de téléchargement.',
+  'update.availableManualLine':
+    "{version} Téléchargez-la quand cela vous convient — rien n'est téléchargé avant.",
+  'update.availableBlockedLine': '{version} Téléchargez-la depuis la page des versions.',
+  'update.readyLine':
+    '{version} Elle démarrera au prochain lancement de RomMix, ou maintenant si vous redémarrez.',
   'update.downloadingLine': 'Téléchargement de RomMix {version} : {size}',
   'update.ready': 'RomMix {version} est prêt.',
-  'update.readyDefault':
-    'Il sera utilisé au prochain démarrage de RomMix, ou tout de suite si vous redémarrez.',
   'update.upToDate': 'RomMix est à jour.',
   'update.checkNow': 'Vérifier maintenant',
   'update.downloadVersion': 'Télécharger {version}',
@@ -1039,6 +1037,12 @@ export const fr: Catalog = {
   'error.downloadCorrupt':
     'Ce qui est arrivé n’est pas le fichier que RomM détient ; il a été supprimé',
   'error.emptyResponseBody': 'RomM a renvoyé un corps de réponse vide',
+  'error.transferEndedEarly':
+    "Le téléchargement s'est interrompu avant la fin du fichier. Il reprendra où il s'est arrêté.",
+  'error.saveEndedEarly':
+    "Seule une partie de {name} est arrivée depuis RomM ; le fichier n'a pas été touché.",
+  'error.saveTreeTooLarge':
+    'Ce dossier de sauvegarde est trop volumineux pour être envoyé en une archive.',
   'error.emptyAssetBody': 'Corps de fichier vide',
   'error.credentialsRequired': 'L’identifiant et le mot de passe sont obligatoires',
   'error.tokenRequired': 'Un jeton API est obligatoire',

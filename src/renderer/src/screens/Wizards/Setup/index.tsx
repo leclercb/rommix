@@ -166,46 +166,64 @@ export function SetupScreen(): JSX.Element {
   const stepNumber = SETUP_STEPS.indexOf(step) + 1
   const at = (next: SetupStep): void => setStep(next)
 
+  /**
+   * The quit dialog, drawn from whichever page is on screen.
+   *
+   * The `back` binding above arms it for every step, but it used to be rendered
+   * only from the final branch — so B on the first two pages appeared to do
+   * nothing and then produced "Quit RomMix?" over the connect form several
+   * presses later. Every branch draws it, which is what makes the binding true.
+   */
+  const quitDialog = confirmingQuit ? (
+    <QuitOverlay onCancel={() => setConfirmingQuit(false)} />
+  ) : null
+
   if (step === 'interface') {
     return (
-      <SetupPage
-        step={stepNumber}
-        title={t('setup.interfaceTitle')}
-        subtitle={t('setup.interfaceSubtitle')}
-        next={() => at('storage')}
-      >
-        {/* Language first: it is the one answer that decides whether the two
+      <>
+        <SetupPage
+          step={stepNumber}
+          title={t('setup.interfaceTitle')}
+          subtitle={t('setup.interfaceSubtitle')}
+          next={() => at('storage')}
+        >
+          {/* Language first: it is the one answer that decides whether the two
             below can be read at all. */}
-        <LanguageChoice
-          value={settings.language}
-          onChange={(next) => void saveSettings({ language: next })}
-        />
-        <ThemeChoice />
-        <Choice<UiScaleChoice>
-          label={t('control.scale')}
-          hint={t('setup.scaleHint')}
-          value={uiScaleChoice(settings.uiScale)}
-          options={uiScaleOptions(t)}
-          onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
-        />
-      </SetupPage>
+          <LanguageChoice
+            value={settings.language}
+            onChange={(next) => void saveSettings({ language: next })}
+          />
+          <ThemeChoice />
+          <Choice<UiScaleChoice>
+            label={t('control.scale')}
+            hint={t('setup.scaleHint')}
+            value={uiScaleChoice(settings.uiScale)}
+            options={uiScaleOptions(t)}
+            onChange={(next) => void saveSettings({ uiScale: next === 'auto' ? 0 : Number(next) })}
+          />
+        </SetupPage>
+        {quitDialog}
+      </>
     )
   }
 
   if (step === 'storage') {
     return (
-      <SetupPage
-        step={stepNumber}
-        title={t('setup.storageTitle')}
-        subtitle={t('setup.storageSubtitle')}
-        previous={() => at('interface')}
-        next={() => at('server')}
-      >
-        <RomStorageChoice
-          value={settings.romStorage}
-          onChange={(next: RomStorage) => void saveSettings({ romStorage: next })}
-        />
-      </SetupPage>
+      <>
+        <SetupPage
+          step={stepNumber}
+          title={t('setup.storageTitle')}
+          subtitle={t('setup.storageSubtitle')}
+          previous={() => at('interface')}
+          next={() => at('server')}
+        >
+          <RomStorageChoice
+            value={settings.romStorage}
+            onChange={(next: RomStorage) => void saveSettings({ romStorage: next })}
+          />
+        </SetupPage>
+        {quitDialog}
+      </>
     )
   }
 
@@ -310,7 +328,7 @@ export function SetupScreen(): JSX.Element {
         </div>
       </div>
 
-      {confirmingQuit ? <QuitOverlay onCancel={() => setConfirmingQuit(false)} /> : null}
+      {quitDialog}
 
       {pairing ? (
         <PairingOverlay
@@ -454,7 +472,7 @@ function PairingOverlay({
     : `${origin.replace(/\/+$/, '')}${pairing.verification_path_complete}`
 
   return (
-    <Overlay title={t('connect.pairTitle')} icon="connect">
+    <Overlay title={t('connect.pairTitle')} icon="connect" onDismiss={onCancel}>
       <p className="muted">{t('connect.pairExplainer')}</p>
 
       <div className="pair-qr">

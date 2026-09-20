@@ -350,7 +350,14 @@ export class Library extends EventEmitter {
        */
       if (target.flat && rom.files.length > 1) {
         const wanted = rom.files.map((file) => file.file_name)
-        const found = wanted.filter((name) => present.byName.has(name.toLowerCase()))
+        // Matched case-insensitively, because a hand-copied or differently-cased
+        // dump is routine — but carried on as the name the disk actually holds.
+        // Stat'ing the server's spelling on a filesystem that has the other one
+        // fails, and the game is then recorded installed with no size and a
+        // `launchPath` pointing at nothing.
+        const found = wanted
+          .map((name) => present.byName.get(name.toLowerCase())?.name)
+          .filter((name): name is string => name !== undefined)
 
         if (found.length === wanted.length) {
           const sized = await Promise.all(

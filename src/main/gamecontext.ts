@@ -29,6 +29,18 @@ export interface LaunchOptions {
   /** The recorded choice, or null when there is none to honour. */
   chosen: string | null
   /**
+   * The variant a launch actually runs, choice or no choice.
+   *
+   * `chosen` is null until the user has been asked, and they are only asked
+   * where there is more than one option — so anything that has to agree with the
+   * launch has to agree on this rather than on `chosen`. The save location is
+   * what makes it matter: handed nothing, a descriptor falls back to the head of
+   * its own table, which is the one row `usableVariants` may have dropped, so a
+   * push goes looking for the session's save under an emulator that never ran
+   * and settles the unsent record having found nothing.
+   */
+  effective: string | undefined
+  /**
    * True when the descriptor offers ways to run this system and none of them
    * are on the machine — distinct from an emulator with no variants at all,
    * which is most of them and is not a problem.
@@ -57,10 +69,12 @@ export function launchOptions(
   const descriptor = emulatorById(emulator.id)
   const options = descriptor ? usableVariants(descriptor, system, emulator.install) : []
   const recorded = rommix.store.settings.systemLaunchers[launcherKey(emulator.id, system)]
+  const chosen = options.some((option) => option.id === recorded) ? recorded : null
   return {
     descriptor,
     options,
-    chosen: options.some((option) => option.id === recorded) ? recorded : null,
+    chosen,
+    effective: chosen ?? options[0]?.id,
     noLauncher: options.length === 0 && (descriptor?.variants?.(system).length ?? 0) > 0
   }
 }
@@ -150,10 +164,11 @@ export async function saveContext(rommix: RomMixApp, romId: number): Promise<Sav
     // difference between the two is the difference between finding a save
     // and creating an empty folder beside it.
     romPath: await library.launchTarget(installed),
-    // The same choice `game:launch` honours, resolved the same way, so the save
-    // location and the emulator that wrote it can never disagree — including
-    // when the recorded one has since been uninstalled.
-    variant: launchOptions(rommix, emulator, installed.system).chosen ?? undefined
+    // The variant `game:launch` would run rather than the one that was recorded,
+    // so the save location and the emulator that wrote it cannot disagree — see
+    // `LaunchOptions.effective`. `chosen` is null on a machine that has never
+    // been asked, which is every machine with one usable launcher.
+    variant: launchOptions(rommix, emulator, installed.system).effective
   }
 }
 

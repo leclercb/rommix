@@ -1,6 +1,6 @@
 import type { JSX, Ref } from 'react'
 import type { InstalledRom } from '@shared/types'
-import { CoverArt, FocusButton, SystemIcon } from '../../components'
+import { CoverArt, FocusButton, SystemIcon, titleOf } from '../../components'
 import { useFocusable } from '../../input/focus'
 import { useI18n } from '../../state'
 
@@ -20,7 +20,7 @@ export function InstalledRow({
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
-  const title = entry.name
+  const title = titleOf(entry)
   const files = entry.files
 
   return (
