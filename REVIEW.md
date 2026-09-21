@@ -6,21 +6,6 @@ the work that remains, with the reason each was not done at the time.
 
 ## Left open
 
-- [ ] **`src/config/emulators/libretro.ts` — the core ids RetroDECK and EmuDeck read
-      off disk are missing from `CORE_LIBRARY_NAMES`.** `coreForCommand` captures a
-      name like `mednafen_pce_libretro.so` off the frontend's own configuration, and
-      a core absent from the table falls back to the unsorted directory — which is
-      deliberate and safe, so what this costs is only that a _pull_ does not create
-      the sorted folder a core reads from when "sort saves by core name" is on. Not
-      filled in because each value has to be the core's real `library_name`, and the
-      module's own doc is explicit that a guessed folder is worse than a missing one:
-      a miss falls back, a wrong entry writes the save where the core will never
-      look. EmuDeck's display labels are not a source — they disagree with this
-      table's existing values (`VICE xVIC` against `VICE xvic`). Needs the names read
-      off a real RetroArch. Missing today: `kronos`, `mednafen_saturn`,
-      `mednafen_lynx`, `melondsds`, `mame2003_plus`, `mesen-s`, `easyrpg`, `np2kai`,
-      `vice_xplus4`, `px68k`, `same_cdi`.
-
 - [ ] **Save-table rows no launcher reaches** — `retrodeck/saves.ts` (`primehack`,
       `triforce`, `tanodragon`) and `emudeck/saves.ts` (`vita3k.sh`, `Vita3K`,
       `primehack`, `suyu`). Reported as dead code, but they read as prepared rather

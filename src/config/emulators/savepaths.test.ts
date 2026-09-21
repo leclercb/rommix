@@ -323,9 +323,9 @@ test('an unknown core writes to the unsorted directory rather than a guessed fol
     }
   })
   const paths = resolve(retroarch, {
-    // `scummvm` has a core mapping but no known library name in the table.
-    romPath: '/lib/roms/pc98/game.d88',
-    system: 'pc98',
+    // `hatari` has a core mapping but no known library name in the table.
+    romPath: '/lib/roms/atarist/game.st',
+    system: 'atarist',
     configDir: '/cfg',
     env
   })
