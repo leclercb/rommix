@@ -174,7 +174,7 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'atarixe', label: 'Atari XE', short: 'XE', icon: 'atari8bit', slugs: [] },
   { id: 'atarist', label: 'Atari ST', short: 'ST', icon: 'atari-st', slugs: ['atari-st'], core: 'hatari' },
   { id: 'atarijaguar', label: 'Atari Jaguar', short: 'JAG', icon: 'jaguar', slugs: ['jaguar'], core: 'virtualjaguar' },
-  { id: 'atarijaguarcd', label: 'Atari Jaguar CD', short: 'JAGCD', icon: 'atari-jaguar-cd', slugs: ['atari-jaguar-cd'], core: 'virtualjaguar' },
+  { id: 'atarijaguarcd', label: 'Atari Jaguar CD', short: 'JAGCD', icon: 'atari-jaguar-cd', slugs: ['atari-jaguar-cd'] },
   { id: 'atarilynx', label: 'Atari Lynx', short: 'LYNX', icon: 'lynx', slugs: ['lynx'], core: 'handy' },
 
   // -- Commodore and home computers ----------------------------------------
