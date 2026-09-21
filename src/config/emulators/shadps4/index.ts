@@ -53,7 +53,7 @@ export const shadps4: EmulatorDescriptor = {
     // the user adds to it. RomMix's own folder is the honest answer, and one
     // the user can add there to see the games in shadPS4 too.
     roms: { base: 'rommix', path: 'roms' },
-    saves: { base: 'data', path: 'shadps4/savedata' }
+    saves: { base: 'data', path: 'shadPS4/home' }
     // No `states`: shadPS4 has no save states. No `bios`: it needs no firmware
     // dump, and naming a directory that holds nothing would only make the
     // BIOS screen print a fiction.

@@ -761,49 +761,86 @@ test('Eden has no save states, so none are claimed', () => {
  * exactly as the real one reads it.
  */
 const SERIAL = 'CUSA12345'
-const SAVEDATA = '/data/shadps4/savedata'
+const SHAD_ROOT = '/data/shadPS4'
+const SHAD_HOME = `${SHAD_ROOT}/home`
 
-function shadPaths(env: SaveEnvironment, romPath = `/roms/ps4/${SERIAL}/eboot.bin`): SavePaths {
+function shadPaths(
+  env: SaveEnvironment,
+  romPath = `/roms/ps4/${SERIAL}/eboot.bin`,
+  home = SHAD_HOME
+): SavePaths {
   return shadps4.saves(
-    context({ romPath, system: 'ps4', paths: { saves: SAVEDATA }, env, dataDir: '/data' })
+    context({ romPath, system: 'ps4', paths: { saves: home }, env, dataDir: '/data' })
   )
+}
+
+/** The `users.json` shadPS4 writes, with each player's user id. */
+function shadUsers(ids: Record<number, number>): string {
+  const user = Object.entries(ids).map(([player, id]) => ({
+    player_index: Number(player),
+    user_id: id
+  }))
+  return JSON.stringify({ Users: { user } })
 }
 
 test('shadPS4 resolves a save folder from the serial in the game metadata', () => {
   const env = machine({
-    dirs: { [SAVEDATA]: ['1'], [`${SAVEDATA}/1`]: [SERIAL] },
+    dirs: {
+      [SHAD_ROOT]: ['home'],
+      [SHAD_HOME]: ['1000'],
+      [`${SHAD_HOME}/1000/savedata/${SERIAL}`]: []
+    },
     heads: { [`/roms/ps4/Game/sce_sys/param.sfo`]: `\x00PSF TITLE_ID ${SERIAL} APP_VER` }
   })
   const paths = shadPaths(env, '/roms/ps4/Game/eboot.bin')
-  assert.equal(paths.saves?.dir, `${SAVEDATA}/1/${SERIAL}`)
+  assert.equal(paths.saves?.dir, `${SHAD_HOME}/1000/savedata/${SERIAL}`)
   // The folder is the unit of save data, so it is synced whole.
   assert.equal(paths.saves?.match, 'directory')
   assert.equal(paths.states, null)
 })
 
-test('the user directory already holding this game wins over the first one', () => {
+test('the user directory already holding this game wins over player one', () => {
   const env = machine({
-    dirs: { [SAVEDATA]: ['1', '2'], [`${SAVEDATA}/2`]: [SERIAL] },
-    files: { [`${SAVEDATA}/2/${SERIAL}`]: '' }
+    dirs: {
+      [SHAD_ROOT]: ['home'],
+      [SHAD_HOME]: ['1000', '1001'],
+      [`${SHAD_HOME}/1001/savedata/${SERIAL}`]: []
+    },
+    files: { [`${SHAD_ROOT}/users.json`]: shadUsers({ 1: 1000, 2: 1001 }) }
   })
-  assert.equal(shadPaths(env).saves?.dir, `${SAVEDATA}/2/${SERIAL}`)
+  assert.equal(shadPaths(env).saves?.dir, `${SHAD_HOME}/1001/savedata/${SERIAL}`)
 })
 
-test('a game never played resolves to the only user there is', () => {
-  const env = machine({ dirs: { [SAVEDATA]: ['7'] } })
-  assert.equal(shadPaths(env).saves?.dir, `${SAVEDATA}/7/${SERIAL}`)
+test('a game never played resolves to the user users.json gives player one', () => {
+  // User ids are shadPS4's to assign; the lowest directory is not player one.
+  const env = machine({
+    dirs: { [SHAD_ROOT]: ['home'], [SHAD_HOME]: ['1000', '1004'] },
+    files: { [`${SHAD_ROOT}/users.json`]: shadUsers({ 1: 1004, 2: 1000 }) }
+  })
+  assert.equal(shadPaths(env).saves?.dir, `${SHAD_HOME}/1004/savedata/${SERIAL}`)
 })
 
-test('a savedata directory the emulator spelled differently is still found', () => {
+test('without users.json, a game never played goes to the first user shadPS4 creates', () => {
+  const env = machine({ dirs: { [SHAD_ROOT]: [] } })
+  assert.equal(shadPaths(env).saves?.dir, `${SHAD_HOME}/1000/savedata/${SERIAL}`)
+})
+
+test('without users.json, a game never played goes to the only user there is', () => {
+  const env = machine({ dirs: { [SHAD_ROOT]: ['home'], [SHAD_HOME]: ['1004'] } })
+  assert.equal(shadPaths(env).saves?.dir, `${SHAD_HOME}/1004/savedata/${SERIAL}`)
+})
+
+test('a user data directory the emulator spelled differently is still found', () => {
   // The folder is shadPS4's to create, so the one on disk wins over the one
   // the descriptor names — a difference of case would otherwise cost every
   // save on the system.
-  const env = machine({ dirs: { '/data': ['shadPS4'], '/data/shadPS4/savedata': ['1'] } })
-  assert.equal(shadPaths(env).saves?.dir, `/data/shadPS4/savedata/1/${SERIAL}`)
+  const env = machine({ dirs: { '/data': ['shadPS4'], [SHAD_ROOT]: [] } })
+  const paths = shadPaths(env, undefined, '/data/shadps4/home')
+  assert.equal(paths.saves?.dir, `${SHAD_HOME}/1000/savedata/${SERIAL}`)
 })
 
 test('with no serial, nothing is synced rather than something wrong', () => {
-  const env = machine({ dirs: { [SAVEDATA]: ['1'] } })
+  const env = machine({ dirs: { [SHAD_ROOT]: ['home'], [SHAD_HOME]: ['1000'] } })
   const paths = shadPaths(env, '/roms/ps4/Some Game/eboot.bin')
   assert.equal(paths.saves, null)
   assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /serial/i)
