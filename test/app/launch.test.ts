@@ -191,9 +191,8 @@ describe('handing a platform to another emulator', () => {
   /**
    * Which emulator this platform has been given, or nothing while it is on
    * whatever the default is. Keyed by RomMix's own name for the system rather
-   * than RomM's: the server calls it `genesis-slash-megadrive`, and
-   * `resolveSystem` is what turns that into the id the descriptors are written
-   * against.
+   * than by RomM's platform: `resolveSystem` is what turns one into the other,
+   * and the descriptors are written against the first.
    */
   const chosen = (): Promise<string | null> =>
     app.read<string | null>(

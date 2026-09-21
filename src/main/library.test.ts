@@ -65,7 +65,7 @@ function rom(fields: Partial<RommRom> = {}): RommRom {
     fs_name_no_ext: 'Sonic the Hedgehog (USA)',
     fs_extension: 'md',
     fs_size_bytes: 512,
-    platform_slug: 'genesis-slash-megadrive',
+    platform_slug: 'genesis',
     platform_fs_slug: 'megadrive',
     platform_display_name: 'Sega Mega Drive',
     path_cover_small: null,
@@ -341,8 +341,8 @@ describe('planning where a download goes', () => {
         fs_name: 'Final Fantasy VII',
         fs_name_no_ext: 'Final Fantasy VII',
         fs_extension: '',
-        platform_slug: 'ps',
-        platform_fs_slug: 'ps',
+        platform_slug: 'psx',
+        platform_fs_slug: 'psx',
         files: [{ file_name: 'disc1.cue' }, { file_name: 'disc1.bin' }] as RommRom['files']
       })
     )
@@ -394,8 +394,8 @@ describe('adopting what is already on disk', () => {
         fs_name: 'Final Fantasy VII',
         fs_name_no_ext: 'Final Fantasy VII',
         fs_extension: '',
-        platform_slug: 'ps',
-        platform_fs_slug: 'ps',
+        platform_slug: 'psx',
+        platform_fs_slug: 'psx',
         files: [{ file_name: 'disc1.cue' }, { file_name: 'disc1.bin' }] as RommRom['files']
       })
     ])

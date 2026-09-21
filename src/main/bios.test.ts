@@ -41,8 +41,8 @@ function scratch(): string {
 
 const playstation: RommPlatform = {
   id: 3,
-  slug: 'ps',
-  fs_slug: 'ps',
+  slug: 'psx',
+  fs_slug: 'psx',
   display_name: 'PlayStation',
   name: 'PlayStation',
   rom_count: 10
@@ -228,7 +228,7 @@ describe('the whole report', () => {
 
     assert.deepEqual(
       report.platforms.map((platform) => platform.platformSlug),
-      ['ps', 'atari-7800', 'atari-lynx', 'genesis']
+      ['psx', 'atari-7800', 'atari-lynx', 'genesis']
     )
   })
 })

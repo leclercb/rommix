@@ -33,7 +33,7 @@ function rom(fields: Partial<RommRom> = {}): RommRom {
   return {
     id: 7,
     name: 'Sonic the Hedgehog',
-    platform_slug: 'genesis-slash-megadrive',
+    platform_slug: 'genesis',
     platform_display_name: 'Sega Mega Drive',
     path_cover_small: '/assets/romm/resources/roms/1/7/cover/small.webp',
     path_cover_large: '/assets/romm/resources/roms/1/7/cover/big.png',
@@ -112,7 +112,7 @@ describe('what is written down about a game', () => {
   })
 
   test('the console icon is fetched too, so a grid of covers is complete', async () => {
-    const icon = '/assets/platforms/systematic/genesis-slash-megadrive.svg'
+    const icon = '/assets/platforms/systematic/genesis.svg'
     const cache = new OfflineCache(scratch(), server({ [icon]: '<svg/>' }).client)
 
     await cache.save(rom(), 'genesis')
@@ -152,7 +152,7 @@ describe('what is written down about a game', () => {
 
   test('uninstalling takes the game and its own artwork, and leaves the icon', async () => {
     const cover = '/assets/romm/resources/roms/1/7/cover/small.webp'
-    const icon = '/assets/platforms/systematic/genesis-slash-megadrive.svg'
+    const icon = '/assets/platforms/systematic/genesis.svg'
     const cache = new OfflineCache(scratch(), server({ [cover]: 'c', [icon]: 's' }).client)
     await cache.save(rom(), 'genesis')
 
@@ -191,7 +191,7 @@ describe('sweeping what nothing points at', () => {
 
   test('an installed game keeps everything it names', async () => {
     const cover = '/assets/romm/resources/roms/1/7/cover/small.webp'
-    const icon = '/assets/platforms/systematic/genesis-slash-megadrive.svg'
+    const icon = '/assets/platforms/systematic/genesis.svg'
     const cache = new OfflineCache(scratch(), server({ [cover]: 'c', [icon]: 's' }).client)
     await cache.save(rom(), 'genesis')
 
@@ -201,7 +201,7 @@ describe('sweeping what nothing points at', () => {
   })
 
   test('an icon survives as long as one game on the platform does', async () => {
-    const icon = '/assets/platforms/systematic/genesis-slash-megadrive.svg'
+    const icon = '/assets/platforms/systematic/genesis.svg'
     const cache = new OfflineCache(scratch(), server({ [icon]: 's' }).client)
     await cache.save(rom(), 'genesis')
     await cache.save(rom({ id: 8 }), 'genesis')

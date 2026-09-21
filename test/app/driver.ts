@@ -577,6 +577,14 @@ export async function startApp(options: StartOptions): Promise<App> {
        * thing. Overridable, because those second applications pass their own.
        */
       XDG_CONFIG_HOME: join(home, 'xdg-config'),
+      /**
+       * Flatpak's installations, emptied. The scenarios take it that only the
+       * emulator they install is on the machine — see `downloadAnyway` — and
+       * an emulator the developer has installed as a flatpak runs games that
+       * would otherwise raise the question those scenarios answer.
+       */
+      FLATPAK_SYSTEM_DIR: join(home, 'flatpak-system'),
+      FLATPAK_USER_DIR: join(home, 'flatpak-user'),
       // The run must not touch the developer's own RomMix, and must not ask a
       // keyring to encrypt anything it will then be unable to read.
       ROMMIX_LOG: 'debug',
@@ -1023,15 +1031,20 @@ export async function startApp(options: StartOptions): Promise<App> {
              inner.top >= outer.top &&
              inner.bottom <= outer.bottom
            if (within(here, target) || within(target, here)) return [sideways]
-           // Which axis to press first is decided edge to edge, the way the
-           // focus engine measures. Centres make a wide element's own width
-           // count as distance: a row spanning the page reads as half a screen
-           // to the right of a button drawn within its span, so the walk
-           // presses Left into a wall and turns down the list to get round it.
+           // Gaps are measured edge to edge, the way the focus engine measures.
+           // Centres make a wide element's own width count as distance: a row
+           // spanning the page reads as half a screen to the right of a button
+           // drawn within its span, so the walk presses Left into a wall and
+           // turns down the list to get round it.
            const apart = (a, b, c, d) => Math.max(0, a - b, c - d)
            const acrossGap = apart(target.left, here.right, here.left, target.right)
            const downGap = apart(target.top, here.bottom, here.top, target.bottom)
-           return downGap >= acrossGap ? [vertical, sideways] : [sideways, vertical]
+           // A target on another row is reached by going to that row first,
+           // however far across it lies. Pressing across from a row with
+           // nothing further that way hands the engine the choice of row, and
+           // on a wide window it picks one above. Pressing across first would
+           // make the walk depend on the window's shape rather than the layout.
+           return downGap > 0 || acrossGap === 0 ? [vertical, sideways] : [sideways, vertical]
          })()`
       )
 

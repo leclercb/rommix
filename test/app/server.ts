@@ -664,7 +664,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   /** States this server holds, seeded by `holdState` or left by a push. */
   const heldStates: { state: RommState; content: string }[] = []
   const uploaded: FakeRomm['uploaded'] = []
-  const megadrive = platform(1, 'genesis-slash-megadrive', 'Sega Mega Drive', 'genesis')
+  const megadrive = platform(1, 'genesis', 'Sega Mega Drive', 'genesis')
   const gameboy = platform(2, 'gb', 'Game Boy')
   // A Switch game because Eden is the emulator a launch can be tested with:
   // one system, one way to run it, and no core to fetch off the internet

@@ -54,7 +54,7 @@ const rom = {
   name: 'Sonic the Hedgehog',
   fs_name: 'Sonic the Hedgehog (USA).md',
   fs_name_no_ext: 'Sonic the Hedgehog (USA)',
-  platform_slug: 'genesis-slash-megadrive',
+  platform_slug: 'genesis',
   platform_fs_slug: 'megadrive'
 } as RommRom
 

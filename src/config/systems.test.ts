@@ -72,8 +72,8 @@ test('the slug map is the slug column inverted, with nothing else in it', () => 
 
 test('resolves common RomM platform slugs', () => {
   assert.equal(resolveSystem('snes', 'snes'), 'snes')
-  assert.equal(resolveSystem('ps', 'psx'), 'psx')
-  assert.equal(resolveSystem('genesis-slash-megadrive', 'megadrive'), 'genesis')
+  assert.equal(resolveSystem('psx', 'psx'), 'psx')
+  assert.equal(resolveSystem('genesis', 'genesis'), 'genesis')
   assert.equal(resolveSystem('ngc', 'gamecube'), 'gc')
   assert.equal(resolveSystem('dc', 'dreamcast'), 'dreamcast')
   assert.equal(resolveSystem('3ds', 'n3ds'), 'n3ds')

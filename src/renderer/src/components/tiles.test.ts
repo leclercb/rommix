@@ -24,7 +24,7 @@ function rom(id: number, siblings: number[] = []): RommRom {
     path_cover_small: `/cover/${id}.webp`,
     path_cover_large: null,
     platform_display_name: 'Sega Mega Drive',
-    platform_slug: 'genesis-slash-megadrive',
+    platform_slug: 'genesis',
     sibling_roms: siblings.map((sibling) => ({ id: sibling }))
   } as unknown as RommRom
 }

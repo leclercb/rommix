@@ -16,9 +16,9 @@
  * one and not the others — and the ones it is missing from are found by a
  * screen rendering a blank, not by a test.
  *
- * RomM platform slugs (which follow IGDB's) are a *separate* namespace, so a
- * system carries the slugs that mean it — several, where RomM splits a console
- * RomMix does not. `ROMM_SLUG_TO_ESDE` is that field inverted, not a second
+ * RomM platform slugs are RomM's own — neither ES-DE's names nor IGDB's slugs,
+ * though they often coincide with one or the other — so a system carries the
+ * slugs that mean it: several, where RomM splits a console RomMix does not. `ROMM_SLUG_TO_ESDE` is that field inverted, not a second
  * table to keep in step.
  */
 
@@ -102,12 +102,12 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'n3ds', label: 'Nintendo 3DS', short: '3DS', icon: '3ds', slugs: ['3ds'] },
   { id: 'virtualboy', label: 'Virtual Boy', short: 'VB', icon: 'virtualboy', slugs: ['virtualboy'], core: 'mednafen_vb' },
   { id: 'pokemini', label: 'Pokémon Mini', short: 'MINI', icon: 'pokemon-mini', slugs: ['pokemon-mini'], core: 'pokemini' },
-  { id: 'gameandwatch', label: 'Game & Watch', short: 'G&W', icon: 'g-and-w', slugs: ['game-and-watch'], core: 'gw' },
+  { id: 'gameandwatch', label: 'Game & Watch', short: 'G&W', icon: 'g-and-w', slugs: ['g-and-w'], core: 'gw' },
 
   // -- Sega -----------------------------------------------------------------
   { id: 'mastersystem', label: 'Sega Master System', short: 'SMS', icon: 'sms', slugs: ['sms'], core: 'genesis_plus_gx' },
   { id: 'mark3', label: 'Sega Mark III', short: 'MK3', icon: 'sms', slugs: [] },
-  { id: 'genesis', label: 'Sega Genesis', short: 'GEN', icon: 'genesis', slugs: ['genesis-slash-megadrive'], core: 'genesis_plus_gx' },
+  { id: 'genesis', label: 'Sega Genesis', short: 'GEN', icon: 'genesis', slugs: ['genesis'], core: 'genesis_plus_gx' },
   { id: 'megadrive', label: 'Sega Mega Drive', short: 'MD', icon: 'genesis', slugs: [], core: 'genesis_plus_gx' },
   { id: 'megadrivejp', label: 'Sega Mega Drive (Japan)', short: 'MD', icon: 'genesis', slugs: [], core: 'genesis_plus_gx' },
   { id: 'segacd', label: 'Sega CD', short: 'SCD', icon: 'segacd', slugs: ['segacd'], core: 'genesis_plus_gx' },
@@ -132,10 +132,10 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'triforce', label: 'Triforce', short: 'TRI', icon: 'arcade', slugs: [] },
 
   // -- Sony -----------------------------------------------------------------
-  { id: 'psx', label: 'PlayStation', short: 'PS1', icon: 'psx', slugs: ['ps'], core: 'swanstation' },
+  { id: 'psx', label: 'PlayStation', short: 'PS1', icon: 'psx', slugs: ['psx'], core: 'swanstation' },
   { id: 'ps2', label: 'PlayStation 2', short: 'PS2', icon: 'ps2', slugs: ['ps2'], core: 'pcsx2' },
   { id: 'ps3', label: 'PlayStation 3', short: 'PS3', icon: 'ps3', slugs: ['ps3'] },
-  { id: 'ps4', label: 'PlayStation 4', short: 'PS4', icon: 'ps4', slugs: ['ps4--1'] },
+  { id: 'ps4', label: 'PlayStation 4', short: 'PS4', icon: 'ps4', slugs: ['ps4'] },
   { id: 'psp', label: 'PlayStation Portable', short: 'PSP', icon: 'psp', slugs: ['psp'], core: 'ppsspp' },
   { id: 'psvita', label: 'PlayStation Vita', short: 'VITA', icon: 'psvita', slugs: ['psvita'] },
 
@@ -150,9 +150,9 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'pc', label: 'PC', short: 'PC', icon: 'default', slugs: [] },
 
   // -- NEC ------------------------------------------------------------------
-  { id: 'pcengine', label: 'PC Engine', short: 'PCE', icon: 'pce', slugs: ['turbografx16--1'], core: 'mednafen_pce' },
+  { id: 'pcengine', label: 'PC Engine', short: 'PCE', icon: 'pce', slugs: ['tg16'], core: 'mednafen_pce' },
   { id: 'tg16', label: 'TurboGrafx-16', short: 'TG16', icon: 'tg16', slugs: [], core: 'mednafen_pce' },
-  { id: 'pcenginecd', label: 'PC Engine CD', short: 'PCECD', icon: 'pcecd', slugs: ['turbografx-16-slash-pc-engine-cd'], core: 'mednafen_pce' },
+  { id: 'pcenginecd', label: 'PC Engine CD', short: 'PCECD', icon: 'pcecd', slugs: ['turbografx-cd'], core: 'mednafen_pce' },
   { id: 'tg-cd', label: 'TurboGrafx-CD', short: 'TGCD', icon: 'turbografx-cd', slugs: [], core: 'mednafen_pce' },
   { id: 'supergrafx', label: 'SuperGrafx', short: 'SGFX', icon: 'sgfx', slugs: ['supergrafx'], core: 'mednafen_supergrafx' },
   { id: 'pcfx', label: 'PC-FX', short: 'PCFX', icon: 'pc-fx', slugs: ['pc-fx'], core: 'mednafen_pcfx' },
@@ -163,8 +163,8 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'neogeo', label: 'Neo Geo', short: 'NEO', icon: 'neogeoaes', slugs: ['neogeoaes', 'neogeomvs'], core: 'fbneo' },
   { id: 'neogeocd', label: 'Neo Geo CD', short: 'NGCD', icon: 'neo-geo-cd', slugs: ['neo-geo-cd'], core: 'fbneo' },
   { id: 'neogeocdjp', label: 'Neo Geo CD (Japan)', short: 'NGCD', icon: 'neo-geo-cd', slugs: [] },
-  { id: 'ngp', label: 'Neo Geo Pocket', short: 'NGP', icon: 'neo-geo-pocket', slugs: ['ngp'], core: 'mednafen_ngp' },
-  { id: 'ngpc', label: 'Neo Geo Pocket Color', short: 'NGPC', icon: 'neo-geo-pocket-color', slugs: ['ngpc'], core: 'mednafen_ngp' },
+  { id: 'ngp', label: 'Neo Geo Pocket', short: 'NGP', icon: 'neo-geo-pocket', slugs: ['neo-geo-pocket'], core: 'mednafen_ngp' },
+  { id: 'ngpc', label: 'Neo Geo Pocket Color', short: 'NGPC', icon: 'neo-geo-pocket-color', slugs: ['neo-geo-pocket-color'], core: 'mednafen_ngp' },
 
   // -- Atari ----------------------------------------------------------------
   { id: 'atari2600', label: 'Atari 2600', short: '2600', icon: 'atari2600', slugs: ['atari2600'], core: 'stella' },
@@ -185,7 +185,7 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'cdtv', label: 'Commodore CDTV', short: 'CDTV', icon: 'commodore-cdtv', slugs: [] },
   { id: 'c64', label: 'Commodore 64', short: 'C64', icon: 'c64', slugs: ['c64'], core: 'vice_x64' },
   { id: 'vic20', label: 'Commodore VIC-20', short: 'VIC20', icon: 'vic-20', slugs: ['vic-20'], core: 'vice_xvic' },
-  { id: 'plus4', label: 'Commodore Plus/4', short: 'PLUS4', icon: 'c-plus-4', slugs: ['commodore-plus-slash-4'], core: 'vice_xplus4' },
+  { id: 'plus4', label: 'Commodore Plus/4', short: 'PLUS4', icon: 'c-plus-4', slugs: ['c-plus-4'], core: 'vice_xplus4' },
   { id: 'amstradcpc', label: 'Amstrad CPC', short: 'CPC', icon: 'acpc', slugs: ['acpc'], core: 'cap32' },
   { id: 'gx4000', label: 'Amstrad GX4000', short: 'GX', icon: 'acpc', slugs: [] },
   { id: 'zxspectrum', label: 'Sinclair ZX Spectrum', short: 'ZX', icon: 'zxs', slugs: ['zxs'], core: 'fuse' },
@@ -209,7 +209,7 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'dragon32', label: 'Dragon 32', short: 'DR32', icon: 'default', slugs: ['dragon-32-slash-64'] },
   { id: 'tanodragon', label: 'Tano Dragon', short: 'TANO', icon: 'default', slugs: [] },
   { id: 'oric', label: 'Oric', short: 'ORIC', icon: 'default', slugs: ['oric'] },
-  { id: 'x1', label: 'Sharp X1', short: 'X1', icon: 'x1', slugs: ['sharp-x1'], core: 'x1' },
+  { id: 'x1', label: 'Sharp X1', short: 'X1', icon: 'x1', slugs: ['x1'], core: 'x1' },
   { id: 'x68000', label: 'Sharp X68000', short: 'X68K', icon: 'sharp-x68000', slugs: ['sharp-x68000'], core: 'px68k' },
   { id: 'fm7', label: 'Fujitsu FM-7', short: 'FM7', icon: 'fm-7', slugs: [] },
   { id: 'fmtowns', label: 'Fujitsu FM Towns', short: 'TOWNS', icon: 'fm-towns', slugs: ['fm-towns'] },
@@ -223,14 +223,14 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'colecovision', label: 'ColecoVision', short: 'CV', icon: 'colecovision', slugs: ['colecovision'], core: 'bluemsx' },
   { id: 'intellivision', label: 'Mattel Intellivision', short: 'INTV', icon: 'intellivision', slugs: ['intellivision'], core: 'freeintv' },
   { id: 'vectrex', label: 'Vectrex', short: 'VEC', icon: 'vectrex', slugs: ['vectrex'], core: 'vecx' },
-  { id: 'odyssey2', label: 'Magnavox Odyssey 2', short: 'O2', icon: 'odyssey-2-slash-videopac-g7000', slugs: ['odyssey-2-slash-videopac-g7000'], core: 'o2em' },
+  { id: 'odyssey2', label: 'Magnavox Odyssey 2', short: 'O2', icon: 'odyssey-2-slash-videopac-g7000', slugs: ['odyssey-2'], core: 'o2em' },
   { id: 'videopac', label: 'Philips Videopac G7000', short: 'VP', icon: 'videopac', slugs: [] },
   { id: 'cdimono1', label: 'Philips CD-i', short: 'CDI', icon: 'philips-cd-i', slugs: ['philips-cd-i'], core: 'same_cdi' },
-  { id: 'channelf', label: 'Fairchild Channel F', short: 'CHF', icon: 'fairchild-channel-f', slugs: ['channel-f'], core: 'freechaf' },
+  { id: 'channelf', label: 'Fairchild Channel F', short: 'CHF', icon: 'fairchild-channel-f', slugs: ['fairchild-channel-f'], core: 'freechaf' },
   { id: 'astrocde', label: 'Bally Astrocade', short: 'ASTRO', icon: 'astrocade', slugs: ['astrocade'] },
   { id: 'arcadia', label: 'Emerson Arcadia 2001', short: 'ARC', icon: 'arcadia-2001', slugs: ['arcadia-2001'], core: 'amiarcadia' },
   { id: 'crvision', label: 'VTech CreatiVision', short: 'CV', icon: 'creativision', slugs: [] },
-  { id: 'supervision', label: 'Watara Supervision', short: 'SV', icon: 'supervision', slugs: ['watara-slash-quickshot-supervision'], core: 'potator' },
+  { id: 'supervision', label: 'Watara Supervision', short: 'SV', icon: 'supervision', slugs: ['supervision'], core: 'potator' },
   { id: 'gamecom', label: 'Tiger Game.com', short: 'GCOM', icon: 'game-dot-com', slugs: ['game-dot-com'] },
   { id: 'gmaster', label: 'Hartung Game Master', short: 'GM', icon: 'dedicated-handheld', slugs: [] },
   { id: 'wonderswan', label: 'WonderSwan', short: 'WS', icon: 'wonderswan', slugs: ['wonderswan'], core: 'mednafen_wswan' },
@@ -284,7 +284,7 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'chailove', label: 'ChaiLove', short: 'CHAI', icon: 'default', slugs: [] },
   { id: 'lutro', label: 'Lutro', short: 'LUTRO', icon: 'default', slugs: [] },
   { id: 'lowresnx', label: 'LowRes NX', short: 'NX', icon: 'default', slugs: [] },
-  { id: 'pico8', label: 'PICO-8', short: 'PICO8', icon: 'pico', slugs: ['pico-8'], core: 'retro8' },
+  { id: 'pico8', label: 'PICO-8', short: 'PICO8', icon: 'pico', slugs: ['pico'], core: 'retro8' },
   { id: 'tic80', label: 'TIC-80', short: 'TIC80', icon: 'tic-80', slugs: ['tic-80'], core: 'tic80' },
   { id: 'uzebox', label: 'Uzebox', short: 'UZE', icon: 'default', slugs: ['uzebox'], core: 'uzem' },
   { id: 'wasm4', label: 'WASM-4', short: 'WASM4', icon: 'wasm-4', slugs: ['wasm-4'], core: 'wasm4' },
