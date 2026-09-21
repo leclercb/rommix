@@ -499,7 +499,7 @@ describe('the library', () => {
 describe('favourites', () => {
   const shelf = {
     id: 4,
-    name: 'Favourites',
+    name: 'Favorites',
     is_favorite: true,
     rom_ids: [11],
     rom_count: 1
@@ -535,6 +535,9 @@ describe('favourites', () => {
       sent.map((request) => `${request.method} ${new URL(request.url).pathname}`),
       ['GET /api/collections', 'POST /api/collections', 'POST /api/collections/12/roms']
     )
+    // The flag, not the name, is what makes it the favourites: RomM stores
+    // `is_favorite` as the create call gives it.
+    assert.equal(new URL(sent[1].url).searchParams.get('is_favorite'), 'true')
   })
 
   test('taking a game off a shelf is the same call the other way round', async () => {

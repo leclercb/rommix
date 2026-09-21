@@ -48,34 +48,3 @@ the work that remains, with the reason each was not done at the time.
       ever persist `NaN`. `oauth_scopes` is the one worth keeping rather than
       deleting — it is what would let sign-in check the token it was handed against
       `REQUIRED_SCOPES` and say so, instead of meeting the first 403 at the call site.
-
-## Verify before fixing
-
-None of these can be settled by reading, and each changes a finding's severity.
-
-- [ ] **Does `flatpak run` return early for an app that already has an instance?** If
-      it does, `run()`'s `close` fires within `STARTUP_MS` and a launch is reported
-      failed while the emulator is still up and holding its save files open — worse
-      than anything the review found.
-- [ ] **Is shadPS4's user directory `shadPS4` or `shadps4` on disk?**
-      `ls ~/.local/share | grep -i shadps4`, or under
-      `~/.var/app/net.shadps4.shadPS4/data/`. `shadps4/index.ts:56` declares
-      `shadps4/savedata`; save resolution survives either way through a
-      case-insensitive rescan, but the pre-flight panel prints the declared path,
-      which on a case-sensitive filesystem may not exist.
-- [ ] **Is IGDB's Fairchild Channel F slug `fairchild-channel-f`?** One
-      `GET /api/platforms` against a server holding that platform settles it.
-      `systems.ts:229` claims `channel-f` while the row's own `icon` says the longer
-      form; if the row is wrong the platform surfaces as unmapped and `freechaf` is
-      never reached.
-- [ ] **Is RomM's favourites collection spelled British?** `setFavourite` depends on
-      the name and RomM derives `is_favorite` from it. Neither `schema/` nor the fake
-      can settle it, both encoding the same reading. If it is not, every star press
-      creates another collection.
-- [ ] **Under the `arcade` theme, does a shelf become its own vertical scroller?**
-      `rows.css:5-15` notes that `.row`'s `overflow-y: visible` computes to `auto`
-      beside `overflow-x: auto`, and `scroll.ts:313` treats `auto` as a scroller. If a
-      shelf's content exceeds its `clientHeight` by a pixel — that theme sets
-      `--type-scale: 1.24` against a fixed `padding-bottom` — `scrollParentsOf`
-      returns the shelf as the vertical scroller and the page stops scrolling as focus
-      walks down. `npm run test:app` under that theme is where to settle it.

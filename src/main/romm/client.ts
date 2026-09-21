@@ -591,9 +591,9 @@ export class RommClient {
    *
    * RomM has no per-ROM favourite flag — /api/roms/{id}/props carries rating,
    * backlog and play status and nothing else — so a favourite is a membership
-   * of one ordinary collection, which the server marks `is_favorite` by its
-   * name. A user who has never favourited anything has no such collection yet,
-   * hence the null.
+   * of one ordinary collection, which the server flags `is_favorite`. A user
+   * who has never favourited anything has no such collection yet, hence the
+   * null.
    */
   async favourites(): Promise<RommCollection | null> {
     const all = await this.collections()
@@ -608,8 +608,9 @@ export class RommClient {
   /**
    * Add or remove one game, making the collection on first use.
    *
-   * The name is the whole of what makes it the favourites collection: RomM
-   * derives `is_favorite` from it, and the create call has no field to set.
+   * The flag is what makes it the favourites collection, not the name: RomM
+   * stores `is_favorite` as it is given on the create call, and reads nothing
+   * into what the collection is called.
    */
   async setFavourite(romId: number, favourite: boolean): Promise<boolean> {
     const existing = await this.favourites()
@@ -673,9 +674,9 @@ export class RommClient {
    * Put one game in a collection, or take it out.
    *
    * The same two calls favouriting makes, which is what favouriting *is* on
-   * RomM — one collection whose name the server reads as `is_favorite`. Named
-   * separately because the shelves a user makes for themselves are the general
-   * case and the star is the special one, not the other way round.
+   * RomM — one collection the server flags `is_favorite`. Named separately
+   * because the shelves a user makes for themselves are the general case and
+   * the star is the special one, not the other way round.
    */
   async setCollectionMembership(
     collectionId: number,
@@ -694,11 +695,15 @@ export class RommClient {
     })
   }
 
-  /** POST /api/collections — multipart, since RomM takes artwork on the same call. */
+  /**
+   * POST /api/collections — multipart, since RomM takes artwork on the same
+   * call, with the flags as query parameters. Named as RomM's own interface
+   * names the collection it makes, so the shelf reads the same from either.
+   */
   private async createFavourites(): Promise<RommCollection> {
     const form = new FormData()
-    form.append('name', 'Favourites')
-    const res = await this.request('/api/collections', {
+    form.append('name', 'Favorites')
+    const res = await this.request('/api/collections?is_favorite=true&is_public=false', {
       method: 'POST',
       body: form as RequestInit['body']
     })

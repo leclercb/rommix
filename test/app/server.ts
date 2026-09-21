@@ -936,9 +936,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
        * The shelves, and the one RomM makes on its own.
        *
        * A favourite is not a flag on a game — RomM keeps one ordinary
-       * collection and calls it favourites by its name, so the first press of
-       * the heart creates one. Multipart, because the create call takes artwork
-       * on the same request, and the name is the only field RomMix fills in.
+       * collection flagged as the favourites, so the first press of the heart
+       * creates one. Multipart, because the create call takes artwork on the
+       * same request, with the flags in the query.
        */
       if (url.pathname === '/api/collections') {
         if (req.method !== 'POST') return json(collections)
@@ -954,9 +954,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
           path_covers_small: [],
           path_covers_large: [],
           is_virtual: false,
-          // Derived from the name, the way RomM derives it: nothing on the
-          // create call could say so.
-          is_favorite: name === 'Favourites'
+          // Stored as the create call gives it, the way RomM stores it: the
+          // name has no say.
+          is_favorite: url.searchParams.get('is_favorite') === 'true'
         }
         collections.push(made)
         return json(made)
