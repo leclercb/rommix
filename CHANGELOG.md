@@ -4,6 +4,21 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.19.0 — 2026-09-25
+
+- fix: flag the favourites collection when creating it (08d02c4)
+- fix: map systems to the platform slugs RomM uses (42bc075)
+- fix: resolve shadPS4 saves under its per-user home directory (213434f)
+- fix: stop routing Jaguar CD to virtualjaguar (7bc3dff)
+- fix: correct the wrong libretro library names (e2fe404)
+- fix: add the missing libretro cores to the library name table (635283c)
+- test(unit): cover the four rules REVIEW.md left unpinned (e24259b)
+- fix: let the manual reach the frame it is drawn in (db81b2f)
+- feat: add a canary channel behind ROMMIX_CANARY (c79219c)
+- fix: act on the full-codebase review (0da6593)
+- docs: correct the README where it describes the app wrongly (e0d068f)
+- chore: ignore the vendored skills in every worktree (37a23aa)
+
 ## 0.18.0 — 2026-09-19
 
 - docs: record why the full-library mirror is not done (51a210e)
