@@ -7,6 +7,33 @@ export APPIMAGE_EXTRACT_AND_RUN
 
 unset LD_PRELOAD
 
+rest=$#
+while [ "$rest" -gt 0 ]; do
+  arg=$1
+  shift
+  rest=$((rest - 1))
+  case $arg in
+    --canary)
+      ROMMIX_CANARY=1
+      export ROMMIX_CANARY
+      ;;
+    --log=*)
+      ROMMIX_LOG=${arg#--log=}
+      export ROMMIX_LOG
+      ;;
+    --home=*)
+      ROMMIX_HOME=${arg#--home=}
+      export ROMMIX_HOME
+      ;;
+    --appimage=*)
+      ROMMIX_APPIMAGE=${arg#--appimage=}
+      ;;
+    *)
+      set -- "$@" "$arg"
+      ;;
+  esac
+done
+
 if [ -z "${ROMMIX_APPIMAGE-}" ]; then
   here=$(dirname "$(readlink -f "$0")")
   for candidate in "$here"/RomMix-*.AppImage; do
@@ -19,8 +46,8 @@ fi
 
 if [ -z "${ROMMIX_APPIMAGE-}" ] || [ ! -e "$ROMMIX_APPIMAGE" ]; then
   echo "rommix-steam.sh: no RomMix AppImage found beside this script." >&2
-  echo "  Put RomMix-x86_64.AppImage next to it, or set" >&2
-  echo "  ROMMIX_APPIMAGE=/path/to/RomMix-x86_64.AppImage" >&2
+  echo "  Put RomMix-x86_64.AppImage next to it, or pass" >&2
+  echo "  --appimage=/path/to/RomMix-x86_64.AppImage" >&2
   exit 1
 fi
 

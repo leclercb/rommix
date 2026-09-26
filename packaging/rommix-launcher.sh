@@ -25,6 +25,14 @@
 # the one line it carries is addressed to them — so the reasoning for both
 # files is here.
 #
+# What it does carry, beyond finding the image, is a flag for each variable
+# RomMix reads from the environment. A Steam shortcut names either in one field,
+# and only the variable needs shell syntax in front of %command% to be read as
+# one — so the flag is the form that can be typed on a handheld without knowing
+# what that field is. A flag wins over the variable it sets, since it was typed
+# for the launch it is on, and everything else in the field is left for the
+# image. README.md lists them, which is where the people setting them look.
+#
 # See scripts/after-pack.mjs, which puts this where AppRun looks for `rommix`.
 set -eu
 

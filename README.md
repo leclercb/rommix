@@ -123,6 +123,17 @@ started around that.
 chmod +x RomMix-x86_64.AppImage rommix-steam.sh
 ```
 
+The script also takes as flags the settings RomMix reads from the environment,
+so a shortcut can name them in **Launch options** without shell syntax around
+`%command%`. Anything else there is handed to RomMix untouched.
+
+| Flag                | Same as                                                                           |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `--canary`          | `ROMMIX_CANARY=1` — [builds from the tip of `main`](#builds-from-the-tip-of-main) |
+| `--log=<level>`     | `ROMMIX_LOG` — [how much is written down](#the-log)                               |
+| `--home=<path>`     | `ROMMIX_HOME` — the RomMix folder                                                 |
+| `--appimage=<path>` | the image to start, for one kept away from the script                             |
+
 ### Build it yourself
 
 Node 24 or newer.
@@ -329,6 +340,9 @@ the shortcut's launch options:
 ```bash
 ROMMIX_CANARY=1 %command%
 ```
+
+`rommix-steam.sh` takes `--canary` for the same thing — see
+[From Steam](#from-steam).
 
 The commit in the footer is what identifies one of these builds. The version
 beside it names the release the build came after, and every build between two
