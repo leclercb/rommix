@@ -69,5 +69,3 @@ body:
         after the point such a launch stops. `~/rommix/logs/launcher.log` is the
         one to attach then.
       render: text
-    validations:
-      required: true
