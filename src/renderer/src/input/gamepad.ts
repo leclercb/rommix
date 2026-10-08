@@ -83,6 +83,79 @@ const BUTTON = {
 const UNMAPPED = { START: 7, HAT_X: 6, HAT_Y: 7 } as const
 
 const AXIS_DEADZONE = 0.55
+
+/** The controls the UI reads, before deciding what any of them means. */
+type Control = Direction | 'a' | 'b' | 'x' | 'y' | 'lb' | 'rb' | 'start'
+
+/**
+ * Every connected pad, read as one.
+ *
+ * All of them, because the pad in the first slot is only the one plugged in
+ * first, not the one being held. Merged rather than read one after another, so
+ * a control held on two pads is still one control held and fires once.
+ *
+ * Buttons count from every pad; axes only from the active one, the pad that
+ * last had a button pressed. An axis says nothing about whether anybody is
+ * holding the pad — a stick rests off centre or drifts, and on a pad Chromium
+ * has no mapping for, the axes read as a hat may be something else at rest —
+ * so an idle pad's axes would hold a direction down for as long as it stays
+ * plugged in. For the same reason a stick moves the focus but never decides
+ * which hints are shown.
+ */
+export interface PadsState {
+  buttons: Set<Control>
+  sticks: Set<Direction>
+  /** `Gamepad.index` of the active pad, to hand back on the next read. */
+  active: number | null
+}
+
+export function readPads(pads: readonly (Gamepad | null)[], active: number | null): PadsState {
+  const buttons = new Set<Control>()
+  const sticks = new Set<Direction>()
+
+  const connected = pads.filter((pad): pad is Gamepad => pad !== null)
+  const pressing = (pad: Gamepad): boolean => pad.buttons.some((button) => button.pressed)
+  // The active pad keeps the role while it is in use, so two pads pressed at
+  // once do not trade it back and forth every frame.
+  const current = connected.find((pad) => pad.index === active)
+  const next = current && pressing(current) ? current : (connected.find(pressing) ?? current)
+
+  for (const pad of connected) {
+    const button = (index: number): boolean => pad.buttons[index]?.pressed ?? false
+
+    // See UNMAPPED: on a pad Chromium could not identify, the d-pad is a hat
+    // on two more axes and Start has moved.
+    const mapped = pad.mapping === 'standard'
+    const axis = (index: number): number => (pad === next ? (pad.axes[index] ?? 0) : 0)
+    const hatX = mapped ? 0 : axis(UNMAPPED.HAT_X)
+    const hatY = mapped ? 0 : axis(UNMAPPED.HAT_Y)
+
+    const pressed: [Control, boolean][] = [
+      ['up', button(BUTTON.DPAD_UP) || hatY < -AXIS_DEADZONE],
+      ['down', button(BUTTON.DPAD_DOWN) || hatY > AXIS_DEADZONE],
+      ['left', button(BUTTON.DPAD_LEFT) || hatX < -AXIS_DEADZONE],
+      ['right', button(BUTTON.DPAD_RIGHT) || hatX > AXIS_DEADZONE],
+      ['a', button(BUTTON.A)],
+      ['b', button(BUTTON.B)],
+      ['x', button(BUTTON.X)],
+      ['y', button(BUTTON.Y)],
+      ['lb', button(BUTTON.LB)],
+      ['rb', button(BUTTON.RB)],
+      ['start', button(BUTTON.START) || (!mapped && button(UNMAPPED.START))]
+    ]
+    for (const [control, down] of pressed) if (down) buttons.add(control)
+
+    const axisX = axis(0)
+    const axisY = axis(1)
+    if (axisY < -AXIS_DEADZONE) sticks.add('up')
+    if (axisY > AXIS_DEADZONE) sticks.add('down')
+    if (axisX < -AXIS_DEADZONE) sticks.add('left')
+    if (axisX > AXIS_DEADZONE) sticks.add('right')
+  }
+
+  return { buttons, sticks, active: next?.index ?? null }
+}
+
 /** Delay before a held direction starts repeating, then the repeat period. */
 const REPEAT_DELAY_MS = 400
 const REPEAT_INTERVAL_MS = 90
@@ -124,13 +197,22 @@ export function useGamepad(
     /** When Start went down while suspended, and whether the hold has fired. */
     let holdSince: number | null = null
     let holdFired = false
+    /** The pad whose axes are read. See `readPads`. */
+    let active: number | null = null
 
-    const edge = (key: string, pressed: boolean, rawFire: () => void, repeats: boolean): void => {
-      // Reported here rather than at each call site: every path that reaches a
-      // fire is a button someone pressed, and the poll runs sixty times a
-      // second whether or not anything is held.
+    const edge = (
+      key: string,
+      pressed: boolean,
+      byButton: boolean,
+      rawFire: () => void,
+      repeats: boolean
+    ): void => {
+      // Reported here rather than at each call site, and only for a button: the
+      // poll runs sixty times a second whether or not anything is held, and a
+      // stick that moved the focus is not proof anybody is holding it. See
+      // `readPads`.
       const fire = (): void => {
-        noteRef.current('gamepad')
+        if (byButton) noteRef.current('gamepad')
         rawFire()
       }
       const now = performance.now()
@@ -153,88 +235,64 @@ export function useGamepad(
     }
 
     const poll = (): void => {
-      for (const pad of navigator.getGamepads()) {
-        if (!pad) continue
+      const { buttons, sticks, active: nowActive } = readPads(navigator.getGamepads(), active)
+      active = nowActive
 
-        const button = (index: number): boolean => pad.buttons[index]?.pressed ?? false
-        const [axisX = 0, axisY = 0] = pad.axes
-
-        // See UNMAPPED: on a pad Chromium could not identify, the d-pad is a
-        // hat on two more axes and Start has moved.
-        const mapped = pad.mapping === 'standard'
-        const hatX = mapped ? 0 : (pad.axes[UNMAPPED.HAT_X] ?? 0)
-        const hatY = mapped ? 0 : (pad.axes[UNMAPPED.HAT_Y] ?? 0)
-        const start = button(BUTTON.START) || (!mapped && button(UNMAPPED.START))
-
-        /**
-         * An emulator owns the screen, so the pad is the emulator's.
-         *
-         * The Gamepad API is *polled*, not delivered: `navigator.getGamepads()`
-         * reports button state whoever happens to hold window focus, so without
-         * this every press meant for the game was also read here — and since the
-         * running overlay autofocuses its Close button, pressing A in a game
-         * quit the game.
-         *
-         * The one way through is Start held down, which is the way back from an
-         * emulator that has hung or opened off-screen. Everything else is
-         * dropped, including the held state behind it: a direction still down
-         * when the game exits must not resume repeating into the library.
-         */
-        if (suspendedRef.current) {
-          held.clear()
-          if (!start) {
-            holdSince = null
-            holdFired = false
-          } else {
-            const now = performance.now()
-            if (holdSince === null) holdSince = now
-            else if (!holdFired && now - holdSince >= SUSPENDED_HOLD_MS) {
-              holdFired = true
-              noteRef.current('gamepad')
-              actionRef.current('menu')
-            }
+      /**
+       * An emulator owns the screen, so the pads are the emulator's.
+       *
+       * The Gamepad API is *polled*, not delivered: `navigator.getGamepads()`
+       * reports button state whoever happens to hold window focus, so without
+       * this every press meant for the game was also read here — and since the
+       * running overlay autofocuses its Close button, pressing A in a game quit
+       * the game.
+       *
+       * The one way through is Start held down, which is the way back from an
+       * emulator that has hung or opened off-screen. Everything else is dropped,
+       * including the held state behind it: a direction still down when the
+       * game exits must not resume repeating into the library.
+       */
+      if (suspendedRef.current) {
+        held.clear()
+        if (!buttons.has('start')) {
+          holdSince = null
+          holdFired = false
+        } else {
+          const now = performance.now()
+          if (holdSince === null) holdSince = now
+          else if (!holdFired && now - holdSince >= SUSPENDED_HOLD_MS) {
+            holdFired = true
+            noteRef.current('gamepad')
+            actionRef.current('menu')
           }
-          break
         }
-        holdSince = null
-        holdFired = false
-
-        edge(
-          'up',
-          button(BUTTON.DPAD_UP) || axisY < -AXIS_DEADZONE || hatY < -AXIS_DEADZONE,
-          () => moveRef.current('up'),
-          true
-        )
-        edge(
-          'down',
-          button(BUTTON.DPAD_DOWN) || axisY > AXIS_DEADZONE || hatY > AXIS_DEADZONE,
-          () => moveRef.current('down'),
-          true
-        )
-        edge(
-          'left',
-          button(BUTTON.DPAD_LEFT) || axisX < -AXIS_DEADZONE || hatX < -AXIS_DEADZONE,
-          () => moveRef.current('left'),
-          true
-        )
-        edge(
-          'right',
-          button(BUTTON.DPAD_RIGHT) || axisX > AXIS_DEADZONE || hatX > AXIS_DEADZONE,
-          () => moveRef.current('right'),
-          true
-        )
-
-        edge('a', button(BUTTON.A), () => activateRef.current(), false)
-        edge('b', button(BUTTON.B), () => actionRef.current('back'), false)
-        edge('x', button(BUTTON.X), () => actionRef.current('menu'), false)
-        edge('y', button(BUTTON.Y), () => actionRef.current('search'), false)
-        edge('lb', button(BUTTON.LB), () => actionRef.current('tabLeft'), false)
-        edge('rb', button(BUTTON.RB), () => actionRef.current('tabRight'), false)
-        edge('start', start, () => actionRef.current('menu'), false)
-
-        // One connected pad drives the UI; a second would double every input.
-        break
+        frame = requestAnimationFrame(poll)
+        return
       }
+      holdSince = null
+      holdFired = false
+
+      for (const direction of ['up', 'down', 'left', 'right'] as const) {
+        const byButton = buttons.has(direction)
+        edge(
+          direction,
+          byButton || sticks.has(direction),
+          byButton,
+          () => moveRef.current(direction),
+          true
+        )
+      }
+
+      const press = (control: Control, fire: () => void): void =>
+        edge(control, buttons.has(control), true, fire, false)
+      press('a', () => activateRef.current())
+      press('b', () => actionRef.current('back'))
+      press('x', () => actionRef.current('menu'))
+      press('y', () => actionRef.current('search'))
+      press('lb', () => actionRef.current('tabLeft'))
+      press('rb', () => actionRef.current('tabRight'))
+      press('start', () => actionRef.current('menu'))
+
       frame = requestAnimationFrame(poll)
     }
 
