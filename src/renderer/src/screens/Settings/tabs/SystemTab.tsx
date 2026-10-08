@@ -1,7 +1,7 @@
 import { type JSX, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
 import { FocusButton, Spinner, TextField } from '../../../components'
-import { useGamepadName } from '../../../input/focus'
+import { useGamepadNames } from '../../../input/focus'
 import { useApp, useI18n } from '../../../state'
 import { UpdatePanel } from '../UpdatePanel'
 
@@ -28,7 +28,7 @@ export function SystemTab({
   const { notify } = useApp()
   const [rootDraft, setRootDraft] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
-  const controller = useGamepadName()
+  const controllers = useGamepadNames()
 
   // Null until the field is touched, so the value shown follows the folder RomMix
   // reports rather than a draft captured before it had answered.
@@ -157,8 +157,12 @@ export function SystemTab({
                 </dd>
               </>
             ) : null}
-            <dt>{t('system.controller')}</dt>
-            <dd>{controller ?? t('system.noController')}</dd>
+            <dt>{t('system.controller', { count: controllers.length })}</dt>
+            <dd>
+              {controllers.length > 0
+                ? controllers.map((pad) => <div key={pad.index}>{pad.name}</div>)
+                : t('system.noController')}
+            </dd>
             {/* The file to attach to a bug report, named where the problems are. */}
             <dt>{t('system.logFile')}</dt>
             <dd>{diagnostics.logPath}</dd>

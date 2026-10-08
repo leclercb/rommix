@@ -36,7 +36,7 @@ import type { Action, Direction, InputKind } from './types'
  */
 
 export type { Action, Direction, InputKind } from './types'
-export { useGamepadName } from './gamepad'
+export { useGamepadNames } from './gamepad'
 
 interface FocusableEntry {
   id: string

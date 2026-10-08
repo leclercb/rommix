@@ -21,22 +21,30 @@ export function gamepadPresent(): boolean {
  * Worth reporting because a controller that does not work looks identical from
  * the couch whichever end it failed at, and this separates them: a name here
  * means the pad reached the page and the fault is in what the UI does with it;
- * nothing here means the pad never arrived at all — the usual cause being a
+ * a pad missing from the list never arrived at all — the usual cause being a
  * session where Chromium can open every device in /dev/input and identify
  * none of them as a gamepad, udev's database being out of reach.
+ *
+ * Every pad, in slot order, since every pad drives the UI. See `readPads`.
  *
  * "Not seen yet" is also the honest answer before the first button press:
  * Chromium withholds pads from a page until one of them is used, so that a page
  * cannot silently fingerprint what is plugged in.
  */
-export function useGamepadName(): string | null {
-  const [name, setName] = useState<string | null>(null)
+export function useGamepadNames(): { index: number; name: string }[] {
+  const [pads, setPads] = useState<{ index: number; name: string }[]>([])
 
   useEffect(() => {
     const read = (): void => {
-      const pad = navigator.getGamepads().find((entry) => entry !== null)
-      const next = pad ? `${pad.id}${pad.mapping === 'standard' ? '' : ' (unmapped)'}` : null
-      setName((current) => (current === next ? current : next))
+      const next = navigator
+        .getGamepads()
+        .filter((pad): pad is Gamepad => pad !== null)
+        .map((pad) => ({
+          index: pad.index,
+          name: `${pad.id}${pad.mapping === 'standard' ? '' : ' (unmapped)'}`
+        }))
+      // Read every second, so it must not re-render unless the list changed.
+      setPads((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
     }
     read()
     // Polled rather than driven by `gamepadconnected`, which fires once and
@@ -45,7 +53,7 @@ export function useGamepadName(): string | null {
     return () => window.clearInterval(timer)
   }, [])
 
-  return name
+  return pads
 }
 
 /** Standard-mapping button indices. */
