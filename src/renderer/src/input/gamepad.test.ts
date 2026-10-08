@@ -63,8 +63,19 @@ describe('the active pad', () => {
     assert.equal(readPads([pad(0, [0]), pad(1)], 1).active, 0)
   })
 
-  test('is nobody until a button is pressed', () => {
-    assert.equal(readPads([pad(0, [], [1, 1, 0, 0])], null).active, null)
+  test('among several, is nobody until a button is pressed', () => {
+    assert.equal(readPads([pad(0, [], [1, 1, 0, 0]), pad(1)], null).active, null)
+  })
+
+  test('is a pad on its own, pressed or not', () => {
+    // Its d-pad may be a hat, which is axes, and must work from the first push.
+    const { buttons, active } = readPads([pad(3, [], [0, 0, 0, 0, 0, 0, 1, 0], '')], null)
+    assert.equal(active, 3)
+    assert.deepEqual([...buttons], ['right'])
+  })
+
+  test('is the one left when the active pad is unplugged', () => {
+    assert.equal(readPads([null, pad(1)], 0).active, 1)
   })
 })
 

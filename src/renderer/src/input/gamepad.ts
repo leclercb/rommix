@@ -109,6 +109,10 @@ type Control = Direction | 'a' | 'b' | 'x' | 'y' | 'lb' | 'rb' | 'start'
  * so an idle pad's axes would hold a direction down for as long as it stays
  * plugged in. For the same reason a stick moves the focus but never decides
  * which hints are shown.
+ *
+ * A pad on its own is active without a press. There is no other pad its axes
+ * could be mistaken for, and a pad whose d-pad is a hat must not need a button
+ * pressed before the d-pad works.
  */
 export interface PadsState {
   buttons: Set<Control>
@@ -126,7 +130,9 @@ export function readPads(pads: readonly (Gamepad | null)[], active: number | nul
   // The active pad keeps the role while it is in use, so two pads pressed at
   // once do not trade it back and forth every frame.
   const current = connected.find((pad) => pad.index === active)
-  const next = current && pressing(current) ? current : (connected.find(pressing) ?? current)
+  const alone = connected.length === 1 ? connected[0] : undefined
+  const next =
+    current && pressing(current) ? current : (connected.find(pressing) ?? current ?? alone)
 
   for (const pad of connected) {
     const button = (index: number): boolean => pad.buttons[index]?.pressed ?? false
