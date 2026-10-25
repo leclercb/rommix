@@ -50,13 +50,13 @@
     "esbuild": "^0.28.2",
     "happy-dom": "^21.0.1",
     "husky": "^9.1.7",
-    "oxlint": "^1.88.0",
+    "oxlint": "^1.89.0",
     "prettier": "^3.9.10",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "release-it": "^21.1.1",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   },
   "allowScripts": {
     "esbuild@0.28.2": true
