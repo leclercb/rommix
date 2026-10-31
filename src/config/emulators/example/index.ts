@@ -1,4 +1,4 @@
-import { directory, joinPath, perRom, shared } from '../savepaths.ts'
+import { directory, joinPath, perRom, prefixed, shared } from '../savepaths.ts'
 import type { EmulatorDescriptor } from '../types.ts'
 
 /**
@@ -230,7 +230,8 @@ export const example: EmulatorDescriptor = {
    * table holds: which core was loaded, which of a frontend's emulators ran the
    * game, which profile owns a title. `ctx` carries the discovered roots, the
    * game, the chosen variant, and `ctx.env` — a read-only view of the disk with
-   * `exists`, `dirs`, `files`, `text`, `head` and `newest`.
+   * `exists`, `dirs`, `files`, `text`, `head`, `read` and `newest`, and
+   * `inflateRaw` for an image that deflates its blocks.
    *
    * Return a location per kind, or null where there is none. `match` is the
    * important part:
@@ -243,6 +244,11 @@ export const example: EmulatorDescriptor = {
    *   directory(dir)        the folder *is* this game's data, keyed by a title
    *                         or game id. Synced as one archive, because the
    *                         files inside carry no name tying them to a ROM.
+   *   prefixed(dir, id)     the folders under `dir` whose names begin with an
+   *                         id the game declares, beside every other game's —
+   *                         PPSSPP's SAVEDATA. Synced as one archive of those
+   *                         folders by name; nothing else under `dir` is read
+   *                         or written.
    *   shared(dir)           a memory card, NAND or nvram every game writes to.
    *                         Skipped rather than uploaded under one game's id.
    *
@@ -368,4 +374,4 @@ export const example: EmulatorDescriptor = {
  * `saves` field can return. Referencing them here rather than only in a comment
  * means a rename breaks this file instead of leaving the documentation wrong.
  */
-export const SAVE_HELPERS = { perRom, directory, shared, joinPath }
+export const SAVE_HELPERS = { perRom, directory, prefixed, shared, joinPath }

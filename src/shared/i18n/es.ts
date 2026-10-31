@@ -609,7 +609,7 @@ export const es: Catalog = {
   'saves.primehack':
     'PrimeHack mantiene una sola tarjeta de memoria para todos los juegos, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.ppsspp':
-    'PPSSPP archiva las partidas bajo el identificador de juego impreso dentro de la imagen de disco en lugar del nombre de la ROM, y RomMix no puede leerlo desde fuera del emulador.',
+    'PPSSPP archiva las partidas bajo el identificador de juego impreso dentro de la imagen de disco, que RomMix puede leer en una imagen ISO o CSO pero no en esta.',
   'saves.rpcs3':
     'RPCS3 archiva las partidas bajo el identificador de título de PS3 en lugar del nombre de la ROM, que RomMix no puede asociar a este juego.',
   'saves.cemu':
@@ -1046,6 +1046,8 @@ export const es: Catalog = {
   'error.saveEndedEarly': 'Solo llegó parte de {name} desde RomM, así que no se tocó el archivo.',
   'error.saveTreeTooLarge':
     'Esta carpeta de partidas es demasiado grande para enviarse como un solo archivo.',
+  'error.saveArchiveNotThisGame':
+    'El archivo comprimido en RomM no contiene ninguna carpeta de partidas de este juego.',
   'error.emptyAssetBody': 'Cuerpo de archivo vacío',
   'error.credentialsRequired': 'El usuario y la contraseña son obligatorios',
   'error.tokenRequired': 'Hace falta un token de API',

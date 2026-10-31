@@ -2,6 +2,7 @@ import type { Text } from '@shared/i18n'
 import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig, LIBRETRO_TAG } from '../libretro.ts'
 import { dolphinSaves, dolphinStates } from '../dolphin-saves.ts'
+import { ppssppSaves } from '../psp-saves.ts'
 import { baseName, directory, joinPath, perRom, shared } from '../savepaths.ts'
 import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
 
@@ -103,14 +104,13 @@ export const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
   }),
 
   /**
-   * PPSSPP keeps one directory per game *id*, read out of the ISO's PARAM.SFO
-   * rather than from the file name, and its states are named after that id too.
-   * Neither can be tied to a ROM from outside the emulator.
+   * RetroDECK links `saves/PSP/PPSSPP-SA` at PPSSPP's `PSP/SAVEDATA` and
+   * `states/PSP/PPSSPP-SA` at its `PSP/PPSSPP_STATE`. See `ppssppSaves` for
+   * which folders are this game's.
    */
   ppsspp: (ctx) => ({
-    saves: at(under(savesRoot(ctx), 'PSP', 'PPSSPP-SA'), shared),
-    states: at(under(statesRoot(ctx), 'PSP', 'PPSSPP-SA'), shared),
-    unsyncableReason: 'saves.ppsspp'
+    ...ppssppSaves(ctx, under(savesRoot(ctx), 'PSP', 'PPSSPP-SA')),
+    states: at(under(statesRoot(ctx), 'PSP', 'PPSSPP-SA'), shared)
   }),
   rpcs3: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'rpcs3'), shared),

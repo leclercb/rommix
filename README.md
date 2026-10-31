@@ -275,9 +275,9 @@ one RomMix folder you point every emulator at.
   sends only what you approve.
 
 Saves named after the ROM sync cleanly, Switch-family saves are matched by
-title id, and Wii saves by the game id on the disc. Emulators that share one
-memory card between every game cannot be synced, and RomMix says so rather than
-uploading the wrong data.
+title id, Wii saves by the game id on the disc, and PSP saves by the disc id in
+an ISO or CSO image. Emulators that share one memory card between every game
+cannot be synced, and RomMix says so rather than uploading the wrong data.
 
 **Games → Downloads → Ask before deleting a downloaded game**, on by default.
 

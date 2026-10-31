@@ -3,6 +3,7 @@ import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { joinPath, perRom, shared } from '../savepaths.ts'
 import { dolphinSaves, dolphinStates } from '../dolphin-saves.ts'
+import { ppssppSaves } from '../psp-saves.ts'
 import { switchSavePaths } from '../switch-saves.ts'
 import type { SaveContext, SavePaths } from '../savepaths.ts'
 
@@ -138,10 +139,14 @@ export const FOLDERS: Readonly<Record<string, FolderSaves>> = {
     states: dolphinStates(ctx, joinPath(root, 'StateSaves'), [root])
   }),
 
-  ppsspp: (_ctx, root) => ({
-    saves: shared(joinPath(root, 'saves')),
-    states: shared(joinPath(root, 'states')),
-    unsyncableReason: 'saves.ppsspp'
+  /**
+   * EmuDeck links `ppsspp/saves` at PPSSPP's `PSP/SAVEDATA` and `ppsspp/states`
+   * at its `PSP/PPSSPP_STATE`. See `ppssppSaves` for which folders are this
+   * game's.
+   */
+  ppsspp: (ctx, root) => ({
+    ...ppssppSaves(ctx, joinPath(root, 'saves')),
+    states: shared(joinPath(root, 'states'))
   }),
   rpcs3: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),

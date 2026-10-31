@@ -20,7 +20,8 @@ import type { EmulatorState } from '@config/emulators'
 import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
 import { RommError, type RommClient } from './romm/index.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
-import { zipDirectory } from './zip.ts'
+import { extractZip, zipDirectory } from './zip.ts'
+import { umd } from '@config/emulators/test/discs.ts'
 import { Store } from './store.ts'
 
 /**
@@ -118,7 +119,8 @@ function setUp(
   stateDir: string
   /** Where the copies a pull displaces are kept, one folder per game. */
   backups: string
-  uploaded: { fileName: string; from: string; slot: string | null }[]
+  /** What was sent, with the bytes: the staged file is gone once the upload returns. */
+  uploaded: { fileName: string; from: string; slot: string | null; bytes: Buffer }[]
   deleted: number[]
   store: Store
 } {
@@ -128,7 +130,7 @@ function setUp(
   const romDir = join(home, 'roms')
   for (const dir of [saveDir, stateDir, romDir]) mkdirSync(dir, { recursive: true })
 
-  const uploaded: { fileName: string; from: string; slot: string | null }[] = []
+  const uploaded: { fileName: string; from: string; slot: string | null; bytes: Buffer }[] = []
   const deleted: number[] = []
 
   /** What the server hands over: a file's contents, or a zip of a folder. */
@@ -180,12 +182,12 @@ function setUp(
       slot: string | null
     ) => {
       if (options.uploadFails) throw new Error('fetch failed')
-      uploaded.push({ fileName, from: filePath, slot })
+      uploaded.push({ fileName, from: filePath, slot, bytes: readFileSync(filePath) })
       return save({ file_name: fileName })
     },
     uploadState: async (_romId: number, filePath: string, fileName: string) => {
       if (options.uploadFails) throw new Error('fetch failed')
-      uploaded.push({ fileName, from: filePath, slot: null })
+      uploaded.push({ fileName, from: filePath, slot: null, bytes: readFileSync(filePath) })
       return save({ file_name: fileName })
     },
     deleteSaves: async (ids: number[]) => void deleted.push(...ids),
@@ -1090,6 +1092,38 @@ describe('the ways a pull can go wrong without losing the launch', () => {
   })
 })
 
+describe('an archive filed against a game whose saves are files', () => {
+  test('is left on the server rather than unpacked over every game\u2019s saves', async () => {
+    // RetroArch keeps one flat folder of `.srm` files. An archive tagged for the
+    // same core — PPSSPP's own folders, sent by its standalone build — would
+    // otherwise be unpacked into that folder, with all of it copied aside first.
+    const { sync, target, saveDir, backups } = setUp({
+      saves: [save({ file_name: 'Sonic the Hedgehog (USA).rommix-save.zip' })],
+      archive: { 'ULUS10064DATA00/DATA.BIN': 'from the server' }
+    })
+    const other = join(saveDir, 'Another Game (USA).srm')
+    writeFileSync(other, 'another game')
+    const older = new Date('2026-01-01T00:00:00.000Z')
+    utimesSync(other, older, older)
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 0)
+    assert.equal(existsSync(join(saveDir, 'ULUS10064DATA00')), false)
+    assert.equal(existsSync(join(backups, '7')), false)
+  })
+
+  test('is marked as going nowhere on the game screen, as the pull leaves it', async () => {
+    const { sync, target } = setUp({
+      saves: [save({ file_name: 'Sonic the Hedgehog (USA).rommix-save.zip' })]
+    })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.forAnotherEmulator, true)
+  })
+})
+
 describe('a save the emulator keeps as a folder', () => {
   /**
    * A Switch game and the NAND its saves sit in.
@@ -1810,5 +1844,257 @@ describe('Dolphin, whose states are named after the disc', () => {
 
     assert.equal((await sync.pullNow(target)).states, 1)
     assert.equal(readFileSync(join(stateDir, 'GZLE01.s01'), 'utf8'), 'from the server')
+  })
+})
+
+describe('PPSSPP, whose save folders begin with the disc id', () => {
+  /**
+   * EmuDeck's PPSSPP, on a PSP game whose image is a plain ISO.
+   *
+   * PPSSPP files every game's saves side by side in one `SAVEDATA` folder, each
+   * named after the disc id — see `ppssppSaves` — so that folder belongs to all
+   * of them at once. Every test here has another game's folder beside this
+   * one's, because that folder is what a sync of the whole directory would
+   * carry up under the wrong game and write back over.
+   */
+  const OWN = 'ULUS10064DATA00'
+  const SETTINGS = 'ULUS10064SETTINGS'
+  const OTHER = 'ULES00307SAVE00'
+
+  const OLD = new Date('2026-01-01T00:00:00.000Z')
+
+  function ppsspp(options: Parameters<typeof setUp>[0] = {}): ReturnType<typeof setUp> & {
+    saveData: string
+  } {
+    const made = setUp(options)
+    const home = scratch()
+    const saves = join(home, 'Emulation', 'saves')
+    const saveData = join(saves, 'ppsspp', 'saves')
+    const romPath = join(home, 'Emulation', 'roms', 'psp', 'Syphon Filter (USA).iso')
+    mkdirSync(saveData, { recursive: true })
+    mkdirSync(join(romPath, '..'), { recursive: true })
+    writeFileSync(romPath, Buffer.from(umd('ULUS-10064'), 'latin1'))
+
+    const emulator = {
+      id: 'emudeck',
+      name: 'EmuDeck',
+      available: true,
+      install: null,
+      configDir: null,
+      dataDir: null,
+      unavailableReason: null,
+      paths: { home, roms: join(home, 'Emulation', 'roms'), saves, states: null, bios: home }
+    } as EmulatorState
+    made.target = { rom, emulator, system: 'psp', romPath }
+    return { ...made, saveData }
+  }
+
+  /** A save folder holding `files`, dated as of `at`. */
+  function folder(saveData: string, name: string, files: Record<string, string>, at = OLD): void {
+    for (const [file, contents] of Object.entries(files)) {
+      mkdirSync(join(saveData, name), { recursive: true })
+      writeFileSync(join(saveData, name, file), contents)
+      utimesSync(join(saveData, name, file), at, at)
+    }
+  }
+
+  /** Every file an archive holds, by its path inside it. */
+  async function entries(bytes: Buffer): Promise<string[]> {
+    const dir = scratch()
+    const zip = join(dir, 'sent.zip')
+    writeFileSync(zip, bytes)
+    const into = join(dir, 'out')
+    return (await extractZip(zip, into)).map((path) => path.slice(into.length + 1)).sort()
+  }
+
+  /** A copy in the shared slot, named as RomM names one: the time stamped in. */
+  function slotted(fields: Partial<RommSave> = {}): RommSave {
+    return save({
+      file_name: 'Syphon Filter (USA) [2026-10-28_20-30-03].zip',
+      slot: 'autosave',
+      emulator: 'ppsspp',
+      ...fields
+    })
+  }
+
+  test("only this game's folders go up, by name, as its save in the shared slot", async () => {
+    // Argosy syncs the shared slot alone, and unpacks the folders by name.
+    const { sync, target, saveData, uploaded } = ppsspp()
+    folder(saveData, OWN, { 'DATA.BIN': 'progress' })
+    folder(saveData, SETTINGS, { 'PARAM.SFO': 'settings' })
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' })
+
+    await sync.pushNow(target)
+
+    assert.deepEqual(
+      uploaded.map((file) => ({ fileName: file.fileName, slot: file.slot })),
+      [{ fileName: 'Sonic the Hedgehog (USA).zip', slot: 'autosave' }]
+    )
+    assert.deepEqual(await entries(uploaded[0].bytes), [`${OWN}/DATA.BIN`, `${SETTINGS}/PARAM.SFO`])
+  })
+
+  test('a push that fails says so rather than giving a reason', async () => {
+    // A reason outranks the count on the game screen, so one here would hide
+    // that the save never left this device.
+    const { sync, target, saveData } = ppsspp({ uploadFails: true })
+    folder(saveData, OWN, { 'DATA.BIN': 'progress' })
+
+    const result = await sync.pushNow(target)
+
+    assert.equal(result.failed, 1)
+    assert.equal(result.skippedReason, null)
+  })
+
+  test('a pull with nothing newer gives no reason', async () => {
+    const { sync, target, saveData } = ppsspp()
+    folder(saveData, OWN, { 'DATA.BIN': 'progress' })
+
+    assert.equal((await sync.pullNow(target)).skippedReason, null)
+  })
+
+  test('a file among the folders is marked as going nowhere', async () => {
+    const { sync, target } = ppsspp({ saves: [slotted({ file_name: 'game.bin' })] })
+
+    const [asset] = await sync.listAssets(7, target)
+
+    assert.equal(asset.forAnotherEmulator, true)
+  })
+
+  test("another game's save is not this game's to send", async () => {
+    const { sync, target, saveData, uploaded } = ppsspp()
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' }, new Date())
+
+    await sync.pushNow(target)
+
+    assert.deepEqual(uploaded, [])
+  })
+
+  test("the shared slot comes down into this game's folders, and only those are copied aside", async () => {
+    const { sync, target, saveData, backups } = ppsspp({
+      saves: [slotted()],
+      archive: { [`${OWN}/DATA.BIN`]: 'from the phone' }
+    })
+    folder(saveData, OWN, { 'DATA.BIN': 'played here' })
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    assert.equal(readFileSync(join(saveData, OWN, 'DATA.BIN'), 'utf8'), 'from the phone')
+    assert.equal(readFileSync(join(saveData, OTHER, 'DATA.BIN'), 'utf8'), 'another game')
+    assert.deepEqual(readdirSync(join(backups, '7')), [`${OWN}.1`])
+    const assets = await sync.listAssets(7, target)
+    assert.deepEqual(
+      assets.map((asset) => ({ slot: asset.slot, sync: asset.sync })),
+      [{ slot: 'autosave', sync: 'synced' }]
+    )
+  })
+
+  test('a newer save from another device is asked about rather than pushed over', async () => {
+    const { sync, target, saveData } = ppsspp({
+      saves: [slotted({ updated_at: '2026-08-20T12:00:00.000Z', origin_device_id: 'phone' })]
+    })
+    folder(saveData, OWN, { 'DATA.BIN': 'played here' }, new Date('2026-08-10T12:00:00.000Z'))
+
+    const preview = await sync.previewPush(target)
+
+    assert.equal(preview.files[0].replaces?.isNewer, true)
+  })
+
+  test('a zip under no slot is left on the server', async () => {
+    // One somebody set aside, as Argosy reads it too — not the save being played.
+    const { sync, target, saveData } = ppsspp({
+      saves: [save({ file_name: 'Syphon Filter (USA).zip', emulator: 'ppsspp' })],
+      archive: { [`${OWN}/DATA.BIN`]: 'set aside' }
+    })
+
+    assert.equal((await sync.pullNow(target)).saves, 0)
+    assert.equal(existsSync(join(saveData, OWN)), false)
+  })
+
+  test("an archive writes this game's folders alone, by the name the emulator gave them", async () => {
+    // Another game's folder would be written back over that game's save. A
+    // second spelling of one of this game's is a folder beside the real one on
+    // a disk that tells them apart, and the real one on a disk that does not.
+    const { sync, target, saveData } = ppsspp({
+      saves: [slotted()],
+      archive: {
+        [`${OWN}/DATA.BIN`]: 'from the server',
+        [`${OTHER}/DATA.BIN`]: 'not this game',
+        [`${SETTINGS.toLowerCase()}/PARAM.SFO`]: 'a second spelling'
+      }
+    })
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' })
+
+    await sync.pullNow(target)
+
+    assert.deepEqual(readdirSync(saveData).sort(), [OTHER, OWN])
+    assert.equal(readFileSync(join(saveData, OWN, 'DATA.BIN'), 'utf8'), 'from the server')
+    assert.equal(readFileSync(join(saveData, OTHER, 'DATA.BIN'), 'utf8'), 'another game')
+  })
+
+  test('an archive with none of its folders fails the pull, and takes no copy first', async () => {
+    // Every copy taken for a pull that then writes nothing rotates a real one
+    // out of the backups.
+    const { sync, target, saveData, backups } = ppsspp({
+      saves: [slotted()],
+      archive: { [`${OTHER}/DATA.BIN`]: 'not this game' }
+    })
+    folder(saveData, OWN, { 'DATA.BIN': 'played here' })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.failed, 1)
+    assert.equal(existsSync(join(backups, '7')), false)
+    assert.equal(readFileSync(join(saveData, OWN, 'DATA.BIN'), 'utf8'), 'played here')
+  })
+
+  test("another game's newer save does not make this one read as up to date", async () => {
+    const { sync, target, saveData } = ppsspp({
+      saves: [slotted({ updated_at: '2026-08-01T12:00:00.000Z' })],
+      archive: { [`${OWN}/DATA.BIN`]: 'from the server' }
+    })
+    folder(saveData, OWN, { 'DATA.BIN': 'played here' })
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' }, new Date('2026-09-01T00:00:00.000Z'))
+
+    assert.equal((await sync.pullNow(target)).saves, 1)
+  })
+
+  test("deleting this device's copy removes this game's folders and no other's", async () => {
+    // The row's path is SAVEDATA itself, the one folder every PSP game shares.
+    const { sync, target, saveData } = ppsspp()
+    folder(saveData, OWN, { 'DATA.BIN': 'progress' })
+    folder(saveData, SETTINGS, { 'PARAM.SFO': 'settings' })
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' })
+    const [asset] = await sync.listAssets(7, target)
+
+    await sync.deleteAsset(7, 'save', null, asset.fileName, 'local', target)
+
+    assert.deepEqual(readdirSync(saveData), [OTHER])
+  })
+
+  test('a local delete that can no longer tell which folders are this game\u2019s removes nothing', async () => {
+    // The disc stops being readable between the row being found and the
+    // delete. The only answer left then is the row's own path: every game's.
+    const { sync, target, saveData } = ppsspp()
+    folder(saveData, OWN, { 'DATA.BIN': 'progress' })
+    folder(saveData, OTHER, { 'DATA.BIN': 'another game' })
+    const [asset] = await sync.listAssets(7, target)
+
+    const internals = sync as unknown as {
+      locate: (target: SaveTarget) => unknown
+      env: { read: (...args: unknown[]) => string | null }
+    }
+    const locate = internals.locate.bind(sync)
+    let asked = 0
+    internals.locate = (game) => {
+      const answer = locate(game)
+      asked += 1
+      if (asked === 1) internals.env.read = () => null
+      return answer
+    }
+
+    await assert.rejects(sync.deleteAsset(7, 'save', null, asset.fileName, 'local', target))
+    assert.deepEqual(readdirSync(saveData).sort(), [OTHER, OWN])
   })
 })

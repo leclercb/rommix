@@ -621,7 +621,7 @@ export const de: Catalog = {
   'saves.primehack':
     'PrimeHack führt eine einzige Memory Card für alle Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
   'saves.ppsspp':
-    'PPSSPP legt Spielstände unter der im Disc-Image hinterlegten Spiel-ID ab statt unter dem ROM-Namen, und RomMix kann diese von außerhalb des Emulators nicht lesen.',
+    'PPSSPP legt Spielstände unter der im Disc-Image hinterlegten Spiel-ID ab, die RomMix aus ISO- und CSO-Images lesen kann, aus diesem aber nicht.',
   'saves.rpcs3':
     'RPCS3 legt Spielstände unter der PS3-Title-ID ab statt unter dem ROM-Namen, die RomMix diesem Spiel nicht zuordnen kann.',
   'saves.cemu':
@@ -1070,6 +1070,8 @@ export const de: Catalog = {
     'Von {name} kam nur ein Teil von RomM an, daher blieb die Datei unberührt.',
   'error.saveTreeTooLarge':
     'Dieser Spielstand-Ordner ist zu groß, um als ein Archiv gesendet zu werden.',
+  'error.saveArchiveNotThisGame':
+    'Das Archiv auf RomM enthält keine Spielstand-Ordner dieses Spiels.',
   'error.emptyAssetBody': 'Leerer Dateiinhalt',
   'error.credentialsRequired': 'Benutzername und Passwort sind erforderlich',
   'error.tokenRequired': 'Ein API-Token ist erforderlich',

@@ -23,6 +23,7 @@ import { coreForSystem, isKnownSystem, systemsWithCore } from '../systems.ts'
 import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 import { createI18n, localize } from '@shared/i18n'
+import { umd } from './test/discs.ts'
 
 /**
  * Save resolution, against a described machine rather than a real one.
@@ -53,7 +54,7 @@ interface FakeMachine {
   dirs?: Record<string, string[]>
   /** Absolute path -> newest mtime beneath it. */
   mtimes?: Record<string, number>
-  /** Absolute path -> the bytes `head` should return. */
+  /** Absolute path -> the bytes `head` and `read` should return. */
   heads?: Record<string, string>
 }
 
@@ -66,6 +67,10 @@ function machine(spec: FakeMachine): SaveEnvironment {
     files: (path) => (dirs[path] ?? []).filter((name) => `${path}/${name}` in files),
     text: (path) => files[path] ?? null,
     head: (path, bytes) => (spec.heads?.[path] ?? files[path] ?? null)?.slice(0, bytes) ?? null,
+    read: (path, offset, bytes) =>
+      (spec.heads?.[path] ?? files[path] ?? null)?.slice(offset, offset + bytes) ?? null,
+    // No image here is compressed, so nothing is ever asked to be inflated.
+    inflateRaw: () => null,
     newest: (path) => spec.mtimes?.[path] ?? 0
   }
 }
@@ -403,7 +408,8 @@ function retroDeck(options: { romPath: string; system: string; gamelist?: string
       files,
       heads: {
         '/home/deck/retrodeck/roms/gc/game.rvz': rvz('GALE01'),
-        '/home/deck/retrodeck/roms/wii/game.rvz': rvz('RSBE01')
+        '/home/deck/retrodeck/roms/wii/game.rvz': rvz('RSBE01'),
+        '/home/deck/retrodeck/roms/psp/game.iso': umd('ULUS-10064')
       }
     })
   })
@@ -541,6 +547,16 @@ test('with no game id, a Wii game keeps the NAND shared and says why', () => {
   assert.match(localize(wii.unsyncableReason, ENGLISH) ?? '', /game id/i)
 })
 
+test('a PSP game syncs the PPSSPP folders that begin with its disc id', () => {
+  const psp = retroDeck({ romPath: '/home/deck/retrodeck/roms/psp/game.iso', system: 'psp' })
+  // RetroDECK links `saves/PSP/PPSSPP-SA` at PPSSPP's own `PSP/SAVEDATA`, which
+  // holds every game's folders side by side.
+  assert.equal(psp.saves?.match, 'prefix')
+  assert.equal(psp.saves?.dir, '/home/deck/retrodeck/saves/PSP/PPSSPP-SA')
+  assert.equal(psp.saves?.prefix, 'ULUS10064')
+  assert.equal(psp.emulator, 'ppsspp')
+})
+
 test('a shared memory card is not offered for per-game sync, but its states are', () => {
   const ps2 = retroDeck({ romPath: '/home/deck/retrodeck/roms/ps2/game.chd', system: 'ps2' })
   assert.equal(ps2.saves?.match, 'shared')
@@ -637,7 +653,8 @@ function emuDeck(options: { romPath: string; system: string; variant?: string })
       heads: {
         [`${HOME}/Emulation/roms/switch/game.nsp`]: 'junk 010012300ABCD000.cnmt more',
         [`${HOME}/Emulation/roms/gc/game.rvz`]: rvz('GALE01'),
-        [`${HOME}/Emulation/roms/wii/game.rvz`]: rvz('RSBE01')
+        [`${HOME}/Emulation/roms/wii/game.rvz`]: rvz('RSBE01'),
+        [`${HOME}/Emulation/roms/psp/game.iso`]: umd('ULUS-10064')
       }
     })
   })
@@ -689,6 +706,27 @@ test('EmuDeck resolves a Wii game to its title folder in the linked NAND', () =>
   const gc = emuDeck({ romPath: `${HOME}/Emulation/roms/gc/game.rvz`, system: 'gc' })
   assert.equal(gc.saves?.match, 'shared')
   assert.equal(gc.saves?.dir, `${HOME}/Emulation/saves/dolphin/GC`)
+})
+
+test('EmuDeck resolves a PSP game to the PPSSPP folders that begin with its disc id', () => {
+  const psp = emuDeck({ romPath: `${HOME}/Emulation/roms/psp/game.iso`, system: 'psp' })
+  assert.equal(psp.saves?.match, 'prefix')
+  assert.equal(psp.saves?.dir, `${HOME}/Emulation/saves/ppsspp/saves`)
+  assert.equal(psp.saves?.prefix, 'ULUS10064')
+  assert.equal(psp.emulator, 'ppsspp')
+  // A state is named after the id and the game's version, `ULUS10064_1.00_0.ppst`,
+  // which no matcher here reads. No reason goes with that: the saves do sync, and
+  // a reason would stand in for what a sync that moved nothing has to report.
+  assert.equal(psp.states?.match, 'shared')
+  assert.equal(psp.unsyncableReason, undefined)
+})
+
+test('with no disc id, EmuDeck keeps the PPSSPP saves shared and says why', () => {
+  // A CHD, which is not read — and which no folder in SAVEDATA can be named for.
+  const psp = emuDeck({ romPath: `${HOME}/Emulation/roms/psp/other.chd`, system: 'psp' })
+  assert.equal(psp.saves?.match, 'shared')
+  assert.equal(psp.saves?.dir, `${HOME}/Emulation/saves/ppsspp/saves`)
+  assert.match(localize(psp.unsyncableReason, ENGLISH) ?? '', /game id/i)
 })
 
 test('EmuDeck resolves a Switch game to its title-id folder', () => {

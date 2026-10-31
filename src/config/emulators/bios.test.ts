@@ -80,6 +80,8 @@ function machine(files: Record<string, string>): SaveEnvironment {
     files: () => [],
     text: (path) => files[path] ?? null,
     head: () => null,
+    read: () => null,
+    inflateRaw: () => null,
     newest: () => 0
   }
 }

@@ -53,7 +53,7 @@ import {
   slotToSend
 } from './savepairing.ts'
 import { progressRun, type SaveRun } from './saveprogress.ts'
-import { extractZip, zipDirectory } from './zip.ts'
+import { extractZip, zipDirectory, zipEntryNames, zipFolders } from './zip.ts'
 
 /**
  * Two-way save and save-state sync between RomM and the local emulator tree.
@@ -68,7 +68,7 @@ import { extractZip, zipDirectory } from './zip.ts'
  * decided in `savefiles.ts`, and which copy on the server answers to which
  * file here in `savepairing.ts`.
  *
- * Three shapes of save exist and each is handled differently:
+ * Four shapes of save exist and each is handled differently:
  *
  *  - `rom-stem`   files named after the ROM. Matched on the stem, uploaded
  *                 individually, which is what keeps a libretro `.srm` readable
@@ -76,6 +76,9 @@ import { extractZip, zipDirectory } from './zip.ts'
  *  - `directory`  a folder keyed by title id — Eden and the other Switch
  *                 emulators. Carried as one zip, because the files inside carry
  *                 no name that ties them to a game.
+ *  - `prefix`     the folders of one game among every game's, as PPSSPP keeps
+ *                 them. Carried as one zip of those folders by name, in the
+ *                 shared slot, which is where other clients look for it.
  *  - `shared`     a memory card or NAND every game writes to. Skipped, with a
  *                 reason the buttons can show, rather than uploading one game's
  *                 card under another game's id.
@@ -122,6 +125,58 @@ const STATE_PULL_LIMIT = 5
 /** Suffix marking a directory save carried as one archive. */
 const ARCHIVE_SUFFIX = '.rommix-save.zip'
 
+/**
+ * Is this server copy an archive to unpack, rather than a file to write?
+ *
+ * RomMix marks its own with `ARCHIVE_SUFFIX`. For a `prefix` location any zip
+ * is one: the location holds folders and nothing else, and the name is not
+ * RomMix's to rely on — another client picks its own, and RomM stamps the time
+ * into that of every copy it files into a slot.
+ */
+function carriesArchive(location: SaveLocation, fileName: string): boolean {
+  if (fileName.endsWith(ARCHIVE_SUFFIX)) return true
+  return location.match === 'prefix' && fileName.toLowerCase().endsWith('.zip')
+}
+
+/**
+ * Can this location take this server copy at all?
+ *
+ * A location of files takes no archive: the only folder to unpack it into is
+ * the one every game writes to. A `prefix` location takes nothing but one, a
+ * file among its folders standing where some game's folder belongs.
+ */
+function fitsLocation(location: SaveLocation, fileName: string): boolean {
+  const archive = carriesArchive(location, fileName)
+  if (location.match === 'rom-stem') return !archive
+  if (location.match === 'prefix') return archive
+  return true
+}
+
+/**
+ * Is this folder, directly under a `prefix` location, one of this game's?
+ *
+ * Matched with its case: an entry spelled otherwise is a second folder beside
+ * the real one on one disk, and the real one, uncopied, on another.
+ */
+function ownsFolder(location: SaveLocation, name: string): boolean {
+  return Boolean(location.prefix) && name.startsWith(location.prefix ?? '')
+}
+
+/**
+ * Where an asset's files are: the folder itself, or the folders under it that
+ * are this game's where it is one of a `prefix` location's.
+ */
+function rootsOf(asset: LocalAsset): string[] {
+  return asset.folders ? asset.folders.map((folder) => join(asset.path, folder)) : [asset.path]
+}
+
+/** How big an asset is, counting only the folders that are this game's. See `rootsOf`. */
+async function sizeOfAsset(asset: LocalAsset): Promise<number> {
+  let total = 0
+  for (const root of rootsOf(asset)) total += await sizeOf(root, asset.isDirectory === true)
+  return total
+}
+
 /** Everything needed to ask a descriptor where this game's saves are. */
 export interface SaveTarget {
   rom: RommRom
@@ -161,6 +216,11 @@ interface LocalAsset {
   mtimeMs: number
   /** True when `path` is a directory to be archived rather than a file. */
   isDirectory?: boolean
+  /**
+   * For a `prefix` location, the folders under `path` that are this game's —
+   * the only part of `path` that is this asset's. See `rootsOf`.
+   */
+  folders?: readonly string[]
 }
 
 /** One kind's files, ready to go, with what sending them needs. */
@@ -283,6 +343,29 @@ export class SaveSync {
     }
   }
 
+  /** The folders under a `prefix` location that are this game's. See `ownsFolder`. */
+  private ownFolders(location: SaveLocation): string[] {
+    return this.env
+      .dirs(location.dir)
+      .filter((name) => ownsFolder(location, name))
+      .sort()
+  }
+
+  /**
+   * How new a folder save is: the newest file anywhere in it, a directory's own
+   * mtime saying nothing about the saves inside. For a `prefix` location, in
+   * this game's folders alone, or a game played yesterday makes every other
+   * one read as up to date.
+   */
+  private newestOf(location: SaveLocation): number {
+    if (location.match !== 'prefix') return this.env.newest(location.dir)
+    let newest = 0
+    for (const folder of this.ownFolders(location)) {
+      newest = Math.max(newest, this.env.newest(join(location.dir, folder)))
+    }
+    return newest
+  }
+
   private locationFor(paths: SavePaths, kind: 'save' | 'state'): SaveLocation | null {
     const location = kind === 'save' ? paths.saves : paths.states
     return location && location.match !== 'shared' ? location : null
@@ -296,7 +379,7 @@ export class SaveSync {
    * marks a row by asking this, and the pull leaves that row by asking it too.
    *
    * False for a battery save, which is taken whatever wrote it. True for a
-   * state and for a directory save carried as an archive; `pullKind` says why.
+   * state and for a save carried as an archive; `pullKind` says why.
    */
   private tagDecides(kind: 'save' | 'state', location: SaveLocation): boolean {
     return !(kind === 'save' && location.match === 'rom-stem')
@@ -346,16 +429,19 @@ export class SaveSync {
     const stem = location.stem ?? romStemOf(rom, romPath)
 
     // A directory save is one asset: the folder itself, named after the game so
-    // the server has something readable to show.
-    if (location.match === 'directory') {
-      const newest = this.env.newest(location.dir)
+    // the server has something readable to show. A `prefix` save is the same,
+    // made of this game's folders alone, and named as other clients name it in
+    // the shared slot: a plain zip of the game. See `primaryOf`.
+    if (location.match === 'directory' || location.match === 'prefix') {
+      const newest = this.newestOf(location)
       if (newest === 0 || newest <= since) return []
       return [
         {
           path: location.dir,
-          fileName: `${stem}${ARCHIVE_SUFFIX}`,
+          fileName: location.match === 'prefix' ? `${stem}.zip` : `${stem}${ARCHIVE_SUFFIX}`,
           mtimeMs: newest,
-          isDirectory: true
+          isDirectory: true,
+          ...(location.match === 'prefix' ? { folders: this.ownFolders(location) } : {})
         }
       ]
     }
@@ -466,6 +552,11 @@ export class SaveSync {
    * time on every copy it files into a slot, and the archive is recognised on
    * the way in by the suffix that stamp displaces, so the zip would be written
    * into the save folder whole rather than unpacked into it.
+   *
+   * A `prefix` save is the exception, for neither reason holds: its archive is
+   * the game's folders by name, which other clients send and read too, and it is
+   * known by any zip name — see `carriesArchive`. Out of the slot, it is a save
+   * the clients that sync only the slot never see, Argosy among them.
    */
   private primaryOf(
     kind: 'save' | 'state',
@@ -473,6 +564,8 @@ export class SaveSync {
     target: SaveTarget
   ): string | null {
     if (kind === 'state') return null
+    const folders = local.find((asset) => asset.folders !== undefined)
+    if (folders) return folders.fileName
     return primarySave(
       local.filter((asset) => !asset.isDirectory).map((asset) => asset.fileName),
       romStemOf(target.rom, target.romPath)
@@ -549,6 +642,12 @@ export class SaveSync {
      * `unsyncableReason` is already giving.
      */
     const byTag = { save: false, state: false }
+    /** Where each kind lands on this device, for what `fitsLocation` refuses. */
+    const landsIn: { save?: SaveLocation; state?: SaveLocation } = {}
+    const cannotLand = (kind: 'save' | 'state', fileName: string): boolean => {
+      const location = landsIn[kind]
+      return location !== undefined && !fitsLocation(location, fileName)
+    }
     if (local) {
       const paths = this.locate(local)
       tag = this.tagFor(paths, local)
@@ -557,6 +656,7 @@ export class SaveSync {
         const location = this.locationFor(paths, kind)
         if (!location) continue
         byTag[kind] = this.tagDecides(kind, location)
+        landsIn[kind] = location
         const found = await this.findLocal(location, local.rom, local.romPath, kind)
         for (const file of found) {
           localAssets.set(`${kind}:${file.fileName.toLowerCase()}`, file)
@@ -635,7 +735,8 @@ export class SaveSync {
         sizeBytes: item.file_size_bytes,
         emulator: item.emulator,
         forAnotherEmulator:
-          byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts),
+          (byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts)) ||
+          cannotLand(kind, item.file_name),
         localPath: localFile?.path ?? null,
         localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
         fromThisDevice,
@@ -658,7 +759,7 @@ export class SaveSync {
         // happened, and blanking either would blank exactly the rows a person
         // opened this screen to send.
         slot: key === primaryKey ? AUTOSAVE_SLOT : null,
-        sizeBytes: await sizeOf(file.path, file.isDirectory === true),
+        sizeBytes: await sizeOfAsset(file),
         // The tag it *would* carry, which is what makes the row readable: the
         // emulator column would otherwise be blank on exactly the rows that
         // have not been anywhere yet.
@@ -865,7 +966,7 @@ export class SaveSync {
           kind,
           fileName: asset.fileName,
           path: asset.path,
-          sizeBytes: await sizeOf(asset.path, asset.isDirectory === true),
+          sizeBytes: await sizeOfAsset(asset),
           modifiedAt: new Date(asset.mtimeMs).toISOString(),
           emulator: tag,
           slot: slotToSend(asset.fileName, primary),
@@ -1095,13 +1196,35 @@ export class SaveSync {
 
     if (scope === 'local') {
       if (!asset.localPath) throw new Error(t('error.assetNotLocal', { file: fileName }))
-      await rm(asset.localPath, { force: true, recursive: true })
+      const roots = await this.localRootsOf(kind, asset.localPath, local)
+      if (roots.length === 0) throw new Error(t('error.assetGone', { file: fileName }))
+      for (const path of roots) await rm(path, { force: true, recursive: true })
       return
     }
 
     if (asset.id === null) throw new Error(t('error.assetNotRemote', { file: fileName }))
     if (kind === 'save') await this.client.deleteSaves(await this.slotCopies(romId, asset))
     else await this.client.deleteStates([asset.id])
+  }
+
+  /**
+   * What deleting this device's copy of an asset removes, or nothing.
+   *
+   * From a scan of its own, never from the row: the two can disagree — a disc
+   * that stopped being readable names no folder as this game's — and the row's
+   * path for a `prefix` save is the folder every game's saves are in.
+   */
+  private async localRootsOf(
+    kind: 'save' | 'state',
+    localPath: string,
+    local?: SaveTarget
+  ): Promise<string[]> {
+    if (!local) return []
+    const location = this.locationFor(this.locate(local), kind)
+    if (!location) return []
+    const found = await this.findLocal(location, local.rom, local.romPath, kind)
+    const asset = found.find((entry) => entry.path === localPath)
+    return asset ? rootsOf(asset) : []
   }
 
   /**
@@ -1195,12 +1318,11 @@ export class SaveSync {
      * it.
      *
      * Only the permissive case is named below, so everything else keeps the
-     * filter by default — which is what covers the third shape, a directory
-     * save carried as one archive. That is an emulator's own tree and unpacks
-     * over another's exactly as a state loads over one, and `match:
-     * 'directory'` is what says a folder is the unit of save data. A shape
-     * added later is filtered until somebody decides otherwise here, which is
-     * the right way round.
+     * filter by default — which is what covers the shapes carried as one
+     * archive. That is an emulator's own tree and unpacks over another's exactly
+     * as a state loads over one, and `match: 'directory'` or `'prefix'` is what
+     * says a folder is the unit of save data. A shape added later is filtered
+     * until somebody decides otherwise here, which is the right way round.
      */
     const tag = this.tagFor(paths, target)
     const usable = this.tagDecides(kind, location)
@@ -1219,7 +1341,22 @@ export class SaveSync {
       })
     }
 
-    const wanted = this.toPull(kind, usable)
+    const fitting = usable.filter((item) => fitsLocation(location, item.file_name))
+    if (fitting.length < usable.length) {
+      log.info('saves', `left ${kind}s this save location cannot hold`, {
+        romId: target.rom.id,
+        match: location.match,
+        left: usable.filter((item) => !fitting.includes(item)).map((item) => item.file_name)
+      })
+    }
+
+    // A `prefix` save is the shared slot's and nothing else's: it goes up there
+    // (see `primaryOf`), and so does what another client sends for it. A zip
+    // under no slot is one somebody set aside, and stays listed rather than
+    // unpacked over the save being played.
+    const wanted = this.toPull(kind, fitting).filter(
+      (entry) => location.match !== 'prefix' || entry.slot === AUTOSAVE_SLOT
+    )
     if (wanted.length === 0) return { written: 0, offered: remote.length, failed: 0 }
 
     /**
@@ -1234,7 +1371,7 @@ export class SaveSync {
      * displaced into within three of them.
      */
     const isArchive = (item: RommSave | RommState): boolean =>
-      item.file_name.endsWith(ARCHIVE_SUFFIX)
+      carriesArchive(location, item.file_name)
     const newestArchive = wanted
       .filter((entry) => isArchive(entry.item))
       .sort((a, b) => Date.parse(b.item.updated_at) - Date.parse(a.item.updated_at))[0]
@@ -1341,10 +1478,9 @@ export class SaveSync {
       claimed.add(destination)
 
       // For an archive that is the newest thing in the folder, which is what
-      // `findLocal` stamps its synthetic asset with — a directory's own mtime
-      // says nothing about the saves inside it.
+      // `findLocal` stamps its synthetic asset with — see `newestOf`.
       const landed = archive
-        ? this.env.newest(location.dir) || undefined
+        ? this.newestOf(location) || undefined
         : (match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs)
       if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
 
@@ -1389,8 +1525,8 @@ export class SaveSync {
 
       try {
         const backups = this.backupDir(target.rom.id)
-        if (item.file_name.endsWith(ARCHIVE_SUFFIX)) {
-          await this.restoreArchive(location.dir, backups, download, remoteTime)
+        if (archive) {
+          await this.restoreArchive(location, backups, download, remoteTime)
         } else {
           await this.restoreFile(
             destination,
@@ -1513,19 +1649,45 @@ export class SaveSync {
    * handful of small files, and the archive may not contain every one of them,
    * so overwriting in place and keeping a backup is safer than replacing the
    * directory wholesale.
+   *
+   * A `prefix` location is every game's folder at once, so only this game's
+   * folders are copied aside and only entries inside one of them are written:
+   * an archive is whatever the server was handed. One with none of them is a
+   * failed pull, found out before anything is copied aside — every copy taken
+   * for a pull that writes nothing rotates a real one out of the backups.
    */
   private async restoreArchive(
-    dir: string,
+    location: SaveLocation,
     backups: string,
     download: (to: string) => Promise<void>,
     remoteTime: number
   ): Promise<void> {
+    const dir = location.dir
     const staging = join(tmpdir(), `rommix-save-${Date.now()}.zip`)
     try {
       await download(staging)
       await mkdir(dir, { recursive: true })
-      await keepBackup(dir, backups, true)
-      const extracted = await extractZip(staging, dir)
+      /** An entry inside one of this game's folders. */
+      const ours = (name: string): boolean => {
+        const cut = name.indexOf('/')
+        return cut > 0 && ownsFolder(location, name.slice(0, cut))
+      }
+      if (location.match !== 'prefix') {
+        await keepBackup(dir, backups, true)
+      } else {
+        const names = await zipEntryNames(staging)
+        if (!names.some((name) => ours(name) && !name.endsWith('/'))) {
+          throw new Error(t('error.saveArchiveNotThisGame'))
+        }
+        for (const folder of this.ownFolders(location)) {
+          await keepBackup(join(dir, folder), backups, true)
+        }
+      }
+      const extracted = await extractZip(
+        staging,
+        dir,
+        location.match === 'prefix' ? ours : undefined
+      )
       /**
        * Only what came out of the archive.
        *
@@ -1662,7 +1824,9 @@ export class SaveSync {
       try {
         if (asset.isDirectory) {
           staged = join(tmpdir(), `rommix-save-${target.rom.id}-${Date.now()}.zip`)
-          const count = await zipDirectory(asset.path, staged)
+          const count = asset.folders
+            ? await zipFolders(asset.path, asset.folders, staged)
+            : await zipDirectory(asset.path, staged)
           if (count === 0) {
             log.info('saves', 'save folder is empty, nothing to upload', {
               romId: target.rom.id,
@@ -1727,6 +1891,8 @@ export class SaveSync {
       await stampMtime(asset.path, remoteTime)
       return
     }
-    for (const file of await walk(asset.path)) await stampMtime(file, remoteTime)
+    for (const root of rootsOf(asset)) {
+      for (const file of await walk(root)) await stampMtime(file, remoteTime)
+    }
   }
 }

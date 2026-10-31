@@ -617,7 +617,7 @@ export const en = {
   'saves.primehack':
     'PrimeHack keeps one memory card for every game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.ppsspp':
-    'PPSSPP files saves under the game id printed inside the disc image rather than under the ROM name, which RomMix cannot read from outside the emulator.',
+    'PPSSPP files saves under the game id inside the disc image, which RomMix can read from an ISO or CSO image but not from this one.',
   'saves.rpcs3':
     'RPCS3 files saves under the PS3 title id rather than the ROM name, which RomMix cannot match to this game.',
   'saves.cemu':
@@ -1038,6 +1038,7 @@ export const en = {
     'The download ended before the whole file arrived. It will pick up where it left off.',
   'error.saveEndedEarly': 'Only part of {name} arrived from RomM, so it was left alone.',
   'error.saveTreeTooLarge': 'This save folder is too large to send as one archive.',
+  'error.saveArchiveNotThisGame': 'The archive on RomM holds no save folders for this game.',
   'error.emptyAssetBody': 'Empty asset body',
   'error.credentialsRequired': 'Username and password are required',
   'error.tokenRequired': 'An API token is required',

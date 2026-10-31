@@ -26,14 +26,18 @@ import type { Text } from '@shared/i18n'
  *  - `rom-stem`   named after the ROM, which is what libretro and most
  *                 standalone emulators do. Matched on the file stem.
  *  - `directory`  the location *is* this game's data — a folder keyed by title
- *                 id or game id, as Eden, PPSSPP and RPCS3 keep it. Synced as
- *                 one archive, because the individual files inside carry no
- *                 name that ties them to a ROM.
+ *                 id or game id, as Eden and RPCS3 keep it. Synced as one
+ *                 archive, because the individual files inside carry no name
+ *                 that ties them to a ROM.
+ *  - `prefix`     the folders directly under the location whose names begin
+ *                 with `prefix`, as PPSSPP keeps `ULUS10064DATA00` beside every
+ *                 other game's. Synced as one archive of those folders by name;
+ *                 nothing else under the location is read or written.
  *  - `shared`     one memory card, NAND or nvram shared by every game. There is
  *                 nothing here that can honestly be attributed to this ROM, so
  *                 it is skipped rather than uploaded under this game's id.
  */
-export type SaveMatch = 'rom-stem' | 'directory' | 'shared'
+export type SaveMatch = 'rom-stem' | 'directory' | 'prefix' | 'shared'
 
 /** One directory an emulator reads and writes save data in. */
 export interface SaveLocation {
@@ -61,6 +65,11 @@ export interface SaveLocation {
    * pulled one is written as.
    */
   stem?: string
+  /**
+   * What the names of a `prefix` location's folders begin with: the id the
+   * game declares, which is all the emulator names them after.
+   */
+  prefix?: string
 }
 
 /** Everything a descriptor can say about one game's save data. */
@@ -137,6 +146,18 @@ export interface SaveEnvironment {
    * For reading a ROM header without loading the ROM.
    */
   head(path: string, bytes: number): string | null
+  /**
+   * Up to `bytes` of a file from `offset` on, decoded as `head` decodes them.
+   * For a disc image, where what is wanted sits wherever its filesystem put it.
+   */
+  read(path: string, offset: number, bytes: number): string | null
+  /**
+   * A raw deflate stream, inflated; null where it is not one or would come out
+   * longer than `maxBytes`. Here for the same reason the disk is — nothing in
+   * this module may import `node:zlib` — and for CSO, which deflates each block
+   * of a disc on its own.
+   */
+  inflateRaw(data: string, maxBytes: number): string | null
   /** Newest modification time (ms) of any file under `path`; 0 when there is none. */
   newest(path: string): number
 }
@@ -241,6 +262,11 @@ export function shared(dir: string): SaveLocation {
 /** A location whose whole directory is this game's save data. */
 export function directory(dir: string): SaveLocation {
   return { dir, match: 'directory' }
+}
+
+/** The folders under `dir` whose names begin with an id the game declares. */
+export function prefixed(dir: string, prefix: string): SaveLocation {
+  return { dir, match: 'prefix', prefix }
 }
 
 /** A location holding files named after something the game declares, not the ROM. */

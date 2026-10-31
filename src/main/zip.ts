@@ -74,13 +74,44 @@ export async function isZip(path: string): Promise<boolean> {
 }
 
 /**
+ * The name of every entry in a zip archive, read off its central directory.
+ *
+ * For a caller that has to decide whether to extract at all before it does
+ * anything else — see `SaveSync.restoreArchive`, which copies a folder aside
+ * only for an archive that will write into it. Rejects where the file is not a
+ * zip, as `extractZip` does.
+ */
+export async function zipEntryNames(zipPath: string): Promise<string[]> {
+  return new Promise<string[]>((resolvePromise, rejectPromise) => {
+    yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (err, zipfile) => {
+      if (err || !zipfile) return rejectPromise(err ?? new Error(t('error.cannotOpenArchive')))
+      const names: string[] = []
+      zipfile.on('error', rejectPromise)
+      zipfile.on('end', () => resolvePromise(names))
+      zipfile.on('entry', (entry) => {
+        names.push(entry.fileName)
+        zipfile.readEntry()
+      })
+      zipfile.readEntry()
+    })
+  })
+}
+
+/**
  * Extract a zip archive into `destDir`, creating directories as needed.
  *
  * Returns the files it wrote, as absolute paths. A caller that has to tell
  * what came out of the archive from what was already in the folder needs that
  * list and cannot rebuild it afterwards — see `SaveSync.restoreArchive`.
+ *
+ * `accept` is asked of every entry name, and what it turns down is skipped: for
+ * a `destDir` shared with saves that are not this archive's to touch.
  */
-export async function extractZip(zipPath: string, destDir: string): Promise<string[]> {
+export async function extractZip(
+  zipPath: string,
+  destDir: string,
+  accept: (entryName: string) => boolean = () => true
+): Promise<string[]> {
   const root = resolve(destDir)
   await mkdir(root, { recursive: true })
   const took = log.since()
@@ -120,6 +151,15 @@ export async function extractZip(zipPath: string, destDir: string): Promise<stri
               // so anything arriving here is a shape nobody anticipated and
               // worth a line.
               log.warn('zip', 'refused an entry pointing outside the destination', {
+                archive: zipPath,
+                entry: entry.fileName
+              })
+              zipfile.readEntry()
+              return
+            }
+
+            if (!accept(entry.fileName)) {
+              log.info('zip', 'left out an entry this archive may not write', {
                 archive: zipPath,
                 entry: entry.fileName
               })
@@ -226,7 +266,30 @@ async function entryNamesUnder(dir: string, prefix = '', seen?: Set<string>): Pr
  * a missing one.
  */
 export async function zipDirectory(dir: string, zipPath: string): Promise<number> {
-  const names = await entryNamesUnder(dir)
+  return writeZip(dir, await entryNamesUnder(dir), zipPath)
+}
+
+/**
+ * Archive some of the folders directly under `dir` into `zipPath`, each one a
+ * level of the archive under its own name — the opposite of `zipDirectory`,
+ * for a `dir` every game shares, where a folder's name is what says whose it
+ * is. Returns the number of files written.
+ */
+export async function zipFolders(
+  dir: string,
+  folders: readonly string[],
+  zipPath: string
+): Promise<number> {
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const folder of folders) {
+    names.push(...(await entryNamesUnder(join(dir, folder), folder, seen)))
+  }
+  return writeZip(dir, names, zipPath)
+}
+
+/** Write the files `names` points at, relative to `dir`, into one archive. */
+async function writeZip(dir: string, names: readonly string[], zipPath: string): Promise<number> {
   if (names.length === 0) return 0
 
   /**

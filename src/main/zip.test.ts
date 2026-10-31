@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { extractZip, isZip, zipDirectory } from './zip.ts'
+import { extractZip, isZip, zipDirectory, zipFolders } from './zip.ts'
 
 /**
  * The zip writer, round-tripped.
@@ -280,4 +280,34 @@ test('a file too short to have a signature is not a zip', async () => {
 
   assert.equal(await isZip(tiny), false)
   assert.equal(await isZip(join(dir, 'not-there-at-all')), false)
+})
+
+test('only the folders asked for go in, each a level of the archive under its own name', async () => {
+  // PPSSPP's SAVEDATA holds every game's folders at once. The archive for one
+  // game is its folders by name, so it unpacks into SAVEDATA on another device
+  // as those same folders — and nothing else in SAVEDATA comes along.
+  const root = scratch()
+  for (const [path, contents] of Object.entries({
+    'ULUS10064DATA00/DATA.BIN': 'progress',
+    'ULUS10064SETTINGS/PARAM.SFO': 'settings',
+    'ULES00307SAVE00/DATA.BIN': 'another game'
+  })) {
+    mkdirSync(join(root, 'SAVEDATA', path, '..'), { recursive: true })
+    writeFileSync(join(root, 'SAVEDATA', path), contents)
+  }
+
+  const zipPath = join(root, 'out.zip')
+  const count = await zipFolders(
+    join(root, 'SAVEDATA'),
+    ['ULUS10064DATA00', 'ULUS10064SETTINGS'],
+    zipPath
+  )
+
+  assert.equal(count, 2)
+  const back = join(root, 'back')
+  const written = await extractZip(zipPath, back)
+  assert.deepEqual(written.map((path) => path.slice(back.length + 1)).sort(), [
+    'ULUS10064DATA00/DATA.BIN',
+    'ULUS10064SETTINGS/PARAM.SFO'
+  ])
 })

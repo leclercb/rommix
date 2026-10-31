@@ -3,6 +3,7 @@ import { afterEach, describe, test } from 'node:test'
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { deflateRawSync } from 'node:zlib'
 import { fileSystemEnvironment } from './saveenv.ts'
 
 /**
@@ -83,6 +84,35 @@ describe('reading a file', () => {
 
     assert.equal(env.head(join(root, 'tiny.bin'), 64), 'ab')
     assert.equal(env.head(join(root, 'gone.bin'), 64), null)
+  })
+
+  test('a read from inside a file is byte for byte, and past the end is what there was', () => {
+    // Where a disc image keeps a file is past any header worth reading whole.
+    const root = tree({ 'game.iso': Buffer.from([0x00, 0xff, 0x00, 0xfe, 0x55, 0x4d, 0x44]) })
+    const game = join(root, 'game.iso')
+
+    assert.equal(env.read(game, 4, 3), 'UMD')
+    assert.equal(env.read(game, 3, 64)?.charCodeAt(0), 0xfe)
+    assert.equal(env.read(game, 64, 64), '')
+    assert.equal(env.read(join(root, 'gone.iso'), 0, 64), null)
+  })
+})
+
+describe('inflating a block', () => {
+  test('a raw deflate stream comes back whole, the padding after it ignored', () => {
+    // A CSO block runs to the next aligned position, so its stream is followed
+    // by bytes that belong to nothing.
+    const block = Buffer.from([0xff, 0x00, ...Buffer.from('ULUS-10064|')])
+    const deflated = deflateRawSync(block).toString('latin1')
+
+    assert.equal(env.inflateRaw(deflated + '\0\0\0', 64), block.toString('latin1'))
+  })
+
+  test('a stream past the limit, or no stream at all, is nothing rather than a failed sync', () => {
+    const deflated = deflateRawSync(Buffer.alloc(1 << 20)).toString('latin1')
+
+    assert.equal(env.inflateRaw(deflated, 2048), null)
+    assert.equal(env.inflateRaw('not a deflate stream', 64), null)
   })
 })
 

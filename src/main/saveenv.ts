@@ -1,5 +1,6 @@
 import { closeSync, openSync, readSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { inflateRawSync } from 'node:zlib'
 import type { SaveEnvironment } from '@config/emulators'
 
 /**
@@ -69,27 +70,45 @@ export function fileSystemEnvironment(): SaveEnvironment {
      * an archive's table is — survives intact.
      */
     head(path, bytes) {
-      let handle: number | null = null
+      return readAt(path, 0, bytes)
+    },
+
+    read(path, offset, bytes) {
+      return readAt(path, offset, bytes)
+    },
+
+    inflateRaw(data, maxBytes) {
       try {
-        handle = openSync(path, 'r')
-        const buffer = Buffer.allocUnsafe(bytes)
-        const read = readSync(handle, buffer, 0, bytes, 0)
-        return buffer.subarray(0, read).toString('latin1')
+        return inflateRawSync(Buffer.from(data, 'latin1'), { maxOutputLength: maxBytes }).toString(
+          'latin1'
+        )
       } catch {
         return null
-      } finally {
-        if (handle != null) {
-          try {
-            closeSync(handle)
-          } catch {
-            // Already gone; nothing to release.
-          }
-        }
       }
     },
 
     newest(path) {
       return newestUnder(path, 0)
+    }
+  }
+}
+
+function readAt(path: string, offset: number, bytes: number): string | null {
+  let handle: number | null = null
+  try {
+    handle = openSync(path, 'r')
+    const buffer = Buffer.allocUnsafe(bytes)
+    const read = readSync(handle, buffer, 0, bytes, offset)
+    return buffer.subarray(0, read).toString('latin1')
+  } catch {
+    return null
+  } finally {
+    if (handle != null) {
+      try {
+        closeSync(handle)
+      } catch {
+        // Already gone; nothing to release.
+      }
     }
   }
 }
