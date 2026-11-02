@@ -1,8 +1,8 @@
 import { type JSX, useEffect, useState } from 'react'
-import { fileNameOf, type GameFile } from '@shared/gamefiles'
+import { type GameFile, localFileNames, newFilesOf } from '@shared/gamefiles'
 import type { MessageKey } from '@shared/i18n'
 import type { InstalledRom, RommRom } from '@shared/types'
-import { StatusBadge, type Tone } from '../../../components'
+import { FocusButton, StatusBadge, type Tone } from '../../../components'
 import { Icon, type IconName } from '../../../icons'
 import { useI18n } from '../../../state'
 
@@ -45,7 +45,7 @@ interface FileRow {
  * file, and listing it twice would invent a discrepancy.
  */
 function merge(rom: RommRom, entry: InstalledRom | undefined): FileRow[] {
-  const local = entry?.files?.length ? entry.files : entry ? [fileNameOf(entry.path)] : []
+  const local = entry ? localFileNames(entry) : []
   const here = new Map(local.map((name) => [name.toLowerCase(), name]))
   const rows: FileRow[] = []
 
@@ -65,9 +65,20 @@ function merge(rom: RommRom, entry: InstalledRom | undefined): FileRow[] {
   return rows.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom }): JSX.Element {
+export function FilesTab({
+  rom,
+  entry,
+  onAddFiles,
+  addDisabled
+}: {
+  rom: RommRom
+  entry?: InstalledRom
+  onAddFiles: () => void
+  addDisabled: boolean
+}): JSX.Element {
   const { t, formatBytes } = useI18n()
   const rows = merge(rom, entry)
+  const added = entry ? newFilesOf(rom.files, entry).length : 0
   /**
    * What the copies on this disk weigh, by lowercased name.
    *
@@ -94,7 +105,7 @@ export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom })
 
   if (rows.length === 0) return <div className="empty">{t('files.empty')}</div>
 
-  return (
+  const list = (
     <ul className="asset-list">
       {rows.map((row) => {
         const where = WHERE[row.where]
@@ -116,5 +127,23 @@ export function FilesTab({ rom, entry }: { rom: RommRom; entry?: InstalledRom })
         )
       })}
     </ul>
+  )
+  if (added === 0) return list
+
+  return (
+    <>
+      <div className="btn-row">
+        <FocusButton
+          icon="download"
+          action="add-files"
+          variant="primary"
+          onSelect={onAddFiles}
+          disabled={addDisabled}
+        >
+          {t('files.addNew', { count: added })}
+        </FocusButton>
+      </div>
+      {list}
+    </>
   )
 }

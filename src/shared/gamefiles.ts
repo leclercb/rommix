@@ -2,6 +2,7 @@
 // and by Node's TypeScript stripping in the tests, and the latter resolves no
 // aliases. `shared/types/` reaches into config the same way.
 import {
+  ARCHIVE_EXTENSIONS,
   CONTAINER_SYSTEMS,
   DESCRIPTOR_EXTENSIONS,
   IMAGE_ONLY_SYSTEMS,
@@ -34,6 +35,51 @@ export function fileNameOf(path: string): string {
 export function folderOf(path: string): string {
   const cut = path.lastIndexOf('/')
   return cut === -1 ? path : path.slice(0, cut)
+}
+
+/**
+ * What a game on this disk is made of.
+ *
+ * The index lists it, and an entry that lists nothing is the one file `path`
+ * names.
+ */
+export function localFileNames(entry: { path: string; files?: string[] }): string[] {
+  return entry.files?.length ? entry.files : [fileNameOf(entry.path)]
+}
+
+/** The folder holding an installed game's files, shared with others or not. */
+export function gameFolderOf(entry: { path: string; isDirectory: boolean }): string {
+  return entry.isDirectory ? entry.path : folderOf(entry.path)
+}
+
+/** What a list of RomM's files adds up to. */
+export function bytesOf(files: readonly { file_size_bytes: number }[]): number {
+  return files.reduce((sum, file) => sum + file.file_size_bytes, 0)
+}
+
+/**
+ * The server's files an installed game does not have: an update or a DLC
+ * uploaded after the download.
+ *
+ * Never answers for a game RomM holds as one file, because a copy of that game
+ * has nothing left to fetch and its name is no evidence: RomM's `game.zip` is
+ * unpacked to a `game.sfc` here. The same goes for that archive once a second
+ * file joins it, so an archive whose stem is on this disk is taken as unpacked.
+ * By file name alone and whatever the case, since an archive can carry a game a
+ * folder deeper than the server's list says it is.
+ */
+export function newFilesOf<File extends { file_name: string }>(
+  serverFiles: readonly File[],
+  entry: { path: string; files?: string[] }
+): File[] {
+  if (serverFiles.length < 2) return []
+  const here = new Set(localFileNames(entry).map((name) => fileNameOf(name).toLowerCase()))
+  const stems = new Set([...here].map(stemOf))
+  return serverFiles.filter((file) => {
+    const name = file.file_name.toLowerCase()
+    if (here.has(name)) return false
+    return !(ARCHIVE_EXTENSIONS.includes(extensionOf(name)) && stems.has(stemOf(name)))
+  })
 }
 
 /**
@@ -77,6 +123,11 @@ export function archiveIsTheRom(system?: string): boolean {
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf('.')
   return dot <= 0 ? '' : name.slice(dot).toLowerCase()
+}
+
+/** A name with its extension dropped. */
+function stemOf(name: string): string {
+  return name.slice(0, name.length - extensionOf(name).length)
 }
 
 /**

@@ -1,4 +1,5 @@
 import { THEMES_NOTICE } from '@shared/types'
+import { installedFiles } from './install.ts'
 import { log } from './log.ts'
 import type { OfflineCache } from './offline.ts'
 import type { RommClient } from './romm/index.ts'
@@ -72,6 +73,23 @@ export const MIGRATIONS: readonly Migration[] = [
       const { setupComplete, dismissedNotices } = store.settings
       if (setupComplete || dismissedNotices.includes(THEMES_NOTICE)) return
       store.updateSettings({ dismissedNotices: [...dismissedNotices, THEMES_NOTICE] })
+    }
+  },
+  /**
+   * List what is really in every game folder.
+   *
+   * The index once recorded a folder's own name, or only its top level, for
+   * what a game is made of — and `newFilesOf` reads that list against the
+   * server's, so such a game announces its whole self as new files.
+   */
+  {
+    id: 'list-installed-files',
+    async run({ store }) {
+      for (const entry of store.installed) {
+        if (!entry.isDirectory) continue
+        const files = await installedFiles(entry.path)
+        if (files.length > 0) store.addInstalled({ ...entry, files })
+      }
     }
   }
 ]

@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { THEMES_NOTICE } from '@shared/types'
@@ -142,5 +142,34 @@ describe('announcing the themes', () => {
     await runMigrations(ctx, announce)
 
     assert.deepEqual(ctx.store.settings.dismissedNotices, [THEMES_NOTICE])
+  })
+})
+
+describe('list-installed-files', () => {
+  const listing = MIGRATIONS.find((one) => one.id === 'list-installed-files')
+
+  test('a folder recorded under its own name lists what is in it', async () => {
+    const dir = scratch()
+    mkdirSync(join(dir, 'Disc'))
+    writeFileSync(join(dir, 'Disc', 'game.cue'), 'cue')
+    const ctx = context()
+    ctx.store.addInstalled({
+      romId: 7,
+      emulatorId: 'x',
+      path: dir,
+      launchPath: join(dir, 'Disc', 'game.cue'),
+      name: 'Game',
+      coverPath: null,
+      files: ['Game'],
+      system: 'psx',
+      platformName: 'PlayStation',
+      sizeBytes: 3,
+      installedAt: '2020-01-01T00:00:00.000Z',
+      isDirectory: true
+    })
+
+    await listing?.run(ctx)
+
+    assert.deepEqual(ctx.store.getInstalled(7)?.files, [join('Disc', 'game.cue')])
   })
 })

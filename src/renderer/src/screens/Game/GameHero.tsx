@@ -1,4 +1,5 @@
 import { type JSX, type ReactNode, type Ref, useEffect, useState } from 'react'
+import { bytesOf, newFilesOf } from '@shared/gamefiles'
 import type { InstalledRom, RommRom, RomUserStatus } from '@shared/types'
 import { ArtBackdrop, CoverArt, PlatformIcon } from '../../components'
 import { useFocusable } from '../../input/focus'
@@ -51,6 +52,7 @@ export function GameHero({
   const year = rom.metadatum.first_release_date
     ? new Date(rom.metadatum.first_release_date).getFullYear()
     : null
+  const added = entry ? newFilesOf(rom.files, entry) : []
 
   return (
     <div className="game-hero">
@@ -105,6 +107,18 @@ export function GameHero({
               <span className="chip chip--icon chip--on">
                 <Icon name="download" size={14} />
                 {t('library.downloadedMark')}
+              </span>
+            ) : null}
+            {/* Here rather than as a toast: the state lasts until it is dealt
+                with, or for good where nobody wants that DLC, and a toast would
+                repeat on every visit. The button is on the Files tab. */}
+            {added.length > 0 ? (
+              <span className="chip chip--icon chip--status" data-state="warn" data-new-files>
+                <Icon name="download" size={14} />
+                {t('game.newFiles', {
+                  count: added.length,
+                  size: formatBytes(bytesOf(added))
+                })}
               </span>
             ) : null}
             {/* Last on the line, after everything the game is: this is the one

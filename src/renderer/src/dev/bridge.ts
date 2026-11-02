@@ -949,6 +949,7 @@ const bridge: RomMixBridge = {
      */
     list: () => later(downloadQueue()),
     start: () => refuse(),
+    addFiles: () => refuse(),
     promote: () => refuse(),
     pause: () => refuse(),
     cancel: () => refuse(),

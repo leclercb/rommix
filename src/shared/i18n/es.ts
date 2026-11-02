@@ -473,6 +473,8 @@ export const es: Catalog = {
   'game.fallbackTitle': 'Juego',
   'game.play': 'Jugar',
   'game.running': 'En marcha…',
+  'game.newFiles_one': '{count} archivo nuevo · {size}',
+  'game.newFiles_other': '{count} archivos nuevos · {size}',
   'game.resumeDownload': 'Reanudar la descarga ({percent} %)',
   'game.pauseDownload': 'Pausar la descarga ({percent} %)',
   'game.cancelDownload': 'Cancelar la descarga ({percent} %)',
@@ -679,8 +681,10 @@ export const es: Catalog = {
   'files.tagServer': 'RomM',
   'files.tagDevice': 'Dispositivo',
   'files.hintBoth': 'En el servidor y en este dispositivo.',
-  'files.hintServer': 'Solo en el servidor. Descarga el juego para tenerlo.',
+  'files.hintServer': 'Solo en el servidor.',
   'files.hintDevice': 'Solo en este dispositivo. RomM no lo lista.',
+  'files.addNew_one': 'Descargar {count} archivo nuevo',
+  'files.addNew_other': 'Descargar {count} archivos nuevos',
   'files.empty':
     'RomM no lista ningún archivo de este juego, y en este dispositivo no hay ninguno.',
   'shots.empty': 'RomM no tiene capturas de este juego.',
@@ -1088,6 +1092,10 @@ export const es: Catalog = {
   'error.assetNotLocal': '{file} no está en este dispositivo para borrarlo',
   'error.assetNotRemote': '{file} no está en RomM para borrarlo',
 
+  'error.cannotAddFiles':
+    'Este servidor RomM no puede enviar un archivo suelto. Actualiza RomM, o desinstala el juego y descárgalo de nuevo.',
+  'error.gameInUse': 'Cierra primero el juego: sus archivos deben moverse a una carpeta.',
+  'error.folderTaken': '{path} ya existe. Muévelo e inténtalo de nuevo.',
   'error.emptyArchive': '{name} ha llegado como un archivo comprimido vacío.',
   'error.cannotOpenArchive': 'No se puede abrir el archivo comprimido',
   'error.badZipEntry': 'Entrada de zip incorrecta',

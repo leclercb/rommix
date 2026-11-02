@@ -238,6 +238,7 @@ export function GameScreen({
   const {
     busy: copying,
     startDownload,
+    addFiles,
     uninstall,
     confirmingRemoval,
     setConfirmingRemoval
@@ -419,6 +420,35 @@ export function GameScreen({
     outstanding && outstanding.ready > 0 ? t('saves.waitingConfirm') : null
   ].filter((reason) => reason !== null)
 
+  const stopButtons = (focus: boolean): JSX.Element => (
+    <>
+      {/* Stopping and giving up are different answers, and the one that costs
+          nothing goes first: a transfer paused here keeps every byte it has,
+          and the same Download button below finishes it. Offered only where
+          that is true — against a server that will not serve part of a file,
+          pausing keeps nothing. */}
+      {download?.resumable !== false ? (
+        <FocusButton
+          icon="pause"
+          action="pause"
+          onSelect={() => void window.rommix.downloads.pause(romId)}
+          autoFocus={focus}
+        >
+          {t('game.pauseDownload', { percent: progress })}
+        </FocusButton>
+      ) : null}
+      <FocusButton
+        icon="cancel"
+        action="cancel-download"
+        variant="danger"
+        onSelect={() => void window.rommix.downloads.cancel(romId)}
+        autoFocus={download?.resumable === false && focus}
+      >
+        {t('game.cancelDownload', { percent: progress })}
+      </FocusButton>
+    </>
+  )
+
   return (
     <div className="content">
       <GameHero rom={rom} entry={entry} system={system} status={status}>
@@ -442,31 +472,7 @@ export function GameScreen({
             {t('action.installing')}
           </FocusButton>
         ) : active ? (
-          <>
-            {/* Stopping and giving up are different answers, and the one that
-                costs nothing goes first: a transfer paused here keeps every
-                byte it has, and the same Download button below finishes it.
-                Offered only where that is true — against a server that will
-                not serve part of a file, pausing keeps nothing. */}
-            {download?.resumable !== false ? (
-              <FocusButton
-                icon="pause"
-                action="pause"
-                onSelect={() => void window.rommix.downloads.pause(romId)}
-                autoFocus={!focusTabs}
-              >
-                {t('game.pauseDownload', { percent: progress })}
-              </FocusButton>
-            ) : null}
-            <FocusButton
-              icon="cancel"
-              variant="danger"
-              onSelect={() => void window.rommix.downloads.cancel(romId)}
-              autoFocus={download?.resumable === false && !focusTabs}
-            >
-              {t('game.cancelDownload', { percent: progress })}
-            </FocusButton>
-          </>
+          stopButtons(!focusTabs)
         ) : (
           <FocusButton
             icon="download"
@@ -493,12 +499,17 @@ export function GameScreen({
         {isStopped(download?.state ?? 'downloading') ? (
           <FocusButton
             icon="cancel"
+            action="cancel-download"
             variant="danger"
             onSelect={() => void window.rommix.downloads.cancel(romId)}
           >
             {t('game.cancelDownload', { percent: progress })}
           </FocusButton>
         ) : null}
+
+        {/* After Play rather than in its place: the game stays playable while
+            new files arrive, so the highlight stays on Play as well. */}
+        {entry && download?.adding && interruptible ? stopButtons(false) : null}
 
         {/* The three marks that live on RomM rather than on this disk. Greyed
             while it is away rather than taken off the screen: a heart that
@@ -600,7 +611,7 @@ export function GameScreen({
               // button deletes a multi-gigabyte download outright.
               settings?.confirmUninstall === false ? void uninstall() : setConfirmingRemoval(true)
             }
-            disabled={working || running}
+            disabled={working || running || (download?.adding === true && active)}
           >
             {t('action.uninstall')}
           </FocusButton>
@@ -775,7 +786,14 @@ export function GameScreen({
           {activeTab === 'saves' ? (
             <SavesTab assets={assets} entry={entry} onDelete={(asset) => setDeleting(asset)} />
           ) : null}
-          {activeTab === 'files' ? <FilesTab rom={rom} entry={entry} /> : null}
+          {activeTab === 'files' ? (
+            <FilesTab
+              rom={rom}
+              entry={entry}
+              onAddFiles={() => void addFiles()}
+              addDisabled={working || running || active || offline === true}
+            />
+          ) : null}
           {activeTab === 'screenshots' ? <ScreenshotsTab rom={rom} /> : null}
           {activeTab === 'manual' ? <ManualTab rom={rom} /> : null}
           {activeTab === 'achievements' ? <AchievementsTab rom={rom} entry={entry} /> : null}

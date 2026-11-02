@@ -1,8 +1,14 @@
 import { EventEmitter } from 'node:events'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { archiveIsTheRom, chooseLaunchFile } from '@shared/gamefiles'
-import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
+import {
+  archiveIsTheRom,
+  bytesOf,
+  chooseLaunchFile,
+  gameFolderOf,
+  newFilesOf
+} from '@shared/gamefiles'
+import { isStopped, type DownloadItem, type InstalledRom, type RommRom } from '@shared/types'
 import { fits, spaceOf } from './disk.ts'
 import { unpack, type InstallResult } from './install.ts'
 import { hashOf } from './integrity.ts'
@@ -63,6 +69,15 @@ interface Holding {
   targetPath: string
   files: string[]
   ownsFolder: boolean
+}
+
+/** New files on their way to an installed game. See `DownloadManager.additionTo`. */
+interface Addition {
+  entry: InstalledRom
+  /** Everything the game gains, including what an earlier run already landed. */
+  added: RommRom['files']
+  /** What is still to be fetched, and all a cancelled run may delete. */
+  wanted: RommRom['files']
 }
 
 /**
@@ -151,7 +166,9 @@ export class DownloadManager extends EventEmitter {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
-    private readonly library: Library
+    private readonly library: Library,
+    /** The game being played. See `Launcher.playing`. */
+    private readonly playing: () => number | null = () => null
   ) {
     super()
   }
@@ -160,7 +177,29 @@ export class DownloadManager extends EventEmitter {
     return this.queue.map((item) => ({ ...item }))
   }
 
-  async enqueue(rom: RommRom): Promise<DownloadItem> {
+  /** Whether this game's row is fetching new files rather than the game. */
+  addingTo(romId: number): boolean {
+    return this.queue.some(
+      (item) =>
+        item.romId === romId &&
+        item.adding === true &&
+        item.state !== 'done' &&
+        item.state !== 'cancelled'
+    )
+  }
+
+  /**
+   * End an addition before its game is deleted, however far it has got.
+   *
+   * `cancel` refuses a row past its last byte, and that transfer is still about
+   * to record the game. Waited for, so what it records is there to be deleted.
+   */
+  async stopAdding(romId: number): Promise<void> {
+    await this.cancel(romId)
+    await this.transfers.get(romId)?.catch(() => undefined)
+  }
+
+  async enqueue(rom: RommRom, adding = false): Promise<DownloadItem> {
     const existing = this.queue.find(
       (item) => item.romId === rom.id && (item.state === 'queued' || item.state === 'downloading')
     )
@@ -206,6 +245,7 @@ export class DownloadManager extends EventEmitter {
     )
     if (raced) return { ...raced }
 
+    const entry = adding ? this.library.installedNow(rom.id) : undefined
     const item: DownloadItem = {
       romId: rom.id,
       name: rom.name ?? rom.fs_name,
@@ -214,8 +254,9 @@ export class DownloadManager extends EventEmitter {
       platformName: rom.platform_display_name,
       state: 'queued',
       receivedBytes: 0,
-      totalBytes: rom.fs_size_bytes,
-      error: null
+      totalBytes: entry ? bytesOf(newFilesOf(rom.files, entry)) : rom.fs_size_bytes,
+      error: null,
+      ...(adding ? { adding: true } : {})
     }
 
     // Replace any finished entry for the same ROM so the list stays readable.
@@ -677,16 +718,29 @@ export class DownloadManager extends EventEmitter {
       const resumable = perFile.available ? perFile.resumable : await this.client.supportsRange(rom)
       item.resumable = resumable
 
+      const adding = item.adding ? await this.additionTo(rom, asDirectory, perFile.available) : null
+      // The game went from under the row, so what it needs is the whole of it.
+      item.adding &&= adding !== null
+      if (adding) item.totalBytes = bytesOf(adding.wanted)
+
       // Where the bytes go. File by file that is a directory — the game's own,
       // or the system folder for an emulator that reads its library flat — and
       // otherwise the single file, or an archive beside where it will end up.
-      holding = perFile.available
+      // New files own nothing but themselves: `discardHeld` removes a folder
+      // the transfer owns, and this one holds the game.
+      holding = adding
         ? {
-            targetPath: asDirectory ? path : dir,
-            files: rom.files.map((file) => file.file_name),
-            ownsFolder: asDirectory
+            targetPath: gameFolderOf(adding.entry),
+            files: adding.wanted.map((file) => file.file_name),
+            ownsFolder: false
           }
-        : { targetPath: asDirectory ? `${path}.zip` : path, files: [], ownsFolder: false }
+        : perFile.available
+          ? {
+              targetPath: asDirectory ? path : dir,
+              files: rom.files.map((file) => file.file_name),
+              ownsFolder: asDirectory
+            }
+          : { targetPath: asDirectory ? `${path}.zip` : path, files: [], ownsFolder: false }
 
       log.info('download', 'started', {
         romId: rom.id,
@@ -756,8 +810,9 @@ export class DownloadManager extends EventEmitter {
         targetPath: holding.targetPath,
         files: holding.files,
         ownsFolder: holding.ownsFolder,
+        ...(adding ? { adding: true } : {}),
         fileName: rom.fs_name,
-        totalBytes: rom.fs_size_bytes
+        totalBytes: adding ? item.totalBytes : rom.fs_size_bytes
       })
       this.emitUpdate()
 
@@ -767,18 +822,24 @@ export class DownloadManager extends EventEmitter {
       // an archive needs room for its extracted copy as well as itself.
       await this.checkThereIsRoom(item, dir, {
         carried: resume ? item.receivedBytes : 0,
-        unpacks: !perFile.available && asDirectory
+        unpacks: !adding && !perFile.available && asDirectory
       })
 
       const transfer = { resume, resumable, controller }
-      const installed = perFile.available
-        ? await this.fetchFileByFile(
-            rom,
-            item,
-            { dir: holding.targetPath, system, asDirectory },
-            transfer
-          )
-        : await this.fetchWhole(rom, item, { dir, path, system, asDirectory, flat }, transfer)
+      const fetched =
+        adding || perFile.available
+          ? await this.fetchFileByFile(
+              rom,
+              item,
+              {
+                dir: holding.targetPath,
+                system,
+                asDirectory: adding ? adding.entry.isDirectory : asDirectory,
+                files: adding ? adding.wanted : rom.files
+              },
+              transfer
+            )
+          : await this.fetchWhole(rom, item, { dir, path, system, asDirectory, flat }, transfer)
 
       // The bytes are in the game now, and nothing is left to pick up.
       this.store.removePending(rom.id)
@@ -792,7 +853,13 @@ export class DownloadManager extends EventEmitter {
 
       // The library records it and announces it: the index and the folder
       // readings are its, and so is the event every screen listens on.
-      this.library.record(await this.library.entryFor(rom, system, emulatorId, installed))
+      const installed = adding
+        ? await this.library.withFiles(
+            adding.entry,
+            adding.added.map((file) => file.file_name)
+          )
+        : await this.library.entryFor(rom, system, emulatorId, fetched)
+      this.library.record(installed)
 
       /**
        * What RomM says about the game, written down beside it.
@@ -923,6 +990,50 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * What fetching an installed game's new files comes to, or null when the game
+   * is no longer installed.
+   *
+   * Only what the disk does not hold is fetched, so nothing already there is
+   * overwritten or hashed — and nothing that was here first is listed in the
+   * record a cancel deletes by, whatever its size. A file this same addition
+   * landed before it stopped stays wanted, for that reason the other way round:
+   * it is the transfer's to take back.
+   *
+   * The game moves last, once nothing can refuse the addition any more, and
+   * not while it is being played from.
+   */
+  private async additionTo(
+    rom: RommRom,
+    asDirectory: boolean,
+    perFile: boolean
+  ): Promise<Addition | null> {
+    const entry = this.library.installedNow(rom.id)
+    if (!entry) return null
+
+    const added = newFilesOf(rom.files, entry)
+    const moves = added.length > 0 && asDirectory && !entry.isDirectory
+    const folder = moves
+      ? await safeJoin(dirname(entry.path), rom.fs_name_no_ext)
+      : gameFolderOf(entry)
+    if (!folder) throw new RommError(t('error.unsafeName', { name: rom.fs_name }))
+
+    const recorded = this.store.pending.find((held) => held.romId === rom.id)
+    const wanted: RommRom['files'] = []
+    for (const file of added) {
+      const destination = await safeJoin(folder, file.file_name)
+      const found = destination ? await stat(destination).catch(() => null) : null
+      if (!found || recorded?.files.includes(file.file_name)) wanted.push(file)
+    }
+
+    // An archive is the whole game again, over the copy being added to.
+    if (wanted.length > 0 && !perFile) throw new RommError(t('error.cannotAddFiles'))
+    if (!moves) return { entry, added, wanted }
+
+    if (this.playing() === rom.id) throw new RommError(t('error.gameInUse'))
+    return { entry: await this.library.intoFolder(entry, folder), added, wanted }
+  }
+
+  /**
    * Fetch a game one file at a time, into the folder it will be played from.
    *
    * There is nothing to unpack afterwards: the files land under the names the
@@ -933,14 +1044,14 @@ export class DownloadManager extends EventEmitter {
   private async fetchFileByFile(
     rom: RommRom,
     item: DownloadItem,
-    where: { dir: string; system: string; asDirectory: boolean },
+    where: { dir: string; system: string; asDirectory: boolean; files: RommRom['files'] },
     transfer: { resume: boolean; resumable: boolean; controller: AbortController }
   ): Promise<InstallResult> {
-    item.totalBytes = rom.files.reduce((sum, file) => sum + file.file_size_bytes, 0)
+    item.totalBytes = bytesOf(where.files)
     let done = 0
     const sized: { name: string; sizeBytes: number }[] = []
 
-    for (const file of rom.files) {
+    for (const file of where.files) {
       // The name is the server's, and it is what decides where this file is
       // written — a multi-file game is the one download that writes under names
       // RomM chose one by one. A name that climbs out of the game's folder is
@@ -957,6 +1068,8 @@ export class DownloadManager extends EventEmitter {
       }
       await mkdir(dirname(destination), { recursive: true })
       item.currentFile = file.file_name
+      // Asked rather than set: a row cancelled between two files is cancelled.
+      if (item.state === 'checking') item.state = 'downloading'
       this.emitUpdate()
 
       const already = (await stat(destination).catch(() => null))?.size ?? 0
@@ -1196,7 +1309,7 @@ export class DownloadManager extends EventEmitter {
       // A game that is installed after all: the transfer finished and RomMix
       // stopped between the last byte and the record being cleared. Nothing to
       // offer, and offering it would re-fetch a game that is already here.
-      if (this.store.getInstalled(entry.romId)) {
+      if (this.store.getInstalled(entry.romId) && !entry.adding) {
         this.store.removePending(entry.romId)
         continue
       }
@@ -1224,7 +1337,8 @@ export class DownloadManager extends EventEmitter {
         state: entry.stoppedAs ?? 'paused',
         receivedBytes: onDisk,
         totalBytes: entry.totalBytes,
-        error: null
+        error: null,
+        ...(entry.adding ? { adding: true } : {})
       })
       log.info('download', 'an interrupted download is waiting to be resumed', {
         romId: entry.romId,

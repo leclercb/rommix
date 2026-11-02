@@ -299,6 +299,11 @@ export interface RomMixBridge {
     list(): Promise<DownloadItem[]>
     start(romId: number): Promise<DownloadItem>
     /**
+     * Fetch the server's files an installed game does not have. See
+     * `newFilesOf`.
+     */
+    addFiles(romId: number): Promise<DownloadItem>
+    /**
      * Start a waiting transfer now, interrupting whatever is on the wire and
      * letting it carry on afterwards. See `DownloadManager.promote`.
      */

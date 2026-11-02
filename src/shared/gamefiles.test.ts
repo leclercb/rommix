@@ -5,7 +5,8 @@ import {
   chooseLaunchFile,
   fileNameOf,
   folderOf,
-  isLaunchable
+  isLaunchable,
+  newFilesOf
 } from './gamefiles.ts'
 
 const file = (name: string, sizeBytes = 1024): { name: string; sizeBytes: number } => ({
@@ -254,4 +255,51 @@ test('a name with no directory in front of it has no folder to name', () => {
 
 test('a file at the root is in the root', () => {
   assert.equal(folderOf('/rommix.AppImage'), '')
+})
+
+const onServer = (...names: string[]): { file_name: string }[] =>
+  names.map((file_name) => ({ file_name }))
+
+test('a file uploaded after the download is new', () => {
+  assert.deepEqual(
+    newFilesOf(onServer('Game.nsp', 'Game [UPD].nsp'), {
+      path: '/roms/switch/Game',
+      files: ['Game.nsp']
+    }),
+    onServer('Game [UPD].nsp')
+  )
+})
+
+test('a copy holding every file has nothing new, whatever the case or the folder', () => {
+  assert.deepEqual(
+    newFilesOf(onServer('Game.CUE', 'Game.bin'), {
+      path: '/roms/psx/Game',
+      files: ['game.cue', 'wrapper/Game.bin']
+    }),
+    []
+  )
+})
+
+test('a game RomM holds as one file has nothing new, whatever it unpacked to', () => {
+  assert.deepEqual(
+    newFilesOf(onServer('Game.zip'), { path: '/roms/snes/Game.sfc', files: ['Game.sfc'] }),
+    []
+  )
+})
+
+test('an entry listing no files is the file its path names', () => {
+  assert.deepEqual(
+    newFilesOf(onServer('Game.nsp', 'Game [DLC].nsp'), { path: '/roms/switch/Game.nsp' }),
+    onServer('Game [DLC].nsp')
+  )
+})
+
+test('an archive unpacked here stays unpacked when a file joins it', () => {
+  assert.deepEqual(
+    newFilesOf(onServer('Game.zip', 'Game [patch].ips'), {
+      path: '/roms/snes/Game.sfc',
+      files: ['Game.sfc']
+    }),
+    onServer('Game [patch].ips')
+  )
 })

@@ -1295,6 +1295,267 @@ describe('a ROM the server cannot send in pieces', () => {
   })
 })
 
+describe('new files for a game already installed', () => {
+  const base = { id: 1, rom_id: 3, file_name: 'Game.nsp', file_size_bytes: 8 }
+  const update = { id: 2, rom_id: 3, file_name: 'Game [UPD].nsp', file_size_bytes: 8 }
+  const dlc = { id: 3, rom_id: 3, file_name: 'Game [DLC].nsp', file_size_bytes: 8 }
+
+  /** A Switch game RomM holds as a folder, with these files in it. */
+  function game(...files: (typeof base)[]): RommRom {
+    return rom({
+      id: 3,
+      name: 'Game',
+      fs_name: 'Game',
+      fs_name_no_ext: 'Game',
+      fs_extension: '',
+      has_multiple_files: files.length > 1,
+      platform_slug: 'switch',
+      platform_fs_slug: 'switch',
+      files: files as RommRom['files']
+    })
+  }
+
+  /** The base game in its folder, recorded and with its bytes on disk. */
+  function installed(store: Store, root: string): string {
+    const dir = join(root, 'roms', 'switch', 'Game')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'Game.nsp'), 'the game')
+    store.addInstalled({
+      romId: 3,
+      emulatorId: SHARED_LIBRARY,
+      path: dir,
+      launchPath: join(dir, 'Game.nsp'),
+      name: 'Game',
+      coverPath: null,
+      files: ['Game.nsp'],
+      system: 'switch',
+      platformName: 'Nintendo Switch',
+      sizeBytes: 8,
+      installedAt: new Date().toISOString(),
+      isDirectory: true
+    })
+    return dir
+  }
+
+  test('only the missing file is fetched, and the game keeps its launch file', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const dir = installed(store, root)
+
+    await downloads.enqueue(game(base, update), true)
+    const item = await settled(downloads, 3)
+
+    assert.equal(item.state, 'done')
+    assert.equal(item.totalBytes, 8)
+    assert.equal(readFileSync(join(dir, 'Game.nsp'), 'utf8'), 'the game')
+    assert.ok(existsSync(join(dir, 'Game [UPD].nsp')))
+    const entry = store.getInstalled(3)
+    assert.deepEqual(entry?.files, ['Game.nsp', 'Game [UPD].nsp'])
+    assert.equal(entry?.launchPath, join(dir, 'Game.nsp'))
+    assert.equal(store.pending.length, 0)
+  })
+
+  test('a cancel takes the new file and leaves the game', async () => {
+    const { downloads, store, root } = manager({ perFile: true, breakAfter: 4 })
+    const dir = installed(store, root)
+
+    await downloads.enqueue(game(base, update), true)
+    assert.equal((await settled(downloads, 3)).state, 'paused')
+    await downloads.cancel(3)
+
+    assert.deepEqual(await readdir(dir), ['Game.nsp'])
+    assert.deepEqual(store.getInstalled(3)?.files, ['Game.nsp'])
+  })
+
+  test('a stopped addition survives a restart, though the game is installed', async () => {
+    const first = manager({ perFile: true, breakAfter: 4 })
+    installed(first.store, first.root)
+    await first.downloads.enqueue(game(base, update), true)
+    await settled(first.downloads, 3)
+
+    const again = manager({ perFile: true, store: first.store })
+    await again.downloads.restorePending()
+
+    assert.equal(again.downloads.items[0]?.adding, true)
+    assert.equal(again.downloads.addingTo(3), true)
+  })
+
+  test('a game installed as one file moves into a folder first', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const dir = join(root, 'roms', 'switch')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'Game.nsp'), 'the game')
+    store.addInstalled({
+      romId: 3,
+      emulatorId: SHARED_LIBRARY,
+      path: join(dir, 'Game.nsp'),
+      launchPath: join(dir, 'Game.nsp'),
+      name: 'Game',
+      coverPath: null,
+      files: ['Game.nsp'],
+      system: 'switch',
+      platformName: 'Nintendo Switch',
+      sizeBytes: 8,
+      installedAt: new Date().toISOString(),
+      isDirectory: false
+    })
+
+    await downloads.enqueue(game(base, dlc), true)
+    assert.equal((await settled(downloads, 3)).state, 'done')
+
+    const entry = store.getInstalled(3)
+    assert.equal(entry?.path, join(dir, 'Game'))
+    assert.equal(entry?.isDirectory, true)
+    assert.equal(entry?.launchPath, join(dir, 'Game', 'Game.nsp'))
+    assert.equal(readFileSync(join(dir, 'Game', 'Game.nsp'), 'utf8'), 'the game')
+    assert.deepEqual(await readdir(dir), ['Game'])
+  })
+
+  test('a file already on disk at its full size is not fetched or listed', async () => {
+    const { downloads, store, root, resumed } = manager({ perFile: true })
+    const dir = installed(store, root)
+    writeFileSync(join(dir, 'Game [UPD].nsp'), 'by hand!')
+
+    await downloads.enqueue(game(base, update), true)
+    assert.equal((await settled(downloads, 3)).state, 'done')
+
+    assert.equal(resumed.length, 0)
+    assert.equal(readFileSync(join(dir, 'Game [UPD].nsp'), 'utf8'), 'by hand!')
+    assert.deepEqual(store.getInstalled(3)?.files, ['Game.nsp', 'Game [UPD].nsp'])
+  })
+
+  test('a file already here at another size is kept', async () => {
+    const { downloads, store, root, resumed } = manager({ perFile: true })
+    const dir = installed(store, root)
+    writeFileSync(join(dir, 'Game [UPD].nsp'), 'a hand copy, longer')
+
+    await downloads.enqueue(game(base, update, dlc), true)
+    assert.equal((await settled(downloads, 3)).state, 'done')
+
+    assert.equal(resumed.length, 1)
+    assert.equal(readFileSync(join(dir, 'Game [UPD].nsp'), 'utf8'), 'a hand copy, longer')
+  })
+
+  test('a row goes back to downloading after a file is hashed', async () => {
+    const { downloads, store, root, client } = manager({ perFile: true })
+    installed(store, root)
+    const states: string[] = []
+    Object.assign(client, {
+      downloadRomFile: async (
+        _file: unknown,
+        destination: string,
+        _progress: unknown,
+        _signal: unknown,
+        opts: { onChecking?: () => void }
+      ) => {
+        states.push(downloads.items[0].state)
+        await writeFile(destination, '01234567')
+        opts.onChecking?.()
+      }
+    })
+
+    await downloads.enqueue(game(base, update, dlc), true)
+    await settled(downloads, 3)
+
+    assert.deepEqual(states, ['downloading', 'downloading'])
+  })
+
+  test('stopping an addition leaves no row still adding', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    installed(store, root)
+
+    await downloads.enqueue(game(base, update), true)
+    await downloads.stopAdding(3)
+    await settled(downloads, 3)
+
+    assert.equal(downloads.addingTo(3), false)
+  })
+
+  test('the launch file and the install date survive a larger new file', async () => {
+    const big = { ...update, file_name: 'Bonus.iso', file_size_bytes: 64 }
+    const { downloads, store, root } = manager({ perFile: true })
+    const dir = installed(store, root)
+    const entry = store.getInstalled(3)
+    assert.ok(entry)
+    store.addInstalled({ ...entry, installedAt: '2020-01-01T00:00:00.000Z' })
+
+    await downloads.enqueue(game(base, big), true)
+    await settled(downloads, 3)
+
+    const after = store.getInstalled(3)
+    assert.equal(after?.launchPath, join(dir, 'Game.nsp'))
+    assert.equal(after?.installedAt, '2020-01-01T00:00:00.000Z')
+  })
+
+  /** The base game loose in the system folder, as one file. */
+  function loose(store: Store, root: string): string {
+    const dir = join(root, 'roms', 'switch')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'Game.nsp'), 'the game')
+    store.addInstalled({
+      romId: 3,
+      emulatorId: SHARED_LIBRARY,
+      path: join(dir, 'Game.nsp'),
+      launchPath: join(dir, 'Game.nsp'),
+      name: 'Game',
+      coverPath: null,
+      files: ['Game.nsp'],
+      system: 'switch',
+      platformName: 'Nintendo Switch',
+      sizeBytes: 8,
+      installedAt: new Date().toISOString(),
+      isDirectory: false
+    })
+    return dir
+  }
+
+  test('a refused addition leaves a loose game where it was', async () => {
+    const { downloads, store, root } = manager({ perFile: false })
+    const dir = loose(store, root)
+
+    await downloads.enqueue(game(base, update), true)
+
+    assert.equal((await settled(downloads, 3)).state, 'error')
+    assert.deepEqual(await readdir(dir), ['Game.nsp'])
+    assert.equal(store.getInstalled(3)?.isDirectory, false)
+  })
+
+  test('a folder already under the name is not shared', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const dir = loose(store, root)
+    mkdirSync(join(dir, 'Game'))
+    writeFileSync(join(dir, 'Game', 'Game.nsp'), 'another game')
+
+    await downloads.enqueue(game(base, update), true)
+
+    assert.equal((await settled(downloads, 3)).state, 'error')
+    assert.equal(readFileSync(join(dir, 'Game.nsp'), 'utf8'), 'the game')
+    assert.equal(readFileSync(join(dir, 'Game', 'Game.nsp'), 'utf8'), 'another game')
+  })
+
+  test('a game being played is not moved', async () => {
+    const { store, root, client, library } = manager({ perFile: true })
+    const dir = loose(store, root)
+    const downloads = new DownloadManager(store, client, library, () => 3)
+
+    await downloads.enqueue(game(base, update), true)
+
+    assert.equal((await settled(downloads, 3)).state, 'error')
+    assert.deepEqual(await readdir(dir), ['Game.nsp'])
+  })
+
+  test('a server that only sends archives is refused, and the game left alone', async () => {
+    const { downloads, store, root } = manager({ perFile: false })
+    const dir = installed(store, root)
+
+    await downloads.enqueue(game(base, update), true)
+    const item = await settled(downloads, 3)
+
+    assert.equal(item.state, 'error')
+    assert.deepEqual(await readdir(dir), ['Game.nsp'])
+    assert.equal(store.pending.length, 0)
+  })
+})
+
 describe('a game fetched one file at a time', () => {
   /** A game of three files, as RomM describes one. */
   function multi(): RommRom {

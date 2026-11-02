@@ -1,8 +1,14 @@
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
-import { rm, stat } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
-import { chooseLaunchFile, isLaunchable, type GameFile } from '@shared/gamefiles'
+import { mkdir, rename, rm, rmdir, stat } from 'node:fs/promises'
+import { basename, dirname, join, relative } from 'node:path'
+import {
+  chooseLaunchFile,
+  gameFolderOf,
+  isLaunchable,
+  localFileNames,
+  type GameFile
+} from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import { hasMorePages, SHARED_LIBRARY } from '@shared/types'
@@ -567,9 +573,12 @@ export class Library extends EventEmitter {
 
     // Loose in the system folder: the entry's names are siblings of `path`,
     // not children of it.
-    const dir = entry.isDirectory ? entry.path : dirname(entry.path)
+    return this.sizesOf(gameFolderOf(entry), entry.files)
+  }
+
+  private async sizesOf(dir: string, files: string[]): Promise<GameFile[]> {
     const sized = await Promise.all(
-      entry.files.map(async (name) => {
+      files.map(async (name) => {
         const found = await stat(join(dir, name)).catch(() => null)
         if (!found) return null
         // A directory install lists whatever sits at its top level, which for
@@ -581,6 +590,79 @@ export class Library extends EventEmitter {
       })
     )
     return sized.filter((file) => file !== null)
+  }
+
+  /**
+   * Give a game installed loose the folder its server now says it needs.
+   *
+   * A game RomM held as one file was installed as that file, and a second file
+   * uploaded beside it makes it a multi-file game, which `plan` and `adopt`
+   * expect in a folder. Recorded at once rather than when the new files land,
+   * so that the game stays playable through a transfer that takes all evening
+   * or never finishes.
+   *
+   * A folder already under that name is another game's or somebody's, and
+   * sharing it would have one uninstall take both. A move that fails part-way
+   * is put back, since the entry still says where the files were.
+   */
+  async intoFolder(entry: InstalledRom, folder: string): Promise<InstalledRom> {
+    if (await stat(folder).catch(() => null)) {
+      throw new RommError(t('error.folderTaken', { path: folder }))
+    }
+    await mkdir(folder)
+
+    const dir = dirname(entry.path)
+    const files = localFileNames(entry)
+    const moved: string[] = []
+    try {
+      for (const name of files) {
+        await rename(join(dir, name), join(folder, name))
+        moved.push(name)
+      }
+    } catch (cause) {
+      for (const name of moved) await rename(join(folder, name), join(dir, name))
+      await rmdir(folder)
+      throw cause
+    }
+
+    const regrouped: InstalledRom = {
+      ...entry,
+      path: folder,
+      launchPath: join(folder, relative(dir, entry.launchPath)),
+      isDirectory: true,
+      files
+    }
+    log.info('library', 'moved a game into a folder for its new files', {
+      romId: entry.romId,
+      from: entry.path,
+      into: folder
+    })
+    this.record(regrouped)
+    return regrouped
+  }
+
+  /**
+   * What an installed game comes to with more files beside it.
+   *
+   * From the disk rather than by adding to the entry: an entry from before the
+   * index listed a game's files names only its folder, and this is what puts
+   * that right. The launch file stays while it still works: on most systems a
+   * larger file arriving would otherwise take Play from the game. The rest of
+   * the entry stands too, this being the same install it was.
+   */
+  async withFiles(entry: InstalledRom, added: string[]): Promise<InstalledRom> {
+    const dir = gameFolderOf(entry)
+    const sized = await this.sizesOf(dir, [...new Set([...localFileNames(entry), ...added])])
+    const keeps = existsSync(entry.launchPath) && isLaunchable(entry.launchPath, entry.system)
+    const chosen = keeps ? null : chooseLaunchFile(sized, entry.system)
+    const launchPath = chosen ? join(dir, chosen) : entry.launchPath
+    return {
+      ...entry,
+      path: entry.isDirectory ? entry.path : launchPath,
+      launchPath,
+      sizeBytes: sized.reduce((sum, file) => sum + file.sizeBytes, 0),
+      files: sized.map((file) => file.name)
+    }
   }
 
   /**

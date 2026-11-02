@@ -36,6 +36,7 @@ export function useGameCopy(options: {
 }): {
   busy: boolean
   startDownload: () => Promise<void>
+  addFiles: () => Promise<void>
   uninstall: () => Promise<void>
   confirmingRemoval: boolean
   setConfirmingRemoval: (confirming: boolean) => void
@@ -46,14 +47,14 @@ export function useGameCopy(options: {
   const [busy, setBusy] = useState(false)
   const [confirmingRemoval, setConfirmingRemoval] = useState(false)
 
-  const startDownload = async (): Promise<void> => {
+  const begin = async (start: () => Promise<DownloadItem>): Promise<void> => {
     setBusy(true)
     // Read before the call, because the answer changes it: the same button
     // finishes a transfer that was stopped, and picking one up again is not
     // the same news as starting one.
     const resuming = isStopped(download?.state ?? 'downloading')
     try {
-      const item = await window.rommix.downloads.start(romId)
+      const item = await start()
       notify(t(startedMessage(item, resuming)), 'ok', {
         title: item.name,
         coverPath: item.coverPath
@@ -65,6 +66,9 @@ export function useGameCopy(options: {
       setBusy(false)
     }
   }
+
+  const startDownload = (): Promise<void> => begin(() => window.rommix.downloads.start(romId))
+  const addFiles = (): Promise<void> => begin(() => window.rommix.downloads.addFiles(romId))
 
   const uninstall = async (): Promise<void> => {
     setConfirmingRemoval(false)
@@ -83,5 +87,5 @@ export function useGameCopy(options: {
     }
   }
 
-  return { busy, startDownload, uninstall, confirmingRemoval, setConfirmingRemoval }
+  return { busy, startDownload, addFiles, uninstall, confirmingRemoval, setConfirmingRemoval }
 }

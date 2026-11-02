@@ -106,6 +106,10 @@ export interface FakeRomm {
   grantedToken: string
   /** The library it serves, for a test that wants to assert against it. */
   roms: RommRom[]
+  /** Put one more file into a game held as several, as an upload and a scan would. */
+  uploadFile: (romId: number, fileName: string) => void
+  /** Keep the wire open on every uploaded file until told otherwise. */
+  holdUploads: (held: boolean) => void
   /** The platforms it serves, likewise. */
   platforms: RommPlatform[]
   /** The shelves it serves, for a test that wants to assert against them. */
@@ -579,18 +583,30 @@ function discSet(id: number, name: string, host: RommPlatform, folder: string): 
     // that archive nor any one file in it. Each file carries its own below.
     md5_hash: null,
     fs_size_bytes: parts.reduce((sum, part) => sum + bytesFor(part).length, 0),
-    files: parts.map((fileName, at) => ({
-      id: id * 10 + at,
-      rom_id: id,
-      file_name: fileName,
-      file_path: `${host.fs_slug}/${folder}/`,
-      file_size_bytes: bytesFor(fileName).length,
-      full_path: `${host.fs_slug}/${folder}/${fileName}`,
-      category: null,
-      crc_hash: null,
-      md5_hash: createHash('md5').update(bytesFor(fileName)).digest('hex'),
-      sha1_hash: null
-    }))
+    files: parts.map((fileName, at) =>
+      discFile(id * 10 + at, id, fileName, `${host.fs_slug}/${folder}/`)
+    )
+  }
+}
+
+/** One file of a game held as several, with the digest of what it will serve. */
+function discFile(
+  id: number,
+  romId: number,
+  fileName: string,
+  path: string
+): RommRom['files'][number] {
+  return {
+    id,
+    rom_id: romId,
+    file_name: fileName,
+    file_path: path,
+    file_size_bytes: bytesFor(fileName).length,
+    full_path: `${path}${fileName}`,
+    category: null,
+    crc_hash: null,
+    md5_hash: createHash('md5').update(bytesFor(fileName)).digest('hex'),
+    sha1_hash: null
   }
 }
 
@@ -682,6 +698,8 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
 /** Start it on a port the operating system picks, so tests can run at once. */
 export async function startFakeRomm(): Promise<FakeRomm> {
   const asked: Asked[] = []
+  const uploadedFiles = new Set<number>()
+  let uploadsHeld = false
   let slowStalled = false
   const held: { save: RommSave; content: string }[] = []
   /** States this server holds, seeded by `holdState` or left by a push. */
@@ -1222,6 +1240,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const wanted = Number(fileContent[1])
         const file = roms.flatMap((one) => one.files).find((one) => one.id === wanted)
         if (!file) return json({ detail: 'No such file' }, 404)
+        if (uploadsHeld && uploadedFiles.has(file.id)) return
         // Its own bytes, keyed by the file's id rather than the game's — which
         // is what the per-file endpoint is, and what makes each file's hash
         // check mean something.
@@ -1329,6 +1348,17 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     pairing: () =>
       pairing ? { userCode: pairing.userCode, deviceCode: pairing.deviceCode } : null,
     roms,
+    uploadFile: (romId, fileName) => {
+      const game = roms.find((one) => one.id === romId)
+      if (!game) throw new Error(`no ROM ${romId} to upload to`)
+      const path = game.files[0].file_path
+      const id = romId * 10 + game.files.length
+      uploadedFiles.add(id)
+      game.files.push(discFile(id, romId, fileName, path))
+    },
+    holdUploads: (holding) => {
+      uploadsHeld = holding
+    },
     collections,
     virtualCollections,
     goAway: () =>

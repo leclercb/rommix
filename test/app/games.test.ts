@@ -385,6 +385,62 @@ describe('downloading a game of several files', () => {
       `the rows said ${JSON.stringify(tags)}`
     )
   })
+
+  test('a file uploaded afterwards is offered, and is all that is fetched', async () => {
+    assert.equal(
+      await app.read<boolean>(`document.querySelector('[data-new-files]') !== null`),
+      false,
+      'a game with every file has nothing new to announce'
+    )
+
+    server.uploadFile(4, 'Added (Track 2).bin')
+    await app.goTo('library')
+    await app.choose('[data-rom="4"]')
+    await app.waitFor(`document.querySelector('[data-new-files]')`, 'the new files mark')
+
+    await app.choose('[data-tab="files"]')
+
+    // Stopped from this page: Play stays, and the game loses nothing.
+    server.holdUploads(true)
+    await app.choose('[data-action="add-files"]')
+    await app.waitFor(`document.querySelector('.download--bare')`, 'the progress panel')
+    await app.waitFor(
+      `document.querySelector('[data-action="play"]') &&
+        document.querySelector('[data-action="pause"]')`,
+      'Pause beside Play'
+    )
+    await app.choose('[data-action="cancel-download"]')
+    await app.waitFor(`!document.querySelector('.download--bare')`, 'the panel to go')
+    server.holdUploads(false)
+    assert.ok(
+      await app.read<boolean>(
+        `(await window.rommix.library.installed()).some((one) => one.romId === 4)`
+      ),
+      'cancelling new files should leave the game installed'
+    )
+
+    const askedBefore = server.asked.length
+    await app.choose('[data-action="add-files"]')
+
+    await app.waitFor(
+      `(await window.rommix.library.installed())
+        .find((one) => one.romId === 4)?.files.includes('Added (Track 2).bin')`,
+      'the new file to reach the index'
+    )
+    await app.waitFor(`!document.querySelector('[data-new-files]')`, 'the mark to go')
+    await app.waitFor(`!document.querySelector('[data-action="add-files"]')`, 'the button to go')
+
+    // Less the one-byte probe of the first file, which is `fileTransfers` asking
+    // how the server sends files and not a transfer.
+    const contents = server.asked
+      .slice(askedBefore)
+      .filter((one) => /\/files\/content\//.test(one.path) && one.range !== 'bytes=0-0')
+    assert.ok(contents.length > 0, 'the new file should have been asked for')
+    assert.ok(
+      contents.every((one) => decodeURIComponent(one.path).includes('Added (Track 2).bin')),
+      `it fetched ${JSON.stringify(contents.map((one) => one.path))}`
+    )
+  })
 })
 
 describe('uninstalling a game', () => {

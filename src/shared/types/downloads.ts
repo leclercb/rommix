@@ -114,6 +114,13 @@ export interface DownloadItem {
    * losing it; the screen offers Pause only where the answer is yes.
    */
   resumable?: boolean
+  /**
+   * New files for a game already installed, rather than the game.
+   *
+   * The transfer writes beside a copy that is being played from, so stopping
+   * it may only ever take the files it brought. See `DownloadManager.additionTo`.
+   */
+  adding?: boolean
 }
 
 /**
@@ -154,6 +161,12 @@ export interface PendingDownload {
    * own folder goes, a shared one obviously cannot.
    */
   ownsFolder: boolean
+  /**
+   * New files for a game already installed. See `DownloadItem.adding`: the
+   * record outlives the row, and without this a restart reads an installed
+   * game as a transfer that finished.
+   */
+  adding?: boolean
   fileName: string
   totalBytes: number
   /**

@@ -112,7 +112,12 @@ export class RomMixApp {
     this.library = new Library(this.store, this.client, this.offline, (system) =>
       this.activeEmulator(system)
     )
-    this.downloads = new DownloadManager(this.store, this.client, this.library)
+    this.downloads = new DownloadManager(
+      this.store,
+      this.client,
+      this.library,
+      () => this.launcher.playing
+    )
     this.bios = new BiosManager(this.store, this.client, this.offline, (system) =>
       this.activeEmulator(system)
     )

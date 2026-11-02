@@ -483,6 +483,8 @@ export const de: Catalog = {
   'game.fallbackTitle': 'Spiel',
   'game.play': 'Spielen',
   'game.running': 'Läuft…',
+  'game.newFiles_one': '{count} neue Datei · {size}',
+  'game.newFiles_other': '{count} neue Dateien · {size}',
   'game.resumeDownload': 'Download fortsetzen ({percent} %)',
   'game.pauseDownload': 'Download pausieren ({percent} %)',
   'game.cancelDownload': 'Download abbrechen ({percent} %)',
@@ -692,8 +694,10 @@ export const de: Catalog = {
   'files.tagServer': 'RomM',
   'files.tagDevice': 'Gerät',
   'files.hintBoth': 'Auf dem Server und auf diesem Gerät.',
-  'files.hintServer': 'Nur auf dem Server. Laden Sie das Spiel herunter, um sie zu bekommen.',
+  'files.hintServer': 'Nur auf dem Server.',
   'files.hintDevice': 'Nur auf diesem Gerät. RomM führt sie nicht.',
+  'files.addNew_one': '{count} neue Datei herunterladen',
+  'files.addNew_other': '{count} neue Dateien herunterladen',
   'files.empty':
     'RomM führt für dieses Spiel keine Dateien, und auf diesem Gerät liegen auch keine.',
   'shots.empty': 'RomM hat keine Screenshots für dieses Spiel.',
@@ -1113,6 +1117,11 @@ export const de: Catalog = {
   'error.assetNotLocal': '{file} liegt nicht auf diesem Gerät, um gelöscht zu werden',
   'error.assetNotRemote': '{file} liegt nicht auf RomM, um gelöscht zu werden',
 
+  'error.cannotAddFiles':
+    'Dieser RomM-Server kann keine einzelne Datei senden. Aktualisieren Sie RomM, oder deinstallieren Sie das Spiel und laden Sie es erneut herunter.',
+  'error.gameInUse':
+    'Beenden Sie zuerst das Spiel: Seine Dateien müssen in einen Ordner verschoben werden.',
+  'error.folderTaken': '{path} existiert bereits. Verschieben Sie es und versuchen Sie es erneut.',
   'error.emptyArchive': '{name} kam als Archiv ohne Inhalt an.',
   'error.cannotOpenArchive': 'Archiv lässt sich nicht öffnen',
   'error.badZipEntry': 'Ungültiger Zip-Eintrag',

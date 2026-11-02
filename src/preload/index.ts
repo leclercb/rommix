@@ -105,6 +105,7 @@ const bridge: RomMixBridge = {
   downloads: {
     list: () => ipcRenderer.invoke('downloads:list'),
     start: (romId: number) => ipcRenderer.invoke('downloads:start', romId),
+    addFiles: (romId: number) => ipcRenderer.invoke('downloads:addFiles', romId),
     promote: (romId: number) => ipcRenderer.invoke('downloads:promote', romId),
     pause: (romId: number) => ipcRenderer.invoke('downloads:pause', romId),
     cancel: (romId: number) => ipcRenderer.invoke('downloads:cancel', romId),

@@ -23,6 +23,10 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
     await rommix.ensureEmulators()
     const rom = await client.rom(romId)
 
+    // Resuming, which is this same call: the game below is installed, and it
+    // is the files arriving beside it that are being asked for.
+    if (downloads.addingTo(romId)) return downloads.enqueue(rom, true)
+
     // Check the disk before queueing anything. Without this, a game RomMix has
     // simply not noticed yet gets downloaded again over the copy already there.
     await library.adopt([rom])
@@ -47,9 +51,18 @@ export function registerDownloadIpc(rommix: RomMixApp, handle: Handle): void {
     return downloads.enqueue(rom)
   })
 
+  handle('downloads:addFiles', async (romId: number): Promise<DownloadItem> => {
+    await rommix.ensureEmulators()
+    return downloads.enqueue(await client.rom(romId), true)
+  })
+
   handle('downloads:promote', (romId: number) => downloads.promote(romId))
   handle('downloads:pause', (romId: number) => downloads.pause(romId))
   handle('downloads:cancel', (romId: number) => downloads.cancel(romId))
   handle('downloads:clearFinished', () => downloads.clearFinished())
-  handle('downloads:uninstall', (romId: number) => library.uninstall(romId))
+  handle('downloads:uninstall', async (romId: number) => {
+    // First, or the transfer goes on writing into a folder that has gone.
+    if (downloads.addingTo(romId)) await downloads.stopAdding(romId)
+    await library.uninstall(romId)
+  })
 }
