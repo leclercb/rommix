@@ -4,6 +4,22 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.23.0 — 2026-11-02
+
+- chore: update the dependencies (0e3760b)
+- test(unit): fix a flaky downloads queued pause test (fe62c91)
+- feat: download new game files (721f2bb)
+- fix: drop the PPSSPP save state reason (82e0651)
+- feat: sync PPSSPP saves by the disc id in an ISO or CSO (b5a500c)
+- test(app): confirm goTo opened the section (1c5675d)
+- test(unit): fix a flaky downloads restart test (7dc8394)
+- test(unit): fix a flaky downloads promote test (7d4a6e4)
+- test(unit): fix a flaky downloads pause test (25d5814)
+- chore: update the dependencies (6d42a53)
+- fix: give unreadable Wii discs their own sync message (e9fe4ae)
+- feat: sync a Wii game's save out of Dolphin's NAND (d61ec11)
+- fix: walk back along a row's buttons before leaving it (e6694fa)
+
 ## 0.22.0 — 2026-10-25
 
 - test(app): hold the slow game while the queue scenarios catch it (227d306)
