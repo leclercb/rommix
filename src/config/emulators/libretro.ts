@@ -283,7 +283,15 @@ function locate(
 
   if (!options.byCore) return perRom(sorted)
 
-  const library = coreLibraryName(options.core)
+  const alias = options.core ? ctx.libretro?.libraryNames[options.core] : undefined
+  const library =
+    alias &&
+    alias !== '.' &&
+    alias !== '..' &&
+    !/[\\/]/.test(alias) &&
+    ![...alias].some((character) => character.charCodeAt(0) < 32)
+      ? alias
+      : coreLibraryName(options.core)
   // Sorting by core is on but the core's own name for itself is not something
   // RomMix can know. The unsorted directory is the safe write target and the
   // one place a save is certainly readable from; anything already filed under a
@@ -357,7 +365,10 @@ export function libretroSavePaths(
     // loaded last, which is a fair guess at a directory name and no answer at
     // all to what wrote this game's save.
     emulator: core ?? LIBRETRO_TAG,
-    alsoAccepts: [LIBRETRO_TAG],
+    alsoAccepts: [
+      LIBRETRO_TAG,
+      ...(chosen && ctx.libretro?.libraryNames[chosen] ? [ctx.libretro.libraryNames[chosen]] : [])
+    ],
     ...(vmu ? { unsyncableReason: 'saves.flycast' as const } : {})
   }
 }

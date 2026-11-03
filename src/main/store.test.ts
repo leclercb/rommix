@@ -541,3 +541,20 @@ describe('how an interrupted transfer stopped', () => {
     assert.deepEqual(store.pending, [])
   })
 })
+
+test('libretro preferences and save ownership round-trip without changing old defaults', () => {
+  const dir = scratch()
+  const store = new Store(dir)
+  assert.equal(store.settings.syncSaveFiles, true)
+  assert.equal(store.settings.syncSaveStates, true)
+  const libretro = {
+    systems: { gba: 'mgba' },
+    roms: { '7': 'gpsp' },
+    libraryNames: { gpsp: 'gpSP' }
+  }
+  store.updateSettings({ libretro, syncSaveStates: false })
+  const again = new Store(dir)
+  assert.deepEqual(again.settings.libretro, libretro)
+  assert.equal(again.settings.syncSaveStates, false)
+  assert.equal(again.settings.syncSaveFiles, true)
+})

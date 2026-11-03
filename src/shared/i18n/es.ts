@@ -783,6 +783,12 @@ export const es: Catalog = {
     'propia de un emulador se quedan ahí y se vuelven a ofrecer para descarga; vuelve atrás y ' +
     'reaparecen.',
   'settings.saveSync': 'Sincronización de partidas',
+  'settings.syncSaveFiles': 'Sincronizar partidas guardadas',
+  'settings.syncSaveFilesHint':
+    'Incluir archivos de guardado en las transferencias automáticas y manuales.',
+  'settings.syncSaveStates': 'Sincronizar estados guardados',
+  'settings.syncSaveStatesHint':
+    'Desactívalo si otra herramienta gestiona los estados o los dispositivos usan núcleos incompatibles.',
   'settings.syncDown': 'Descargar las partidas más recientes antes de jugar',
   'settings.syncDownHint':
     'Solo cuando sean estrictamente más recientes. Las últimas copias locales se conservan en ' +

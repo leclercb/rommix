@@ -88,7 +88,18 @@ export interface ConnectionStatus {
 export const ROM_STORAGES = ['emulator', 'rommix'] as const
 export type RomStorage = (typeof ROM_STORAGES)[number]
 
+export interface LibretroPreferences {
+  /** ES-DE system -> core file base name, without _libretro.so. */
+  systems: Record<string, string>
+  /** RomM game id -> core file base name. Takes precedence over the system. */
+  roms: Record<string, string>
+  /** Core id -> the library name this installed core uses for sorted saves. */
+  libraryNames: Record<string, string>
+}
+
 export interface Settings {
+  /** Standalone libretro preferences; omitted entries retain the built-in defaults. */
+  libretro?: LibretroPreferences
   /**
    * ES-DE system -> emulator id: which emulator runs each platform.
    *
@@ -146,6 +157,10 @@ export interface Settings {
   setupComplete: boolean
   /** Pull newer saves down from RomM before launching. */
   syncSavesDown: boolean
+  /** Include in-game save files in both automatic and manual synchronization. */
+  syncSaveFiles?: boolean
+  /** Disable when another tool owns states, which can depend on a core build. */
+  syncSaveStates?: boolean
   /** Push saves/states back to RomM after the game exits. */
   syncSavesUp: boolean
   /**

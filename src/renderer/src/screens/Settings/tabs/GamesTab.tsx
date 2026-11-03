@@ -55,6 +55,18 @@ export function GamesTab({ root }: { root: RootLocation | null }): JSX.Element {
 
       <h2 className="section-title">{t('settings.saveSync')}</h2>
       <Toggle
+        label={t('settings.syncSaveFiles')}
+        hint={t('settings.syncSaveFilesHint')}
+        on={settings.syncSaveFiles !== false}
+        onToggle={() => void saveSettings({ syncSaveFiles: settings.syncSaveFiles === false })}
+      />
+      <Toggle
+        label={t('settings.syncSaveStates')}
+        hint={t('settings.syncSaveStatesHint')}
+        on={settings.syncSaveStates !== false}
+        onToggle={() => void saveSettings({ syncSaveStates: settings.syncSaveStates === false })}
+      />
+      <Toggle
         label={t('settings.syncDown')}
         hint={t('settings.syncDownHint')}
         on={settings.syncSavesDown}

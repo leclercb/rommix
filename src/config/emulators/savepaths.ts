@@ -19,6 +19,7 @@
  */
 
 import type { Text } from '@shared/i18n'
+import type { LibretroPreferences } from '@shared/types/settings.ts'
 
 /**
  * How a file or directory under a save location is recognised as this game's.
@@ -164,6 +165,9 @@ export interface SaveEnvironment {
 
 /** Everything a descriptor is told about the game whose saves are wanted. */
 export interface SaveContext {
+  /** RomM identity and preferences are shared with launch and core installation. */
+  romId?: number
+  libretro?: LibretroPreferences
   /** The roots the probe discovered for this emulator. */
   paths: {
     home: string | null

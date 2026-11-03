@@ -188,3 +188,11 @@ describe('installing one', () => {
     assert.deepEqual(await readdir(required.dir), [])
   })
 })
+
+test('missing-core installation honors the same per-game preference as launch', async () => {
+  const dir = scratch()
+  const state = { id: 'retroarch', configDir: dir } as EmulatorState
+  const libretro = { systems: { gba: 'mgba' }, roms: { '7': 'gpsp' }, libraryNames: {} }
+  const required = await missingCore(state, 'gba', { romId: 7, libretro })
+  assert.equal(required?.fileName, 'gpsp_libretro.so')
+})

@@ -222,10 +222,12 @@ export class Launcher {
 
   /** Build the argv for an emulator, or null when it cannot run this system. */
   buildCommand(options: LaunchOptions): string[] | null {
-    const { emulator, system, romPath, variant } = options
+    const { rom, emulator, system, romPath, variant } = options
     const descriptor = emulatorById(emulator.id)
     if (!descriptor || !emulator.install) return null
     return descriptor.launch({
+      romId: rom.id,
+      libretro: this.store.settings.libretro,
       exec: execPrefix(emulator.install, descriptor.env),
       installRef: emulator.install.ref,
       system,
@@ -333,7 +335,10 @@ export class Launcher {
        * purpose.
        */
       try {
-        const core = await missingCore(emulator, system)
+        const core = await missingCore(emulator, system, {
+          romId: rom.id,
+          libretro: this.store.settings.libretro
+        })
         if (core) {
           options.onStage?.(t('launch.installingCore', { core: core.name }))
           await installCore(

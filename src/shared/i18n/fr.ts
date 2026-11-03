@@ -791,6 +791,12 @@ export const fr: Catalog = {
     'd’un émulateur y restent et sont de nouveau proposés au téléchargement ; revenez en arrière ' +
     'et ils réapparaissent.',
   'settings.saveSync': 'Synchronisation des sauvegardes',
+  'settings.syncSaveFiles': 'Synchroniser les sauvegardes en jeu',
+  'settings.syncSaveFilesHint':
+    'Inclure les fichiers de sauvegarde dans les transferts automatiques et manuels.',
+  'settings.syncSaveStates': 'Synchroniser les états de sauvegarde',
+  'settings.syncSaveStatesHint':
+    'Désactivez si un autre outil gère les états ou si vos appareils utilisent des cœurs incompatibles.',
   'settings.syncDown': 'Télécharger les sauvegardes plus récentes avant de jouer',
   'settings.syncDownHint':
     'Seulement si elles sont strictement plus récentes. Les dernières copies locales sont ' +

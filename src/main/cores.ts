@@ -83,12 +83,14 @@ export async function coreInstalled(core: RequiredCore): Promise<boolean> {
  */
 export async function missingCore(
   emulator: EmulatorState,
-  system: string
+  system: string,
+  preferences: Pick<CoreContext, 'romId' | 'libretro'> = {}
 ): Promise<RequiredCore | null> {
   const descriptor = emulatorById(emulator.id)
   if (!descriptor?.core) return null
 
   const context: CoreContext = {
+    ...preferences,
     system,
     home: realHome(),
     configDir: emulator.configDir,

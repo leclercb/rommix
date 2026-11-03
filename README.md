@@ -309,6 +309,15 @@ Two cases RomMix cannot finish on its own, both of which it says on screen:
 and press Play again; and an image it **cannot write to**, where the releases
 page is the way to get the new version.
 
+### Save files and save states
+
+Settings → Games lets you include in-game saves and emulator save states
+independently. Both are included by default. Disable save states when another
+sync tool manages them, or when devices use different core builds. Excluded
+kinds are left untouched by automatic and manual transfers; existing local and
+server files are retained. The download/upload switches still control when
+automatic transfers happen.
+
 ### Settings that are not on screen
 
 Two rare options live in `~/rommix/config/settings.json`. Close RomMix before
@@ -326,6 +335,32 @@ editing it.
 `systemOverrides` maps a RomM platform slug to an ES-DE system folder, for a
 platform RomMix has none for. `emulatorPaths` points at an emulator kept
 somewhere RomMix would not look.
+
+### Standalone RetroArch core preferences
+
+With RomMix closed, add `libretro` inside `settings` in
+`~/rommix/config/settings.json`:
+
+```json
+{
+  "systems": { "gba": "mgba", "psx": "pcsx_rearmed" },
+  "roms": { "123": "gpsp" },
+  "libraryNames": { "mednafen_supafaust": "Supafaust" }
+}
+```
+
+System keys are ES-DE system names; game keys are numeric RomM IDs. A game
+choice takes precedence over its platform. Values are core file base names,
+without `_libretro.so`. Omitted or invalid choices use the built-in defaults.
+The same choice drives launch, missing-core installation, save folders and
+upload tags. Choices apply to standalone RetroArch; frontends that select
+their own emulators retain their own configuration.
+
+`libraryNames` overrides the sorted save-folder name for a core whose installed
+build reports a different library name. It must match the name that core
+actually uses. This does not move saves or change RetroArch's sorting settings.
+Only use a library-name tag for compatible saves; selecting a core does not
+convert another core's saves or make its states compatible.
 
 ### Builds from the tip of `main`
 

@@ -300,6 +300,8 @@ export class SaveSync {
 
     const romPath = target.romPath
     const context: SaveContext = {
+      romId: target.rom.id,
+      libretro: this.store.settings.libretro,
       paths: target.emulator.paths,
       system: target.system,
       romPath,
@@ -314,7 +316,12 @@ export class SaveSync {
     }
 
     try {
-      const paths = descriptor.saves(context)
+      const resolved = descriptor.saves(context)
+      const paths = {
+        ...resolved,
+        saves: this.store.settings.syncSaveFiles === false ? null : resolved.saves,
+        states: this.store.settings.syncSaveStates === false ? null : resolved.states
+      }
       // Where the descriptor decided this game's files are. Half of every save
       // sync question is "which folder did it look in", and it is a folder
       // nothing else in the log names.

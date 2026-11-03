@@ -65,6 +65,7 @@ const EMPTY_CREDENTIALS: StoredCredentials = {
 
 function defaultSettings(): Settings {
   return {
+    libretro: { systems: {}, roms: {}, libraryNames: {} },
     systemEmulators: {},
     emulatorPaths: {},
     systemLaunchers: {},
@@ -83,6 +84,8 @@ function defaultSettings(): Settings {
     romStorage: 'rommix',
     setupComplete: false,
     syncSavesDown: true,
+    syncSaveFiles: true,
+    syncSaveStates: true,
     syncSavesUp: true,
     navigationSounds: true,
     confirmUninstall: true,
@@ -133,6 +136,11 @@ const oneOf =
  * alike, and one that fails keeps the value it had.
  */
 const SETTINGS_SHAPE: { [K in keyof Settings]: Check<Settings[K]> } = {
+  libretro: (value): value is Settings['libretro'] =>
+    isRecord(value) &&
+    isStringRecord(value.systems) &&
+    isStringRecord(value.roms) &&
+    isStringRecord(value.libraryNames),
   systemEmulators: isStringRecord,
   emulatorPaths: isStringRecord,
   systemLaunchers: isStringRecord,
@@ -142,6 +150,8 @@ const SETTINGS_SHAPE: { [K in keyof Settings]: Check<Settings[K]> } = {
   romStorage: oneOf(ROM_STORAGES),
   setupComplete: isBoolean,
   syncSavesDown: isBoolean,
+  syncSaveFiles: isBoolean,
+  syncSaveStates: isBoolean,
   syncSavesUp: isBoolean,
   navigationSounds: isBoolean,
   confirmUninstall: isBoolean,

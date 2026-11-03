@@ -5,6 +5,18 @@ import type { CoreContext, EmulatorDescriptor, RequiredCore } from '../types.ts'
 
 const RETROARCH_APP_ID = 'org.libretro.RetroArch'
 
+/** Never let a stored core name turn into a path outside the cores directory. */
+function selectedCore(ctx: Pick<CoreContext, 'system' | 'romId' | 'libretro'>): string | null {
+  const choices = [
+    ctx.romId === undefined ? undefined : ctx.libretro?.roms[String(ctx.romId)],
+    ctx.libretro?.systems[ctx.system]
+  ]
+  return (
+    choices.find((core) => typeof core === 'string' && /^[a-z0-9_-]+$/.test(core)) ??
+    coreForSystem(ctx.system)
+  )
+}
+
 /**
  * Where standalone RetroArch's config might be.
  *
@@ -76,7 +88,7 @@ export const retroarch: EmulatorDescriptor = {
     libretroSavePaths(
       ctx,
       readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
-      coreForSystem(ctx.system),
+      selectedCore(ctx),
       { saves: ctx.paths.saves, states: ctx.paths.states }
     ),
   // Its system folder takes any firmware file dropped in.
@@ -93,7 +105,7 @@ export const retroarch: EmulatorDescriptor = {
   core: (ctx: CoreContext): RequiredCore | null =>
     libretroCore(
       readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
-      coreForSystem(ctx.system),
+      selectedCore(ctx),
       joinPath(ctx.configDir, 'retroarch', 'cores') || null
     ),
   // Nothing: the one setup step RetroArch really needs — a core for the system
@@ -113,8 +125,8 @@ export const retroarch: EmulatorDescriptor = {
    * who prefers windowed play still has it when they start RetroArch
    * themselves. The same reasoning as Eden's `-f`.
    */
-  launch: ({ exec, system, romPath }) => {
-    const core = coreForSystem(system)
+  launch: ({ exec, system, romPath, romId, libretro }) => {
+    const core = selectedCore({ system, romId, libretro })
     if (!core) return null
     return [...exec, '-f', '-L', `${core}_libretro.so`, romPath]
   }

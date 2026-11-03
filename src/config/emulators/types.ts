@@ -285,6 +285,8 @@ export interface LaunchVariant {
 }
 
 export interface LaunchContext {
+  romId?: SaveContext['romId']
+  libretro?: SaveContext['libretro']
   /**
    * argv prefix that starts the program. Empty for a `scripts` install, where
    * the launcher to run depends on the system and the descriptor names it.
@@ -346,7 +348,10 @@ export interface BiosContext {
 export type BiosTarget = string | null
 
 /** What a descriptor is told in order to name the core a launch needs. */
-export type CoreContext = Pick<SaveContext, 'system' | 'home' | 'configDir' | 'env'>
+export type CoreContext = Pick<
+  SaveContext,
+  'system' | 'home' | 'configDir' | 'env' | 'romId' | 'libretro'
+>
 
 /**
  * A libretro core a launch needs and the install does not ship.

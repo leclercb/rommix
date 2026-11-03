@@ -2098,3 +2098,52 @@ describe('PPSSPP, whose save folders begin with the disc id', () => {
     assert.deepEqual(readdirSync(saveData).sort(), [OTHER, OWN])
   })
 })
+
+describe('choosing which save kinds RomMix owns', () => {
+  for (const manual of [false, true]) {
+    for (const enabled of ['save', 'state', 'both', 'neither']) {
+      test(`${manual ? 'manual' : 'automatic'} transfers include only ${enabled}`, async () => {
+        const stateName = 'Sonic the Hedgehog (USA).state1'
+        const saveName = 'Sonic the Hedgehog (USA).srm'
+        const { sync, target, store, saveDir, stateDir, uploaded } = setUp({
+          saves: [save()],
+          states: [save({ id: 2, file_name: stateName }) as unknown as RommState]
+        })
+        const files = enabled === 'save' || enabled === 'both'
+        const states = enabled === 'state' || enabled === 'both'
+        store.updateSettings({ syncSaveFiles: files, syncSaveStates: states })
+        const savePath = join(saveDir, saveName)
+        const statePath = join(stateDir, stateName)
+        // An older local copy proves a disabled kind was not overwritten.
+        for (const path of [savePath, statePath]) {
+          writeFileSync(path, 'local progress')
+          utimesSync(path, new Date(0), new Date(0))
+        }
+        if (manual) await sync.pullNow(target)
+        else await sync.pull(target)
+        assert.equal(readFileSync(savePath, 'utf8'), files ? REMOTE_BYTES : 'local progress')
+        assert.equal(readFileSync(statePath, 'utf8'), states ? REMOTE_BYTES : 'local progress')
+        for (const path of [savePath, statePath]) writeFileSync(path, 'new progress')
+        const preview = await sync.previewPush(target)
+        assert.equal(
+          preview.files.some((file) => file.fileName === saveName),
+          files
+        )
+        assert.equal(
+          preview.files.some((file) => file.fileName === stateName),
+          states
+        )
+        if (manual) await sync.pushNow(target)
+        else await sync.push(target, 0)
+        assert.equal(
+          uploaded.some((file) => file.fileName === saveName),
+          files
+        )
+        assert.equal(
+          uploaded.some((file) => file.fileName === stateName),
+          states
+        )
+      })
+    }
+  }
+})
