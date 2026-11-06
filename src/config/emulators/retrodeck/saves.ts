@@ -186,7 +186,11 @@ function defaultCommandLabel(
 }
 
 /** The `<system>` ES-DE lists this system under, unparsed. */
-function systemBlock(env: SaveContext['env'], installDir: string, system: string): string | null {
+export function systemBlock(
+  env: SaveContext['env'],
+  installDir: string,
+  system: string
+): string | null {
   const xml = env.text(joinPath(installDir, ES_SYSTEMS))
   if (!xml) return null
 
@@ -365,19 +369,25 @@ export function retroDeckComponent(ctx: ComponentContext): string {
  * this.
  */
 function commandLabel(ctx: ComponentContext): string | null {
-  const gamelist = ctx.paths.home
-    ? ctx.env.text(joinPath(ctx.paths.home, 'ES-DE', 'gamelists', ctx.system, 'gamelist.xml'))
-    : null
-
-  if (gamelist) {
-    const label = altEmulatorFor(gamelist, ctx.romPath ? baseName(ctx.romPath) : null)
-    if (label) return label
-  }
+  const label = chosenCommandLabel(ctx)
+  if (label) return label
 
   // Nothing overrides it, so ES-DE takes the first command it lists — read from
   // the very file RetroDECK reads rather than from a copy of its conclusions.
   if (ctx.installDir) return defaultCommandLabel(ctx.env, ctx.installDir, ctx.system)
   return null
+}
+
+/**
+ * The command the user picked in ES-DE for this game or its system, or null
+ * when they picked none and RetroDECK falls back to its default.
+ */
+export function chosenCommandLabel(ctx: ComponentContext): string | null {
+  const gamelist = ctx.paths.home
+    ? ctx.env.text(joinPath(ctx.paths.home, 'ES-DE', 'gamelists', ctx.system, 'gamelist.xml'))
+    : null
+  if (!gamelist) return null
+  return altEmulatorFor(gamelist, ctx.romPath ? baseName(ctx.romPath) : null)
 }
 
 /**

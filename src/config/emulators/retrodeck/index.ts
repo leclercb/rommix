@@ -1,5 +1,6 @@
 import { systemsWithCore } from '../../systems.ts'
 import { retroDeckBiosDir } from './bios.ts'
+import { retroDeckCommand } from './command.ts'
 import { retroDeckSavePaths } from './saves.ts'
 import type { EmulatorDescriptor } from '../types.ts'
 
@@ -61,8 +62,9 @@ const RETRODECK_STANDALONE_SYSTEMS = [
  * resolves the emulator from its bundled es_systems.xml, honouring any
  * <altemulator> the user set in ES-DE. Passing the system and letting
  * RetroDECK choose is more faithful to the user's own configuration than
- * naming an emulator here, so RomMix never reaches past it to the emulator
- * underneath — but it still has to know *which* systems RetroDECK can do,
+ * naming an emulator here, so RomMix only reaches past it where RetroDECK's own
+ * default cannot run the ROM at all (see `retroDeckCommand`) — but it still has
+ * to know *which* systems RetroDECK can do,
  * because "ask RetroDECK" is not an answer when RetroDECK has nothing to ask.
  *
  * It bundles RetroArch, so it covers everything libretro does, plus the
@@ -170,5 +172,12 @@ export const retrodeck: EmulatorDescriptor = {
   env: { ra_cores_path: RETRODECK_CORES_DIR },
   // `exec` alone opens RetroDECK's own frontend.
   open: undefined,
-  launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath]
+  /**
+   * By system, so RetroDECK picks the emulator — except where its default only
+   * runs shortcuts and the ROM is not one. See `retroDeckCommand`.
+   */
+  launch: ({ exec, system, romPath, paths, installDir, env }) => {
+    const command = retroDeckCommand({ paths, system, romPath, installDir, env })
+    return [...exec, ...(command ? ['-e', command] : []), '-s', system, romPath]
+  }
 }

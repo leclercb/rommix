@@ -11,6 +11,7 @@ import {
   signalProcessGroup,
   stopFlatpakApp
 } from './host.ts'
+import { fileSystemEnvironment } from './saveenv.ts'
 import { realHome } from './xdg.ts'
 import { log } from './log.ts'
 import type { RommClient } from './romm/index.ts'
@@ -180,6 +181,9 @@ export class Launcher {
    * Separate from `current`: that is a session, with saves to account for and a
    * game to report. This is a program someone opened to change a setting in.
    */
+  /** The disk, as a descriptor reads it while building an argv. */
+  private readonly env = fileSystemEnvironment()
+
   private opened: { name: string; kill: () => void; forceKill: () => void } | null = null
 
   /**
@@ -230,7 +234,10 @@ export class Launcher {
       installRef: emulator.install.ref,
       system,
       romPath,
-      variant
+      variant,
+      paths: emulator.paths,
+      installDir: emulator.install.location ?? null,
+      env: this.env
     })
   }
 

@@ -297,6 +297,17 @@ export interface LaunchContext {
   romPath: string
   /** The chosen `LaunchVariant`, when the emulator offers more than one. */
   variant?: string
+  /**
+   * The roots the probe discovered, the install's own files, and a read-only
+   * view of the disk — the same three `saves()` is given.
+   *
+   * For a frontend whose argv depends on its own configuration: RetroDECK's
+   * default command for some systems only runs shortcuts, and whether that is
+   * the command in force is written in files on the user's disk.
+   */
+  paths: EmulationPaths
+  installDir: string | null
+  env: SaveEnvironment
 }
 
 /**

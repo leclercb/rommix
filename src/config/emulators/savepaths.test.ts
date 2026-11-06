@@ -110,6 +110,13 @@ function context(options: ContextOptions): SaveContext {
   }
 }
 
+/** What a launch is told about the disk when nothing on it matters. */
+const NOTHING_ON_DISK = {
+  paths: { home: null, roms: null, saves: null, states: null, bios: null },
+  installDir: null,
+  env: machine({})
+}
+
 function resolve(descriptor: EmulatorDescriptor, options: ContextOptions): SavePaths {
   return descriptor.saves(context(options))
 }
@@ -1336,7 +1343,13 @@ test('the example descriptor answers nothing where the folders are unknown', () 
 test('the example descriptor builds an argv per system, and refuses the rest', () => {
   const exec = ['/opt/example/Example.AppImage']
   const launch = (system: string): string[] | null =>
-    example.launch({ exec, installRef: exec[0], system, romPath: '/roms/game.sfc' })
+    example.launch({
+      ...NOTHING_ON_DISK,
+      exec,
+      installRef: exec[0],
+      system,
+      romPath: '/roms/game.sfc'
+    })
 
   assert.deepEqual(launch('snes'), [...exec, '/roms/game.sfc'])
   // The flag the example uses to show a system that needs one.
@@ -1351,6 +1364,7 @@ test('the example descriptor claims only systems it can launch', () => {
   for (const system of example.systems) {
     assert.ok(
       example.launch({
+        ...NOTHING_ON_DISK,
         exec: ['/opt/example/Example.AppImage'],
         installRef: '/opt/example/Example.AppImage',
         system,

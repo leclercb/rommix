@@ -25,6 +25,7 @@ import { shadps4 } from './shadps4/index.ts'
 import { xenia } from './xenia/index.ts'
 import { example } from './example/index.ts'
 import type { EmulatorDescriptor, EmulatorState } from './types.ts'
+import type { SaveEnvironment } from './savepaths.ts'
 
 /**
  * Every field of `EmulatorDescriptor`, in the order the interface declares
@@ -62,6 +63,27 @@ const FIELD_ORDER = [
  * breaks is a rule the next descriptor starts out breaking too.
  */
 const ALL_DESCRIPTORS: readonly EmulatorDescriptor[] = [...EMULATORS, example]
+
+/** A disk holding `files` and nothing else, for a descriptor that reads one. */
+function disk(files: Record<string, string> = {}): SaveEnvironment {
+  return {
+    exists: (path) => path in files,
+    dirs: () => [],
+    files: () => [],
+    text: (path) => files[path] ?? null,
+    head: () => null,
+    read: () => null,
+    inflateRaw: () => null,
+    newest: () => 0
+  }
+}
+
+/** What a launch is told about the disk when nothing on it matters. */
+const NOTHING_ON_DISK = {
+  paths: { home: null, roms: null, saves: null, states: null, bios: null },
+  installDir: null,
+  env: disk()
+}
 
 /** A state as the main-process probe would report it, for selection tests. */
 function state(id: string, available: boolean): EmulatorState {
@@ -173,6 +195,7 @@ test('no installed emulator runs the system resolves to null', () => {
 
 test('RetroDECK is launched by system so it resolves the emulator itself', () => {
   const argv = retrodeck.launch({
+    ...NOTHING_ON_DISK,
     exec: ['flatpak', 'run', 'net.retrodeck.retrodeck'],
     installRef: 'net.retrodeck.retrodeck',
     system: 'snes',
@@ -188,8 +211,68 @@ test('RetroDECK is launched by system so it resolves the emulator itself', () =>
   ])
 })
 
+/** A RetroDECK install whose ES-DE system list holds the PS3 entry it ships. */
+const RETRODECK_DIR = '/var/lib/flatpak/app/net.retrodeck.retrodeck/current/active'
+const RETRODECK_HOME = '/home/deck/retrodeck'
+const ES_SYSTEMS = `${RETRODECK_DIR}/files/retrodeck/components/es-de/share/es-de/resources/systems/linux/es_systems.xml`
+const PS3_SYSTEM = `<systemList>
+  <system>
+    <name>ps3</name>
+    <command label="RPCS3 Shortcut (Standalone)">%ENABLESHORTCUTS% %EMULATOR_OS-SHELL% %ROM%</command>
+    <command label="RPCS3 Game Serial (Standalone)">%EMULATOR_RPCS3% --no-gui %RPCS3_GAMEID%:%INJECT%=%BASENAME%.ps3</command>
+    <command label="RPCS3 Directory (Standalone)">%EMULATOR_RPCS3% --no-gui %ROM%</command>
+    <command label="RPCS3 ISO (Standalone)">%EMULATOR_RPCS3% --no-gui %ROM%</command>
+  </system>
+</systemList>`
+
+function launchPs3(romPath: string, files: Record<string, string> = {}): string[] | null {
+  return retrodeck.launch({
+    exec: ['flatpak', 'run', 'net.retrodeck.retrodeck'],
+    installRef: 'net.retrodeck.retrodeck',
+    system: 'ps3',
+    romPath,
+    paths: { home: RETRODECK_HOME, roms: null, saves: null, states: null, bios: null },
+    installDir: RETRODECK_DIR,
+    env: disk({ [ES_SYSTEMS]: PS3_SYSTEM, ...files })
+  })
+}
+
+test('RetroDECK is told to run a PS3 disc image directly rather than as a shortcut', () => {
+  // Its default PS3 command passes the ROM to /bin/sh, which cannot run an ISO.
+  assert.deepEqual(launchPs3('/roms/ps3/Game/Game.iso'), [
+    'flatpak',
+    'run',
+    'net.retrodeck.retrodeck',
+    '-e',
+    '%EMULATOR_RPCS3% --no-gui %ROM%',
+    '-s',
+    'ps3',
+    '/roms/ps3/Game/Game.iso'
+  ])
+})
+
+test('RetroDECK still runs a PS3 shortcut with its default command', () => {
+  assert.deepEqual(launchPs3('/roms/ps3/Game.desktop'), [
+    'flatpak',
+    'run',
+    'net.retrodeck.retrodeck',
+    '-s',
+    'ps3',
+    '/roms/ps3/Game.desktop'
+  ])
+})
+
+test('RetroDECK keeps a PS3 command the user chose in ES-DE', () => {
+  const gamelist = `<alternativeEmulator><label>RPCS3 Game Serial (Standalone)</label></alternativeEmulator>`
+  const argv = launchPs3('/roms/ps3/Game/Game.iso', {
+    [`${RETRODECK_HOME}/ES-DE/gamelists/ps3/gamelist.xml`]: gamelist
+  })
+  assert.equal(argv?.includes('-e'), false)
+})
+
 test('RetroArch is launched with the core mapped for the system', () => {
   const argv = retroarch.launch({
+    ...NOTHING_ON_DISK,
     exec: ['/usr/bin/retroarch'],
     installRef: '/usr/bin/retroarch',
     system: 'snes',
@@ -206,6 +289,7 @@ test('RetroArch is launched with the core mapped for the system', () => {
 
 test('Eden is started fullscreen, with the ROM named by -g', () => {
   const argv = eden.launch({
+    ...NOTHING_ON_DISK,
     exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
     installRef: '/home/u/rommix/emulators/eden/Eden.AppImage',
     system: 'switch',
@@ -226,6 +310,7 @@ test('Eden declines the systems it does not run', () => {
 
 test('an emulator returns null rather than argv for a system it cannot run', () => {
   const argv = retroarch.launch({
+    ...NOTHING_ON_DISK,
     exec: ['/usr/bin/retroarch'],
     installRef: '/usr/bin/retroarch',
     system: 'switch',
@@ -425,6 +510,7 @@ test('EmuDeck runs a game through the launcher script for that system', () => {
   // The scripts forward their arguments verbatim to the emulator underneath,
   // so RomMix has to supply Dolphin's own flags rather than just a path.
   const argv = emudeck.launch({
+    ...NOTHING_ON_DISK,
     exec: [],
     installRef: '/home/deck/Emulation/tools/launchers',
     system: 'gc',
@@ -440,6 +526,7 @@ test('EmuDeck runs a game through the launcher script for that system', () => {
 
 test('EmuDeck passes RomMix nothing to guess for a libretro system', () => {
   const argv = emudeck.launch({
+    ...NOTHING_ON_DISK,
     exec: [],
     installRef: '/e/tools/launchers',
     system: 'snes',
@@ -458,6 +545,7 @@ test('the ROM placeholder is substituted inside an argument, not only as one', (
   // its path as part of a --path= argument.
   assert.deepEqual(
     emudeck.launch({
+      ...NOTHING_ON_DISK,
       exec: [],
       installRef: '/e/tools/launchers',
       system: 'xbox360',
@@ -467,6 +555,7 @@ test('the ROM placeholder is substituted inside an argument, not only as one', (
   )
   assert.deepEqual(
     emudeck.launch({
+      ...NOTHING_ON_DISK,
       exec: [],
       installRef: '/e/tools/launchers',
       system: 'scummvm',
@@ -495,6 +584,7 @@ test('emulators with a single way to run a system offer no choice at all', () =>
 
 test('a chosen EmuDeck variant is the one that runs', () => {
   const argv = emudeck.launch({
+    ...NOTHING_ON_DISK,
     exec: [],
     installRef: '/e/tools/launchers',
     system: 'switch',
@@ -513,6 +603,7 @@ test('a variant that no longer exists refuses rather than substituting', () => {
   // default would start a different emulator than the one asked for, and write
   // its saves somewhere the first one will not look.
   const argv = emudeck.launch({
+    ...NOTHING_ON_DISK,
     exec: [],
     installRef: '/e/tools/launchers',
     system: 'switch',
@@ -526,6 +617,7 @@ test('EmuDeck declines a system it has no launcher for', () => {
   // Rather than sending it to whichever script happens to be first.
   assert.equal(
     emudeck.launch({
+      ...NOTHING_ON_DISK,
       exec: [],
       installRef: '/e/tools/launchers',
       system: 'psvita',
@@ -674,6 +766,7 @@ test('a scripts install builds its launcher path from the install ref', () => {
   // `exec` is empty for a `scripts` install — there is no one program to start,
   // so the descriptor names the script and it is the whole command.
   const argv = emudeck.launch({
+    ...NOTHING_ON_DISK,
     exec: [],
     installRef: '/e/tools/launchers',
     system: 'psx',
@@ -750,6 +843,7 @@ test("shadPS4 is launched on the game directory's eboot, not on the largest file
   // What `chooseLaunchFile` nominates for a PS4 game is one of its data files:
   // the entry point is small and named, so the descriptor names it.
   const argv = shadps4.launch({
+    ...NOTHING_ON_DISK,
     exec: ['flatpak', 'run', 'net.shadps4.shadPS4'],
     installRef: 'net.shadps4.shadPS4',
     system: 'ps4',
@@ -768,6 +862,7 @@ test("shadPS4 is launched on the game directory's eboot, not on the largest file
 test('shadPS4 passes an eboot and a package through as they are', () => {
   const run = (romPath: string): string[] | null =>
     shadps4.launch({
+      ...NOTHING_ON_DISK,
       exec: ['/usr/bin/shadps4'],
       installRef: '/usr/bin/shadps4',
       system: 'ps4',
@@ -811,6 +906,7 @@ test("a project publishing every platform as a zip offers only this one's", () =
 
 test('Xenia is started fullscreen on the ROM it is given', () => {
   const argv = xenia.launch({
+    ...NOTHING_ON_DISK,
     exec: ['/home/u/Applications/xenia_canary_linux.AppImage'],
     installRef: '/home/u/Applications/xenia_canary_linux.AppImage',
     system: 'xbox360',
@@ -827,6 +923,7 @@ test('Xenia opens a Games on Demand package by its header, not by a data part', 
   // The largest file of a GoD package is a part inside `<header>.data/`; the
   // header beside that folder is what Xenia loads.
   const argv = xenia.launch({
+    ...NOTHING_ON_DISK,
     exec: ['/usr/bin/xenia_canary'],
     installRef: '/usr/bin/xenia_canary',
     system: 'xbox360',
