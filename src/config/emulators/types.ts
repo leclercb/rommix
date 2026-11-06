@@ -75,7 +75,9 @@ export interface ReleaseSource {
  *  - `appimage`  downloaded from the project's own releases. A loose file in a
  *                download folder rather than something on PATH, so it is also
  *                looked for by name — both the copy RomMix fetched and one the
- *                user put there themselves.
+ *                user put there themselves. `release: null` is a project with
+ *                no feed stable enough to install from: the AppImage is only
+ *                ever found, never offered as a download.
  *  - `binary`    found on PATH. Whatever put it there — a distro package, a
  *                build — is not something RomMix can drive.
  *  - `scripts`   a directory of launchers rather than one program, which is
@@ -90,9 +92,14 @@ export interface ReleaseSource {
  */
 export type InstallSpec =
   | { kind: 'flatpak'; appId: string }
-  | { kind: 'appimage'; patterns: readonly string[]; release: ReleaseSource }
+  | { kind: 'appimage'; patterns: readonly string[]; release: ReleaseSource | null }
   | { kind: 'binary'; names: readonly string[] }
   | { kind: 'scripts'; dir: { from: string; path: string } }
+
+/** A route RomMix can take itself: a flatpak, or an AppImage it can download. */
+export type InstallMethod =
+  | Extract<InstallSpec, { kind: 'flatpak' }>
+  | (Extract<InstallSpec, { kind: 'appimage' }> & { release: ReleaseSource })
 
 /**
  * An install that was actually found. `ref` is a flatpak app id, the path of a

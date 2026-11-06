@@ -1,4 +1,5 @@
 import { eden } from './eden/index.ts'
+import { eglantine } from './eglantine/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -8,7 +9,7 @@ import type {
   EmulatorDescriptor,
   EmulatorId,
   EmulatorState,
-  InstallSpec,
+  InstallMethod,
   LaunchVariant,
   ReleaseSource
 } from './types.ts'
@@ -26,6 +27,7 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   emudeck,
   retroarch,
   eden,
+  eglantine,
   shadps4,
   xenia
 ]
@@ -149,15 +151,14 @@ export function launchVariants(
  *
  * Derived from the install list rather than declared beside it: a route that
  * cannot be detected is a route that would install an emulator RomMix then
- * reports as missing, and one that cannot be installed is `binary` or
- * `scripts` — something the user set up themselves and RomMix only finds.
+ * reports as missing, and one that cannot be installed is `binary`, `scripts`
+ * or an AppImage with no release — something the user set up themselves and
+ * RomMix only finds.
  */
-export function installMethods(
-  descriptor: EmulatorDescriptor
-): readonly (InstallSpec & { kind: 'flatpak' | 'appimage' })[] {
+export function installMethods(descriptor: EmulatorDescriptor): readonly InstallMethod[] {
   return descriptor.install.filter(
-    (spec): spec is InstallSpec & { kind: 'flatpak' | 'appimage' } =>
-      spec.kind === 'flatpak' || spec.kind === 'appimage'
+    (spec): spec is InstallMethod =>
+      spec.kind === 'flatpak' || (spec.kind === 'appimage' && spec.release !== null)
   )
 }
 
@@ -179,6 +180,7 @@ export function isInstallableAsset(assetName: string, source: ReleaseSource): bo
 }
 
 export { eden } from './eden/index.ts'
+export { eglantine } from './eglantine/index.ts'
 export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck/index.ts'
 export { retroarch } from './retroarch/index.ts'
 export { retrodeck, RETRODECK_APP_ID } from './retrodeck/index.ts'
@@ -198,6 +200,7 @@ export type {
   EmulatorDispatch,
   EmulatorId,
   EmulatorState,
+  InstallMethod,
   InstallSpec,
   LaunchContext,
   LaunchVariant,

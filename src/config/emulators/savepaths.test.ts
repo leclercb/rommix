@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { eden } from './eden/index.ts'
+import { eglantine } from './eglantine/index.ts'
 import { emudeck, emuDeckCore, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
 import {
   emuDeckSaveFolder,
@@ -909,6 +910,33 @@ test('Eden has no save states, so none are claimed', () => {
   // its own; naming a directory would only invent one.
   const paths = edenPaths(edenMachine({ [ONE_PROFILE]: [] }))
   assert.equal(paths.states, null)
+})
+
+test('Eglantine syncs nothing for a Switch 2 game whose title id it cannot read', () => {
+  // A `.nup` is neither a Switch container nor a playlist: it is never read as
+  // text, which for a file of several gigabytes would load the whole game.
+  const nup = '/roms/switch2/Some Game.nup'
+  const read: string[] = []
+  const env = machine({
+    dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    files: { [nup]: 'NUP\x01' }
+  })
+  const paths = resolve(eglantine, {
+    romPath: nup,
+    system: 'switch2',
+    paths: { saves: '/data/eglantine/nand/user/save' },
+    env: {
+      ...env,
+      text: (path) => {
+        read.push(path)
+        return env.text(path)
+      }
+    }
+  })
+  assert.equal(paths.saves, null)
+  assert.equal(paths.states, null)
+  assert.deepEqual(read, [])
+  assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /Eglantine/)
 })
 
 /**

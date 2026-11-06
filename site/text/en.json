@@ -71,9 +71,11 @@
   "emulators.emudeck": "The NES to the Switch and the 360",
   "emulators.retroarch": "Libretro, your choice of core per system",
   "emulators.eden": "Nintendo Switch",
+  "emulators.eglantine": "Nintendo Switch 2",
   "emulators.shadps4": "PlayStation 4",
   "emulators.xenia": "Xbox 360",
   "emulators.ownInstaller": "Its own installer",
+  "emulators.foundOnly": "Found, not downloaded",
   "emulators.flatpakAndAppImage": "Flatpak and AppImage",
 
   "getting.title": "Download",

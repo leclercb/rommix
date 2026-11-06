@@ -3,6 +3,7 @@ import { afterEach, describe, test } from 'node:test'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { resolveEmulator } from '@config/emulators'
 import type { EmulatorState } from '@config/emulators'
 import type { Settings } from '@shared/types'
 import { detectEmulators, expandShell, prepareRomFolders } from './emulators.ts'
@@ -153,6 +154,22 @@ describe('an emulator whose folders are fixed', () => {
     assert.equal(found.paths.bios, join(dir, '.local', 'share', 'eden/keys'))
     // ROMs go to RomMix's own tree, whatever the emulator is.
     assert.equal(found.paths.roms, join(dir, '.rommix', 'roms'))
+  })
+
+  test('an Eglantine pinned in settings is found and offered for the Switch 2 only', async () => {
+    const dir = home()
+    const appimage = join(dir, 'opt', 'Eglantine-nx2.AppImage')
+    write(appimage, '')
+
+    const found = await probeOne('eglantine', settings({ emulatorPaths: { eglantine: appimage } }))
+
+    assert.equal(found.available, true)
+    assert.deepEqual(found.install, { kind: 'appimage', ref: appimage })
+    assert.equal(found.paths.saves, join(dir, '.local', 'share', 'eglantine/nand/user/save'))
+    assert.equal(found.paths.states, null)
+    assert.equal(found.paths.bios, null)
+    assert.equal(resolveEmulator([found], 'switch2')?.id, 'eglantine')
+    assert.equal(resolveEmulator([found], 'switch'), null)
   })
 
   test('a configured path that is not a .appimage is taken as a plain binary', async () => {

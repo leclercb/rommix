@@ -45,6 +45,7 @@ body:
         - EmuDeck
         - RetroArch
         - Eden
+        - Eglantine
         - shadPS4
     validations:
       required: true

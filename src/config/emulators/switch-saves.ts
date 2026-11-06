@@ -1,4 +1,5 @@
 import {
+  DESCRIPTOR_EXTENSIONS,
   SWITCH_CONTAINERS,
   TITLE_ID_DIGITS,
   TITLE_ID_KIND_DIGITS,
@@ -91,8 +92,23 @@ function baseTitleId(raw: string): string {
  * about ROM files, since the launch rule needs the same list.
  */
 function isRomContainer(path: string): boolean {
+  return hasExtension(path, SWITCH_CONTAINERS)
+}
+
+/**
+ * Is this a file that lists ROMs, and so worth reading as text?
+ *
+ * Anything else that is not a container — a Switch 2 `.nup`, for one — is a
+ * binary of several gigabytes, and reading it as text would load the whole
+ * game to find nothing in it.
+ */
+function isPointerFile(path: string): boolean {
+  return hasExtension(path, DESCRIPTOR_EXTENSIONS)
+}
+
+function hasExtension(path: string, extensions: readonly string[]): boolean {
   const lower = path.toLowerCase()
-  return SWITCH_CONTAINERS.some((extension) => lower.endsWith(extension))
+  return extensions.some((extension) => lower.endsWith(extension))
 }
 
 /**
@@ -123,15 +139,24 @@ export function switchTitleId(
   const patterns = titleIdPatterns(system)
   if (!patterns) return null
 
-  const declared = isRomContainer(romPath)
-    ? declaredTitleId(env, patterns, romPath)
-    : referencedTitleId(env, patterns, romPath)
+  const declared = statedTitleId(env, patterns, romPath)
   if (declared) return declared
 
   for (const name of [romPath, ...fallbackNames]) {
     const match = name ? patterns.name.exec(name) : null
     if (match) return baseTitleId(match[0])
   }
+  return null
+}
+
+/** The id a container states, or the containers a playlist lists state. */
+function statedTitleId(
+  env: SaveEnvironment,
+  patterns: TitleIdPatterns,
+  romPath: string
+): string | null {
+  if (isRomContainer(romPath)) return declaredTitleId(env, patterns, romPath)
+  if (isPointerFile(romPath)) return referencedTitleId(env, patterns, romPath)
   return null
 }
 

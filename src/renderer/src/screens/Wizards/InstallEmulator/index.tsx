@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
 import { emulatorById, emulatorsForSystem, installMethods } from '@config/emulators'
+import type { InstallMethod } from '@config/emulators'
 import { localize } from '@shared/i18n'
 import type {
   EmulatorAsset,
@@ -28,9 +29,6 @@ import { AssetRow, EmulatorRow, MethodRow, ReleaseRow } from './rows'
  * raised it. The game screen and the Emulators screen both come here, and the only
  * difference between them is whether the first page is asked at all.
  */
-
-/** One of the routes `installMethods` returns: a thing RomMix can actually do. */
-type InstallMethod = ReturnType<typeof installMethods>[number]
 
 type Step = 'emulator' | 'method' | 'manual' | 'version' | 'build' | 'progress' | 'notes'
 
