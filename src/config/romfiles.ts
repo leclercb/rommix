@@ -136,21 +136,37 @@ export const TITLE_ID_DIGITS = 16
 export const TITLE_ID_KIND_DIGITS = 3
 
 /**
+ * The source of a pattern for one of a system's title ids, or null on a system
+ * that has none.
+ *
+ * Built from the prefix the system declares, so an id carrying another
+ * system's prefix is never matched. `kind` stands in for the trailing digits,
+ * for a caller that cares what kind of file the id names. Case is left to the
+ * caller's flags: dumps spell the digits either way.
+ */
+export function titleIdSource(
+  system: string,
+  kind = `[0-9a-f]{${TITLE_ID_KIND_DIGITS}}`
+): string | null {
+  const prefix = titleIdPrefix(system)
+  if (!prefix) return null
+  const middle = TITLE_ID_DIGITS - prefix.length - TITLE_ID_KIND_DIGITS
+  return `${prefix}[0-9a-f]{${middle}}${kind}`
+}
+
+/**
  * A title id that is not a base game's, on a system that has title ids.
  *
  * The last digits of a title id say what the file is: a base game ends `000`,
  * its update ends `800`, and DLC counts up from `001`. Dumps conventionally
  * carry the id in brackets, so where one is present it is the most reliable
  * answer there is — and where it is absent nothing matches and the file stays a
- * candidate. The id has to begin with the system's own prefix: one belonging
- * to another console says nothing about what this file is.
+ * candidate. An id under another system's prefix says nothing about this file.
  */
 function addOnTitleIds(system: string): RegExp[] {
-  const prefix = titleIdPrefix(system)
-  if (!prefix) return []
-  const middle = TITLE_ID_DIGITS - prefix.length - TITLE_ID_KIND_DIGITS
-  const kind = `{${TITLE_ID_KIND_DIGITS}}`
-  return [new RegExp(`\\b${prefix}[0-9a-f]{${middle}}(?!0${kind}\\b)[0-9a-f]${kind}\\b`, 'i')]
+  const digits = `{${TITLE_ID_KIND_DIGITS}}`
+  const source = titleIdSource(system, `(?!0${digits}\\b)[0-9a-f]${digits}`)
+  return source ? [new RegExp(`\\b${source}\\b`, 'i')] : []
 }
 
 /** The container formats a Switch game is shipped in. */

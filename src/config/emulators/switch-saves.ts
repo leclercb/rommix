@@ -1,5 +1,9 @@
-import { SWITCH_CONTAINERS, TITLE_ID_DIGITS, TITLE_ID_KIND_DIGITS } from '../romfiles.ts'
-import { titleIdPrefix } from '../systems.ts'
+import {
+  SWITCH_CONTAINERS,
+  TITLE_ID_DIGITS,
+  TITLE_ID_KIND_DIGITS,
+  titleIdSource
+} from '../romfiles.ts'
 import { directory, joinPath } from './savepaths.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 
@@ -52,15 +56,13 @@ interface TitleIdPatterns {
 /**
  * The patterns for a system's title ids, or null on a system that has none.
  *
- * Built from the prefix the system declares, so an id carrying another
- * console's prefix is never matched — the save it named would be another
- * game's folder.
+ * An id under another system's prefix is never matched — the save it named
+ * would be another game's folder.
  */
 function titleIdPatterns(system: string): TitleIdPatterns | null {
-  const prefix = titleIdPrefix(system)
-  if (!prefix) return null
-  const id = `${prefix}[0-9A-Fa-f]{${TITLE_ID_DIGITS - prefix.length}}`
-  return { name: new RegExp(id), cnmt: new RegExp(`(${id})\\.cnmt`, 'i') }
+  const id = titleIdSource(system)
+  if (!id) return null
+  return { name: new RegExp(id, 'i'), cnmt: new RegExp(`(${id})\\.cnmt`, 'i') }
 }
 
 /**
@@ -105,8 +107,8 @@ function isRomContainer(path: string): boolean {
  *
  * The `.cnmt` scan runs only on a real container, and the loose name pattern is
  * never run against the *contents* of one. A stretch of compressed data that
- * long contains any sixteen-character pattern you care to look for,
- * so inside a binary only the anchored form is trusted — that is the difference
+ * long contains any pattern of a title id's length you care to look for, so
+ * inside a binary only the anchored form is trusted — that is the difference
  * between reading a title id and inventing one.
  *
  * Every source is read against the prefix `system` declares, and a system that

@@ -117,7 +117,7 @@ test('the Switch declares what its title ids begin with', () => {
 })
 
 test('the Switch 2 declares a prefix of its own', () => {
-  // The same digits on both would let one console's save land in the other's
+  // The same digits on both would let one system's save land in the other's
   // game folder.
   assert.equal(titleIdPrefix('switch2'), '04')
   assert.notEqual(titleIdPrefix('switch2'), titleIdPrefix('switch'))

@@ -67,7 +67,7 @@ export interface SystemInfo {
    * Nintendo consoles that key saves by one.
    *
    * Declared by the system rather than assumed wherever an id is read, because
-   * the digits are what tell one console's ids from another's. A title id
+   * the digits are what tell one system's ids from another's. A title id
    * carrying another system's prefix must never be accepted: a save written
    * under it would land in another game's folder. Absent on every system that
    * has no title ids, and nothing on those is read as one.
