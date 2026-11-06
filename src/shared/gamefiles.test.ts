@@ -123,6 +123,16 @@ test('DLC is not the game either', () => {
   assert.equal(chosen, 'Game [0100AAAAAAAAA000].nsp')
 })
 
+test("another system's title id does not mark a Switch file as an add-on", () => {
+  // Read as a Switch id it ends like an update's, and the smaller file beside it
+  // would be launched in its place.
+  const chosen = chooseLaunchFile(
+    [file('Game [04007EF00011E800].nsp', 4_000_000_000), file('Game.nsp', 900_000_000)],
+    'switch'
+  )
+  assert.equal(chosen, 'Game [04007EF00011E800].nsp')
+})
+
 test('a Switch dump named in words rather than title ids is still sorted out', () => {
   const chosen = chooseLaunchFile(
     [

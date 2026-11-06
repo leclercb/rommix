@@ -9,6 +9,8 @@
  * `src/shared/gamefiles.ts`.
  */
 
+import { titleIdPrefix } from './systems.ts'
+
 /** Files that are never the thing you hand an emulator. */
 export const SIDECAR_EXTENSIONS: readonly string[] = [
   '.txt',
@@ -127,6 +129,30 @@ export interface ContainerFormat {
   addOnPatterns: readonly RegExp[]
 }
 
+/** How many hex digits a title id has, whichever system it belongs to. */
+export const TITLE_ID_DIGITS = 16
+
+/** The trailing digits of a title id that say whether it is the game itself. */
+export const TITLE_ID_KIND_DIGITS = 3
+
+/**
+ * A title id that is not a base game's, on a system that has title ids.
+ *
+ * The last digits of a title id say what the file is: a base game ends `000`,
+ * its update ends `800`, and DLC counts up from `001`. Dumps conventionally
+ * carry the id in brackets, so where one is present it is the most reliable
+ * answer there is — and where it is absent nothing matches and the file stays a
+ * candidate. The id has to begin with the system's own prefix: one belonging
+ * to another console says nothing about what this file is.
+ */
+function addOnTitleIds(system: string): RegExp[] {
+  const prefix = titleIdPrefix(system)
+  if (!prefix) return []
+  const middle = TITLE_ID_DIGITS - prefix.length - TITLE_ID_KIND_DIGITS
+  const kind = `{${TITLE_ID_KIND_DIGITS}}`
+  return [new RegExp(`\\b${prefix}[0-9a-f]{${middle}}(?!0${kind}\\b)[0-9a-f]${kind}\\b`, 'i')]
+}
+
 /** The container formats a Switch game is shipped in. */
 export const SWITCH_CONTAINERS: readonly string[] = ['.nsp', '.xci', '.nsz', '.xcz']
 
@@ -150,16 +176,7 @@ export const CONTAINER_SYSTEMS: Readonly<Record<string, ContainerFormat>> = {
   switch: {
     extensions: SWITCH_CONTAINERS,
     addOnPatterns: [
-      /**
-       * A title id that is not a base game's.
-       *
-       * Every Switch title id is sixteen hex digits whose last three say what
-       * the file is: a base game ends `000`, its update ends `800`, and DLC
-       * counts up from `001`. Dumps conventionally carry the id in brackets, so
-       * where one is present it is the most reliable answer there is — and where
-       * it is absent nothing matches and the file stays a candidate.
-       */
-      /\b01[0-9a-f]{11}(?!000\b)[0-9a-f]{3}\b/i,
+      ...addOnTitleIds('switch'),
       /** The same thing said in words, for dumps that label rather than number. */
       /[[(](?:upd|update|dlc)[\])]/i,
       /**

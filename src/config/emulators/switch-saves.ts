@@ -1,4 +1,5 @@
-import { SWITCH_CONTAINERS } from '../romfiles.ts'
+import { SWITCH_CONTAINERS, TITLE_ID_DIGITS, TITLE_ID_KIND_DIGITS } from '../romfiles.ts'
+import { titleIdPrefix } from '../systems.ts'
 import { directory, joinPath } from './savepaths.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 
@@ -26,10 +27,6 @@ import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
  * game's data where this game looks for its own.
  */
 
-/** A Switch title id: 16 hex digits, always beginning `01`. */
-const TITLE_ID = /01[0-9A-Fa-f]{14}/
-/** The same, as the name of a content-metadata entry inside the ROM. */
-const CNMT_ENTRY = /(01[0-9A-Fa-f]{14})\.cnmt/i
 /** A user profile directory: a raw 128-bit id, no separators. */
 const PROFILE_DIR = /^[0-9A-Fa-f]{32}$/
 /** The fixed "system" save-data-space id every profile hangs under. */
@@ -44,17 +41,42 @@ const SAVE_DATA_SPACE = '0000000000000000'
  */
 const HEADER_BYTES = 262144
 
+/** How a title id is recognised on one system. */
+interface TitleIdPatterns {
+  /** The id anywhere in a name: a file name, or a playlist entry. */
+  name: RegExp
+  /** The id as the name of a content-metadata entry inside the ROM. */
+  cnmt: RegExp
+}
+
+/**
+ * The patterns for a system's title ids, or null on a system that has none.
+ *
+ * Built from the prefix the system declares, so an id carrying another
+ * console's prefix is never matched — the save it named would be another
+ * game's folder.
+ */
+function titleIdPatterns(system: string): TitleIdPatterns | null {
+  const prefix = titleIdPrefix(system)
+  if (!prefix) return null
+  const id = `${prefix}[0-9A-Fa-f]{${TITLE_ID_DIGITS - prefix.length}}`
+  return { name: new RegExp(id), cnmt: new RegExp(`(${id})\\.cnmt`, 'i') }
+}
+
 /**
  * Reduce a title id to the base game's.
  *
  * Updates and DLC are given ids derived from the game's: an update ends `800`
  * and DLC counts upwards from the base. Saves belong to the base game, so the
- * last three digits are cleared — which is also what makes an update file
- * downloaded beside the game resolve to the same save folder the game uses.
+ * digits that say what kind of file it is are cleared — which is also what
+ * makes an update file downloaded beside the game resolve to the same save
+ * folder the game uses.
  */
 function baseTitleId(raw: string): string {
   const upper = raw.toUpperCase()
-  return upper.length === 16 ? `${upper.slice(0, 13)}000` : upper
+  if (upper.length !== TITLE_ID_DIGITS) return upper
+  const kept = TITLE_ID_DIGITS - TITLE_ID_KIND_DIGITS
+  return `${upper.slice(0, kept)}${'0'.repeat(TITLE_ID_KIND_DIGITS)}`
 }
 
 /**
@@ -86,28 +108,39 @@ function isRomContainer(path: string): boolean {
  * long contains any sixteen-character pattern you care to look for,
  * so inside a binary only the anchored form is trusted — that is the difference
  * between reading a title id and inventing one.
+ *
+ * Every source is read against the prefix `system` declares, and a system that
+ * declares none has no title id to find.
  */
 export function switchTitleId(
   env: SaveEnvironment,
+  system: string,
   romPath: string,
   fallbackNames: readonly string[] = []
 ): string | null {
+  const patterns = titleIdPatterns(system)
+  if (!patterns) return null
+
   const declared = isRomContainer(romPath)
-    ? declaredTitleId(env, romPath)
-    : referencedTitleId(env, romPath)
+    ? declaredTitleId(env, patterns, romPath)
+    : referencedTitleId(env, patterns, romPath)
   if (declared) return declared
 
   for (const name of [romPath, ...fallbackNames]) {
-    const match = name ? TITLE_ID.exec(name) : null
+    const match = name ? patterns.name.exec(name) : null
     if (match) return baseTitleId(match[0])
   }
   return null
 }
 
 /** The id a container states in its own content-metadata entry. */
-function declaredTitleId(env: SaveEnvironment, romPath: string): string | null {
+function declaredTitleId(
+  env: SaveEnvironment,
+  patterns: TitleIdPatterns,
+  romPath: string
+): string | null {
   const header = env.head(romPath, HEADER_BYTES)
-  const match = header ? CNMT_ENTRY.exec(header) : null
+  const match = header ? patterns.cnmt.exec(header) : null
   return match ? baseTitleId(match[1]) : null
 }
 
@@ -123,7 +156,11 @@ function declaredTitleId(env: SaveEnvironment, romPath: string): string | null {
  * and since every entry belongs to one game, an update's id normalises to the
  * same base folder the game itself uses.
  */
-function referencedTitleId(env: SaveEnvironment, pointerPath: string): string | null {
+function referencedTitleId(
+  env: SaveEnvironment,
+  patterns: TitleIdPatterns,
+  pointerPath: string
+): string | null {
   const text = env.text(pointerPath)
   if (!text) return null
 
@@ -133,10 +170,10 @@ function referencedTitleId(env: SaveEnvironment, pointerPath: string): string | 
     if (!entry || entry.startsWith('#') || !isRomContainer(entry)) continue
     const path = entry.startsWith('/') ? entry : joinPath(dir, entry)
 
-    const declared = declaredTitleId(env, path)
+    const declared = declaredTitleId(env, patterns, path)
     if (declared) return declared
     // The entry names no readable container but may carry the id itself.
-    const named = TITLE_ID.exec(entry)
+    const named = patterns.name.exec(entry)
     if (named) return baseTitleId(named[0])
   }
   return null
@@ -201,7 +238,7 @@ export function switchSavePaths(
 ): SavePaths {
   if (!base) return { saves: null, states: null }
 
-  const titleId = switchTitleId(ctx.env, ctx.romPath, [ctx.romStem])
+  const titleId = switchTitleId(ctx.env, ctx.system, ctx.romPath, [ctx.romStem])
   if (!titleId) {
     return {
       saves: null,

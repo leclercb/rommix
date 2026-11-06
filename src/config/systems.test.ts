@@ -9,7 +9,8 @@ import {
   isKnownSystem,
   resolveSystem,
   systemInfo,
-  systemsWithCore
+  systemsWithCore,
+  titleIdPrefix
 } from './systems.ts'
 
 test('every system carries a label, a short code and an icon', () => {
@@ -96,4 +97,14 @@ test('known systems resolve to a libretro core, unknown ones do not', () => {
   assert.equal(coreForSystem('snes'), 'snes9x')
   assert.equal(coreForSystem('psx'), 'swanstation')
   assert.equal(coreForSystem('switch'), null)
+})
+
+test('the Switch declares what its title ids begin with', () => {
+  assert.equal(titleIdPrefix('switch'), '01')
+})
+
+test('a system with no title ids declares no prefix', () => {
+  // Null rather than an empty prefix: an empty one would accept any id at all.
+  assert.equal(titleIdPrefix('snes'), null)
+  assert.equal(titleIdPrefix('nonsense'), null)
 })

@@ -62,6 +62,17 @@ export interface SystemInfo {
    * nothing downstream has to think about it being absent.
    */
   slugs: readonly string[]
+  /**
+   * The leading hex digits of every title id this system gives a game, for the
+   * Nintendo consoles that key saves by one.
+   *
+   * Declared by the system rather than assumed wherever an id is read, because
+   * the digits are what tell one console's ids from another's. A title id
+   * carrying another system's prefix must never be accepted: a save written
+   * under it would land in another game's folder. Absent on every system that
+   * has no title ids, and nothing on those is read as one.
+   */
+  titleIdPrefix?: string
 }
 
 /**
@@ -94,7 +105,7 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'gc', label: 'Nintendo GameCube', short: 'GC', icon: 'ngc', slugs: ['ngc'], core: 'dolphin' },
   { id: 'wii', label: 'Nintendo Wii', short: 'WII', icon: 'wii', slugs: ['wii'], core: 'dolphin' },
   { id: 'wiiu', label: 'Nintendo Wii U', short: 'WIIU', icon: 'wiiu', slugs: ['wiiu'] },
-  { id: 'switch', label: 'Nintendo Switch', short: 'NSW', icon: 'switch', slugs: ['switch'] },
+  { id: 'switch', label: 'Nintendo Switch', short: 'NSW', icon: 'switch', slugs: ['switch'], titleIdPrefix: '01' },
   { id: 'gb', label: 'Game Boy', short: 'GB', icon: 'gb', slugs: ['gb'], core: 'gambatte' },
   { id: 'gbc', label: 'Game Boy Color', short: 'GBC', icon: 'gbc', slugs: ['gbc'], core: 'gambatte' },
   { id: 'gba', label: 'Game Boy Advance', short: 'GBA', icon: 'gba', slugs: ['gba'], core: 'mgba' },
@@ -413,4 +424,12 @@ export const PLATFORM_ICON_PATHS: readonly string[] = [
 /** Libretro core for an ES-DE system, or null if we do not have a mapping. */
 export function coreForSystem(system: string): string | null {
   return SYSTEMS[system]?.core ?? null
+}
+
+/**
+ * What every title id on a system begins with, or null for a system that has
+ * none. Anything that recognises a title id asks this rather than assuming it.
+ */
+export function titleIdPrefix(system: string): string | null {
+  return SYSTEMS[system]?.titleIdPrefix ?? null
 }

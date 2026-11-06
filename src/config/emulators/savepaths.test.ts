@@ -850,6 +850,25 @@ test('a title id in the file name is used when the header carries none', () => {
   assert.match(paths.saves?.dir ?? '', /01007EF00011E000$/)
 })
 
+test("a file name carrying another system's title id is not read as a Switch one", () => {
+  // A Switch 2 id has the same shape under a different prefix. Taken as a
+  // Switch id, its save would be written into whichever game owns that folder.
+  const env = machine({
+    dirs: { '/data/eden/nand/user/save/0000000000000000': [ONE_PROFILE] }
+  })
+  const paths = edenPaths(env, '/roms/switch/Game [04007EF00011E000].nsp')
+  assert.equal(paths.saves, null)
+})
+
+test("a metadata entry under another system's title id is not read as a Switch one", () => {
+  const env = machine({
+    dirs: { '/data/eden/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    heads: { '/roms/switch/game.nsp': 'HEAD 04007EF00011E000.cnmt tail' }
+  })
+  const paths = edenPaths(env)
+  assert.equal(paths.saves, null)
+})
+
 test('a profile that already holds this title beats the most recent one', () => {
   // A user whose other profile happens to have been played more recently would
   // otherwise have this game resolved against a profile that never held it.
