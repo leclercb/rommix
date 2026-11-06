@@ -800,6 +800,12 @@ export const de: Catalog = {
     'Ordner eines Emulators heruntergeladen wurden, bleiben dort und werden erneut zum Download ' +
     'angeboten; schalten Sie zurück, tauchen sie wieder auf.',
   'settings.saveSync': 'Spielstand-Abgleich',
+  'settings.syncSaves': 'Spielstände im Spiel abgleichen',
+  'settings.syncSavesHint':
+    'Ausgeschaltet werden sie nie heruntergeladen oder hochgeladen. Sie bleiben auf diesem Gerät.',
+  'settings.syncStates': 'Speicherzustände abgleichen',
+  'settings.syncStatesHint':
+    'Ausschalten, wenn ein anderes Programm sie abgleicht oder Ihre Geräte verschiedene Versionen eines Cores nutzen.',
   'settings.syncDown': 'Neuere Spielstände vor dem Spielen herunterladen',
   'settings.syncDownHint':
     'Nur wenn sie echt neuer sind. Die letzten lokalen Kopien bleiben im RomMix-Ordner ' +

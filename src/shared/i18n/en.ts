@@ -786,6 +786,11 @@ export const en = {
     'Games are written to {path}/roms/<system>. Games already downloaded into an emulator’s own ' +
     'folder stay there and are offered for download again; switch back and they reappear.',
   'settings.saveSync': 'Save sync',
+  'settings.syncSaves': 'Sync in-game saves',
+  'settings.syncSavesHint': 'When off, they are never pulled or pushed. They stay on this device.',
+  'settings.syncStates': 'Sync save states',
+  'settings.syncStatesHint':
+    'Turn off when another tool syncs them, or your devices run different versions of a core.',
   'settings.syncDown': 'Download newer saves before playing',
   'settings.syncDownHint':
     'Only when strictly newer. The last few local copies are kept in the RomMix folder.',

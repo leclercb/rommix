@@ -267,6 +267,10 @@ one RomMix folder you point every emulator at.
 
 **Games → Save sync.**
 
+- **Sync in-game saves** and **Sync save states** — on by default. Switch one
+  off when another tool syncs it, or when your devices run different versions
+  of a core and cannot load each other's states. Its files are never pulled or
+  pushed, and stay on the game screen, where they can still be deleted.
 - **Download newer saves before playing** — only ever replaces an _older_ local
   save, keeping the last few copies of it under `saves/` in the RomMix folder
   first.

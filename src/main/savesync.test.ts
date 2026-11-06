@@ -2098,3 +2098,82 @@ describe('PPSSPP, whose save folders begin with the disc id', () => {
     assert.deepEqual(readdirSync(saveData).sort(), [OTHER, OWN])
   })
 })
+
+describe('the kinds Settings leaves out of sync', () => {
+  const SAVE = 'Sonic the Hedgehog (USA).srm'
+  const STATE = 'Sonic the Hedgehog (USA).state1'
+
+  for (const manual of [false, true]) {
+    for (const [syncSaves, syncStates] of [
+      [true, true],
+      [true, false],
+      [false, true],
+      [false, false]
+    ]) {
+      const label = `saves ${syncSaves ? 'on' : 'off'}, states ${syncStates ? 'on' : 'off'}`
+      test(`${manual ? 'a transfer asked for' : 'an automatic transfer'} moves only what is on: ${label}`, async () => {
+        const { sync, target, store, saveDir, stateDir, uploaded } = setUp({
+          saves: [save()],
+          states: [save({ id: 2, file_name: STATE }) as unknown as RommState]
+        })
+        store.updateSettings({ syncSaves, syncStates })
+        const savePath = join(saveDir, SAVE)
+        const statePath = join(stateDir, STATE)
+        // Older than the server's, so a pull would replace them if it ran.
+        for (const path of [savePath, statePath]) {
+          writeFileSync(path, 'local progress')
+          utimesSync(path, new Date(0), new Date(0))
+        }
+
+        if (manual) await sync.pullNow(target)
+        else await sync.pull(target)
+        assert.equal(readFileSync(savePath, 'utf8'), syncSaves ? REMOTE_BYTES : 'local progress')
+        assert.equal(readFileSync(statePath, 'utf8'), syncStates ? REMOTE_BYTES : 'local progress')
+
+        for (const path of [savePath, statePath]) writeFileSync(path, 'new progress')
+        const preview = await sync.previewPush(target)
+        assert.equal(
+          preview.files.some((file) => file.fileName === SAVE),
+          syncSaves
+        )
+        assert.equal(
+          preview.files.some((file) => file.fileName === STATE),
+          syncStates
+        )
+
+        if (manual) await sync.pushNow(target)
+        else await sync.push(target, 0)
+        assert.equal(
+          uploaded.some((file) => file.fileName === SAVE),
+          syncSaves
+        )
+        assert.equal(
+          uploaded.some((file) => file.fileName === STATE),
+          syncStates
+        )
+      })
+    }
+  }
+
+  test('a state left out of sync is still listed as on this device', async () => {
+    // Switching a kind off says "do not move it", not "forget it is here".
+    const { sync, target, store, stateDir } = setUp()
+    writeFileSync(join(stateDir, STATE), 'local')
+    store.updateSettings({ syncStates: false })
+
+    const assets = await sync.listAssets(7, target)
+
+    assert.ok(assets.some((asset) => asset.kind === 'state' && asset.localPath !== null))
+  })
+
+  test('and can still be deleted from it', async () => {
+    const { sync, target, store, stateDir } = setUp()
+    const path = join(stateDir, STATE)
+    writeFileSync(path, 'local')
+    store.updateSettings({ syncStates: false })
+
+    await sync.deleteAsset(7, 'state', null, STATE, 'local', target)
+
+    assert.equal(existsSync(path), false)
+  })
+})

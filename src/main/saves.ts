@@ -372,6 +372,20 @@ export class SaveSync {
   }
 
   /**
+   * Where a pull or a push moves this kind, or null where it is not moved.
+   *
+   * Separate from `locationFor`, which the save list and deletion also use: a
+   * kind switched off in Settings is still on this disk and still the user's to
+   * see and remove. It is only left out of transfers — every pull and push,
+   * automatic or asked for, and the preview that has to describe them.
+   */
+  private transferLocation(paths: SavePaths, kind: 'save' | 'state'): SaveLocation | null {
+    const { syncSaves, syncStates } = this.store.settings
+    if (!(kind === 'save' ? syncSaves : syncStates)) return null
+    return this.locationFor(paths, kind)
+  }
+
+  /**
    * Does the emulator tag decide whether this location's assets may be pulled?
    *
    * The only place that answers it, because two answers is exactly how a screen
@@ -919,7 +933,7 @@ export class SaveSync {
     let inSync = 0
 
     for (const kind of ['save', 'state'] as const) {
-      const location = this.locationFor(paths, kind)
+      const location = this.transferLocation(paths, kind)
       if (!location) continue
 
       // Unfiltered, then narrowed — see `uploadKind`, which the list here has
@@ -1109,7 +1123,7 @@ export class SaveSync {
     const batches: UploadBatch[] = []
 
     for (const kind of ['save', 'state'] as const) {
-      const location = this.locationFor(paths, kind)
+      const location = this.transferLocation(paths, kind)
       if (!location) continue
 
       const local = await this.findLocal(location, target.rom, target.romPath, kind, 0)
@@ -1287,7 +1301,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     run?: SaveRun
   ): Promise<PullCount> {
-    const location = this.locationFor(paths, kind)
+    const location = this.transferLocation(paths, kind)
     if (!location) return { written: 0, offered: 0, failed: 0 }
 
     const remote =
@@ -1756,7 +1770,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     since: number
   ): Promise<UploadBatch> {
-    const location = this.locationFor(paths, kind)
+    const location = this.transferLocation(paths, kind)
     if (!location) return { kind, assets: [], tag: '', primary: null }
 
     const all = await this.findLocal(location, target.rom, target.romPath, kind)

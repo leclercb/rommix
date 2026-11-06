@@ -149,6 +149,17 @@ export interface Settings {
   /** Push saves/states back to RomM after the game exits. */
   syncSavesUp: boolean
   /**
+   * Which kinds RomMix moves at all, in either direction and by any button.
+   *
+   * Apart from the two above, which say when: someone whose states are moved
+   * by another tool — or whose devices run different builds of a core, which
+   * cannot load each other's states — still wants their saves synced. A kind
+   * switched off stays listed on the game screen and can still be deleted
+   * there; it is only left out of every pull and push.
+   */
+  syncSaves: boolean
+  syncStates: boolean
+  /**
    * A quiet click as focus moves, and when something is chosen or left.
    *
    * On by default: RomMix is driven from a sofa, where the highlight is often
