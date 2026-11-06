@@ -165,6 +165,15 @@ test('a Switch game in no container format falls back to the general rule', () =
   assert.equal(chosen, 'Homebrew.nro')
 })
 
+test('a Switch 2 game is its container, not the playlist listing it', () => {
+  const chosen = chooseLaunchFile(
+    [file('Some Game.nup', 9_000_000_000), file('Some Game.m3u', 120)],
+    'switch2'
+  )
+  assert.equal(chosen, 'Some Game.nup')
+  assert.equal(isLaunchable('Some Game.m3u', 'switch2'), false)
+})
+
 test('the playlist still wins where a playlist means something', () => {
   // The container rule is per system: nothing about the disc systems changes.
   const chosen = chooseLaunchFile(

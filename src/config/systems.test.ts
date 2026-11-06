@@ -80,6 +80,19 @@ test('resolves common RomM platform slugs', () => {
   assert.equal(resolveSystem('3ds', 'n3ds'), 'n3ds')
 })
 
+test('the Switch 2 is a system of its own, not one more slug on the Switch', () => {
+  // A Switch 2 game offered to a Switch emulator fails only once it is
+  // launched, so the two must never resolve to each other.
+  assert.equal(resolveSystem('switch-2', 'switch-2'), 'switch2')
+  assert.equal(resolveSystem('switch', 'switch'), 'switch')
+  assert.deepEqual(SYSTEMS.switch.slugs, ['switch'])
+})
+
+test('the Switch 2 needs no BIOS step', () => {
+  // Its games are not encrypted, so there are no keys to ask for.
+  assert.equal(BIOS_REQUIREMENTS.switch2, undefined)
+})
+
 test('falls back to the filesystem slug when the platform slug is unknown', () => {
   // RomM invented the slug, but the server folder happens to be an ES-DE name.
   assert.equal(resolveSystem('something-unknown', 'dreamcast'), 'dreamcast')
@@ -101,6 +114,13 @@ test('known systems resolve to a libretro core, unknown ones do not', () => {
 
 test('the Switch declares what its title ids begin with', () => {
   assert.equal(titleIdPrefix('switch'), '01')
+})
+
+test('the Switch 2 declares a prefix of its own', () => {
+  // The same digits on both would let one console's save land in the other's
+  // game folder.
+  assert.equal(titleIdPrefix('switch2'), '04')
+  assert.notEqual(titleIdPrefix('switch2'), titleIdPrefix('switch'))
 })
 
 test('a system with no title ids declares no prefix', () => {

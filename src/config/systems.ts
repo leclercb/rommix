@@ -106,6 +106,7 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'wii', label: 'Nintendo Wii', short: 'WII', icon: 'wii', slugs: ['wii'], core: 'dolphin' },
   { id: 'wiiu', label: 'Nintendo Wii U', short: 'WIIU', icon: 'wiiu', slugs: ['wiiu'] },
   { id: 'switch', label: 'Nintendo Switch', short: 'NSW', icon: 'switch', slugs: ['switch'], titleIdPrefix: '01' },
+  { id: 'switch2', label: 'Nintendo Switch 2', short: 'NSW2', icon: 'switch-2', slugs: ['switch-2'], titleIdPrefix: '04' },
   { id: 'gb', label: 'Game Boy', short: 'GB', icon: 'gb', slugs: ['gb'], core: 'gambatte' },
   { id: 'gbc', label: 'Game Boy Color', short: 'GBC', icon: 'gbc', slugs: ['gbc'], core: 'gambatte' },
   { id: 'gba', label: 'Game Boy Advance', short: 'GBA', icon: 'gba', slugs: ['gba'], core: 'mgba' },

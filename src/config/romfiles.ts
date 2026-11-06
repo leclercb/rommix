@@ -156,6 +156,9 @@ function addOnTitleIds(system: string): RegExp[] {
 /** The container formats a Switch game is shipped in. */
 export const SWITCH_CONTAINERS: readonly string[] = ['.nsp', '.xci', '.nsz', '.xcz']
 
+/** The container format a Switch 2 game is shipped in. */
+export const SWITCH2_CONTAINERS: readonly string[] = ['.nup']
+
 /**
  * Systems where the game is one container file and a playlist is not a thing to
  * launch.
@@ -186,5 +189,10 @@ export const CONTAINER_SYSTEMS: Readonly<Record<string, ContainerFormat>> = {
        */
       /\[v(?!0\])\d+\]/i
     ]
+  },
+  switch2: {
+    extensions: SWITCH2_CONTAINERS,
+    // The game is a single `.nup`, so there is nothing beside it to tell apart.
+    addOnPatterns: []
   }
 }
