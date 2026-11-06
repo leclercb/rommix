@@ -282,6 +282,16 @@ export interface LaunchVariant {
    * `ref` is a directory, and also the only kind RomMix did not choose itself.
    */
   requires?: string
+  /**
+   * Run this one without asking, where the user has not chosen.
+   *
+   * For a choice most people never need to make. RetroArch's cores are the
+   * case: asking which core to use before someone's first SNES game is a
+   * question they cannot answer, while a player who cares finds the choice
+   * behind "Run with". Without it a system with several variants is asked
+   * about on its first launch.
+   */
+  default?: boolean
 }
 
 export interface LaunchContext {
@@ -357,7 +367,7 @@ export interface BiosContext {
 export type BiosTarget = string | null
 
 /** What a descriptor is told in order to name the core a launch needs. */
-export type CoreContext = Pick<SaveContext, 'system' | 'home' | 'configDir' | 'env'>
+export type CoreContext = Pick<SaveContext, 'system' | 'variant' | 'home' | 'configDir' | 'env'>
 
 /**
  * A libretro core a launch needs and the install does not ship.

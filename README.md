@@ -89,7 +89,7 @@ Demo: https://leclercb.github.io/rommix/demo/
   | ---------------- | --------------------------------- | --------------------------------------------- |
   | **RetroDECK**    | The NES to the PS3                | ✅ Flatpak                                    |
   | **EmuDeck**      | The NES to the Switch and the 360 | ❌ Its own installer, see [EmuDeck](#emudeck) |
-  | **RetroArch**    | One libretro core per system      | ✅ Flatpak                                    |
+  | **RetroArch**    | Libretro, your core per system    | ✅ Flatpak                                    |
   | **Eden**         | Nintendo Switch                   | ✅ AppImage                                   |
   | **shadPS4**      | PlayStation 4                     | ✅ Flatpak and AppImage                       |
   | **Xenia Canary** | Xbox 360                          | ✅ AppImage                                   |

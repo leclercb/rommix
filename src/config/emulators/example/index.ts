@@ -120,6 +120,10 @@ export const example: EmulatorDescriptor = {
    * recorded answer is handed back as `ctx.variant` in `saves()`, so the save
    * location can never disagree with what actually ran.
    *
+   * Mark one `default: true` where most people would not know what to answer —
+   * RetroArch's cores are the case. It then runs without asking, and the choice
+   * waits behind "Run with" for whoever wants it.
+   *
    * ```ts
    * variants: (system) => system === 'saturn'
    *   ? [

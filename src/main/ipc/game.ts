@@ -21,7 +21,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
    */
   handle('game:variants', async (romId: number): Promise<LaunchChoice> => {
     const { installed, emulator } = await launchContext(rommix, romId)
-    const { descriptor, options, chosen } = launchOptions(rommix, emulator, installed.system)
+    const { descriptor, options, chosen, ask } = launchOptions(rommix, emulator, installed.system)
 
     return {
       system: installed.system,
@@ -30,7 +30,8 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
       // Resolved here, so the renderer is handed sentences rather than keys.
       setupNotes: (descriptor?.setupNotes ?? []).map((note) => localize(note, i18n())),
       options: options.map((option) => ({ ...option })),
-      chosen
+      chosen,
+      ask
     }
   })
 

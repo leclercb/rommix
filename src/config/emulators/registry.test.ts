@@ -576,10 +576,65 @@ test('EmuDeck offers a choice where it ships more than one way to run a system',
 })
 
 test('emulators with a single way to run a system offer no choice at all', () => {
-  for (const system of ['snes', 'ps2']) {
-    assert.equal(launchVariants(retrodeck, system).length, 0)
-    assert.equal(launchVariants(retroarch, system).length, 0)
+  for (const system of ['snes', 'ps2']) assert.equal(launchVariants(retrodeck, system).length, 0)
+  // One core RetroArch runs it with: a single entry, which is nothing to ask.
+  assert.deepEqual(
+    launchVariants(retroarch, 'dos').map((core) => core.id),
+    [coreForSystem('dos')]
+  )
+})
+
+test('RetroArch offers its cores with the built-in one first, run without asking', () => {
+  const cores = launchVariants(retroarch, 'gba')
+  assert.equal(cores[0]?.id, coreForSystem('gba'))
+  assert.equal(cores[0]?.default, true)
+  assert.ok(cores.some((core) => core.id === 'gpsp'))
+  assert.ok(cores.slice(1).every((core) => !core.default))
+})
+
+test('every core RetroArch offers is one it can be told to load', () => {
+  // Each id becomes `<id>_libretro.so` on the command line and in the cores
+  // directory, so a typo in the table is a launch that dies before a window.
+  for (const system of systemsWithCore()) {
+    const ids = launchVariants(retroarch, system).map((core) => core.id)
+    assert.equal(new Set(ids).size, ids.length, `${system} offers a core twice`)
+    for (const id of ids) assert.match(id, /^[a-z0-9_-]+$/, `${system}: ${id}`)
   }
+})
+
+test('the core chosen for RetroArch is the one launched, installed and synced', () => {
+  const ctx = {
+    ...NOTHING_ON_DISK,
+    exec: ['/usr/bin/retroarch'],
+    installRef: '/usr/bin/retroarch',
+    system: 'gba',
+    romPath: '/roms/gba/game.gba',
+    variant: 'gpsp'
+  }
+  const argv = retroarch.launch(ctx)
+  assert.equal(argv?.[argv.indexOf('-L') + 1], 'gpsp_libretro.so')
+  const core = retroarch.core?.({
+    system: 'gba',
+    variant: 'gpsp',
+    home: '/home/deck',
+    configDir: '/home/deck/.config',
+    env: disk()
+  })
+  assert.equal(core?.fileName, 'gpsp_libretro.so')
+})
+
+test('a RetroArch core that is not offered for the system runs the built-in one', () => {
+  // A choice recorded for another system, or for a core since dropped from the
+  // table, is never handed to RetroArch as a file name.
+  const argv = retroarch.launch({
+    ...NOTHING_ON_DISK,
+    exec: ['/usr/bin/retroarch'],
+    installRef: '/usr/bin/retroarch',
+    system: 'gba',
+    romPath: '/roms/gba/game.gba',
+    variant: '../../outside'
+  })
+  assert.equal(argv?.[argv.indexOf('-L') + 1], `${coreForSystem('gba')}_libretro.so`)
 })
 
 test('a chosen EmuDeck variant is the one that runs', () => {

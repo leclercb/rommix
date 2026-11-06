@@ -975,7 +975,8 @@ const bridge: RomMixBridge = {
                 { id: 'picodrive', label: 'PicoDrive', note: say('demo.variantFaster') }
               ]
             : [{ id: 'default', label: say('demo.variantDefault') }],
-        chosen: null
+        chosen: null,
+        ask: system === 'genesis'
       })
     },
     launch: () => refuse('demo.noEmulator')

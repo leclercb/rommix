@@ -73,7 +73,7 @@ describe('whether a core has to be installed at all', () => {
   test('an emulator that ships its own cores never asks for one', async () => {
     const state = { id: 'retrodeck', configDir: null } as EmulatorState
 
-    assert.equal(await missingCore(state, 'n64'), null)
+    assert.equal(await missingCore(state, 'n64', undefined), null)
   })
 
   test('a core the emulator needs and does not have is named', async () => {
@@ -84,7 +84,7 @@ describe('whether a core has to be installed at all', () => {
       paths: { home: dir, roms: dir, saves: dir, states: dir, bios: dir }
     } as EmulatorState
 
-    const required = await missingCore(state, 'n64')
+    const required = await missingCore(state, 'n64', undefined)
 
     assert.ok(required)
     assert.match(required.fileName, /_libretro\.so$/)

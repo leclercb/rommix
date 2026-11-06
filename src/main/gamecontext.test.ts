@@ -99,3 +99,31 @@ test('an emulator that claims the system with nothing installed for it says so',
   assert.equal(effective, undefined)
   assert.equal(noLauncher, true)
 })
+
+test('a variant marked default runs without the question being asked', () => {
+  // RetroArch's cores: several to choose from, and nobody asked before their
+  // first game. "Run with" is where the choice is made, by whoever wants it.
+  const descriptor = emulatorById('retroarch')!
+  const emulator = {
+    id: descriptor.id,
+    name: descriptor.name,
+    install: { kind: 'binary', ref: '/usr/bin/retroarch' }
+  } as EmulatorState
+
+  const quiet = launchOptions(appRecording({}), emulator, 'gba')
+  assert.equal(quiet.ask, false)
+  assert.equal(quiet.effective, 'mgba')
+
+  const chosen = launchOptions(
+    appRecording({ [launcherKey('retroarch', 'gba')]: 'gpsp' }),
+    emulator,
+    'gba'
+  )
+  assert.equal(chosen.effective, 'gpsp')
+})
+
+test('several variants and none marked default is a question', () => {
+  const emulator = emudeckWith(launchers('citron.sh', 'ryujinx.sh'))
+
+  assert.equal(launchOptions(appRecording({}), emulator, 'switch').ask, true)
+})

@@ -19,6 +19,8 @@ export interface LaunchChoice {
   options: { id: string; label: string; note?: string }[]
   /** The recorded choice, or null if the user has not been asked yet. */
   chosen: string | null
+  /** Ask before playing, rather than running the default. */
+  ask: boolean
 }
 
 export interface LaunchResult {

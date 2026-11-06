@@ -145,7 +145,7 @@ export function useGameLaunch(options: {
     setBusy(true)
     try {
       const choice = await window.rommix.game.variants(romId)
-      if (choice.options.length > 1 && !choice.chosen) {
+      if (choice.ask) {
         setChoosing(choice)
         return
       }

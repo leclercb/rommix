@@ -41,6 +41,11 @@ export interface LaunchOptions {
    */
   effective: string | undefined
   /**
+   * Whether to ask before this launch: several options, nothing chosen, and
+   * none of them marked to run without asking. See `LaunchVariant.default`.
+   */
+  ask: boolean
+  /**
    * True when the descriptor offers ways to run this system and none of them
    * are on the machine — distinct from an emulator with no variants at all,
    * which is most of them and is not a problem.
@@ -70,11 +75,13 @@ export function launchOptions(
   const options = descriptor ? usableVariants(descriptor, system, emulator.install) : []
   const recorded = rommix.store.settings.systemLaunchers[launcherKey(emulator.id, system)]
   const chosen = options.some((option) => option.id === recorded) ? recorded : null
+  const fallback = options.find((option) => option.default) ?? options[0]
   return {
     descriptor,
     options,
     chosen,
-    effective: chosen ?? options[0]?.id,
+    effective: chosen ?? fallback?.id,
+    ask: chosen === null && options.length > 1 && !fallback?.default,
     noLauncher: options.length === 0 && (descriptor?.variants?.(system).length ?? 0) > 0
   }
 }

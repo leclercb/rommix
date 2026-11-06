@@ -9,11 +9,11 @@ import { startFakeRomm, type FakeRomm } from './server.ts'
 /**
  * Choosing which of an emulator's runners a system is played with.
  *
- * Its own file because it needs an emulator RomMix has a choice about, and
- * there is exactly one shape of those: EmuDeck, which writes a launcher script
- * per emulator it installs and leaves RomMix to ask which of them should run a
- * given system. Every other emulator in the registry answers for itself, so no
- * other scenario can reach the question at all — `game:variants` was called
+ * Its own file because it needs an emulator RomMix asks about, and there is
+ * exactly one shape of those: EmuDeck, which writes a launcher script per
+ * emulator it installs and leaves RomMix to ask which of them should run a
+ * given system. RetroArch offers its cores too, but runs the built-in one
+ * without asking, so no other scenario can reach the question at all — `game:variants` was called
  * from nowhere in the suite, and the dialog it fills had never been opened.
  *
  * The install is a directory of scripts and nothing else, which is exactly what

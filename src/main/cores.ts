@@ -83,13 +83,15 @@ export async function coreInstalled(core: RequiredCore): Promise<boolean> {
  */
 export async function missingCore(
   emulator: EmulatorState,
-  system: string
+  system: string,
+  variant: string | undefined
 ): Promise<RequiredCore | null> {
   const descriptor = emulatorById(emulator.id)
   if (!descriptor?.core) return null
 
   const context: CoreContext = {
     system,
+    variant,
     home: realHome(),
     configDir: emulator.configDir,
     env: fileSystemEnvironment()
