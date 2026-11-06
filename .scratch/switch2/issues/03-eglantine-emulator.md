@@ -10,9 +10,9 @@ Hand-maintained lists follow the code: README emulator table, site texts and tab
 
 **Status:** ready-for-agent
 
-- [ ] Registry tests: launch argv, declines `switch`, detection names, no release source
-- [ ] An Eglantine pinned via `emulatorPaths` is detected and offered for `switch2` only
-- [ ] Setup notes exist in every language catalogue; typecheck enforces completeness
-- [ ] README, site and issue template list Eglantine
-- [ ] No code outside the config layer names Eglantine
-- [ ] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
+- [x] Registry tests: launch argv, declines `switch`, detection names, no release source
+- [x] An Eglantine pinned via `emulatorPaths` is detected and offered for `switch2` only
+- [x] Setup notes exist in every language catalogue; typecheck enforces completeness
+- [x] README, site and issue template list Eglantine
+- [x] No code outside the config layer names Eglantine
+- [x] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
