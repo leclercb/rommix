@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] Slug `switch-2` resolves to system `switch2`; `switch` still resolves to `switch` only
-- [ ] The system row passes the platform-table invariants (icon present, short label length)
-- [ ] On `switch2` the `.nup` is chosen as the launch file over an `.m3u` listing it
-- [ ] No BIOS entry exists for `switch2`
-- [ ] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
+- [x] Slug `switch-2` resolves to system `switch2`; `switch` still resolves to `switch` only
+- [x] The system row passes the platform-table invariants (icon present, short label length)
+- [x] On `switch2` the `.nup` is chosen as the launch file over an `.m3u` listing it
+- [x] No BIOS entry exists for `switch2`
+- [x] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass

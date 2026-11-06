@@ -8,7 +8,7 @@ See `GLOSSARY.md` (**Title id**, **System**) and ADR 0001.
 
 **Status:** ready-for-agent
 
-- [ ] The Switch's title id prefix (`01`) is declared once, by the system, and every title id match reads it from there
-- [ ] Existing Switch save-path and launch-file tests pass unchanged
-- [ ] A new test shows an id beginning `04` is not taken as a Switch title id — from a file name, from a `.cnmt` entry, or as an add-on marker
-- [ ] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
+- [x] The Switch's title id prefix (`01`) is declared once, by the system, and every title id match reads it from there
+- [x] Existing Switch save-path and launch-file tests pass unchanged
+- [x] A new test shows an id beginning `04` is not taken as a Switch title id — from a file name, from a `.cnmt` entry, or as an add-on marker
+- [x] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
