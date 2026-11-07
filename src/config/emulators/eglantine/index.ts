@@ -13,9 +13,9 @@ import type { EmulatorDescriptor } from '../types.ts'
  *  - It needs **no BIOS step**: `.nup` content is not encrypted, so there are
  *    no keys to place and no firmware to register.
  *  - Its saves follow Eden's NAND tree, keyed by **title id**. The id is read
- *    through the Switch save layout, which does not read a `.nup` — so a game
- *    whose title id it cannot find is reported as unsyncable rather than synced
- *    somewhere wrong.
+ *    out of the `.nup` itself, chosen as Eglantine chooses it — see
+ *    `nupTitleId` — and a game whose title id cannot be found is reported as
+ *    unsyncable rather than synced somewhere wrong.
  *
  * Being Eden-derived it follows the XDG layout under its own name —
  * `EDEN_DIR` is `eglantine` in its `common/fs/fs_paths.h` — which an AppImage

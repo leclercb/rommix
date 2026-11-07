@@ -1,17 +1,20 @@
 import {
   DESCRIPTOR_EXTENSIONS,
   SWITCH_CONTAINERS,
+  SWITCH2_CONTAINERS,
   TITLE_ID_DIGITS,
   TITLE_ID_KIND_DIGITS,
   titleIdSource
 } from '../romfiles.ts'
+import { nupTitleId } from './nup.ts'
 import { directory, joinPath } from './savepaths.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 
 /**
  * Finding one game's saves in a Yuzu-lineage emulator's NAND.
  *
- * Eden, Citron, Ryujinx, Suyu and Yuzu all keep the same tree:
+ * Eden, Citron, Ryujinx, Suyu and Yuzu all keep the same tree, and so does
+ * Eglantine for the Switch 2:
  *
  *     <nand>/user/save/0000000000000000/<32-hex profile>/<title id>/
  *
@@ -22,6 +25,8 @@ import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
  *    its content-metadata entry as a file named `<title id>.cnmt`, and the name
  *    appears in the archive's own header near the front of the file, so a short
  *    read is enough to find it without loading the ROM — see `HEADER_BYTES`.
+ *    A Switch 2 `.nup` lists it in its table of contents instead — see
+ *    `nupTitleId`.
  *  - the **profile** is a directory on disk. A Switch emulator normally has one
  *    user, so there is normally one candidate; where there are several, the one
  *    already holding a save for this title is the answer, and failing that the
@@ -95,12 +100,16 @@ function isRomContainer(path: string): boolean {
   return hasExtension(path, SWITCH_CONTAINERS)
 }
 
+/** Is this a Switch 2 container, whose id is read from its table of contents? */
+function isNupContainer(path: string): boolean {
+  return hasExtension(path, SWITCH2_CONTAINERS)
+}
+
 /**
  * Is this a file that lists ROMs, and so worth reading as text?
  *
- * Anything else that is not a container — a Switch 2 `.nup`, for one — is a
- * binary of several gigabytes, and reading it as text would load the whole
- * game to find nothing in it.
+ * Anything else that is not a container is a binary of several gigabytes, and
+ * reading it as text would load the whole game to find nothing in it.
  */
 function isPointerFile(path: string): boolean {
   return hasExtension(path, DESCRIPTOR_EXTENSIONS)
@@ -116,7 +125,8 @@ function hasExtension(path: string, extensions: readonly string[]): boolean {
  *
  * Three sources, in descending order of trust:
  *
- *  1. the ROM's own metadata entry, which is the game speaking for itself;
+ *  1. the ROM's own metadata entry, or a `.nup`'s package records, which is
+ *     the game speaking for itself;
  *  2. the files a pointer file names, for a game RomM exposes as a playlist —
  *     the playlist declares nothing itself, but the ROMs it lists do;
  *  3. the file name, for the many dumps that carry the id in brackets.
@@ -139,7 +149,7 @@ export function switchTitleId(
   const patterns = titleIdPatterns(system)
   if (!patterns) return null
 
-  const declared = statedTitleId(env, patterns, romPath)
+  const declared = statedTitleId(env, system, patterns, romPath)
   if (declared) return declared
 
   for (const name of [romPath, ...fallbackNames]) {
@@ -149,12 +159,20 @@ export function switchTitleId(
   return null
 }
 
-/** The id a container states, or the containers a playlist lists state. */
+/**
+ * The id a container states, or the containers a playlist lists state.
+ *
+ * A `.nup`'s id is kept as it is rather than reduced to the base game's: it is
+ * the id of the package Eglantine boots, and the folder it writes is named
+ * after exactly that.
+ */
 function statedTitleId(
   env: SaveEnvironment,
+  system: string,
   patterns: TitleIdPatterns,
   romPath: string
 ): string | null {
+  if (isNupContainer(romPath)) return nupTitleId(env, system, romPath)
   if (isRomContainer(romPath)) return declaredTitleId(env, patterns, romPath)
   if (isPointerFile(romPath)) return referencedTitleId(env, patterns, romPath)
   return null

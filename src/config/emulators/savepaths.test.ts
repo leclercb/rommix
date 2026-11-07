@@ -25,6 +25,7 @@ import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 import { createI18n, localize } from '@shared/i18n'
 import { umd } from './test/discs.ts'
+import { BASE, nup, UPDATE } from './test/nup.ts'
 
 /**
  * Save resolution, against a described machine rather than a real one.
@@ -912,27 +913,82 @@ test('Eden has no save states, so none are claimed', () => {
   assert.equal(paths.states, null)
 })
 
+function eglantinePaths(env: SaveEnvironment, romPath = '/roms/switch2/game.nup'): SavePaths {
+  return resolve(eglantine, {
+    romPath,
+    system: 'switch2',
+    paths: { saves: '/data/eglantine/nand/user/save' },
+    env
+  })
+}
+
+test('Eglantine reads the title id out of the .nup and keeps the NAND tree', () => {
+  const env = machine({
+    dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    heads: {
+      '/roms/switch2/game.nup': nup([
+        { titleId: 0x0400_1234_5678_9000n, kind: BASE },
+        { titleId: 0x0400_1234_5678_9800n, kind: UPDATE, version: 0x10000 }
+      ])
+    }
+  })
+  const paths = eglantinePaths(env)
+  assert.equal(
+    paths.saves?.dir,
+    `/data/eglantine/nand/user/save/0000000000000000/${ONE_PROFILE}/0400123456789000`
+  )
+  assert.equal(paths.states, null)
+})
+
+test('a standalone Switch 2 update keeps its own id, as Eglantine boots it', () => {
+  const env = machine({
+    dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    heads: {
+      '/roms/switch2/game.nup': nup([
+        { titleId: 0x0400_1234_5678_9800n, kind: UPDATE, version: 0x10000 }
+      ])
+    }
+  })
+  assert.match(eglantinePaths(env).saves?.dir ?? '', /\/0400123456789800$/)
+})
+
+test('a Switch 2 file name carrying a title id is used when the .nup declares none', () => {
+  // Read from a name, an id goes the way a Switch one does: to the base game's.
+  const game = '/roms/switch2/Game [0400123456789800].nup'
+  const env = machine({
+    dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    files: { [game]: 'not a container' }
+  })
+  assert.match(eglantinePaths(env, game).saves?.dir ?? '', /\/0400123456789000$/)
+})
+
+test('a .nup declaring a Switch id is not given a Switch 2 save folder', () => {
+  const env = machine({
+    dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    heads: { '/roms/switch2/game.nup': nup([{ titleId: 0x0100_7ef0_0011_e000n, kind: BASE }]) }
+  })
+  assert.equal(eglantinePaths(env).saves, null)
+})
+
 test('Eglantine syncs nothing for a Switch 2 game whose title id it cannot read', () => {
-  // A `.nup` is neither a Switch container nor a playlist: it is never read as
-  // text, which for a file of several gigabytes would load the whole game.
-  const nup = '/roms/switch2/Some Game.nup'
+  // A `.nup` that is not a container yields no id, and is never read as text,
+  // which for a file of several gigabytes would load the whole game.
+  const game = '/roms/switch2/Some Game.nup'
   const read: string[] = []
   const env = machine({
     dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
-    files: { [nup]: 'NUP\x01' }
+    files: { [game]: 'NUP\x01' }
   })
-  const paths = resolve(eglantine, {
-    romPath: nup,
-    system: 'switch2',
-    paths: { saves: '/data/eglantine/nand/user/save' },
-    env: {
+  const paths = eglantinePaths(
+    {
       ...env,
       text: (path) => {
         read.push(path)
         return env.text(path)
       }
-    }
-  })
+    },
+    game
+  )
   assert.equal(paths.saves, null)
   assert.equal(paths.states, null)
   assert.deepEqual(read, [])
