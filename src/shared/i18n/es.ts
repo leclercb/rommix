@@ -641,6 +641,14 @@ export const es: Catalog = {
     'exit while emulation is running.',
   'setup.edenStaging':
     'Instala el firmware en Eden: Tools → Install Firmware, apuntando al archivo de abajo.',
+  'setup.eglantineRoms': 'Añade la carpeta de ROM de RomMix a Eglantine: File → Game Directories.',
+  'setup.eglantineMigration':
+    'Abre Eglantine una vez tú mismo y responde a su aviso de migración de datos, o un juego ' +
+    'iniciado desde RomMix se quedará esperándolo.',
+  'setup.eglantineControls': 'Configura tu mando en Eglantine: Emulation → Configure → Controls.',
+  'setup.eglantineExitConfirm':
+    'Desactiva la confirmación de salida de Eglantine: Emulation → Configure → General → ' +
+    'Confirm before stopping emulation → Never ask.',
   'setup.shadps4Roms':
     'Añade la carpeta de ROM de RomMix a shadPS4, para que su lista de juegos encuentre lo que descargas.',
 

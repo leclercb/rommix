@@ -9,6 +9,8 @@
  * `src/shared/gamefiles.ts`.
  */
 
+import { titleIdPrefix } from './systems.ts'
+
 /** Files that are never the thing you hand an emulator. */
 export const SIDECAR_EXTENSIONS: readonly string[] = [
   '.txt',
@@ -127,8 +129,51 @@ export interface ContainerFormat {
   addOnPatterns: readonly RegExp[]
 }
 
+/** How many hex digits a title id has, whichever system it belongs to. */
+export const TITLE_ID_DIGITS = 16
+
+/** The trailing digits of a title id that say whether it is the game itself. */
+export const TITLE_ID_KIND_DIGITS = 3
+
+/**
+ * The source of a pattern for one of a system's title ids, or null on a system
+ * that has none.
+ *
+ * Built from the prefix the system declares, so an id carrying another
+ * system's prefix is never matched. `kind` stands in for the trailing digits,
+ * for a caller that cares what kind of file the id names. Case is left to the
+ * caller's flags: dumps spell the digits either way.
+ */
+export function titleIdSource(
+  system: string,
+  kind = `[0-9a-f]{${TITLE_ID_KIND_DIGITS}}`
+): string | null {
+  const prefix = titleIdPrefix(system)
+  if (!prefix) return null
+  const middle = TITLE_ID_DIGITS - prefix.length - TITLE_ID_KIND_DIGITS
+  return `${prefix}[0-9a-f]{${middle}}${kind}`
+}
+
+/**
+ * A title id that is not a base game's, on a system that has title ids.
+ *
+ * The last digits of a title id say what the file is: a base game ends `000`,
+ * its update ends `800`, and DLC counts up from `001`. Dumps conventionally
+ * carry the id in brackets, so where one is present it is the most reliable
+ * answer there is — and where it is absent nothing matches and the file stays a
+ * candidate. An id under another system's prefix says nothing about this file.
+ */
+function addOnTitleIds(system: string): RegExp[] {
+  const digits = `{${TITLE_ID_KIND_DIGITS}}`
+  const source = titleIdSource(system, `(?!0${digits}\\b)[0-9a-f]${digits}`)
+  return source ? [new RegExp(`\\b${source}\\b`, 'i')] : []
+}
+
 /** The container formats a Switch game is shipped in. */
 export const SWITCH_CONTAINERS: readonly string[] = ['.nsp', '.xci', '.nsz', '.xcz']
+
+/** The container format a Switch 2 game is shipped in. */
+export const SWITCH2_CONTAINERS: readonly string[] = ['.nup']
 
 /**
  * Systems where the game is one container file and a playlist is not a thing to
@@ -150,16 +195,7 @@ export const CONTAINER_SYSTEMS: Readonly<Record<string, ContainerFormat>> = {
   switch: {
     extensions: SWITCH_CONTAINERS,
     addOnPatterns: [
-      /**
-       * A title id that is not a base game's.
-       *
-       * Every Switch title id is sixteen hex digits whose last three say what
-       * the file is: a base game ends `000`, its update ends `800`, and DLC
-       * counts up from `001`. Dumps conventionally carry the id in brackets, so
-       * where one is present it is the most reliable answer there is — and where
-       * it is absent nothing matches and the file stays a candidate.
-       */
-      /\b01[0-9a-f]{11}(?!000\b)[0-9a-f]{3}\b/i,
+      ...addOnTitleIds('switch'),
       /** The same thing said in words, for dumps that label rather than number. */
       /[[(](?:upd|update|dlc)[\])]/i,
       /**
@@ -169,5 +205,10 @@ export const CONTAINER_SYSTEMS: Readonly<Record<string, ContainerFormat>> = {
        */
       /\[v(?!0\])\d+\]/i
     ]
+  },
+  switch2: {
+    extensions: SWITCH2_CONTAINERS,
+    // The game is a single `.nup`, so there is nothing beside it to tell apart.
+    addOnPatterns: []
   }
 }
