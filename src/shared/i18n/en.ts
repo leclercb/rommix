@@ -649,6 +649,15 @@ export const en = {
     'emulation is running.',
   'setup.edenStaging':
     'Install firmware in Eden: Tools → Install Firmware, pointed at the file below.',
+  'setup.eglantineRoms': "Add RomMix's ROM folder to Eglantine: File → Game Directories.",
+  'setup.eglantineMigration':
+    'Start Eglantine once yourself and answer its data migration prompt, or a game started ' +
+    'from RomMix waits on it.',
+  'setup.eglantineControls':
+    'Set up your controller in Eglantine: Emulation → Configure → Controls.',
+  'setup.eglantineExitConfirm':
+    'Turn off Eglantine’s exit confirmation: Emulation → Configure → General → Confirm before ' +
+    'stopping emulation → Never ask.',
   'setup.shadps4Roms':
     "Add RomMix's ROM folder to shadPS4, so its game list finds what you download.",
 

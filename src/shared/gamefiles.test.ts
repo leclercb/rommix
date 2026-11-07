@@ -123,6 +123,16 @@ test('DLC is not the game either', () => {
   assert.equal(chosen, 'Game [0100AAAAAAAAA000].nsp')
 })
 
+test("another system's title id does not mark a Switch file as an add-on", () => {
+  // Read as a Switch id it ends like an update's, and the smaller file beside it
+  // would be launched in its place.
+  const chosen = chooseLaunchFile(
+    [file('Game [04007EF00011E800].nsp', 4_000_000_000), file('Game.nsp', 900_000_000)],
+    'switch'
+  )
+  assert.equal(chosen, 'Game [04007EF00011E800].nsp')
+})
+
 test('a Switch dump named in words rather than title ids is still sorted out', () => {
   const chosen = chooseLaunchFile(
     [
@@ -153,6 +163,15 @@ test('a Switch game in no container format falls back to the general rule', () =
   // Homebrew is a lone .nro, which is neither a container nor a descriptor.
   const chosen = chooseLaunchFile([file('readme.txt'), file('Homebrew.nro', 4_000_000)], 'switch')
   assert.equal(chosen, 'Homebrew.nro')
+})
+
+test('a Switch 2 game is its container, not the playlist listing it', () => {
+  const chosen = chooseLaunchFile(
+    [file('Some Game.nup', 9_000_000_000), file('Some Game.m3u', 120)],
+    'switch2'
+  )
+  assert.equal(chosen, 'Some Game.nup')
+  assert.equal(isLaunchable('Some Game.m3u', 'switch2'), false)
 })
 
 test('the playlist still wins where a playlist means something', () => {

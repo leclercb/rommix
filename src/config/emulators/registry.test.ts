@@ -18,6 +18,7 @@ import {
   supportsSystem
 } from './index.ts'
 import { eden } from './eden/index.ts'
+import { eglantine } from './eglantine/index.ts'
 import { emudeck, emuDeckCore, ROM_PLACEHOLDER } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -140,6 +141,11 @@ test('emulatorsForSystem narrows to the ones that can run it', () => {
   assert.deepEqual(
     emulatorsForSystem('snes').map((emulator) => emulator.id),
     ['retrodeck', 'emudeck', 'retroarch']
+  )
+  // Eglantine is the only emulator that runs the Switch 2.
+  assert.deepEqual(
+    emulatorsForSystem('switch2').map((emulator) => emulator.id),
+    ['eglantine']
   )
 })
 
@@ -308,6 +314,47 @@ test('Eden declines the systems it does not run', () => {
   assert.equal(supportsSystem(eden, 'snes'), false)
 })
 
+test('Eglantine is started fullscreen, with the Switch 2 game named by -g', () => {
+  const argv = eglantine.launch({
+    exec: ['/home/u/Applications/Eglantine.AppImage'],
+    installRef: '/home/u/Applications/Eglantine.AppImage',
+    system: 'switch2',
+    romPath: '/roms/switch2/game.nup'
+  })
+  assert.deepEqual(argv, [
+    '/home/u/Applications/Eglantine.AppImage',
+    '-f',
+    '-g',
+    '/roms/switch2/game.nup'
+  ])
+})
+
+test('Eglantine runs the Switch 2 and declines the Switch', () => {
+  assert.equal(supportsSystem(eglantine, 'switch2'), true)
+  assert.equal(supportsSystem(eglantine, 'switch'), false)
+  assert.equal(supportsSystem(eden, 'switch2'), false)
+  assert.equal(
+    eglantine.launch({
+      exec: ['eglantine'],
+      installRef: 'eglantine',
+      system: 'switch',
+      romPath: '/roms/switch/game.nsp'
+    }),
+    null
+  )
+})
+
+test('Eglantine is found by its program name or its AppImage, never downloaded', () => {
+  // Every Eglantine release is a prerelease whose tag is deleted and made
+  // again, so there is no stable feed to install from.
+  assert.deepEqual(eglantine.install, [
+    { kind: 'binary', names: ['eglantine'] },
+    { kind: 'appimage', patterns: ['eglantine*.appimage'], release: null }
+  ])
+  assert.equal(releaseSource(eglantine), null)
+  assert.deepEqual(installMethods(eglantine), [])
+})
+
 test('an emulator returns null rather than argv for a system it cannot run', () => {
   const argv = retroarch.launch({
     ...NOTHING_ON_DISK,
@@ -349,15 +396,25 @@ test('Eden declares a release source RomMix can install from', () => {
   assert.ok(source.asset.test('Eden-Linux-v0.2.1-amd64-clang-pgo.AppImage'))
 })
 
-test('every AppImage route says where its builds come from', () => {
-  // The point of merging the two: a route that can be recognised and not
-  // fetched is a `binary` — something the user put there — and one offered as
-  // an AppImage would be an Install button with nothing behind it.
+test('every AppImage route either names where its builds come from or none at all', () => {
+  // A release with no endpoint would be an Install button with nothing behind
+  // it; `null` is the honest way to say an AppImage is only ever found.
   for (const emulator of ALL_DESCRIPTORS) {
     for (const spec of emulator.install) {
-      if (spec.kind === 'appimage') assert.ok(spec.release.api, `${emulator.id} names no release`)
+      if (spec.kind === 'appimage' && spec.release !== null) {
+        assert.ok(spec.release.api, `${emulator.id} names a release with no endpoint`)
+      }
     }
   }
+})
+
+test('an AppImage that is only ever found is not offered as an install', () => {
+  const found: EmulatorDescriptor = {
+    ...eden,
+    install: [{ kind: 'appimage', patterns: ['found*.appimage'], release: null }]
+  }
+  assert.deepEqual(installMethods(found), [])
+  assert.equal(releaseSource(found), null)
 })
 
 test('installable routes are exactly the ones RomMix can act on', () => {
