@@ -4,6 +4,30 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.24.0 — 2026-11-07
+
+- fix: name the current exit setting in the Eden note (a4b0fe5)
+- test(schema): check the types against RomM 5.3.0 to 5.4.1 (96ea48c)
+- chore: drop the agent workflow files (2cf068b)
+- fix: keep Eglantine saves out of Eden's tree (f8990ce)
+- docs: record switch2 and tooling follow-ups for triage (99f08ab)
+- fix: give an unreadable .nup no title id rather than its name's (e31a9da)
+- fix: find Eglantine saves under Eden's folder on pre-rename builds (e38664c)
+- docs: tick off switch2 ticket 04 (7245048)
+- feat: sync Switch 2 saves from the .nup title id (d4d844f)
+- docs: tick off switch2 ticket 03 (ff251d7)
+- feat: drive Eglantine for the Nintendo Switch 2 (746158c)
+- docs: tick off switch2 tickets 01 and 02 (d8fb910)
+- refactor: build every title id pattern from one source (2040d3f)
+- feat: recognise the Nintendo Switch 2 as a system (ea26593)
+- refactor: declare the title id prefix on the system (83dc352)
+- feat: add scratch work for Nintendo Switch 2 support and Eglantine emulator integration (f0a0d5e)
+- docs: add project glossary and ADR for Switch 2 system ID (70d2542)
+- docs: add agent guidelines and documentation for issue tracking, triage, and domain models (9bf4e2d)
+- feat: switch save and state sync separately (b5d59c6)
+- feat: choose the RetroArch core per system (a2952fe)
+- fix: run RetroDECK PS3 disc images with RPCS3 (66bcd71)
+
 ## 0.23.0 — 2026-11-02
 
 - chore: update the dependencies (0e3760b)
