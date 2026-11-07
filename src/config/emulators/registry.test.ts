@@ -316,6 +316,7 @@ test('Eden declines the systems it does not run', () => {
 
 test('Eglantine is started fullscreen, with the Switch 2 game named by -g', () => {
   const argv = eglantine.launch({
+    ...NOTHING_ON_DISK,
     exec: ['/home/u/Applications/Eglantine.AppImage'],
     installRef: '/home/u/Applications/Eglantine.AppImage',
     system: 'switch2',
@@ -335,6 +336,7 @@ test('Eglantine runs the Switch 2 and declines the Switch', () => {
   assert.equal(supportsSystem(eden, 'switch2'), false)
   assert.equal(
     eglantine.launch({
+      ...NOTHING_ON_DISK,
       exec: ['eglantine'],
       installRef: 'eglantine',
       system: 'switch',

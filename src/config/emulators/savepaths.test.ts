@@ -940,6 +940,125 @@ test('Eglantine reads the title id out of the .nup and keeps the NAND tree', () 
   assert.equal(paths.states, null)
 })
 
+const EDEN_SPACE = '/data/eden/nand/user/save/0000000000000000'
+const EGLANTINE_SPACE = '/data/eglantine/nand/user/save/0000000000000000'
+const SWITCH2_GAME = nup([{ titleId: 0x0400_1234_5678_9000n, kind: BASE }])
+
+test('Eglantine finds a Switch 2 save a pre-rename build left in Eden’s tree', () => {
+  const env = machine({
+    dirs: {
+      [EDEN_SPACE]: [ONE_PROFILE],
+      [`${EDEN_SPACE}/${ONE_PROFILE}`]: ['0400123456789000']
+    },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env).saves?.dir, `${EDEN_SPACE}/${ONE_PROFILE}/0400123456789000`)
+})
+
+test('Eglantine takes Eden’s tree for a new game once a pre-rename build writes there', () => {
+  // Any Switch 2 title in that tree was written by Eglantine: Eden never does.
+  const env = machine({
+    dirs: {
+      [EDEN_SPACE]: [ONE_PROFILE],
+      [`${EDEN_SPACE}/${ONE_PROFILE}`]: ['0100AAAABBBBC000', '0400FFFFEEEED000']
+    },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env).saves?.dir, `${EDEN_SPACE}/${ONE_PROFILE}/0400123456789000`)
+})
+
+test('Eglantine never writes into Eden’s tree on Switch saves alone', () => {
+  // An Eglantine that has not written yet beside an installed Eden: a save put
+  // in Eden's tree would be one Eglantine never reads.
+  const env = machine({
+    dirs: {
+      [EDEN_SPACE]: [ONE_PROFILE],
+      [`${EDEN_SPACE}/${ONE_PROFILE}`]: ['0100AAAABBBBC000']
+    },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  const paths = eglantinePaths(env)
+  assert.equal(paths.saves, null)
+  assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /Eglantine/)
+})
+
+test('Eglantine keeps to its own tree when both hold the game', () => {
+  const env = machine({
+    dirs: {
+      [EDEN_SPACE]: [ONE_PROFILE],
+      [`${EDEN_SPACE}/${ONE_PROFILE}`]: ['0400FFFFEEEED000'],
+      [EGLANTINE_SPACE]: [ONE_PROFILE],
+      [`${EGLANTINE_SPACE}/${ONE_PROFILE}`]: ['0400123456789000']
+    },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env).saves?.dir, `${EGLANTINE_SPACE}/${ONE_PROFILE}/0400123456789000`)
+})
+
+test('an upgraded Eglantine keeps to its own tree for a game only the old build played', () => {
+  // Restored into Eden's tree, the save is one the current build never reads:
+  // it starts afresh, and that fresh save is sent over the real one.
+  const env = machine({
+    dirs: {
+      [EDEN_SPACE]: [ONE_PROFILE],
+      [`${EDEN_SPACE}/${ONE_PROFILE}`]: ['0400123456789000'],
+      [EGLANTINE_SPACE]: [ONE_PROFILE],
+      [`${EGLANTINE_SPACE}/${ONE_PROFILE}`]: ['0400FFFFEEEED000']
+    },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env).saves?.dir, `${EGLANTINE_SPACE}/${ONE_PROFILE}/0400123456789000`)
+})
+
+test('Eden’s tree is found with its profiles directly under the save folder', () => {
+  const edenSaves = '/data/eden/nand/user/save'
+  const env = machine({
+    dirs: {
+      [edenSaves]: [ONE_PROFILE],
+      [`${edenSaves}/${ONE_PROFILE}`]: ['0400FFFFEEEED000']
+    },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env).saves?.dir, `${edenSaves}/${ONE_PROFILE}/0400123456789000`)
+})
+
+test('in Eden’s tree the profile holding Switch 2 saves beats the one Eden played last', () => {
+  // Recency there is mostly Eden's own play, which says nothing about whose
+  // profile Eglantine writes under.
+  const switchPlayer = '11111111111111111111111111111111'
+  const switch2Player = '22222222222222222222222222222222'
+  const env = machine({
+    dirs: {
+      [EDEN_SPACE]: [switchPlayer, switch2Player],
+      [`${EDEN_SPACE}/${switchPlayer}`]: ['0100AAAABBBBC000'],
+      [`${EDEN_SPACE}/${switch2Player}`]: ['0400FFFFEEEED000']
+    },
+    mtimes: { [`${EDEN_SPACE}/${switchPlayer}`]: 2, [`${EDEN_SPACE}/${switch2Player}`]: 1 },
+    heads: { '/roms/switch2/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env).saves?.dir, `${EDEN_SPACE}/${switch2Player}/0400123456789000`)
+})
+
+test('a Switch 2 playlist is not followed to the .nup it lists', () => {
+  // A Switch 2 game is launched, and so has its saves resolved, from the .nup
+  // itself; a playlist never stands in for one.
+  const playlist = '/roms/switch2/Game.m3u'
+  const env = machine({
+    dirs: { [EGLANTINE_SPACE]: [ONE_PROFILE] },
+    files: { [playlist]: 'Game.nup\n' },
+    heads: { '/roms/switch2/Game.nup': SWITCH2_GAME }
+  })
+  assert.equal(eglantinePaths(env, playlist).saves, null)
+})
+
+test('a .nup handed to Eden is given no Switch save folder', () => {
+  const env = machine({
+    dirs: { '/data/eden/nand/user/save/0000000000000000': [ONE_PROFILE] },
+    heads: { '/roms/switch/game.nup': SWITCH2_GAME }
+  })
+  assert.equal(edenPaths(env, '/roms/switch/game.nup').saves, null)
+})
+
 test('a standalone Switch 2 update keeps its own id, as Eglantine boots it', () => {
   const env = machine({
     dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },

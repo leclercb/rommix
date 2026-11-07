@@ -1,5 +1,18 @@
+import { joinPath } from '../savepaths.ts'
 import { switchSavePaths } from '../switch-saves.ts'
 import type { EmulatorDescriptor } from '../types.ts'
+
+/** Its save tree, under the XDG data root. */
+const SAVES = 'eglantine/nand/user/save'
+
+/** The same tree in builds made before the folder was renamed — Eden's own. */
+const PRE_RENAME_SAVES = 'eden/nand/user/save'
+
+/** The pre-rename tree beside `saves`, the resolved current one. */
+function preRenameSaves(saves: string | null): string[] {
+  if (!saves?.endsWith(`/${SAVES}`)) return []
+  return [joinPath(saves.slice(0, -SAVES.length), PRE_RENAME_SAVES)]
+}
 
 /**
  * Eglantine — a Nintendo Switch 2 emulator forked from Eden
@@ -21,7 +34,7 @@ import type { EmulatorDescriptor } from '../types.ts'
  * since it is not sandboxed — under its own name in current builds (`EDEN_DIR`
  * in its `common/fs/fs_paths.h`), and under Eden's in builds made before that
  * folder was renamed. Its releases are rebuilt in place, so both are in use at
- * once, and its saves are looked for under either; see `DirSpec.alternatives`.
+ * once, and its saves are looked for under either — see `switchSavePaths`.
  */
 export const eglantine: EmulatorDescriptor = {
   id: 'eglantine',
@@ -41,11 +54,7 @@ export const eglantine: EmulatorDescriptor = {
     // Like Eden it ships no ROM folder of its own and lists the directories it
     // is given, so RomMix's folder is the one to add there.
     roms: { base: 'rommix', path: 'roms' },
-    saves: {
-      base: 'data',
-      path: 'eglantine/nand/user/save',
-      alternatives: ['eden/nand/user/save']
-    }
+    saves: { base: 'data', path: SAVES }
     // No `states`: the Yuzu lineage keeps save states inside the profile data.
     // No `bios`: nothing in a `.nup` is encrypted, so there is nothing to place.
   },
@@ -58,9 +67,11 @@ export const eglantine: EmulatorDescriptor = {
   needsRomFolders: true,
   /**
    * `nand/user/save/<space>/<profile>/<title id>/`, the same tree as Eden, and
-   * synced whole for the same reason — see `switch-saves.ts`.
+   * synced whole for the same reason — see `switch-saves.ts`. The pre-rename
+   * tree is Eden's, so it is used only where it already holds Switch 2 saves.
    */
-  saves: (ctx) => switchSavePaths(ctx, ctx.paths.saves, 'Eglantine'),
+  saves: (ctx) =>
+    switchSavePaths(ctx, ctx.paths.saves, 'Eglantine', preRenameSaves(ctx.paths.saves)),
   bios: undefined,
   biosStagingNote: undefined,
   // Eglantine is one emulator, not a core loader.

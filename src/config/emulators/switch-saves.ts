@@ -237,11 +237,16 @@ function referencedTitleId(
  * recently written" heuristic outright — a user whose other profile happens to
  * have been played more recently would otherwise have this game's save resolved
  * against a profile that has never held it.
+ *
+ * `ofSystem`, where given, matches the title ids of the emulator's own system,
+ * and a profile holding any of them beats the rest before recency is asked: in
+ * a tree another emulator shares, recency is mostly that emulator's play.
  */
 export function switchProfileDir(
   env: SaveEnvironment,
   base: string,
-  titleId: string | null
+  titleId: string | null,
+  ofSystem: RegExp | null = null
 ): string | null {
   for (const parent of [joinPath(base, SAVE_DATA_SPACE), base]) {
     const profiles = env.dirs(parent).filter((name) => PROFILE_DIR.test(name))
@@ -254,6 +259,12 @@ export function switchProfileDir(
       if (owning.length > 1) {
         return joinPath(parent, newest(env, parent, owning))
       }
+    }
+    if (ofSystem) {
+      const used = profiles.filter((name) =>
+        env.dirs(joinPath(parent, name)).some((title) => ofSystem.test(title))
+      )
+      if (used.length > 0) return joinPath(parent, newest(env, parent, used))
     }
     return joinPath(parent, newest(env, parent, profiles))
   }
@@ -273,17 +284,52 @@ function newest(env: SaveEnvironment, parent: string, names: readonly string[]):
   return best
 }
 
+/** Every title folder under every profile of a save tree. */
+function titleDirs(env: SaveEnvironment, base: string): string[] {
+  return [joinPath(base, SAVE_DATA_SPACE), base].flatMap((parent) =>
+    env
+      .dirs(parent)
+      .filter((name) => PROFILE_DIR.test(name))
+      .flatMap((profile) => env.dirs(joinPath(parent, profile)))
+  )
+}
+
+/** A whole title id of `system`, as a save folder is named, or null if it has none. */
+function titleIdFolder(system: string): RegExp | null {
+  const source = titleIdSource(system)
+  return source ? new RegExp(`^${source}$`, 'i') : null
+}
+
+/**
+ * Which of an emulator's save trees it writes to now.
+ *
+ * The first, in the order given — current name first — that holds any title of
+ * this system. That a tree holds *this* title is no evidence: a game played
+ * only on an older build stays in the older tree after an upgrade, and a save
+ * restored there would be one the current build never reads. A tree under a
+ * former name may also be another emulator's own — Eglantine's is Eden's — and
+ * an emulator for another system never writes this system's titles. Failing
+ * any evidence it is the current name, where a build that has written nothing
+ * yet will write.
+ */
+function saveTree(env: SaveEnvironment, ofSystem: RegExp, trees: readonly string[]): string {
+  return trees.find((tree) => titleDirs(env, tree).some((name) => ofSystem.test(name))) ?? trees[0]
+}
+
 /**
  * Save paths for one game under a Yuzu-lineage emulator.
  *
- * `base` is the emulator's `nand/user/save`. There are no save states: this
- * lineage keeps them inside the profile data rather than in a tree of its own,
- * so naming a states directory would only invent one.
+ * `base` is the emulator's `nand/user/save`, and `formerBases` the same tree
+ * under any name the emulator used to keep it under — see `saveTree`. There
+ * are no save states: this lineage keeps them inside the profile data rather
+ * than in a tree of its own, so naming a states directory would only invent
+ * one.
  */
 export function switchSavePaths(
   ctx: SaveContext,
   base: string | null,
-  emulatorName: string
+  emulatorName: string,
+  formerBases: readonly string[] = []
 ): SavePaths {
   if (!base) return { saves: null, states: null }
 
@@ -296,7 +342,11 @@ export function switchSavePaths(
     }
   }
 
-  const profile = switchProfileDir(ctx.env, base, titleId)
+  // Only a tree another emulator may share needs its profiles told apart by
+  // system; in the emulator's own tree every profile is its own.
+  const ofSystem = formerBases.length > 0 ? titleIdFolder(ctx.system) : null
+  const tree = ofSystem ? saveTree(ctx.env, ofSystem, [base, ...formerBases]) : base
+  const profile = switchProfileDir(ctx.env, tree, titleId, tree === base ? null : ofSystem)
   if (!profile) {
     return {
       saves: null,
