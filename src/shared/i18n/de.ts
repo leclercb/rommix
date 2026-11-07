@@ -650,8 +650,8 @@ export const de: Catalog = {
     'Firmware in Eden installieren: Tools → Install Firmware. Die Schlüssel werden für Sie kopiert.',
   'setup.edenControls': 'Den Controller in Eden einrichten: Emulation → Configure → Controls.',
   'setup.edenExitConfirm':
-    'Die Beenden-Nachfrage von Eden abschalten: Emulation → Configure → General → Confirm exit ' +
-    'while emulation is running.',
+    'Die Beenden-Nachfrage von Eden abschalten: Emulation → Configure → General → Confirm ' +
+    'before stopping emulation → Never ask.',
   'setup.edenStaging':
     'Firmware in Eden installieren: Tools → Install Firmware, auf die Datei unten zeigen lassen.',
   'setup.eglantineRoms':

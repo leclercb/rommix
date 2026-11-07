@@ -645,7 +645,7 @@ export const fr: Catalog = {
   'setup.edenControls': 'Configurez votre manette dans Eden : Emulation → Configure → Controls.',
   'setup.edenExitConfirm':
     'Désactivez la confirmation de sortie d’Eden : Emulation → Configure → General → Confirm ' +
-    'exit while emulation is running.',
+    'before stopping emulation → Never ask.',
   'setup.edenStaging':
     'Installez le firmware dans Eden : Tools → Install Firmware, en le pointant sur le fichier ci-dessous.',
   'setup.eglantineRoms':

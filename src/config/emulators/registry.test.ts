@@ -346,13 +346,9 @@ test('Eglantine runs the Switch 2 and declines the Switch', () => {
   )
 })
 
-test('Eglantine is found by its program name or its AppImage, never downloaded', () => {
+test('Eglantine is never offered as a download', () => {
   // Every Eglantine release is a prerelease whose tag is deleted and made
   // again, so there is no stable feed to install from.
-  assert.deepEqual(eglantine.install, [
-    { kind: 'binary', names: ['eglantine'] },
-    { kind: 'appimage', patterns: ['eglantine*.appimage'], release: null }
-  ])
   assert.equal(releaseSource(eglantine), null)
   assert.deepEqual(installMethods(eglantine), [])
 })

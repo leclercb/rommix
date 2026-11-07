@@ -185,11 +185,12 @@ export const SWITCH2_CONTAINERS: readonly string[] = ['.nup']
  * the game, and the update and DLC beside it are further containers of the same
  * kind — but RomM holds all of them as one multi-file game, and a multi-file
  * game comes with an `.m3u` listing its files. Ranked as a descriptor that
- * playlist wins, and Eden is handed a text file it has no loader for.
+ * playlist wins, and the emulator is handed a text file it has no loader for.
  *
  * So on these systems the descriptors are skipped and the base game is chosen
- * directly. The update does not need naming: Eden reads external content out of
- * the game's own directory, which is where `flatLibrary` has already put it.
+ * directly. The update does not need naming: on the Switch, Eden reads external
+ * content out of the game's own directory, which is where `flatLibrary` has
+ * already put it, and a Switch 2 `.nup` carries its updates and DLC inside it.
  */
 export const CONTAINER_SYSTEMS: Readonly<Record<string, ContainerFormat>> = {
   switch: {

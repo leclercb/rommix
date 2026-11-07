@@ -96,6 +96,8 @@ export const eglantine: EmulatorDescriptor = {
     'setup.eglantineControls',
     'setup.eglantineExitConfirm'
   ],
+  // Unlike Eden's, its AppImage is built with linuxdeploy and carries Qt's
+  // Wayland plugins, with no hook forcing X11 — so nothing to switch off.
   env: undefined,
   // `exec` alone opens Eglantine with no game.
   open: undefined,
