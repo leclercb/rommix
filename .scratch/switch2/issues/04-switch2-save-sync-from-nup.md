@@ -13,7 +13,7 @@ Anything that does not fit yields no title id and the existing "no title id" out
 
 **Status:** ready-for-agent
 
-- [ ] Tests on `.nup` files built in the test: base only; base + updates (base wins); standalone update (highest version wins); bad magic; TOC offset below 0x80; zero id; an `01…` id refused
-- [ ] Reading stays within a small bounded slice of the file
-- [ ] A Switch 2 game's save folder resolves under Eglantine's `nand/user/save/<space>/<profile>/<title id>`
-- [ ] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
+- [x] Tests on `.nup` files built in the test: base only; base + updates (base wins); standalone update (highest version wins); bad magic; TOC offset below 0x80; zero id; an `01…` id refused
+- [x] Reading stays within a small bounded slice of the file
+- [x] A Switch 2 game's save folder resolves under Eglantine's `nand/user/save/<space>/<profile>/<title id>`
+- [x] `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` pass
