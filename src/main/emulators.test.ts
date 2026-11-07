@@ -172,6 +172,34 @@ describe('an emulator whose folders are fixed', () => {
     assert.equal(resolveEmulator([found], 'switch'), null)
   })
 
+  test('an Eglantine that still writes under Eden’s folder has its saves found there', async () => {
+    // Builds from before its folder was renamed keep their data where Eden
+    // does. Looking only under the new name would sync nothing, ever.
+    const dir = home()
+    const binary = join(dir, 'opt', 'eglantine', 'eglantine')
+    write(binary, '')
+    const legacy = join(dir, '.local', 'share', 'eden', 'nand', 'user', 'save')
+    mkdirSync(legacy, { recursive: true })
+
+    const found = await probeOne('eglantine', settings({ emulatorPaths: { eglantine: binary } }))
+
+    assert.equal(found.paths.saves, legacy)
+  })
+
+  test('an Eglantine with both folders on disk uses the one under its own name', async () => {
+    // The state a migration leaves behind, and where current builds write.
+    const dir = home()
+    const binary = join(dir, 'opt', 'eglantine', 'eglantine')
+    write(binary, '')
+    const current = join(dir, '.local', 'share', 'eglantine', 'nand', 'user', 'save')
+    mkdirSync(current, { recursive: true })
+    mkdirSync(join(dir, '.local', 'share', 'eden', 'nand', 'user', 'save'), { recursive: true })
+
+    const found = await probeOne('eglantine', settings({ emulatorPaths: { eglantine: binary } }))
+
+    assert.equal(found.paths.saves, current)
+  })
+
   test('a configured path that is not a .appimage is taken as a plain binary', async () => {
     const dir = home()
     const binary = join(dir, 'opt', 'eden', 'eden')

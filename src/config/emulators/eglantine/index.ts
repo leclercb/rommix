@@ -17,9 +17,11 @@ import type { EmulatorDescriptor } from '../types.ts'
  *    `nupTitleId` — and a game whose title id cannot be found is reported as
  *    unsyncable rather than synced somewhere wrong.
  *
- * Being Eden-derived it follows the XDG layout under its own name —
- * `EDEN_DIR` is `eglantine` in its `common/fs/fs_paths.h` — which an AppImage
- * uses directly, since it is not sandboxed.
+ * Being Eden-derived it follows the XDG layout, which an AppImage uses directly
+ * since it is not sandboxed — under its own name in current builds (`EDEN_DIR`
+ * in its `common/fs/fs_paths.h`), and under Eden's in builds made before that
+ * folder was renamed. Its releases are rebuilt in place, so both are in use at
+ * once, and its saves are looked for under either; see `DirSpec.alternatives`.
  */
 export const eglantine: EmulatorDescriptor = {
   id: 'eglantine',
@@ -39,7 +41,11 @@ export const eglantine: EmulatorDescriptor = {
     // Like Eden it ships no ROM folder of its own and lists the directories it
     // is given, so RomMix's folder is the one to add there.
     roms: { base: 'rommix', path: 'roms' },
-    saves: { base: 'data', path: 'eglantine/nand/user/save' }
+    saves: {
+      base: 'data',
+      path: 'eglantine/nand/user/save',
+      alternatives: ['eden/nand/user/save']
+    }
     // No `states`: the Yuzu lineage keeps save states inside the profile data.
     // No `bios`: nothing in a `.nup` is encrypted, so there is nothing to place.
   },

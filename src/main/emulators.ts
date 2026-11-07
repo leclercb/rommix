@@ -103,11 +103,20 @@ function baseDirs(install: ResolvedInstall | null): Record<DirBase, string> {
   return { home, rommix, config: xdgConfigHome(), data: xdgDataHome() }
 }
 
+/** Where a path template lands: the first of its names on disk — see `DirSpec.alternatives`. */
+function resolveDir(bases: Record<DirBase, string>, spec: DirSpec): string {
+  const base = bases[spec.base]
+  const preferred = join(base, spec.path)
+  if (!spec.alternatives || existsSync(preferred)) return preferred
+  const found = spec.alternatives.map((name) => join(base, name)).find((dir) => existsSync(dir))
+  return found ?? preferred
+}
+
 /** Resolve a descriptor's declared path templates against a found install. */
 function declaredPaths(descriptor: EmulatorDescriptor, install: ResolvedInstall): EmulationPaths {
   const bases = baseDirs(install)
   const resolve = (spec: DirSpec | undefined): string | null =>
-    spec ? join(bases[spec.base], spec.path) : null
+    spec ? resolveDir(bases, spec) : null
 
   return {
     // No emulator declares `home`; it is only shown in diagnostics, so the
@@ -287,7 +296,7 @@ function discoverLayout(
   }
 
   for (const source of layout?.sources ?? []) {
-    const file = join(bases[source.file.base], source.file.path)
+    const file = resolveDir(bases, source.file)
     if (!existsSync(file)) continue
 
     const values = readConfigValues(file, source)

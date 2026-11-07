@@ -134,6 +134,16 @@ export interface DirSpec {
   base: DirBase
   /** Relative to the base; '' means the base directory itself. */
   path: string
+  /**
+   * Where else under the same base the folder may be, in order, for an
+   * emulator that has kept it under more than one name.
+   *
+   * The first of `path` and these that exists on disk is the one used, and
+   * `path` when none does: a build that has not yet written anything writes
+   * under its current name. Without this, a renamed folder splits the users of
+   * one emulator in two, and those on older builds sync nothing at all.
+   */
+  alternatives?: readonly string[]
 }
 
 export interface EmulationPaths {
