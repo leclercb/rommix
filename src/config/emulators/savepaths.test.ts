@@ -952,14 +952,16 @@ test('a standalone Switch 2 update keeps its own id, as Eglantine boots it', () 
   assert.match(eglantinePaths(env).saves?.dir ?? '', /\/0400123456789800$/)
 })
 
-test('a Switch 2 file name carrying a title id is used when the .nup declares none', () => {
-  // Read from a name, an id goes the way a Switch one does: to the base game's.
+test('a Switch 2 file name carrying a title id is not used when the .nup declares none', () => {
+  // Eglantine names the folder after the package it boots, which only the
+  // container can say: the id in a name may be another package's, and reduced
+  // to the base game's it names a folder Eglantine never writes.
   const game = '/roms/switch2/Game [0400123456789800].nup'
   const env = machine({
     dirs: { '/data/eglantine/nand/user/save/0000000000000000': [ONE_PROFILE] },
     files: { [game]: 'not a container' }
   })
-  assert.match(eglantinePaths(env, game).saves?.dir ?? '', /\/0400123456789000$/)
+  assert.equal(eglantinePaths(env, game).saves, null)
 })
 
 test('a .nup declaring a Switch id is not given a Switch 2 save folder', () => {

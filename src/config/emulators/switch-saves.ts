@@ -131,6 +131,10 @@ function hasExtension(path: string, extensions: readonly string[]): boolean {
  *     the playlist declares nothing itself, but the ROMs it lists do;
  *  3. the file name, for the many dumps that carry the id in brackets.
  *
+ * A `.nup` stops at the first: the folder Eglantine writes is named after the
+ * package it boots, which only the container can say, so a `.nup` that cannot
+ * be read has no title id rather than one guessed from its name.
+ *
  * The `.cnmt` scan runs only on a real container, and the loose name pattern is
  * never run against the *contents* of one. A stretch of compressed data that
  * long contains any pattern of a title id's length you care to look for, so
@@ -150,7 +154,7 @@ export function switchTitleId(
   if (!patterns) return null
 
   const declared = statedTitleId(env, system, patterns, romPath)
-  if (declared) return declared
+  if (declared || isNupContainer(romPath)) return declared
 
   for (const name of [romPath, ...fallbackNames]) {
     const match = name ? patterns.name.exec(name) : null
