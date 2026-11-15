@@ -2,16 +2,6 @@
    Cover art and cards
    -------------------------------------------------------------------------- */
 
-/* A strict 3:4 tile.
-   The height comes from a padding-ratio spacer rather than `aspect-ratio`, and
-   nothing inside is in normal flow. Covers arrive from RomM at whatever
-   proportions the scraper found, and every softer approach lets one of them
-   influence the box: a percentage height against an `aspect-ratio` parent
-   resolves to `auto` (so the image takes its own intrinsic height and
-   `object-fit` never applies), and content in flow can push a flex container
-   past its ratio. Percentage padding always resolves against the *width*,
-   which is definite here, so every tile is exactly the same height whether it
-   holds a tall cover, a wide one, or the name fallback. */
 .cover {
   position: relative;
   border-radius: var(--radius);
@@ -19,18 +9,17 @@
   background: var(--card);
 }
 
-.cover::before {
+/* Reserve a 3:4 frame when there is no single image to size it. */
+.cover--mosaic::before,
+.cover:has(> .cover__fallback)::before {
   content: '';
   display: block;
   padding-top: 133.333%;
 }
 
-.cover img {
-  position: absolute;
-  inset: 0;
+.cover > img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
 }
 
@@ -48,17 +37,7 @@
   justify-content: center;
 }
 
-/* Four covers in the space of one, for a collection — see `CoverMosaic`.
-
-   The grid is a layer *over* `.cover`, not `.cover` itself. That box takes its
-   height from the padding-ratio spacer above, and a pseudo-element inside a
-   grid container is a grid item: it claimed a row and the pictures were placed
-   in implicit rows below it. Positioned over the spacer — exactly what a single
-   cover image does — the 3:4 ratio still holds and the four cells divide it, so
-   a row of collections lines up with a row of games.
-
-   A hairline of the tile's own background between the cells is what keeps four
-   pictures from reading as one. */
+/* Position the mosaic over its spacer so the spacer stays out of the grid. */
 .cover__grid {
   position: absolute;
   inset: 0;
@@ -75,7 +54,7 @@
   min-height: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   background: var(--card);
 }

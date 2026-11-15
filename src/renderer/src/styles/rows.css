@@ -19,20 +19,6 @@
   display: none;
 }
 
-/* `min-width: 0` is load-bearing, not tidying.
-   A flex item defaults to `min-width: auto`, which resolves to its min-content
-   width — and `.card__title` is `white-space: nowrap`, so a long game name
-   reports a min-content width of the whole title. The `overflow: hidden` that
-   ellipsises it sits on the title, not on the flex item, so it does not zero
-   that contribution. Cards with long names were therefore rendering *wider*
-   than 168px, and because the cover's height is a percentage of its width,
-   wider meant taller. The covers differed in height because they differed in
-   width. */
-.row > * {
-  flex: 0 0 168px;
-  min-width: 0;
-}
-
 /* Marks the end of an endless shelf. Overrides the card width above so it
    occupies no meaningful space of its own. */
 .row__sentinel {
@@ -41,16 +27,33 @@
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 22px 18px;
   padding: 10px 4px 20px;
 }
 
-/* Same automatic-minimum-size trap as `.row > *`: a grid item also defaults to
-   `min-width: auto`, so a long title would push the card past its track. */
-.grid > * {
-  min-width: 0;
+.row > .card,
+.grid > .card {
+  --cover-height: 224px;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: max-content;
+}
+
+:is(.row, .grid) > .card .cover > img {
+  width: auto;
+  height: var(--cover-height);
+}
+
+:is(.row, .grid) > .card :is(.cover--mosaic, .cover:has(> .cover__fallback)) {
+  width: calc(var(--cover-height) * 0.75);
+  height: var(--cover-height);
+}
+
+/* Let the cover determine the card width, including when the title is long. */
+:is(.row, .grid) > .card :is(.card__title, .card__meta) {
+  contain: inline-size;
 }
 
 /* --------------------------------------------------------------------------
