@@ -592,9 +592,17 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
        * A pool that yields nothing on screen is measured whole, so a press that
        * had an answer still lands on one — which is also how an element the
        * observer has not reported on yet is reached. See `onScreen`.
+       *
+       * So is every pool while the highlight itself is off the screen. That is
+       * a reveal still sliding into view: the row just moved onto is below the
+       * edge, and so is the rest of it. Preferring what is on screen then means
+       * preferring the rows the page is scrolling away from, and Right off the
+       * first option of a row lands on a row above it.
        */
       const pick = (pool: FocusableEntry[]): string | null =>
-        nearest(pool.filter((entry) => onScreen.current.has(entry.element))) ?? nearest(pool)
+        (onScreen.current.has(current.element)
+          ? nearest(pool.filter((entry) => onScreen.current.has(entry.element)))
+          : null) ?? nearest(pool)
 
       /**
        * Where a press that arrives in a group from outside every group lands.

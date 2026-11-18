@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { dateFormatters } from '@shared/i18n/dates.ts'
+import { DATE_FORMATS, dateFormatters } from '@shared/i18n/dates.ts'
 import { en } from '@shared/i18n/en.ts'
 import { fr } from '@shared/i18n/fr.ts'
 import { atHome, POLL_MS, SETTLE_TIMEOUT_MS, type App } from './driver.ts'
@@ -180,6 +180,60 @@ describe('the settings screen', () => {
     await app.waitFor(
       `document.querySelectorAll('.panel__body *').length > 0`,
       'the system tab to have drawn something'
+    )
+  })
+
+  test('a press off a row still sliding into view stays in that row', async () => {
+    // Down onto a row below the edge of the window starts the page sliding,
+    // and the rest of that row is still below the edge when a quick second
+    // press arrives. Judged against what was on screen, Right off the first
+    // option went up to the row the page was leaving.
+    await app.goTo('home')
+    await app.goTo('settings')
+    await app.waitFor(
+      `document.querySelector('[data-option="iso"]')?.matches('[data-focused]') ?? false`,
+      'the date formats'
+    )
+    const onDates = `${JSON.stringify(DATE_FORMATS)}.includes(document.querySelector('[data-focused="true"]')?.dataset.option)`
+    for (let step = 0; step < 12 && !(await app.read<boolean>(onDates)); step += 1) {
+      await app.press('Down')
+    }
+    const next = await app.read<string | null>(
+      `document.querySelector('[data-focused="true"]')?.nextElementSibling?.dataset.option ?? null`
+    )
+    assert.ok(next, 'the highlight should be on a date format with another after it')
+
+    // Where a quick press finds things: the highlight on the row, and the page
+    // not yet caught up with it. Scrolled back by hand rather than raced, so the
+    // test does not depend on how fast the machine running it is.
+    await app.read(
+      `(() => {
+         let scroller = document.querySelector('[data-focused="true"]').parentElement
+         while (scroller && scroller.scrollTop === 0) scroller = scroller.parentElement
+         scroller?.scrollTo({ top: 0, behavior: 'instant' })
+         // Until the focus engine has been told, which an observer of the
+         // same element is in the same delivery as.
+         return new Promise((settle) => {
+           const watch = new IntersectionObserver(([record]) => {
+             if (record.isIntersecting) return
+             watch.disconnect()
+             settle(true)
+           })
+           watch.observe(document.querySelector('[data-focused="true"]'))
+         })
+       })()`
+    )
+    assert.ok(
+      await app.read<boolean>(
+        `document.querySelector('[data-focused="true"]').getBoundingClientRect().top >= window.innerHeight`
+      ),
+      'the highlight should be below the edge of the window'
+    )
+
+    await app.press('Right')
+    await app.waitFor(
+      `document.querySelector('[data-option=${JSON.stringify(next)}]')?.matches('[data-focused="true"]') ?? false`,
+      'the highlight to move along the date formats'
     )
   })
 })
