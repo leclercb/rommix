@@ -19,8 +19,11 @@ export {
   RommError,
   UnreachableError,
   UnsupportedServerError,
+  UntrustedCertificateError,
   answered,
-  refusedUs
+  certificateRefused,
+  refusedUs,
+  sendFailure
 } from './errors.ts'
 export { checkDeferredToUnpacking, checksumOf, digestOf } from './checksums.ts'
 export { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'

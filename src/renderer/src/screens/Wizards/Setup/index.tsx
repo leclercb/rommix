@@ -13,6 +13,7 @@ import {
   RomStorageChoice,
   SegmentedControl,
   ThemeChoice,
+  SelfSignedToggle,
   TextField,
   uiScaleChoice,
   type UiScaleChoice,
@@ -250,6 +251,7 @@ export function SetupScreen(): JSX.Element {
           hint={t('connect.serverAddressHint')}
           autoFocus
         />
+        <SelfSignedToggle />
 
         <label className="field__label">{t('connect.howSignIn')}</label>
         <SegmentedControl<AuthMode>

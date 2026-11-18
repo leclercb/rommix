@@ -1,7 +1,12 @@
 import type { ConnectionStatus } from '@shared/types'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
-import { REQUIRED_SCOPES, refusedUs, UnsupportedServerError } from './romm/index.ts'
+import {
+  REQUIRED_SCOPES,
+  refusedUs,
+  UnsupportedServerError,
+  UntrustedCertificateError
+} from './romm/index.ts'
 import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 
@@ -164,8 +169,12 @@ export async function connectionStatus(
       // A server too old to read is not an outage, for the same reason a
       // refusal is not: it answered, and waiting changes nothing. Reported as
       // offline it would be drawn over with the saved library and the one
-      // sentence saying what to do about it would never be seen.
-      offline: !refusedUs(cause) && !(cause instanceof UnsupportedServerError),
+      // sentence saying what to do about it would never be seen. A
+      // certificate RomMix will not trust is the same case.
+      offline:
+        !refusedUs(cause) &&
+        !(cause instanceof UnsupportedServerError) &&
+        !(cause instanceof UntrustedCertificateError),
       baseUrl: server.baseUrl,
       user: null,
       serverVersion: null,

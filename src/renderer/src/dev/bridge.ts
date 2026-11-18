@@ -566,6 +566,7 @@ const SETTINGS: Settings = {
   syncSaves: true,
   syncStates: true,
   navigationSounds: true,
+  acceptSelfSigned: false,
   confirmUninstall: true,
   confirmSavePush: true,
   // The themes notice among them: it is there to tell somebody who had RomMix

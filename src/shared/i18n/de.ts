@@ -204,6 +204,9 @@ export const de: Catalog = {
   'connect.subtitle': 'Richten Sie RomMix auf Ihren RomM-Server.',
   'connect.serverAddress': 'Serveradresse',
   'connect.serverAddressHint': 'Dieselbe Adresse wie für die Weboberfläche von RomM.',
+  'connect.acceptSelfSigned': 'Selbstsignierte Zertifikate akzeptieren',
+  'connect.acceptSelfSignedHint':
+    'Aktivieren Sie dies, wenn Ihr RomM-Server ein selbst erstelltes Zertifikat verwendet.',
   'connect.howSignIn': 'Wie möchten Sie sich anmelden?',
   'connect.modeDevice': 'Dieses Gerät koppeln',
   'connect.modeToken': 'API-Token',
@@ -1060,6 +1063,12 @@ export const de: Catalog = {
 
   'error.serverAddressEmpty': 'Die Serveradresse ist leer',
   'error.noServerConfigured': 'Kein RomM-Server eingerichtet',
+  'error.untrustedCertificate': 'Dem Zertifikat von {url} wird nicht vertraut: {reason}',
+  'error.selfSignedCertificate':
+    '{url} verwendet ein selbstsigniertes Zertifikat. Aktivieren Sie Selbstsignierte Zertifikate akzeptieren, um sich zu verbinden.',
+  'error.certificateExpired': 'Das Zertifikat ist abgelaufen',
+  'error.certificateNotYetValid': 'Das Zertifikat ist noch nicht gültig',
+  'error.certificateRefused': 'Das Zertifikat wurde abgelehnt',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
   'error.savesNotFetched_one': '{count} Spielstand konnte nicht von RomM geladen werden.',
   'error.savesNotFetched_other': '{count} Spielstände konnten nicht von RomM geladen werden.',

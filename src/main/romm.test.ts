@@ -3,13 +3,18 @@ import { after, afterEach, before, describe, test } from 'node:test'
 import { mkdtempSync, readdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createServer } from 'node:https'
+import type { AddressInfo } from 'node:net'
 import { app } from 'electron'
 import type { RommDevice, RommFirmware, RommRom, RommRomFile } from '@shared/types'
 import {
   RommClient,
   RommError,
   REQUIRED_SCOPES,
+  UnreachableError,
   UnsupportedServerError,
+  UntrustedCertificateError,
+  sendFailure,
   atLeast,
   isComparable,
   MINIMUM_SERVER_VERSION
@@ -340,6 +345,41 @@ describe('turning a failed response into a message', () => {
     )
     assert.equal(failure?.status, 403)
     assert.match(failure?.message ?? '', /collections\.write/)
+  })
+
+  test('a request that could not be sent says why, not only that fetch failed', async () => {
+    // How undici reports a name the resolver does not know: the outer error
+    // is the same for every failure to send, and the fault is named only on
+    // `cause`.
+    const { store } = fakeStore()
+    const unknown = Object.assign(new Error('getaddrinfo ENOTFOUND games.example'), {
+      code: 'ENOTFOUND'
+    })
+    globalThis.fetch = (() =>
+      Promise.reject(new TypeError('fetch failed', { cause: unknown }))) as typeof fetch
+
+    const failure = await new RommClient(store).heartbeat('https://games.example').then(
+      () => null,
+      (cause: RommError) => cause
+    )
+    assert.ok(failure instanceof UnreachableError)
+    assert.match(failure.message, /getaddrinfo ENOTFOUND games\.example/)
+  })
+
+  test('and a cause that is not an Error is shown as it is', () => {
+    assert.equal(
+      sendFailure(new TypeError('fetch failed', { cause: 'socket hang up' })),
+      'fetch failed'
+    )
+    assert.equal(sendFailure('socket hang up'), 'socket hang up')
+  })
+
+  test('and a refusal with no message of its own is named by its code', () => {
+    const refused = Object.assign(new AggregateError([], ''), { code: 'ECONNREFUSED' })
+    assert.equal(
+      sendFailure(new TypeError('fetch failed', { cause: refused })),
+      'fetch failed (ECONNREFUSED)'
+    )
   })
 })
 
@@ -2006,6 +2046,120 @@ describe('what may take as long as it takes', () => {
       for (const one of requests) {
         assert.equal(one.signal, null, `${what} went out with a deadline on it`)
       }
+    }
+  })
+})
+
+/**
+ * Certificate and key for `localhost` alone, signed by themselves. One is
+ * valid for decades; the other expired long ago.
+ *
+ * Kept here rather than made at test time, because nothing that makes one is
+ * on every machine the suite runs on.
+ */
+const SELF_SIGNED_PEM = `-----BEGIN CERTIFICATE-----
+MIIBMTCB2KADAgECAgQjmHi3MAoGCCqGSM49BAMCMBQxEjAQBgNVBAMMCWxvY2Fs
+aG9zdDAeFw0yNjAxMDEwMDAwMDBaFw00OTEyMDEwMDAwMDBaMBQxEjAQBgNVBAMM
+CWxvY2FsaG9zdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABEpANN7QXqEkd+cP
+JfHjBJFLp3eF1ecmwJd4Egb4JNs0g/9DMOno7+dhQyvAE6r1Bz2uDst9/04WztjH
+uNbUgUKjGDAWMBQGA1UdEQQNMAuCCWxvY2FsaG9zdDAKBggqhkjOPQQDAgNIADBF
+AiBzya0gsQQB0crXzfLalWIy9bsS7BH4xzchyNVAt7Ke8AIhANHMdcy55jpnq8ek
+ZPmmUyYaHzelyPIJuhhctyvF1g7G
+-----END CERTIFICATE-----
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgDRVrwJcfEPV43eHJ
+oUE26zpB5F7f2TpIyR8S+zde6SahRANCAARKQDTe0F6hJHfnDyXx4wSRS6d3hdXn
+JsCXeBIG+CTbNIP/QzDp6O/nYUMrwBOq9Qc9rg7Lff9OFs7Yx7jW1IFC
+-----END PRIVATE KEY-----`
+
+const EXPIRED_PEM = `-----BEGIN CERTIFICATE-----
+MIIBMDCB2KADAgECAgQCjFUdMAoGCCqGSM49BAMCMBQxEjAQBgNVBAMMCWxvY2Fs
+aG9zdDAeFw0yMDAxMDEwMDAwMDBaFw0yMTAxMDEwMDAwMDBaMBQxEjAQBgNVBAMM
+CWxvY2FsaG9zdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOGle8eNqblspq9g
+t9fg8mb9oY6l0KRzdJpIz0KxaBYdPvENO0a231SNv6+MCr+T/u/DOThiVN7hR6z8
+GJ8TOfujGDAWMBQGA1UdEQQNMAuCCWxvY2FsaG9zdDAKBggqhkjOPQQDAgNHADBE
+AiAWtNbU7go/+26Ckl2dyPIE/A5ASSBDHB3FnD3DCrm/3gIgVWxhKQ55uoKQcYTT
+Zk2e0jP7T9mkYysrpXWIKjahnpg=
+-----END CERTIFICATE-----
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgSoUIm3gPWWnH/SrV
+IpxPyBjUywouF9SYeL63P8Ns1qShRANCAAThpXvHjam5bKavYLfX4PJm/aGOpdCk
+c3SaSM9CsWgWHT7xDTtGtt9Ujb+vjAq/k/7vwzk4YlTe4Ues/BifEzn7
+-----END PRIVATE KEY-----`
+
+describe('a server with a self-signed certificate', () => {
+  /**
+   * A real TLS server, because what is under test is the handshake: the
+   * dispatcher, the package's own `fetch`, and the codes Node gives a
+   * certificate it would not trust. A stub of `fetch` would skip all three.
+   */
+  async function tlsServer(pem: string): Promise<{ port: number; close: () => void }> {
+    const server = createServer({ cert: pem, key: pem }, (_request, response) => {
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify({ SYSTEM: { VERSION: '5.1.0' } }))
+    })
+    await new Promise<void>((resolve) => server.listen(0, resolve))
+    return {
+      port: (server.address() as AddressInfo).port,
+      close: () => server.close()
+    }
+  }
+
+  function trusting(accept: boolean): RommClient {
+    const { store } = fakeStore()
+    Object.assign(store.settings, { acceptSelfSigned: accept })
+    return new RommClient(store)
+  }
+
+  async function failure(client: RommClient, url: string): Promise<RommError | null> {
+    return client.heartbeat(url).then(
+      () => null,
+      (cause: RommError) => cause
+    )
+  }
+
+  test('is refused, with a pointer to the setting that would let it through', async () => {
+    const server = await tlsServer(SELF_SIGNED_PEM)
+    try {
+      const refused = await failure(trusting(false), `https://localhost:${server.port}`)
+      assert.ok(refused instanceof UntrustedCertificateError)
+      assert.match(refused.message, /self-signed/)
+    } finally {
+      server.close()
+    }
+  })
+
+  test('is reached once self-signed certificates are accepted', async () => {
+    const server = await tlsServer(SELF_SIGNED_PEM)
+    try {
+      const beat = await trusting(true).heartbeat(`https://localhost:${server.port}`)
+      assert.deepEqual(beat, { version: '5.1.0' })
+    } finally {
+      server.close()
+    }
+  })
+
+  test('but not under a name the certificate was not issued for', async () => {
+    // The chain is not verified with the setting on, and Node checks the name
+    // only after a chain that verified. See `stillRefused`.
+    const server = await tlsServer(SELF_SIGNED_PEM)
+    try {
+      const refused = await failure(trusting(true), `https://127.0.0.1:${server.port}`)
+      assert.ok(refused instanceof UntrustedCertificateError)
+      assert.match(refused.message, /ERR_TLS_CERT_ALTNAME_INVALID/)
+    } finally {
+      server.close()
+    }
+  })
+
+  test('and not once it has expired', async () => {
+    const server = await tlsServer(EXPIRED_PEM)
+    try {
+      const refused = await failure(trusting(true), `https://localhost:${server.port}`)
+      assert.ok(refused instanceof UntrustedCertificateError)
+      assert.match(refused.message, /has expired \(CERT_HAS_EXPIRED\)/)
+    } finally {
+      server.close()
     }
   })
 })

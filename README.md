@@ -447,6 +447,13 @@ where `electronLibraries` is, with `pkgs`:
 Also on NixOS: leave `programs.appimage.binfmt` off, and an AppImage emulator
 needs `programs.nix-ld.enable` too.
 
+**`Cannot reach https://…: self-signed certificate`** (or `unable to verify the
+first certificate`). RomM is served over HTTPS with a certificate it signed
+itself, or one from your own authority. Turn on **Accept self-signed
+certificates** under the server address on the sign-in screen, or in Settings →
+General. An expired certificate, or one issued for another name, is still
+refused.
+
 **"flatpak is not installed".** Most of the emulators are flatpaks, so without
 the command none can be found or installed.
 

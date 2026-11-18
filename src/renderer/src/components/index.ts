@@ -44,6 +44,7 @@ export {
 } from './games'
 export { Hints, Overlay, PageTitle, QuitOverlay, Spinner } from './overlay'
 export { QrCode, ScanToOpen } from './qr'
+export { SelfSignedToggle } from './certificates'
 export { ThemeChoice } from './theme'
 export { StatusBadge, StatusPill, type Tone } from './status'
 export { Filled } from './text'

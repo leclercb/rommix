@@ -6,6 +6,7 @@ import {
   LanguageChoice,
   Overlay,
   ScanToOpen,
+  SelfSignedToggle,
   ThemeChoice,
   Toggle,
   uiScaleChoice,
@@ -41,6 +42,8 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
 
   const disconnect = async (): Promise<void> => {
     await window.rommix.server.disconnect()
+    // Granted for the server being left, and the next one may be anywhere.
+    await saveSettings({ acceptSelfSigned: false })
     notify(t('settings.disconnected'))
     // The end of a session, so the screens behind this one go with it: every
     // one of them is a view of a library there is no longer a server for.
@@ -86,6 +89,7 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
         <dt>{t('settings.rommVersion')}</dt>
         <dd>{status?.serverVersion ?? t('value.unknown')}</dd>
       </dl>
+      <SelfSignedToggle />
       <div className="btn-row">
         <FocusButton
           icon="disconnect"

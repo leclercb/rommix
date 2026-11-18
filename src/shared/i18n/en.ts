@@ -206,6 +206,9 @@ export const en = {
   'connect.subtitle': 'Point RomMix at your RomM server.',
   'connect.serverAddress': 'Server address',
   'connect.serverAddressHint': 'The same address you use for the RomM web interface.',
+  'connect.acceptSelfSigned': 'Accept self-signed certificates',
+  'connect.acceptSelfSignedHint':
+    'Turn this on if your RomM server uses a certificate you created yourself.',
   'connect.howSignIn': 'How would you like to sign in?',
   'connect.modeDevice': 'Pair this device',
   'connect.modeToken': 'API token',
@@ -1029,6 +1032,12 @@ export const en = {
 
   'error.serverAddressEmpty': 'Server address is empty',
   'error.noServerConfigured': 'No RomM server configured',
+  'error.untrustedCertificate': 'The certificate of {url} is not trusted: {reason}',
+  'error.selfSignedCertificate':
+    '{url} uses a self-signed certificate. Turn on Accept self-signed certificates to connect.',
+  'error.certificateExpired': 'The certificate has expired',
+  'error.certificateNotYetValid': 'The certificate is not valid yet',
+  'error.certificateRefused': 'The certificate was refused',
   'error.cannotReach': 'Cannot reach {url}: {reason}',
   'error.savesNotFetched_one': '{count} save could not be fetched from RomM.',
   'error.savesNotFetched_other': '{count} saves could not be fetched from RomM.',

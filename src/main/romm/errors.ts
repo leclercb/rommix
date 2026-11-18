@@ -34,6 +34,58 @@ export function refusedUs(cause: unknown): boolean {
   return cause instanceof RommError && (cause.status === 401 || cause.status === 403)
 }
 
+/**
+ * Why a request could not be sent, in words the user can act on.
+ *
+ * `fetch` reports every failure to send as `fetch failed` and keeps the reason
+ * on `cause`: a certificate it would not trust, a name the resolver did not
+ * know, a port nothing listened on. Those are different fixes, and the outer
+ * message alone gives no hint which one is needed.
+ */
+export function sendFailure(cause: unknown): string {
+  // Deepest first, since the innermost error is the one that names the fault.
+  const chain = causeChain(cause).toReversed()
+  const message = chain.map((error) => error.message).find(Boolean)
+  const code = chain.map(codeOf).find(Boolean)
+  // A refused connection tried on several addresses comes back as an
+  // `AggregateError` with no message, and only a code.
+  if (!message) return code ?? String(cause)
+  return code && !message.includes(code) ? `${message} (${code})` : message
+}
+
+/**
+ * The code of the certificate the request was stopped for, if that is why.
+ *
+ * Told apart from every other failure to send because it is not an outage:
+ * the server is there and answered the handshake, and waiting changes
+ * nothing. Node names these after OpenSSL's verify errors, and its own
+ * name check adds `ERR_TLS_CERT_ALTNAME_INVALID`.
+ */
+export function certificateRefused(cause: unknown): string | undefined {
+  return causeChain(cause)
+    .map(codeOf)
+    .find((code) =>
+      /^(ERR_TLS_CERT_|CERT_|DEPTH_ZERO_|SELF_SIGNED_|UNABLE_TO_(GET|VERIFY)_|HOSTNAME_MISMATCH)/.test(
+        code ?? ''
+      )
+    )
+}
+
+/** The errors along a `cause` chain, outermost first. Anything else ends it. */
+function causeChain(cause: unknown): Error[] {
+  const chain: Error[] = []
+  // Bounded, because a `cause` chain is any object graph and may loop.
+  for (let next = cause; next instanceof Error && chain.length < 8; next = next.cause) {
+    chain.push(next)
+  }
+  return chain
+}
+
+function codeOf(error: Error): string | undefined {
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && code ? code : undefined
+}
+
 export class RommError extends Error {
   constructor(
     message: string,
@@ -89,5 +141,20 @@ export class CorruptDownloadError extends RommError {
   constructor(message: string) {
     super(message)
     this.name = 'CorruptDownloadError'
+  }
+}
+
+/**
+ * The server's certificate was not trusted.
+ *
+ * Not an `UnreachableError`, because it is not an outage: offline mode would
+ * draw the saved library over the one sentence saying what to do, and a
+ * download queued to resume when the network returns would wait forever. See
+ * `certificateRefused`.
+ */
+export class UntrustedCertificateError extends RommError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UntrustedCertificateError'
   }
 }

@@ -199,6 +199,9 @@ export const fr: Catalog = {
   'connect.subtitle': 'Pointez RomMix vers votre serveur RomM.',
   'connect.serverAddress': 'Adresse du serveur',
   'connect.serverAddressHint': 'La même adresse que pour l’interface web de RomM.',
+  'connect.acceptSelfSigned': 'Accepter les certificats auto-signés',
+  'connect.acceptSelfSignedHint':
+    'Activez cette option si votre serveur RomM utilise un certificat que vous avez créé vous-même.',
   'connect.howSignIn': 'Comment souhaitez-vous vous connecter ?',
   'connect.modeDevice': 'Appairer cet appareil',
   'connect.modeToken': 'Jeton API',
@@ -1049,6 +1052,12 @@ export const fr: Catalog = {
 
   'error.serverAddressEmpty': 'L’adresse du serveur est vide',
   'error.noServerConfigured': 'Aucun serveur RomM configuré',
+  'error.untrustedCertificate': 'Le certificat de {url} n’est pas reconnu : {reason}',
+  'error.selfSignedCertificate':
+    '{url} utilise un certificat auto-signé. Activez Accepter les certificats auto-signés pour vous connecter.',
+  'error.certificateExpired': 'Le certificat a expiré',
+  'error.certificateNotYetValid': 'Le certificat n’est pas encore valide',
+  'error.certificateRefused': 'Le certificat a été refusé',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
   'error.savesNotFetched_one': '{count} sauvegarde n’a pas pu être récupérée depuis RomM.',
   'error.savesNotFetched_other': '{count} sauvegardes n’ont pas pu être récupérées depuis RomM.',

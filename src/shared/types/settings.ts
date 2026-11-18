@@ -168,6 +168,19 @@ export interface Settings {
    * somebody who is not playing. See `playCue`.
    */
   navigationSounds: boolean
+  /**
+   * Trust a RomM server whose certificate signed itself, or was signed by an
+   * authority this machine does not know.
+   *
+   * A server at home behind a reverse proxy commonly has one, and adding it to
+   * the system's store is out of reach on a handheld that is never used as a
+   * computer. Off by default: with it on, a machine on the network that
+   * intercepts the connection can present a certificate of its own, and RomMix
+   * will take it for the server. Only the RomM server is affected, and an
+   * expired certificate or one for another name is still refused — see
+   * `stillRefused`.
+   */
+  acceptSelfSigned: boolean
   /** Ask for confirmation before deleting a downloaded game. */
   confirmUninstall: boolean
   /**

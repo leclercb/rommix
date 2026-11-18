@@ -33,7 +33,15 @@ import { t } from '../i18n.ts'
 import type { Store } from '../store.ts'
 import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
 import { DeviceRegistry } from './devices.ts'
-import { RommError, UnreachableError, UnsupportedServerError } from './errors.ts'
+import {
+  RommError,
+  UnreachableError,
+  UnsupportedServerError,
+  UntrustedCertificateError,
+  certificateRefused,
+  sendFailure
+} from './errors.ts'
+import { fetchTrustingSelfSigned, selfSigned } from './tls.ts'
 import { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 import {
   fetchToFile,
@@ -246,7 +254,10 @@ export class RommClient {
      */
     const attempt = async (): Promise<Response> => {
       try {
-        const res = await fetch(`${base}${path}`, {
+        // Read per attempt, so the toggle on the sign-in form applies to the
+        // very next try. See `Settings.acceptSelfSigned`.
+        const send = this.store.settings.acceptSelfSigned ? fetchTrustingSelfSigned : fetch
+        const res = await send(`${base}${path}`, {
           // A server that accepts the connection and then says nothing
           // otherwise holds the screen for as long as the runtime's own default
           // allows, behind a button that has already been pressed. The deadline
@@ -265,11 +276,22 @@ export class RommClient {
         // while its request was out — says nothing about the server, and
         // reported as an outage it would put the interface into offline mode.
         if (init.signal?.aborted) throw cause
-        log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
-        this.report(base, false, (cause as Error).message)
-        throw new UnreachableError(
-          t('error.cannotReach', { url: base, reason: (cause as Error).message })
-        )
+        const reason = sendFailure(cause)
+        log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base, reason })
+        // Not reported as an outage: the server is there, and offline mode
+        // would hide the reason. See `UntrustedCertificateError`.
+        const certificate = certificateRefused(cause)
+        if (certificate) {
+          // Pointed at the setting where the setting is what would let it
+          // through, since nothing else on the screen says it exists.
+          throw new UntrustedCertificateError(
+            selfSigned(certificate) && !this.store.settings.acceptSelfSigned
+              ? t('error.selfSignedCertificate', { url: base })
+              : t('error.untrustedCertificate', { url: base, reason })
+          )
+        }
+        this.report(base, false, reason)
+        throw new UnreachableError(t('error.cannotReach', { url: base, reason }))
       }
     }
 

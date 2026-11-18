@@ -198,6 +198,9 @@ export const es: Catalog = {
   'connect.subtitle': 'Apunta RomMix a tu servidor RomM.',
   'connect.serverAddress': 'Dirección del servidor',
   'connect.serverAddressHint': 'La misma dirección que usas para la interfaz web de RomM.',
+  'connect.acceptSelfSigned': 'Aceptar certificados autofirmados',
+  'connect.acceptSelfSignedHint':
+    'Actívalo si tu servidor RomM usa un certificado que creaste tú mismo.',
   'connect.howSignIn': '¿Cómo quieres iniciar sesión?',
   'connect.modeDevice': 'Emparejar este dispositivo',
   'connect.modeToken': 'Token de API',
@@ -1035,6 +1038,12 @@ export const es: Catalog = {
 
   'error.serverAddressEmpty': 'La dirección del servidor está vacía',
   'error.noServerConfigured': 'No hay ningún servidor RomM configurado',
+  'error.untrustedCertificate': 'El certificado de {url} no es de confianza: {reason}',
+  'error.selfSignedCertificate':
+    '{url} usa un certificado autofirmado. Activa Aceptar certificados autofirmados para conectarte.',
+  'error.certificateExpired': 'El certificado ha caducado',
+  'error.certificateNotYetValid': 'El certificado aún no es válido',
+  'error.certificateRefused': 'El certificado fue rechazado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
   'error.savesNotFetched_one': '{count} partida guardada no se ha podido obtener de RomM.',
   'error.savesNotFetched_other': '{count} partidas guardadas no se han podido obtener de RomM.',
