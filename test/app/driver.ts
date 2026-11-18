@@ -45,6 +45,15 @@ export const SETTLE_TIMEOUT_MS = 15_000
 export const POLL_MS = 100
 
 /**
+ * The most frames `press` waits for a scroll to finish sliding.
+ *
+ * A ceiling, not the wait: it returns as soon as the highlight holds still.
+ * Something that never does — an animation on the focused element itself —
+ * would otherwise hold every press.
+ */
+const SETTLE_FRAMES = 90
+
+/**
  * How long `goTo` waits for a section to open after Enter, before it takes the
  * press as lost and walks the menu again.
  *
@@ -716,8 +725,25 @@ export async function startApp(options: StartOptions): Promise<App> {
     await session.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...spec })
     await session.send('Input.dispatchKeyEvent', { type: 'keyUp', ...spec })
     // One frame, so the render the press caused has happened before the next
-    // question is asked of the page.
-    await read('new Promise((settle) => requestAnimationFrame(() => settle(true)))')
+    // question is asked of the page. Then until the highlight stops moving: a
+    // press that scrolls slides the page rather than jumping it, and the focus
+    // engine only moves between things on screen, so a press sent while the
+    // page is still sliding is judged against where things were.
+    await read(
+      `new Promise((settle) => {
+         let last = null
+         let frames = 0
+         const tick = () => {
+           const box = document.querySelector('[data-focused="true"]')?.getBoundingClientRect()
+           const now = box ? box.top + ',' + box.left : ''
+           frames += 1
+           if ((now === last && frames > 2) || frames > ${SETTLE_FRAMES}) return settle(true)
+           last = now
+           requestAnimationFrame(tick)
+         }
+         requestAnimationFrame(tick)
+       })`
+    )
   }
 
   /**
