@@ -19,38 +19,64 @@
   display: none;
 }
 
-/* `min-width: 0` is load-bearing, not tidying.
-   A flex item defaults to `min-width: auto`, which resolves to its min-content
-   width — and `.card__title` is `white-space: nowrap`, so a long game name
-   reports a min-content width of the whole title. The `overflow: hidden` that
-   ellipsises it sits on the title, not on the flex item, so it does not zero
-   that contribution. Cards with long names were therefore rendering *wider*
-   than 168px, and because the cover's height is a percentage of its width,
-   wider meant taller. The covers differed in height because they differed in
-   width. */
-.row > * {
-  flex: 0 0 168px;
-  min-width: 0;
-}
-
-/* Marks the end of an endless shelf. Overrides the card width above so it
-   occupies no meaningful space of its own. */
+/* Marks the end of an endless shelf, taking no meaningful space. */
 .row__sentinel {
   flex: 0 0 1px;
   align-self: stretch;
 }
 
+/* Flex rather than grid tracks: a card is as wide as its cover, so the
+   columns could not line up anyway. */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 22px 18px;
   padding: 10px 4px 20px;
 }
 
-/* Same automatic-minimum-size trap as `.row > *`: a grid item also defaults to
-   `min-width: auto`, so a long title would push the card past its track. */
-.grid > * {
-  min-width: 0;
+/* On a shelf or a grid a cover keeps its own proportions instead of being
+   cropped to the 3:4 tile: every card shares one height and takes the width
+   its picture needs. Square Game Boy boxes and wide PC ones are common enough
+   that the crop cut off what identified the game.
+
+   The 3:4 width stays as a floor. A lazy image has no intrinsic size until it
+   decodes, and without the floor every card on a shelf would start out at no
+   width at all: covers would jump about as they arrived, and the end-of-shelf
+   sentinel would come into range and page in more than is on screen. Mosaics and
+   name fallbacks have no single picture to measure, so the floor is their
+   width outright and the spacer in `.cover` gives the height. */
+:is(.row, .grid) > .card {
+  --cover-width: 168px;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: max-content;
+}
+
+:is(.row, .grid) > .card .cover {
+  min-width: var(--cover-width);
+}
+
+/* In flow, so the picture is what sizes the card; the spacer would stack its
+   own height on top. */
+:is(.row, .grid) > .card .cover:has(> img)::before {
+  display: none;
+}
+
+/* `object-fit` centres a picture narrower than 3:4 in the floor rather than
+   stretching it. */
+:is(.row, .grid) > .card .cover > img {
+  position: static;
+  width: auto;
+  min-width: 100%;
+  height: calc(var(--cover-width) * var(--cover-ratio));
+  object-fit: contain;
+}
+
+/* The cover alone decides the card width. A title in flow reports the width of
+   its whole unwrapped text, so a long name would widen the card past its
+   picture. */
+:is(.row, .grid) > .card :is(.card__title, .card__meta) {
+  contain: inline-size;
 }
 
 /* --------------------------------------------------------------------------

@@ -13,6 +13,8 @@
    which is definite here, so every tile is exactly the same height whether it
    holds a tall cover, a wide one, or the name fallback. */
 .cover {
+  /* Height over width. Shelf cards size their pictures from it too. */
+  --cover-ratio: calc(4 / 3);
   position: relative;
   border-radius: var(--radius);
   overflow: hidden;
@@ -22,7 +24,7 @@
 .cover::before {
   content: '';
   display: block;
-  padding-top: 133.333%;
+  padding-top: calc(100% * var(--cover-ratio));
 }
 
 .cover img {
