@@ -88,7 +88,8 @@ export function MethodRow({
   onSelect,
   autoFocus
 }: {
-  kind: 'flatpak' | 'appimage'
+  /** `locate` is an AppImage already on the machine, picked from a file dialog. */
+  kind: 'flatpak' | 'appimage' | 'locate'
   detail: string
   onSelect: () => void
   autoFocus: boolean
@@ -97,9 +98,9 @@ export function MethodRow({
 
   return (
     <ChoiceRow
-      name={t(INSTALL_KIND[kind])}
+      name={kind === 'locate' ? t('emulator.locateName') : t(INSTALL_KIND[kind])}
       meta={detail}
-      icon={kind === 'flatpak' ? 'install' : 'download'}
+      icon={kind === 'flatpak' ? 'install' : kind === 'locate' ? 'folder' : 'download'}
       actionLabel={t('install.chooseMethod')}
       onSelect={onSelect}
       autoFocus={autoFocus}

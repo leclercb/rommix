@@ -1,5 +1,5 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
-import { emulatorById, emulatorsForSystem, installMethods } from '@config/emulators'
+import { emulatorById, emulatorsForSystem, installMethods, locatable } from '@config/emulators'
 import type { InstallMethod } from '@config/emulators'
 import { localize } from '@shared/i18n'
 import type {
@@ -54,7 +54,16 @@ function openingOf(
   const download = methods.find((spec) => spec.kind === 'appimage') ?? null
   if (changeVersion && download) return { step: 'version', method: download }
 
-  return { step: methods.length === 0 ? 'manual' : 'method', method: null }
+  return { step: firstStepFor(descriptor), method: null }
+}
+
+/**
+ * The method page, unless there is nothing on it: an emulator RomMix can
+ * neither install nor pick up from a file the user has is one they install by
+ * hand.
+ */
+function firstStepFor(descriptor: EmulatorDescriptor): Step {
+  return installMethods(descriptor).length === 0 && !locatable(descriptor) ? 'manual' : 'method'
 }
 
 /** Every page of this flow, under the one line that names it. */
@@ -94,6 +103,9 @@ export function InstallEmulatorScreen({
   const [release, setRelease] = useState<EmulatorRelease | null>(null)
   const [asset, setAsset] = useState<EmulatorAsset | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  // Only the method page shows it: picking a file is over the moment the
+  // dialog closes, so there is no install page to fail on.
+  const [locateFailure, setLocateFailure] = useState<string | null>(null)
 
   /** Whether the first page was asked, which decides what is behind the second. */
   const picked = named === null
@@ -111,7 +123,17 @@ export function InstallEmulatorScreen({
 
   const pick = (descriptor: EmulatorDescriptor): void => {
     setChosen(descriptor)
-    setStep(installMethods(descriptor).length === 0 ? 'manual' : 'method')
+    setStep(firstStepFor(descriptor))
+  }
+
+  const locate = async (descriptor: EmulatorDescriptor): Promise<void> => {
+    setLocateFailure(null)
+    try {
+      const path = await window.rommix.system.locateEmulator(descriptor.id)
+      if (path) setStep('notes')
+    } catch (cause) {
+      setLocateFailure((cause as Error).message)
+    }
   }
 
   if (step === 'emulator') {
@@ -156,6 +178,7 @@ export function InstallEmulatorScreen({
         subtitle={t('install.whichMethod')}
         back={{ name: 'install-back', onSelect: backFromMethod }}
       >
+        {locateFailure ? <div className="notice notice--error">{locateFailure}</div> : null}
         <div className="release-list">
           {installMethods(chosen).map((spec, index) => (
             <MethodRow
@@ -170,6 +193,16 @@ export function InstallEmulatorScreen({
               autoFocus={index === 0}
             />
           ))}
+          {/* Last, because it asks more of the user than the routes above:
+              they have to have fetched the emulator already. */}
+          {locatable(chosen) ? (
+            <MethodRow
+              kind="locate"
+              detail={t('emulator.locateDetail')}
+              onSelect={() => void locate(chosen)}
+              autoFocus={installMethods(chosen).length === 0}
+            />
+          ) : null}
         </div>
       </InstallPage>
     )

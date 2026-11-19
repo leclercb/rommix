@@ -162,6 +162,16 @@ export function installMethods(descriptor: EmulatorDescriptor): readonly Install
   )
 }
 
+/**
+ * Whether the user can point RomMix at a copy of this emulator they already
+ * have. Any AppImage route qualifies, downloadable or not: the search folders
+ * only look one level deep, and an archive unpacked anywhere else is otherwise
+ * never found.
+ */
+export function locatable(descriptor: EmulatorDescriptor): boolean {
+  return descriptor.install.some((spec) => spec.kind === 'appimage')
+}
+
 /** Where this emulator publishes the builds RomMix can download, if it does. */
 export function releaseSource(descriptor: EmulatorDescriptor): ReleaseSource | null {
   const spec = descriptor.install.find((entry) => entry.kind === 'appimage')

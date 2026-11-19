@@ -378,6 +378,11 @@ export interface RomMixBridge {
     emulatorReleases(id: string): Promise<EmulatorRelease[]>
     /** Download an asset and adopt it as that emulator's executable. */
     installEmulator(id: string, asset: EmulatorAsset): Promise<string>
+    /**
+     * Ask the user for an AppImage of that emulator already on this machine and
+     * adopt it. Null when the file dialog was cancelled.
+     */
+    locateEmulator(id: string): Promise<string | null>
     /** Install an emulator that ships as a flatpak, from Flathub. */
     installEmulatorFlatpak(id: string): Promise<void>
     /** Start an emulator on its own, so it can be set up. Returns the command. */

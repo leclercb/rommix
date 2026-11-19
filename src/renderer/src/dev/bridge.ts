@@ -1024,6 +1024,7 @@ const bridge: RomMixBridge = {
     emulatorReleases: () => later([]),
     installEmulator: () => refuse(),
     installEmulatorFlatpak: () => refuse(),
+    locateEmulator: () => refuse(),
     runEmulator: () => refuse(),
     onInstallProgress: noSubscription,
     /**

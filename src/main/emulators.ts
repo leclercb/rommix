@@ -92,6 +92,11 @@ async function resolveInstall(
  * Where a `DirSpec` base lands for a given install. A flatpak keeps config and
  * data inside its own per-app tree; a native install — or no install yet, while
  * one is still being looked for — uses the XDG roots.
+ *
+ * An AppImage does too, unless it is in portable mode: the AppImage runtime
+ * points `HOME` at a `<file>.home` folder beside the image, and
+ * `XDG_CONFIG_HOME` at a `<file>.config` one, whenever either exists.
+ * RetroArch's own Linux download ships its AppImage with a populated `.home`.
  */
 function baseDirs(install: ResolvedInstall | null): Record<DirBase, string> {
   const home = realHome()
@@ -99,6 +104,23 @@ function baseDirs(install: ResolvedInstall | null): Record<DirBase, string> {
   if (install?.kind === 'flatpak') {
     const app = join(home, '.var', 'app', install.ref)
     return { home, rommix, config: join(app, 'config'), data: join(app, 'data') }
+  }
+  if (install?.kind === 'appimage') {
+    const portableHome = `${install.ref}.home`
+    const portableConfig = `${install.ref}.config`
+    const hasHome = existsSync(portableHome)
+    if (hasHome || existsSync(portableConfig)) {
+      return {
+        home: hasHome ? portableHome : home,
+        rommix,
+        config: existsSync(portableConfig)
+          ? portableConfig
+          : hasHome
+            ? join(portableHome, '.config')
+            : xdgConfigHome(),
+        data: hasHome ? join(portableHome, '.local', 'share') : xdgDataHome()
+      }
+    }
   }
   return { home, rommix, config: xdgConfigHome(), data: xdgDataHome() }
 }

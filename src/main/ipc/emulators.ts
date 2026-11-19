@@ -1,9 +1,13 @@
-import { emulatorById, isInstallableAsset, releaseSource } from '@config/emulators'
+import { chmod, stat } from 'node:fs/promises'
+import { basename } from 'node:path'
+import { BrowserWindow, dialog, type OpenDialogOptions } from 'electron'
+import { emulatorById, isInstallableAsset, locatable, releaseSource } from '@config/emulators'
 import type { EmulatorAsset, EmulatorRelease, EmulatorState } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { prepareRomFolders } from '../emulators.ts'
 import { installFlatpak } from '../host.ts'
 import { log } from '../log.ts'
+import { realHome } from '../xdg.ts'
 import { builtForThisMachine, fetchReleases, installAsset, recordRelease } from '../releases.ts'
 import { RommError } from '../romm/index.ts'
 import { t } from '../i18n.ts'
@@ -132,6 +136,49 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     })
     await settleRomFolders(rommix, id)
     log.info('emulator', 'installed', { emulator: id, path })
+    return path
+  })
+
+  /**
+   * Adopt an AppImage the user already has, picked in a file dialog.
+   *
+   * The dialog runs here rather than in the renderer, so the path recorded is
+   * one the user chose and never one a page sent. Resolves to null when the
+   * dialog is cancelled.
+   */
+  handle('emulators:locate', async (id: string): Promise<string | null> => {
+    const descriptor = emulatorById(id)
+    if (!descriptor || !locatable(descriptor)) {
+      throw new RommError(t('error.cannotInstall', { name: descriptor?.name ?? id }))
+    }
+    const options: OpenDialogOptions = {
+      title: t('emulator.locateTitle', { name: descriptor.name }),
+      defaultPath: realHome(),
+      properties: ['openFile'],
+      filters: [{ name: 'AppImage', extensions: ['AppImage', 'appimage'] }]
+    }
+    const parent = BrowserWindow.getFocusedWindow()
+    const picked = parent
+      ? await dialog.showOpenDialog(parent, options)
+      : await dialog.showOpenDialog(options)
+    const path = picked.filePaths[0]
+    if (picked.canceled || !path) return null
+
+    // The filter is a suggestion the dialog lets the user switch off, and
+    // `resolveInstall` only takes a configured path as an AppImage by its name.
+    if (!path.toLowerCase().endsWith('.appimage')) {
+      throw new RommError(t('error.assetNotRunnable', { asset: basename(path) }))
+    }
+    // A browser download arrives without the execute bit, and an AppImage
+    // without it fails at launch with nothing on screen saying why.
+    const { mode } = await stat(path)
+    if ((mode & 0o100) === 0) await chmod(path, mode | 0o100)
+
+    store.updateSettings({
+      emulatorPaths: { ...store.settings.emulatorPaths, [id]: path }
+    })
+    await settleRomFolders(rommix, id)
+    log.info('emulator', 'located', { emulator: id, path })
     return path
   })
 

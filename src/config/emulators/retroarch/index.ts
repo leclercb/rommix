@@ -10,8 +10,9 @@ const RETROARCH_APP_ID = 'org.libretro.RetroArch'
  * Where standalone RetroArch's config might be.
  *
  * `configDir` is whichever root the probe settled on for the install it found —
- * the flatpak's own tree, or the XDG one for a distro package — so it is the
- * first and usually only candidate. The bare XDG path follows it for the case
+ * the flatpak's own tree, the portable folder beside an AppImage, or the XDG
+ * one for a distro package — so it is the first and usually only candidate.
+ * The bare XDG path follows it for the case
  * where RomMix found the flatpak but the user also has a native RetroArch whose
  * config is the populated one.
  */
@@ -40,7 +41,13 @@ export const retroarch: EmulatorDescriptor = {
   dispatch: 'rommix',
   install: [
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
-    { kind: 'binary', names: ['retroarch'] }
+    { kind: 'binary', names: ['retroarch'] },
+    /**
+     * Found, not downloaded: the GitHub releases carry only source, and the
+     * AppImage comes from libretro's buildbot inside a `.7z`, as
+     * `RetroArch-Linux-x86_64.AppImage`.
+     */
+    { kind: 'appimage', patterns: ['retroarch*.appimage'], release: null }
   ],
   homepage: 'https://www.retroarch.com',
   systems: systemsWithCore(),

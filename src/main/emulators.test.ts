@@ -515,6 +515,34 @@ describe('probing the whole registry', () => {
     assert.equal(found.dataDir, join(dir, '.local', 'share'))
   })
 
+  test('a portable AppImage keeps its configuration in the home folder beside it', async () => {
+    const dir = home()
+    // The layout of RetroArch's buildbot download, unpacked as it ships.
+    const appimage = join(dir, 'RetroArch', 'RetroArch-Linux-x86_64.AppImage')
+    write(appimage, '')
+    write(join(`${appimage}.home`, '.config', 'retroarch', 'retroarch.cfg'), '')
+
+    const found = await probeOne('retroarch', settings({ emulatorPaths: { retroarch: appimage } }))
+
+    assert.deepEqual(found.install, { kind: 'appimage', ref: appimage })
+    assert.equal(found.configDir, join(`${appimage}.home`, '.config'))
+    assert.equal(found.dataDir, join(`${appimage}.home`, '.local', 'share'))
+    assert.equal(found.paths.states, join(`${appimage}.home`, '.config', 'retroarch/states'))
+  })
+
+  test('a portable config folder beside an AppImage outranks its portable home', async () => {
+    const dir = home()
+    const appimage = join(dir, 'RetroArch', 'RetroArch-Linux-x86_64.AppImage')
+    write(appimage, '')
+    mkdirSync(`${appimage}.home`)
+    mkdirSync(`${appimage}.config`)
+
+    const found = await probeOne('retroarch', settings({ emulatorPaths: { retroarch: appimage } }))
+
+    assert.equal(found.configDir, `${appimage}.config`)
+    assert.equal(found.dataDir, join(`${appimage}.home`, '.local', 'share'))
+  })
+
   test('an emulator that was never found has no configuration directory either', async () => {
     home()
     const found = await probeOne('eden', settings())
