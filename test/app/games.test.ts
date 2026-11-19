@@ -992,16 +992,24 @@ describe('saves either side of a session', () => {
    * assertions are what say the tag names the core and not the frontend.
    */
   const core = 'genesis_plus_gx'
+  /**
+   * The folder RetroArch sorts that core's saves and states into, which is the
+   * name the core calls itself rather than its file name. Sorting by core is
+   * what RetroArch does when its config says nothing.
+   */
+  const coreFolder = 'Genesis Plus GX'
   let saved: App
   let configHome: string
   let saveDir: string
+  let stateDir: string
   /** Its own, so what it wrote down belongs to this session and no other. */
   let retroarch: ReturnType<typeof standInEmulator>
 
   before(async () => {
     retroarch = standInEmulator()
     configHome = mkdtempSync(join(tmpdir(), 'rommix-xdg-'))
-    saveDir = join(configHome, 'retroarch', 'saves')
+    saveDir = join(configHome, 'retroarch', 'saves', coreFolder)
+    stateDir = join(configHome, 'retroarch', 'states', coreFolder)
 
     // The core RetroArch would otherwise stop and download before the launch.
     // Present, so `missingCore` answers null and nothing reaches the internet;
@@ -1270,10 +1278,7 @@ describe('saves either side of a session', () => {
     // Each kind in the folder its own emulator reads it from — the save beside
     // the ROM, the state under `states` — which is the whole reason the two are
     // pulled separately rather than as one list of files.
-    assert.equal(
-      readFileSync(join(configHome, 'retroarch', 'states', 'cavestory.state1'), 'utf8'),
-      'stopped somewhere else'
-    )
+    assert.equal(readFileSync(join(stateDir, 'cavestory.state1'), 'utf8'), 'stopped somewhere else')
   })
 
   test('and the confirmation is turned on where it lives', async () => {
@@ -1297,7 +1302,6 @@ describe('saves either side of a session', () => {
     // had at all. Both are what the automatic sync never sees — it only looks
     // at what a session it started wrote.
     writeFileSync(join(saveDir, 'cavestory.srm'), 'played on the sofa')
-    const stateDir = join(configHome, 'retroarch', 'states')
     mkdirSync(stateDir, { recursive: true })
     writeFileSync(join(stateDir, 'cavestory.state1'), 'stopped mid-boss')
 
