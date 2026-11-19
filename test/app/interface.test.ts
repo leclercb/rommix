@@ -2196,19 +2196,22 @@ describe('the emulators themselves', () => {
   test('installing one opens a screen that asks how first', async () => {
     await fromTheTop()
 
-    // RetroArch is declared more than one way and RomMix can perform only one
-    // of them: Flathub. The other is a binary it looks for on the machine,
-    // which is how an install is *found* rather than a way of installing
-    // anything — offered here it would be a row that cannot do what it says.
+    // RetroArch is declared more than one way and RomMix can install it only
+    // from Flathub. Its AppImage cannot be downloaded, so it is offered as a
+    // file to pick instead. The binary is how an install is *found* rather
+    // than a way of installing anything — offered here it would be a row that
+    // cannot do what it says.
     await app.choose('[data-emulator="retroarch"] [data-action="install-emulator"]')
     await app.waitFor(
       `document.querySelector('[data-screen="install-emulator"]')`,
       'the install screen'
     )
-    assert.equal(
-      await app.read<number>(`document.querySelectorAll('.release').length`),
-      1,
-      'only Flathub is something RomMix can do'
+    assert.deepEqual(
+      await app.read<string[]>(
+        `[...document.querySelectorAll('.release__name')].map((one) => one.textContent)`
+      ),
+      ['Flatpak', 'AppImage on this machine'],
+      'only Flathub and an AppImage already on the machine are things RomMix can do'
     )
 
     // Nothing has been run. The page is the confirmation as much as the choice
