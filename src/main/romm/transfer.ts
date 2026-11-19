@@ -13,7 +13,7 @@
  * of those is a seam a test can stand in for.
  */
 
-import { createWriteStream } from 'node:fs'
+import { type WriteStream, createWriteStream } from 'node:fs'
 import { rename, rm, stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -202,6 +202,7 @@ export async function fetchToFile(
       idle = setTimeout(() => attemptStopped.abort(), STALL_TIMEOUT_MS)
       idle.unref()
     }
+    let sink: WriteStream | null = null
 
     try {
       if (signal.aborted) attemptStopped.abort()
@@ -270,7 +271,7 @@ export async function fetchToFile(
             yield chunk
           }
         },
-        createWriteStream(partial, { flags: resumed ? 'a' : 'w' }),
+        (sink = createWriteStream(partial, { flags: resumed ? 'a' : 'w' })),
         { signal: attemptStopped.signal }
       )
 
@@ -285,6 +286,15 @@ export async function fetchToFile(
       }
       break
     } catch (cause) {
+      // A pipeline torn down by an abort rejects without waiting for the file
+      // to close, and one still opening creates the `.part` after the fact —
+      // behind the back of whoever deletes it next, and before `stat` below
+      // has seen every byte that was written.
+      if (sink && !sink.closed) {
+        const closing = sink
+        await new Promise<void>((resolve) => closing.once('close', () => resolve()))
+      }
+
       // Cancelling is not a failure to retry: the user asked for it, and the
       // two look identical by the time the queue sees the exception. What
       // happens to the part-downloaded file is the queue's decision, not this
