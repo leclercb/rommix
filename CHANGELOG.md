@@ -4,6 +4,21 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.25.0 — 2026-11-19
+
+- test(app): expect the AppImage picker beside Flathub (b696b61)
+- test(app): look for saves and states in the per-core folders (48901a4)
+- fix: wait for the part-file to close after a failed transfer (3c81324)
+- feat: open RomM's own player from a game's page (2edf227)
+- fix: land pulled states where RetroArch loads them (301e0ac)
+- feat: add a file picker for emulator AppImages (924d398)
+- fix: keep a press in the row the highlight is sliding into (8a46c6d)
+- chore: update the dependencies (c3c48b5)
+- fix: add a setting to accept self-signed certificates (5dac2ff)
+- test(app): wait for the scroll to settle after each press (1febe4c)
+- feat: keep cover proportions on shelves and grids (63b255a)
+- chore(deps): bump softprops/action-gh-release (b07b618)
+
 ## 0.24.0 — 2026-11-07
 
 - fix: name the current exit setting in the Eden note (a4b0fe5)
