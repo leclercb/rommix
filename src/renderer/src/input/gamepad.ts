@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { LEAVE_HOLD_MS } from '@shared/hold'
 import type { Action, Direction, InputKind } from './types'
 
 /**
@@ -213,16 +214,6 @@ export function readPads(
 const REPEAT_DELAY_MS = 400
 const REPEAT_INTERVAL_MS = 90
 
-/**
- * How long Start must be held to reach RomMix while an emulator has the screen.
- *
- * Long enough that no game's own use of Start can trip it, short enough to be
- * an obvious deliberate act when the emulator has hung and this is the only way
- * out. The game sees the press either way — it will open its own pause menu, and
- * that is fine.
- */
-const SUSPENDED_HOLD_MS = 1500
-
 export function useGamepad(
   move: (direction: Direction) => void,
   fireAction: (action: Action) => void,
@@ -322,7 +313,7 @@ export function useGamepad(
         } else {
           const now = performance.now()
           if (holdSince === null) holdSince = now
-          else if (!holdFired && now - holdSince >= SUSPENDED_HOLD_MS) {
+          else if (!holdFired && now - holdSince >= LEAVE_HOLD_MS) {
             holdFired = true
             noteRef.current('gamepad')
             actionRef.current('menu')

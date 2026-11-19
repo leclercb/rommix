@@ -83,7 +83,8 @@ Demo: https://leclercb.github.io/rommix/demo/
   way; RomMix adds the Flathub remote itself.
 - **A RomM server** you can reach, version 5.x or newer, with an account.
 - **A controller**, recommended but not required.
-- **At least one emulator**, from the ones RomMix drives:
+- **An emulator**, from the ones RomMix drives — or none, for the games RomM
+  plays in the browser or streams itself (see [Using it](#-using-it)):
 
   | Emulator         | Covers                            | Installed by RomMix                           |
   | ---------------- | --------------------------------- | --------------------------------------------- |
@@ -212,6 +213,10 @@ quit to.
   fetched against the name on your RomM account.
   Where an emulator offers more than one way to run a platform, RomMix asks once
   and remembers; **Run with…** changes the answer.
+  **Play on RomM** and **Stream from RomM** open RomM's own player for the game,
+  with nothing downloaded or installed here: the first where RomM can play the
+  platform in the browser, the second where your server streams it. RomM keeps
+  the saves. Hold Start, or Esc on a keyboard, to come back.
 
 When your server cannot be reached, the same screens narrow rather than
 disappearing: Home keeps **Ready to play**, the Library shows what is

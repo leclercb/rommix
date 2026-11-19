@@ -9,6 +9,7 @@ import { Library } from './library.ts'
 import { detectEmulators } from './emulators.ts'
 import { setLanguage } from './i18n.ts'
 import { Launcher } from './launcher.ts'
+import { RommPlayerWindow } from './rommplayer.ts'
 import { log } from './log.ts'
 import { contentTypeOf, OfflineCache, rememberInstalledGames } from './offline.ts'
 import { runMigrations } from './migrations.ts'
@@ -65,6 +66,7 @@ export class RomMixApp {
   readonly client = new RommClient(this.store)
   readonly saveSync = new SaveSync(this.store, this.client, rootPaths().saves)
   readonly launcher = new Launcher(this.store, this.client, this.saveSync)
+  readonly player = new RommPlayerWindow(this.store, this.client, this)
   /** What RomM said about each installed game, for when it cannot be asked. */
   readonly offline = new OfflineCache(rootPaths().offline, this.client)
   /**
@@ -149,9 +151,25 @@ export class RomMixApp {
       this.updates.stop()
       this.connection.stop()
       await this.launcher.shutdown()
+      await this.player.shutdown()
       log.info('app', '--- RomMix quitting ---')
     })()
     return this.shuttingDown
+  }
+
+  /**
+   * Keys this window ignores until they are let go — see `HeldKeys`, which is
+   * the player asking. Only the key itself: everything else typed meanwhile is
+   * the interface's as usual.
+   */
+  private readonly ignoredKeys = new Set<string>()
+
+  ignoreUntilReleased(key: string): void {
+    this.ignoredKeys.add(key)
+  }
+
+  released(key: string): void {
+    this.ignoredKeys.delete(key)
   }
 
   /** The shutdown in progress, so a second exit joins it. See `shutdown`. */
@@ -500,6 +518,12 @@ export class RomMixApp {
     })
 
     window.once('ready-to-show', () => window.show())
+
+    window.webContents.on('before-input-event', (event, input) => {
+      if (!this.ignoredKeys.has(input.key)) return
+      event.preventDefault()
+      if (input.type === 'keyUp') this.ignoredKeys.delete(input.key)
+    })
 
     /**
      * The renderer's own failures, which otherwise stay in a DevTools console

@@ -59,7 +59,13 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: { input: { index: resolve('src/preload/index.ts') } }
+      rollupOptions: {
+        input: {
+          index: resolve('src/preload/index.ts'),
+          // RomM's player window. See `RommPlayerWindow`.
+          player: resolve('src/preload/player.ts')
+        }
+      }
     }
   },
   renderer: {

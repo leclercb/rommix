@@ -35,6 +35,7 @@ import { useGameCopy } from './useGameCopy'
 import { useGameLaunch } from './useGameLaunch'
 import { useGameMarks } from './useGameMarks'
 import { useGameSaves } from './useGameSaves'
+import { useRommPlayers } from './useRommPlayers'
 
 type GameTab =
   'details' | 'saves' | 'files' | 'screenshots' | 'manual' | 'achievements' | 'versions'
@@ -236,6 +237,16 @@ export function GameScreen({
     onPendingPush: setConfirmingPush
   })
   const {
+    players,
+    busy: playingOnRomm,
+    playOnRomm
+  } = useRommPlayers({
+    romId,
+    platformSlug: rom?.platform_slug ?? null,
+    offline,
+    afterSession: reload
+  })
+  const {
     busy: copying,
     startDownload,
     addFiles,
@@ -292,7 +303,7 @@ export function GameScreen({
    * session, a download and an uninstall all touch the same game, and pressing
    * a second while the first is running is never what was meant.
    */
-  const working = syncing || launching || copying
+  const working = syncing || launching || copying || playingOnRomm
 
   if (error) {
     return (
@@ -510,6 +521,31 @@ export function GameScreen({
         {/* After Play rather than in its place: the game stays playable while
             new files arrive, so the highlight stays on Play as well. */}
         {entry && download?.adding && interruptible ? stopButtons(false) : null}
+
+        {/* RomM's own ways to play, after the primary button because they are
+            the other way round: nothing here, everything on the server. Only
+            where the server says it can, so a button never opens a page that
+            has nothing to play. */}
+        {players.browser ? (
+          <FocusButton
+            icon="homepage"
+            action="play-on-romm"
+            onSelect={() => void playOnRomm('browser')}
+            disabled={working || running}
+          >
+            {t('game.playOnRomm')}
+          </FocusButton>
+        ) : null}
+        {players.stream ? (
+          <FocusButton
+            icon="server"
+            action="stream-from-romm"
+            onSelect={() => void playOnRomm('stream')}
+            disabled={working || running}
+          >
+            {t('game.streamFromRomm')}
+          </FocusButton>
+        ) : null}
 
         {/* The three marks that live on RomM rather than on this disk. Greyed
             while it is away rather than taken off the screen: a heart that

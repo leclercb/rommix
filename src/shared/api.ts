@@ -9,6 +9,8 @@ import type {
   DownloadItem,
   InstalledRom,
   LaunchChoice,
+  RommPlayer,
+  RommPlayers,
   LaunchResult,
   LibrarySyncResult,
   RommCollection,
@@ -327,6 +329,10 @@ export interface RomMixBridge {
     variants(romId: number): Promise<LaunchChoice>
     /** `variant` is remembered for the platform once passed. */
     launch(romId: number, variant?: string): Promise<LaunchResult>
+    /** Which of RomM's own players can run a game of this platform. */
+    rommPlayers(platformSlug: string): Promise<RommPlayers>
+    /** Play it on RomM, in a window over RomMix. Resolves once it is closed. */
+    playOnRomm(romId: number, player: RommPlayer): Promise<void>
   }
   /**
    * Whatever is in front of RomMix, and the way to close it.

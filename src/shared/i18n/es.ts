@@ -475,6 +475,9 @@ export const es: Catalog = {
 
   'game.fallbackTitle': 'Juego',
   'game.play': 'Jugar',
+  'game.playOnRomm': 'Jugar en RomM',
+  'game.streamFromRomm': 'Transmitir desde RomM',
+  'player.howToLeave': 'Mantén Start o Esc para volver a RomMix',
   'game.running': 'En marcha…',
   'game.newFiles_one': '{count} archivo nuevo · {size}',
   'game.newFiles_other': '{count} archivos nuevos · {size}',
@@ -1048,6 +1051,8 @@ export const es: Catalog = {
   'error.certificateNotYetValid': 'El certificado aún no es válido',
   'error.certificateRefused': 'El certificado fue rechazado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
+  'error.playerFailed': 'El reproductor de RomM no pudo abrirse: {reason}',
+  'error.playerNotSignedIn': 'RomM no aceptó el inicio de sesión de RomMix para su reproductor',
   'error.savesNotFetched_one': '{count} partida guardada no se ha podido obtener de RomM.',
   'error.savesNotFetched_other': '{count} partidas guardadas no se han podido obtener de RomM.',
   'error.savesNotSent_one': '{count} partida guardada no se ha podido enviar a RomM.',

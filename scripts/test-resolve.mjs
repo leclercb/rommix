@@ -135,12 +135,13 @@ registerHooks({
           encryptString: refuse('safeStorage.encryptString'),
           decryptString: refuse('safeStorage.decryptString')
         }
-        export const ipcMain = { handle: refuse('ipcMain.handle') }
+        export const ipcMain = { handle: refuse('ipcMain.handle'), on: refuse('ipcMain.on') }
         export const shell = { openExternal: refuse('shell.openExternal') }
         export const BrowserWindow = class { constructor() { refuse('BrowserWindow')() } }
         export const protocol = { handle: refuse('protocol.handle') }
         export const screen = { on: refuse('screen.on') }
-        export default { app, safeStorage, ipcMain, shell, BrowserWindow, protocol, screen }
+        export const session = { fromPartition: refuse('session.fromPartition') }
+        export default { app, safeStorage, ipcMain, shell, BrowserWindow, protocol, screen, session }
       `
     }
   }

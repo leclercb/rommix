@@ -1,5 +1,6 @@
 import { localize } from '@shared/i18n'
-import type { LaunchChoice, LaunchResult, RommRom } from '@shared/types'
+import { rommPlayers } from '@config/rommplayer'
+import type { LaunchChoice, LaunchResult, RommPlayer, RommPlayers, RommRom } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { i18n, t } from '../i18n.ts'
 import { log } from '../log.ts'
@@ -95,14 +96,48 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
     }
   })
 
+  /**
+   * Which of RomM's own players can run this game, for the buttons beside Play.
+   *
+   * Nothing offered where the server cannot be asked: a button that opens a
+   * page RomM is not there to serve is a dead end, and so is one for a player
+   * the server switched off.
+   */
+  handle('game:rommPlayers', async (platformSlug: string): Promise<RommPlayers> => {
+    if (typeof platformSlug !== 'string') return { browser: false, stream: false }
+    const [emulation, streaming] = await Promise.all([
+      rommix.client.emulation().catch(unanswered('emulation')),
+      rommix.client.streamingConfig().catch(unanswered('streaming'))
+    ])
+    return rommPlayers(platformSlug, emulation, streaming)
+  })
+
+  /**
+   * Play on RomM rather than here: its in-browser player, or a stream from an
+   * emulator the server runs. Announced as a running game, so the overlay
+   * behind the player is the way back — see `RommPlayerWindow`.
+   */
+  handle('game:playOnRomm', async (romId: number, player: RommPlayer): Promise<void> => {
+    // Renderer input, narrowed rather than trusted: it decides which page opens.
+    const kind: RommPlayer = player === 'stream' ? 'stream' : 'browser'
+    rommix.send('running:state', { running: true, romId, stage: null })
+    try {
+      await rommix.player.play(romId, kind)
+    } finally {
+      rommix.send('running:state', { running: false, romId: null, stage: null })
+    }
+  })
+
   handle('running:stop', () => {
     log.info('game', 'stop requested from the interface')
-    launcher.stop()
+    if (rommix.player.isOpen) rommix.player.leave()
+    else launcher.stop()
   })
 
   handle('running:force', () => {
     log.warn('game', 'force close requested from the interface')
-    launcher.stop(true)
+    if (rommix.player.isOpen) rommix.player.forceClose()
+    else launcher.stop(true)
   })
 }
 
@@ -133,5 +168,13 @@ async function refreshAchievements(rommix: RomMixApp, rom: RommRom): Promise<voi
       romId: rom.id,
       reason: (cause as Error).message
     })
+  }
+}
+
+/** A question the server did not answer, logged and taken as "nothing offered". */
+function unanswered(subject: string): (cause: unknown) => null {
+  return (cause) => {
+    log.info('game', `could not ask RomM about ${subject}`, { reason: (cause as Error).message })
+    return null
   }
 }

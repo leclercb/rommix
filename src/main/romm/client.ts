@@ -11,7 +11,9 @@ import type {
   RommDeviceAuthToken,
   RommDeviceAuthTokenPayload,
   RommFirmware,
+  RommEmulation,
   RommHeartbeat,
+  RommStreamingConfig,
   RommPlaySession,
   RommPlaySessionPayload,
   RommRomUserPayload,
@@ -354,6 +356,45 @@ export class RommClient {
   }
 
   // -- authentication -------------------------------------------------------
+
+  /**
+   * The server's address and the header that signs a request in as this user,
+   * for a page RomM serves to be opened as somebody signed in — see
+   * `RommPlayer`. Read on every request it makes rather than once, so a token
+   * refreshed mid-session is the one sent.
+   */
+  get origin(): string {
+    return new URL(this.baseUrl).origin
+  }
+
+  authorization(): string | null {
+    return this.authHeader().Authorization ?? null
+  }
+
+  /**
+   * What the heartbeat says about RomM's own in-browser player.
+   *
+   * Sent through `request` rather than as the unauthenticated probe below, so
+   * an expired token is refreshed here, before a player page is opened with it.
+   */
+  async emulation(): Promise<RommEmulation | null> {
+    const body = await this.json<RommHeartbeat>('/api/heartbeat')
+    return body.EMULATION ?? null
+  }
+
+  /**
+   * GET /api/streaming/config — which platforms the server streams.
+   *
+   * A 404 is a server too old to stream anything, and null says exactly that.
+   */
+  async streamingConfig(): Promise<RommStreamingConfig | null> {
+    try {
+      return await this.json<RommStreamingConfig>('/api/streaming/config')
+    } catch (cause) {
+      if (cause instanceof RommError && cause.status === 404) return null
+      throw cause
+    }
+  }
 
   /**
    * GET /api/heartbeat — also the "is this a RomM server we can read" probe.

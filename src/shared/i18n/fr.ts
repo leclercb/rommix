@@ -479,6 +479,9 @@ export const fr: Catalog = {
 
   'game.fallbackTitle': 'Jeu',
   'game.play': 'Jouer',
+  'game.playOnRomm': 'Jouer sur RomM',
+  'game.streamFromRomm': 'Streamer depuis RomM',
+  'player.howToLeave': 'Maintenez Start ou Échap pour revenir à RomMix',
   'game.running': 'En cours…',
   'game.newFiles_one': '{count} nouveau fichier · {size}',
   'game.newFiles_other': '{count} nouveaux fichiers · {size}',
@@ -1062,6 +1065,8 @@ export const fr: Catalog = {
   'error.certificateNotYetValid': 'Le certificat n’est pas encore valide',
   'error.certificateRefused': 'Le certificat a été refusé',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
+  'error.playerFailed': 'Le lecteur de RomM n’a pas pu s’ouvrir : {reason}',
+  'error.playerNotSignedIn': 'RomM n’a pas accepté la connexion de RomMix pour son lecteur',
   'error.savesNotFetched_one': '{count} sauvegarde n’a pas pu être récupérée depuis RomM.',
   'error.savesNotFetched_other': '{count} sauvegardes n’ont pas pu être récupérées depuis RomM.',
   'error.savesNotSent_one': '{count} sauvegarde n’a pas pu être envoyée à RomM.',

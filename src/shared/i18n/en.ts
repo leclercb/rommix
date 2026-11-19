@@ -479,6 +479,9 @@ export const en = {
 
   'game.fallbackTitle': 'Game',
   'game.play': 'Play',
+  'game.playOnRomm': 'Play on RomM',
+  'game.streamFromRomm': 'Stream from RomM',
+  'player.howToLeave': 'Hold Start or Esc to come back to RomMix',
   'game.running': 'Running…',
   'game.newFiles_one': '{count} new file · {size}',
   'game.newFiles_other': '{count} new files · {size}',
@@ -1042,6 +1045,8 @@ export const en = {
   'error.certificateNotYetValid': 'The certificate is not valid yet',
   'error.certificateRefused': 'The certificate was refused',
   'error.cannotReach': 'Cannot reach {url}: {reason}',
+  'error.playerFailed': "RomM's player could not open: {reason}",
+  'error.playerNotSignedIn': "RomM did not accept RomMix's sign-in for its player",
   'error.savesNotFetched_one': '{count} save could not be fetched from RomM.',
   'error.savesNotFetched_other': '{count} saves could not be fetched from RomM.',
   'error.savesNotSent_one': '{count} save could not be sent to RomM.',

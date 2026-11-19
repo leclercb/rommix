@@ -485,6 +485,9 @@ export const de: Catalog = {
 
   'game.fallbackTitle': 'Spiel',
   'game.play': 'Spielen',
+  'game.playOnRomm': 'Auf RomM spielen',
+  'game.streamFromRomm': 'Von RomM streamen',
+  'player.howToLeave': 'Start oder Esc gedrückt halten, um zu RomMix zurückzukehren',
   'game.running': 'Läuft…',
   'game.newFiles_one': '{count} neue Datei · {size}',
   'game.newFiles_other': '{count} neue Dateien · {size}',
@@ -1073,6 +1076,8 @@ export const de: Catalog = {
   'error.certificateNotYetValid': 'Das Zertifikat ist noch nicht gültig',
   'error.certificateRefused': 'Das Zertifikat wurde abgelehnt',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
+  'error.playerFailed': 'Der Player von RomM konnte nicht geöffnet werden: {reason}',
+  'error.playerNotSignedIn': 'RomM hat die Anmeldung von RomMix für seinen Player nicht akzeptiert',
   'error.savesNotFetched_one': '{count} Spielstand konnte nicht von RomM geladen werden.',
   'error.savesNotFetched_other': '{count} Spielstände konnten nicht von RomM geladen werden.',
   'error.savesNotSent_one': '{count} Spielstand konnte nicht an RomM gesendet werden.',

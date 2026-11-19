@@ -23,6 +23,18 @@ export interface LaunchChoice {
   ask: boolean
 }
 
+/**
+ * The ways RomM itself can run a game, without anything installed here: its
+ * in-browser player, and streaming from an emulator the server runs.
+ */
+export interface RommPlayers {
+  browser: boolean
+  stream: boolean
+}
+
+/** Which of `RommPlayers` to open. */
+export type RommPlayer = keyof RommPlayers
+
 export interface LaunchResult {
   ok: boolean
   emulator: EmulatorId | null

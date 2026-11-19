@@ -982,7 +982,10 @@ const bridge: RomMixBridge = {
         ask: system === 'genesis'
       })
     },
-    launch: () => refuse('demo.noEmulator')
+    launch: () => refuse('demo.noEmulator'),
+    // No server behind the demo, so nothing to play on.
+    rommPlayers: () => later({ browser: false, stream: false }),
+    playOnRomm: () => refuse('demo.noEmulator')
   },
   running: {
     stop: () => later(undefined),

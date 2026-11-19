@@ -1040,7 +1040,7 @@ export function useFocusable(options: {
  * press away for the whole session.
  *
  * Holding Start still reaches RomMix, as the way out of an emulator that has
- * hung. See `SUSPENDED_HOLD_MS`.
+ * hung. See `LEAVE_HOLD_MS`.
  */
 export function useSuspendGamepad(suspended: boolean): void {
   const { setInputSuspended } = useFocusContext()

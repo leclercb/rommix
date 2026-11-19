@@ -13,7 +13,7 @@
 
 /**
  * GET /api/heartbeat response (`HeartbeatResponse`), of which RomMix reads the
- * version and nothing else.
+ * version and whether RomM's in-browser player is switched off.
  *
  * Declared here rather than cast at the call site because this is the shape the
  * version guard is built on: a field that moved upstream has to be caught by the
@@ -23,6 +23,26 @@
  */
 export interface RommHeartbeat {
   SYSTEM?: { VERSION?: string }
+  EMULATION?: RommEmulation
+}
+
+/** `HeartbeatResponse.EMULATION` (`EmulationDict`). */
+export interface RommEmulation {
+  DISABLE_EMULATOR_JS: boolean
+}
+
+/**
+ * GET /api/streaming/config response (`StreamingConfigSchema`): whether the
+ * server streams games from an emulator it runs, and for which platforms.
+ */
+export interface RommStreamingConfig {
+  enabled: boolean
+  containers: RommStreamingContainer[]
+}
+
+/** One server-side emulator setup (`StreamingContainerSchema`). */
+export interface RommStreamingContainer {
+  platform: string
 }
 
 /** POST /api/token response (`TokenResponse`). */
