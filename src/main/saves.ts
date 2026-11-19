@@ -50,7 +50,8 @@ import {
   pairsOnName,
   pairsOnSlot,
   slotOf,
-  slotToSend
+  slotToSend,
+  stateNameOf
 } from './savepairing.ts'
 import { progressRun, type SaveRun } from './saveprogress.ts'
 import { extractZip, zipDirectory, zipEntryNames, zipFolders } from './zip.ts'
@@ -719,10 +720,15 @@ export class SaveSync {
       rows.push({ kind: 'save', item, slot: null, localFile })
     }
 
-    // States pair on the name alone, RomM keeping no slot for them.
-    for (const item of states) {
-      const key = `state:${item.file_name.toLowerCase()}`
-      const localFile = localAssets.get(key)
+    // States pair on the name alone, RomM keeping no slot for them. Newest
+    // first, so that of several copies under one name the file here pairs with
+    // the one a pull would bring down — see `toPull`.
+    const newestStates = [...states].sort(
+      (a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)
+    )
+    for (const item of newestStates) {
+      const key = `state:${stateNameOf(item.file_name).toLowerCase()}`
+      const localFile = matched.has(key) ? undefined : localAssets.get(key)
       if (localFile) matched.add(key)
       rows.push({ kind: 'state', item, slot: null, localFile })
     }
@@ -966,7 +972,12 @@ export class SaveSync {
         const existing =
           shared && pairsOnSlot(asset.fileName, primary, shared, AUTOSAVE_SLOT)
             ? shared
-            : loose.find((item) => pairsOnName(asset.fileName, item.file_name))
+            : loose.find((item) =>
+                pairsOnName(
+                  asset.fileName,
+                  kind === 'state' ? stateNameOf(item.file_name) : item.file_name
+                )
+              )
         const originId = existing ? originIdOf(existing) : null
         const fromThisDevice = originId ? thisDevice.has(originId) : null
         const state = existing ? await this.compare(asset, existing, fromThisDevice) : null
@@ -1421,9 +1432,10 @@ export class SaveSync {
 
     for (const { item, slot } of pulling) {
       const remoteTime = Date.parse(item.updated_at)
+      const name = kind === 'state' ? stateNameOf(item.file_name) : item.file_name
       const match =
         slot === null
-          ? local.find((entry) => pairsOnName(entry.fileName, item.file_name))
+          ? local.find((entry) => pairsOnName(entry.fileName, name))
           : local.find((entry) => pairsOnSlot(entry.fileName, primary, item, slot))
       /**
        * Where the download lands when this device has no copy of it yet.
@@ -1435,7 +1447,8 @@ export class SaveSync {
        * emulator opens rather than onto it. The game then starts with the save
        * it already had and the pull looks like it did nothing.
        *
-       * A save with no slot has only its name to be known by, and keeps it.
+       * A save with no slot has only its name to be known by, and keeps it. A
+       * state keeps it less the date RomM wrote into it — see `stateNameOf`.
        */
       /**
        * An archive lands on the folder, which is what it is unpacked over.
@@ -1455,10 +1468,7 @@ export class SaveSync {
        */
       const fresh = archive
         ? location.dir
-        : await safeJoin(
-            location.dir,
-            slot === null ? item.file_name : `${stem}${extname(item.file_name)}`
-          )
+        : await safeJoin(location.dir, slot === null ? name : `${stem}${extname(item.file_name)}`)
       if (fresh === null) {
         log.error('saves', `refused a ${kind} name that leaves the save folder`, undefined, {
           romId: target.rom.id,

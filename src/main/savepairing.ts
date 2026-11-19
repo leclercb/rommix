@@ -150,3 +150,23 @@ export function deviceNamer(devices: readonly RommDevice[]): (id: string | null)
     return device?.name ?? device?.hostname ?? null
   }
 }
+
+/**
+ * The date RomM writes into the name of a copy it receives, as
+ * `[YYYY-MM-DD_HH-MM-SS]` just before the extension.
+ */
+const ROMM_UPLOAD_STAMP = /\s*\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\](?=\.)/
+
+/**
+ * The name a state on the server is known by on this disk.
+ *
+ * The server's name without the date RomM wrote into it. A state carries no
+ * slot to pair on, so its name is the only handle it has, and an emulator
+ * opens a state under the game's name and nothing else: landed with the date
+ * in it, the state sits beside the file the emulator looks for and is never
+ * loaded. The listing, the push preview and the pull all pair through this,
+ * for the reason `pairsOnSlot` gives.
+ */
+export function stateNameOf(remoteName: string): string {
+  return remoteName.replace(ROMM_UPLOAD_STAMP, '')
+}

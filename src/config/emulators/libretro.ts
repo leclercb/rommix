@@ -56,13 +56,17 @@ export interface LibretroConfig {
   buildbotUrl: string | null
 }
 
-/** What the config not saying means. All sorting is off. */
+/**
+ * What the config not saying means: RetroArch's own defaults, from its
+ * `config.def.h`. Saves and states are sorted into a folder per core, and not
+ * per content directory.
+ */
 const LIBRETRO_DEFAULTS: LibretroConfig = {
   savefileDir: null,
   savestateDir: null,
-  sortSavefilesByCore: false,
+  sortSavefilesByCore: true,
   sortSavefilesByContent: false,
-  sortSavestatesByCore: false,
+  sortSavestatesByCore: true,
   sortSavestatesByContent: false,
   savefilesInContentDir: false,
   savestatesInContentDir: false,
@@ -84,8 +88,8 @@ const BOOL_KEYS: Readonly<Record<string, keyof LibretroConfig>> = {
  * Read the first config that exists out of `candidates`, which the caller names.
  *
  * The format is `key = "value"`, one per line. A key the file omits keeps the
- * default rather than becoming null: a config written before a setting existed
- * means "off", which is what the frontend will do with it.
+ * default rather than becoming null, which is what the frontend will do with
+ * it.
  */
 export function readLibretroConfig(
   env: SaveContext['env'],

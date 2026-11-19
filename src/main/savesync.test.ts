@@ -35,7 +35,8 @@ import { Store } from './store.ts'
  *
  * RetroArch is the emulator throughout, with no `retroarch.cfg` written — which
  * is the case where its descriptor falls back to the folders in `paths`, so a
- * test can say where the saves are. The matching rules underneath are covered
+ * test can say where the saves are. RetroArch sorts by core unless told not
+ * to, so `saveDir` and `stateDir` are the Genesis core's folders inside them. The matching rules underneath are covered
  * by `saves.test.ts`, and the disk helpers by `savefiles.test.ts`.
  */
 
@@ -125,8 +126,9 @@ function setUp(
   store: Store
 } {
   const home = scratch()
-  const saveDir = join(home, 'saves')
-  const stateDir = join(home, 'states')
+  // `genesis_plus_gx_libretro.so` reports itself as "Genesis Plus GX".
+  const saveDir = join(home, 'saves', 'Genesis Plus GX')
+  const stateDir = join(home, 'states', 'Genesis Plus GX')
   const romDir = join(home, 'roms')
   for (const dir of [saveDir, stateDir, romDir]) mkdirSync(dir, { recursive: true })
 
@@ -206,7 +208,13 @@ function setUp(
     configDir: null,
     dataDir: null,
     unavailableReason: null,
-    paths: { home, roms: romDir, saves: saveDir, states: stateDir, bios: home }
+    paths: {
+      home,
+      roms: romDir,
+      saves: join(home, 'saves'),
+      states: join(home, 'states'),
+      bios: home
+    }
   } as EmulatorState
 
   return {
@@ -1067,6 +1075,32 @@ describe('the ways a pull can go wrong without losing the launch', () => {
     // The newest, not the first five the server listed.
     assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state8')), true)
     assert.equal(existsSync(join(stateDir, 'Sonic the Hedgehog (USA).state0')), false)
+  })
+
+  test('a state lands under the name the emulator opens, without the date RomM added', async () => {
+    const states = [
+      save({ id: 1, file_name: 'Sonic the Hedgehog (USA) [2026-08-01_12-00-00].state.auto' }),
+      save({
+        id: 2,
+        file_name: 'Sonic the Hedgehog (USA) [2026-08-02_12-00-00].state.auto',
+        updated_at: '2026-08-02T12:00:00.000Z'
+      })
+    ] as unknown as RommState[]
+    const { sync, target, stateDir } = setUp({ states })
+
+    const result = await sync.pullNow(target)
+
+    // Both name one file, and the newer of them is the one written there.
+    assert.equal(result.states, 1)
+    assert.deepEqual(readdirSync(stateDir), ['Sonic the Hedgehog (USA).state.auto'])
+
+    // And the screen pairs the two, rather than listing the file it has just
+    // written beside a server copy it calls missing here.
+    const assets = await sync.listAssets(7, target)
+    const paired = assets.filter((asset) => asset.kind === 'state' && asset.localPath !== null)
+    assert.equal(paired.length, 1)
+    assert.equal(paired[0].id, 2)
+    assert.equal(paired[0].sync, 'synced')
   })
 
   test('a server with nothing for this game is not an error', async () => {

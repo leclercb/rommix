@@ -174,8 +174,9 @@ test('RetroArch with no config falls back to its declared directories', () => {
     system: 'snes',
     paths: { saves: '/ra/saves', states: '/ra/states' }
   })
-  assert.equal(paths.saves?.dir, '/ra/saves')
-  assert.equal(paths.states?.dir, '/ra/states')
+  // Sorted by core, which is what RetroArch does when nothing says otherwise.
+  assert.equal(paths.saves?.dir, '/ra/saves/Snes9x')
+  assert.equal(paths.states?.dir, '/ra/states/Snes9x')
   assert.equal(paths.saves?.match, 'rom-stem')
 })
 
@@ -226,8 +227,8 @@ test('RetroArch follows savefile_directory out of its own config', () => {
     paths: { saves: '/ra/saves', states: '/ra/states' },
     env
   })
-  assert.equal(paths.saves?.dir, '/elsewhere/saves')
-  assert.equal(paths.states?.dir, '/elsewhere/states')
+  assert.equal(paths.saves?.dir, '/elsewhere/saves/Snes9x')
+  assert.equal(paths.states?.dir, '/elsewhere/states/Snes9x')
 })
 
 test('a ~ in the config expands to the home directory', () => {
@@ -242,7 +243,7 @@ test('a ~ in the config expands to the home directory', () => {
     configDir: '/cfg',
     env
   })
-  assert.equal(paths.saves?.dir, `${HOME}/saves`)
+  assert.equal(paths.saves?.dir, `${HOME}/saves/Snes9x`)
 })
 
 test("sorting by content directory names the folder after the ROM's parent", () => {
@@ -254,6 +255,8 @@ test("sorting by content directory names the folder after the ROM's parent", () 
       '/cfg/retroarch/retroarch.cfg': retroArchCfg({
         savefile_directory: '/lib/saves',
         savestate_directory: '/lib/states',
+        sort_savefiles_enable: 'false',
+        sort_savestates_enable: 'false',
         sort_savefiles_by_content_enable: 'true',
         sort_savestates_by_content_enable: 'true'
       })
@@ -278,6 +281,7 @@ test('a multi-file game in its own folder sorts under that folder, not the syste
     files: {
       '/cfg/retroarch/retroarch.cfg': retroArchCfg({
         savefile_directory: '/lib/saves',
+        sort_savefiles_enable: 'false',
         sort_savefiles_by_content_enable: 'true'
       })
     }
@@ -370,7 +374,8 @@ test('savefiles_in_content_dir puts saves beside the ROM', () => {
     configDir: '/cfg',
     env
   })
-  assert.equal(paths.saves?.dir, '/lib/roms/snes')
+  // The folder per core still applies inside it.
+  assert.equal(paths.saves?.dir, '/lib/roms/snes/Snes9x')
 })
 
 // ---------------------------------------------------------------------------
@@ -673,8 +678,8 @@ test('EmuDeck builds both saves and states out of its one saves root', () => {
   // EmuDeck has no states root: states live under `savesPath` beside the saves.
   // The descriptor discovering no `states` path is why this used to sync none.
   const paths = emuDeck({ romPath: `${HOME}/Emulation/roms/nds/game.nds`, system: 'nds' })
-  assert.equal(paths.saves?.dir, `${HOME}/Emulation/saves/retroarch/saves`)
-  assert.equal(paths.states?.dir, `${HOME}/Emulation/saves/retroarch/states`)
+  assert.equal(paths.saves?.dir, `${HOME}/Emulation/saves/retroarch/saves/melonDS DS`)
+  assert.equal(paths.states?.dir, `${HOME}/Emulation/saves/retroarch/states/melonDS DS`)
 })
 
 test('the chosen EmuDeck variant decides which emulator folder is used', () => {
