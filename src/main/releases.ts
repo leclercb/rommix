@@ -74,7 +74,7 @@ export async function installedRelease(id: string): Promise<string | null> {
  * an exec format error nothing on screen connects to the download.
  */
 const ARCH_TOKENS: Readonly<Record<string, RegExp>> = {
-  x64: /x86[_-]?64|amd64|\bx64\b/i,
+  x64: /x86[_-]?64|amd64|\bx64\b|linux64/i,
   arm64: /aarch64|arm64/i,
   arm: /armv7|armhf/i
 }
@@ -137,9 +137,12 @@ export async function fetchReleases(source: ReleaseSource): Promise<EmulatorRele
     throw new Error(t('error.releasesResponded', { api: source.api, status: response.status }))
   }
 
-  const payload = (await response.json()) as ForgejoRelease[]
+  // A `releases/latest` endpoint answers with the one release rather than a
+  // list of them.
+  const payload = (await response.json()) as ForgejoRelease[] | ForgejoRelease
+  const releases = Array.isArray(payload) ? payload : [payload]
 
-  return payload
+  return releases
     .filter((release) => !release.draft)
     .map((release) => {
       const assets: EmulatorAsset[] = (release.assets ?? [])

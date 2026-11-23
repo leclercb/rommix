@@ -48,7 +48,10 @@ export type EmulatorDispatch = 'self' | 'rommix'
  * whose release payload carries the same names.
  */
 export interface ReleaseSource {
-  /** Endpoint returning the release list. */
+  /**
+   * Endpoint returning the release list, or the one release a `releases/latest`
+   * endpoint names.
+   */
   api: string
   /**
    * Matches the file name of a usable download, and nothing else on the

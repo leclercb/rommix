@@ -72,6 +72,7 @@
   "emulators.retroarch": "Libretro, your choice of core per system",
   "emulators.eden": "Nintendo Switch",
   "emulators.eglantine": "Nintendo Switch 2",
+  "emulators.rpcs3": "PlayStation 3",
   "emulators.shadps4": "PlayStation 4",
   "emulators.xenia": "Xbox 360",
   "emulators.ownInstaller": "Its own installer",

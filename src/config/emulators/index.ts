@@ -3,6 +3,7 @@ import { eglantine } from './eglantine/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
+import { rpcs3 } from './rpcs3/index.ts'
 import { shadps4 } from './shadps4/index.ts'
 import { xenia } from './xenia/index.ts'
 import type {
@@ -28,6 +29,7 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   retroarch,
   eden,
   eglantine,
+  rpcs3,
   shadps4,
   xenia
 ]
@@ -194,6 +196,7 @@ export { eglantine } from './eglantine/index.ts'
 export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck/index.ts'
 export { retroarch } from './retroarch/index.ts'
 export { retrodeck, RETRODECK_APP_ID } from './retrodeck/index.ts'
+export { rpcs3 } from './rpcs3/index.ts'
 export { retroDeckComponent } from './retrodeck/saves.ts'
 export { emuDeckSaveFolder } from './emudeck/saves.ts'
 export { switchTitleId, switchProfileDir } from './switch-saves.ts'

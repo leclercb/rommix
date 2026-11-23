@@ -124,6 +124,11 @@ test('a build for this architecture is accepted', () => {
   assert.equal(builtForThisMachine(`Eden-Linux-v0.2.1-${mine}-gcc-standard.AppImage`), true)
 })
 
+test('RPCS3 names its x86_64 build linux64', () => {
+  const name = 'rpcs3-v0.0.43-20644-3bfac607_linux64.AppImage'
+  assert.equal(builtForThisMachine(name), process.arch !== 'arm64')
+})
+
 test('an asset naming no architecture is accepted', () => {
   // shadPS4's Linux zip carries none, because only one is published — a rule
   // demanding a positive match would leave that picker empty.

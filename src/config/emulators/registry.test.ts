@@ -22,6 +22,7 @@ import { eglantine } from './eglantine/index.ts'
 import { emudeck, emuDeckCore, ROM_PLACEHOLDER } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
+import { rpcs3 } from './rpcs3/index.ts'
 import { shadps4 } from './shadps4/index.ts'
 import { xenia } from './xenia/index.ts'
 import { example } from './example/index.ts'
@@ -1054,6 +1055,70 @@ test('Xenia runs the Xbox 360 and offers its builds as an AppImage', () => {
   // Real asset names from the main repository's release feed.
   assert.equal(isInstallableAsset('xenia_canary_linux.AppImage', source), true)
   assert.equal(isInstallableAsset('xenia_canary_windows.7z', source), false)
+})
+
+test('RPCS3 boots the EBOOT.BIN of a disc dump, not its largest file', () => {
+  const root = '/roms/ps3/Game (USA)'
+  const argv = rpcs3.launch({
+    ...NOTHING_ON_DISK,
+    env: disk({ [`${root}/PS3_GAME/USRDIR/EBOOT.BIN`]: '' }),
+    exec: ['/home/u/Applications/rpcs3.AppImage'],
+    installRef: '/home/u/Applications/rpcs3.AppImage',
+    system: 'ps3',
+    romPath: `${root}/PS3_GAME/USRDIR/data/level1.dat`
+  })
+  assert.deepEqual(argv, [
+    '/home/u/Applications/rpcs3.AppImage',
+    '--no-gui',
+    `${root}/PS3_GAME/USRDIR/EBOOT.BIN`
+  ])
+})
+
+test('RPCS3 finds a PSN game and the game beside a firmware update', () => {
+  const psn = rpcs3.launch({
+    ...NOTHING_ON_DISK,
+    env: disk({ '/roms/ps3/NPUB30000/USRDIR/EBOOT.BIN': '' }),
+    exec: ['rpcs3'],
+    installRef: 'rpcs3',
+    system: 'ps3',
+    romPath: '/roms/ps3/NPUB30000/USRDIR/movie.pam'
+  })
+  assert.equal(psn?.at(-1), '/roms/ps3/NPUB30000/USRDIR/EBOOT.BIN')
+
+  // The firmware update is often the largest file of a disc dump.
+  const update = rpcs3.launch({
+    ...NOTHING_ON_DISK,
+    env: disk({ '/roms/ps3/Game/PS3_GAME/USRDIR/EBOOT.BIN': '' }),
+    exec: ['rpcs3'],
+    installRef: 'rpcs3',
+    system: 'ps3',
+    romPath: '/roms/ps3/Game/PS3_UPDATE/PS3UPDAT.PUP'
+  })
+  assert.equal(update?.at(-1), '/roms/ps3/Game/PS3_GAME/USRDIR/EBOOT.BIN')
+})
+
+test('RPCS3 opens an ISO as it is', () => {
+  const argv = rpcs3.launch({
+    ...NOTHING_ON_DISK,
+    exec: ['rpcs3'],
+    installRef: 'rpcs3',
+    system: 'ps3',
+    romPath: '/roms/ps3/Game.iso'
+  })
+  assert.deepEqual(argv, ['rpcs3', '--no-gui', '/roms/ps3/Game.iso'])
+})
+
+test('RPCS3 runs the PS3 and offers its builds as an AppImage', () => {
+  assert.equal(supportsSystem(rpcs3, 'ps3'), true)
+  const source = releaseSource(rpcs3)
+  assert.ok(source)
+  // Real asset names from the binaries repository's release feed.
+  assert.equal(isInstallableAsset('rpcs3-v0.0.43-20644-3bfac607_linux64.AppImage', source), true)
+  assert.equal(
+    isInstallableAsset('rpcs3-v0.0.43-20644-3bfac607_linux64.AppImage.sha256', source),
+    false
+  )
+  assert.ok(installMethods(rpcs3).some((method) => method.kind === 'flatpak'))
 })
 
 test('nothing under src/config imports a node builtin', () => {

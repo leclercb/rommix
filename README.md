@@ -93,6 +93,7 @@ Demo: https://leclercb.github.io/rommix/demo/
   | **RetroArch**    | Libretro, your core per system    | ✅ Flatpak; ❌ an AppImage you pick           |
   | **Eden**         | Nintendo Switch                   | ✅ AppImage                                   |
   | **Eglantine**    | Nintendo Switch 2                 | ❌ An AppImage you pick                       |
+  | **RPCS3**        | PlayStation 3                     | ✅ Flatpak and AppImage                       |
   | **shadPS4**      | PlayStation 4                     | ✅ Flatpak and AppImage                       |
   | **Xenia Canary** | Xbox 360                          | ✅ AppImage                                   |
 

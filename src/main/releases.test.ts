@@ -124,6 +124,25 @@ describe('listing what can be installed', () => {
     assert.deepEqual(await fetchReleases(source), [])
   })
 
+  test('a latest-release endpoint answers with one release, not a list', async () => {
+    serve(
+      () =>
+        new Response(
+          JSON.stringify({
+            tag_name: 'v0.5',
+            assets: [{ name: mine, browser_download_url: 'https://git.example/mine' }]
+          })
+        )
+    )
+
+    const releases = await fetchReleases(source)
+
+    assert.deepEqual(
+      releases.map((release) => release.tag),
+      ['v0.5']
+    )
+  })
+
   test('drafts are not releases, whatever they contain', async () => {
     serve(
       () =>
