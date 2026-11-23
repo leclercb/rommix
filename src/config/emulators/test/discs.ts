@@ -2,9 +2,9 @@
  * Disc images for the tests, built byte by byte.
  *
  * Shared because more than one suite needs the same disc: the one reading its
- * id, the one placing PPSSPP's saves by that id, and the one syncing them. Byte offsets
- * are the whole of what is being tested, so the image is written out field by
- * field rather than taken from a real game. No `node:` import, so it stays
+ * id, the one placing the emulator's saves by that id, and the one syncing
+ * them. Byte offsets are the whole of what is being tested, so the image is
+ * written out field by field rather than taken from a real game. No `node:` import, so it stays
  * loadable wherever `src/config/` is.
  */
 
@@ -78,4 +78,9 @@ export function iso(files: Record<string, string>): string {
 /** A PSP disc declaring `discId` — written as the disc writes it, `ULUS-10064`. */
 export function umd(discId: string): string {
   return iso({ 'UMD_DATA.BIN': `${discId}|0123456789ABCDEF|0001|G` })
+}
+
+/** A PS2 disc booting `executable` — named as the disc names it, `SLUS_203.12`. */
+export function ps2Disc(executable: string): string {
+  return iso({ 'SYSTEM.CNF': `BOOT2 = cdrom0:\\${executable};1\r\nVER = 1.00\r\nVMODE = NTSC\r\n` })
 }

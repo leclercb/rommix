@@ -607,11 +607,15 @@ export const es: Catalog = {
   'saves.deleted': '{file} borrado {where}',
   // -- lo que un emulador concreto no puede sincronizar, y lo que le falta ----
   'saves.retrodeckPcsx2':
-    'RetroDECK da a PCSX2 una sola tarjeta de memoria compartida por todos los juegos de PS2, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
+    'RetroDECK da a PCSX2 una sola tarjeta de memoria compartida por todos los juegos de PS2, así que no hay ninguna partida guardada que pertenezca a este. Convierte la tarjeta en carpeta en los ajustes de tarjetas de memoria de PCSX2 para sincronizar las partidas juego por juego. Los estados guardados sí se sincronizan.',
   'saves.retrodeckDuckstation':
     'RetroDECK da a DuckStation una sola tarjeta de memoria compartida por todos los juegos de PS1, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.pcsx2':
-    'PCSX2 mantiene una sola tarjeta de memoria compartida por todos los juegos de PS2, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
+    'PCSX2 mantiene una sola tarjeta de memoria compartida por todos los juegos de PS2, así que no hay ninguna partida guardada que pertenezca a este. Convierte la tarjeta en carpeta en los ajustes de tarjetas de memoria de PCSX2 para sincronizar las partidas juego por juego. Los estados guardados sí se sincronizan.',
+  'saves.pcsx2NoSerial':
+    'En una tarjeta de carpeta, PCSX2 guarda las partidas bajo el número de serie de la imagen del disco, que RomMix puede leer de una imagen ISO o CSO, pero no de esta.',
+  'saves.pcsx2Cards':
+    'PCSX2 tiene aquí más de una tarjeta de carpeta, y RomMix no puede saber en cuál escribe este juego.',
   'saves.dolphin':
     'Dolphin mantiene una tarjeta de memoria de GameCube por región, compartida por todos los juegos, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.primehack':

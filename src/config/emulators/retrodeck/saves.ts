@@ -3,6 +3,7 @@ import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig, LIBRETRO_TAG } from '../libretro.ts'
 import { dolphinSaves, dolphinStates } from '../dolphin-saves.ts'
 import { ppssppSaves } from '../psp-saves.ts'
+import { pcsx2Saves } from '../ps2-saves.ts'
 import { baseName, directory, joinPath, perRom, shared } from '../savepaths.ts'
 import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
 
@@ -46,7 +47,8 @@ function at(path: string | null, make: (dir: string) => SaveLocation | null): Sa
  * `shared_card_1.mcd`, `Mcd001.ps2` — rather than one per game. Their save
  * states are per-game and are synced; the cards are not, because a card holds
  * every PS1 or PS2 game the user has played and uploading it under one game's
- * id would attach the lot to that game.
+ * id would attach the lot to that game. A PCSX2 card turned into a folder is
+ * the exception, which is why PCSX2 answers through `pcsx2Saves` instead.
  */
 function cardEmulator(component: string, reason: Text): ComponentSaves {
   return (ctx) => ({
@@ -57,7 +59,14 @@ function cardEmulator(component: string, reason: Text): ComponentSaves {
 }
 
 export const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
-  pcsx2: cardEmulator('pcsx2', 'saves.retrodeckPcsx2'),
+  pcsx2: (ctx) => ({
+    ...pcsx2Saves(
+      ctx,
+      under(savesRoot(ctx), ctx.system, 'pcsx2', 'memcards'),
+      'saves.retrodeckPcsx2'
+    ),
+    states: at(under(statesRoot(ctx), ctx.system, 'pcsx2'), (dir) => perRom(dir))
+  }),
   duckstation: cardEmulator('duckstation', 'saves.retrodeckDuckstation'),
 
   /**

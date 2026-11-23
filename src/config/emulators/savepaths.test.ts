@@ -24,7 +24,7 @@ import { coreForSystem, isKnownSystem, systemsWithCore } from '../systems.ts'
 import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 import { createI18n, localize } from '@shared/i18n'
-import { umd } from './test/discs.ts'
+import { ps2Disc, umd } from './test/discs.ts'
 import { BASE, nup, UPDATE } from './test/nup.ts'
 
 /**
@@ -401,7 +401,12 @@ function rvz(gameId: string): string {
   return 'RVZ\x01'.padEnd(0x58, '\0') + header
 }
 
-function retroDeck(options: { romPath: string; system: string; gamelist?: string }): SavePaths {
+function retroDeck(options: {
+  romPath: string
+  system: string
+  gamelist?: string
+  dirs?: Record<string, string[]>
+}): SavePaths {
   const files: Record<string, string> = {
     '/var/rd/config/retroarch/retroarch.cfg': RETRODECK_CFG
   }
@@ -420,10 +425,12 @@ function retroDeck(options: { romPath: string; system: string; gamelist?: string
     },
     env: machine({
       files,
+      dirs: options.dirs,
       heads: {
         '/home/deck/retrodeck/roms/gc/game.rvz': rvz('GALE01'),
         '/home/deck/retrodeck/roms/wii/game.rvz': rvz('RSBE01'),
-        '/home/deck/retrodeck/roms/psp/game.iso': umd('ULUS-10064')
+        '/home/deck/retrodeck/roms/psp/game.iso': umd('ULUS-10064'),
+        '/home/deck/retrodeck/roms/ps2/game.iso': ps2Disc('SLUS_203.12')
       }
     })
   })
@@ -567,7 +574,7 @@ test('a PSP game syncs the PPSSPP folders that begin with its disc id', () => {
   // holds every game's folders side by side.
   assert.equal(psp.saves?.match, 'prefix')
   assert.equal(psp.saves?.dir, '/home/deck/retrodeck/saves/PSP/PPSSPP-SA')
-  assert.equal(psp.saves?.prefix, 'ULUS10064')
+  assert.deepEqual(psp.saves?.prefixes, ['ULUS10064'])
   assert.equal(psp.emulator, 'ppsspp')
 })
 
@@ -576,6 +583,60 @@ test('a shared memory card is not offered for per-game sync, but its states are'
   assert.equal(ps2.saves?.match, 'shared')
   assert.equal(ps2.states?.match, 'rom-stem')
   assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /memory card/i)
+})
+
+const RD_MEMCARDS = '/home/deck/retrodeck/saves/ps2/pcsx2/memcards'
+
+test('a PCSX2 folder card syncs the folders that begin with the disc serial', () => {
+  // `Mcd001.ps2` as a directory is PCSX2's folder card: one folder per game,
+  // named `B`, a region letter, then the serial.
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Mcd001.ps2'] }
+  })
+  assert.equal(ps2.saves?.match, 'prefix')
+  assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Mcd001.ps2`)
+  assert.ok(ps2.saves?.prefixes?.includes('BASLUS-20312'))
+  assert.ok(ps2.saves?.prefixes?.includes('BESLUS-20312'))
+  assert.ok(ps2.saves?.prefixes?.every((prefix) => prefix.endsWith('SLUS-20312')))
+  assert.equal(ps2.states?.dir, '/home/deck/retrodeck/states/ps2/pcsx2')
+  assert.equal(ps2.unsyncableReason, undefined)
+})
+
+test('with no serial, a PCSX2 folder card stays shared and says why', () => {
+  // A CHD, which is not read.
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.chd',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Mcd001.ps2'] }
+  })
+  assert.equal(ps2.saves?.match, 'shared')
+  assert.equal(ps2.saves?.dir, RD_MEMCARDS)
+  assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /serial/i)
+})
+
+test('of several PCSX2 folder cards, the one holding the game is used', () => {
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: {
+      [RD_MEMCARDS]: ['Mcd001.ps2', 'Mcd002.ps2'],
+      [`${RD_MEMCARDS}/Mcd001.ps2`]: ['BESLES-50366'],
+      [`${RD_MEMCARDS}/Mcd002.ps2`]: ['BASLUS-20312SAVE']
+    }
+  })
+  assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Mcd002.ps2`)
+})
+
+test('of several PCSX2 folder cards none holding the game, none is guessed', () => {
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Mcd001.ps2', 'Mcd002.ps2'] }
+  })
+  assert.equal(ps2.saves?.match, 'shared')
+  assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /more than one folder card/i)
 })
 
 test('a per-game altemulator in the ES-DE gamelist changes where saves are looked for', () => {
@@ -648,7 +709,12 @@ test('a system-wide alternativeEmulator applies to a game with no override', () 
 // EmuDeck
 // ---------------------------------------------------------------------------
 
-function emuDeck(options: { romPath: string; system: string; variant?: string }): SavePaths {
+function emuDeck(options: {
+  romPath: string
+  system: string
+  variant?: string
+  dirs?: Record<string, string[]>
+}): SavePaths {
   return resolve(emudeck, {
     romPath: options.romPath,
     system: options.system,
@@ -662,13 +728,15 @@ function emuDeck(options: { romPath: string; system: string; variant?: string })
       dirs: {
         [`${HOME}/Emulation/saves/eden/saves/0000000000000000`]: [
           '00000000000000000000000000000001'
-        ]
+        ],
+        ...options.dirs
       },
       heads: {
         [`${HOME}/Emulation/roms/switch/game.nsp`]: 'junk 010012300ABCD000.cnmt more',
         [`${HOME}/Emulation/roms/gc/game.rvz`]: rvz('GALE01'),
         [`${HOME}/Emulation/roms/wii/game.rvz`]: rvz('RSBE01'),
-        [`${HOME}/Emulation/roms/psp/game.iso`]: umd('ULUS-10064')
+        [`${HOME}/Emulation/roms/psp/game.iso`]: umd('ULUS-10064'),
+        [`${HOME}/Emulation/roms/ps2/game.iso`]: ps2Disc('SLUS_203.12')
       }
     })
   })
@@ -726,13 +794,30 @@ test('EmuDeck resolves a PSP game to the PPSSPP folders that begin with its disc
   const psp = emuDeck({ romPath: `${HOME}/Emulation/roms/psp/game.iso`, system: 'psp' })
   assert.equal(psp.saves?.match, 'prefix')
   assert.equal(psp.saves?.dir, `${HOME}/Emulation/saves/ppsspp/saves`)
-  assert.equal(psp.saves?.prefix, 'ULUS10064')
+  assert.deepEqual(psp.saves?.prefixes, ['ULUS10064'])
   assert.equal(psp.emulator, 'ppsspp')
   // A state is named after the id and the game's version, `ULUS10064_1.00_0.ppst`,
   // which no matcher here reads. No reason goes with that: the saves do sync, and
   // a reason would stand in for what a sync that moved nothing has to report.
   assert.equal(psp.states?.match, 'shared')
   assert.equal(psp.unsyncableReason, undefined)
+})
+
+test('EmuDeck resolves a PS2 game on a folder card to the folders of its serial', () => {
+  const card = `${HOME}/Emulation/saves/pcsx2/saves/Mcd001.ps2`
+  const ps2 = emuDeck({
+    romPath: `${HOME}/Emulation/roms/ps2/game.iso`,
+    system: 'ps2',
+    dirs: { [`${HOME}/Emulation/saves/pcsx2/saves`]: ['Mcd001.ps2'] }
+  })
+  assert.equal(ps2.saves?.match, 'prefix')
+  assert.equal(ps2.saves?.dir, card)
+  assert.equal(ps2.states?.dir, `${HOME}/Emulation/saves/pcsx2/states`)
+  assert.equal(ps2.unsyncableReason, undefined)
+
+  const file = emuDeck({ romPath: `${HOME}/Emulation/roms/ps2/game.iso`, system: 'ps2' })
+  assert.equal(file.saves?.match, 'shared')
+  assert.match(localize(file.unsyncableReason, ENGLISH) ?? '', /folder/i)
 })
 
 test('with no disc id, EmuDeck keeps the PPSSPP saves shared and says why', () => {

@@ -160,7 +160,7 @@ function fitsLocation(location: SaveLocation, fileName: string): boolean {
  * the real one on one disk, and the real one, uncopied, on another.
  */
 function ownsFolder(location: SaveLocation, name: string): boolean {
-  return Boolean(location.prefix) && name.startsWith(location.prefix ?? '')
+  return (location.prefixes ?? []).some((prefix) => prefix !== '' && name.startsWith(prefix))
 }
 
 /**

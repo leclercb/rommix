@@ -250,9 +250,9 @@ export const example: EmulatorDescriptor = {
    *   directory(dir)        the folder *is* this game's data, keyed by a title
    *                         or game id. Synced as one archive, because the
    *                         files inside carry no name tying them to a ROM.
-   *   prefixed(dir, id)     the folders under `dir` whose names begin with an
+   *   prefixed(dir, ...ids) the folders under `dir` whose names begin with an
    *                         id the game declares, beside every other game's —
-   *                         PPSSPP's SAVEDATA. Synced as one archive of those
+   *                         PPSSPP's SAVEDATA, a PCSX2 folder card. Synced as one archive of those
    *                         folders by name; nothing else under `dir` is read
    *                         or written.
    *   shared(dir)           a memory card, NAND or nvram every game writes to.

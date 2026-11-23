@@ -615,11 +615,15 @@ export const en = {
   // one phrase serves every frontend that ships the same component: RetroDECK
   // and EmuDeck both run Dolphin, and both said so in their own words before.
   'saves.retrodeckPcsx2':
-    'RetroDECK gives PCSX2 one memory card shared by every PS2 game, so there is no save file that belongs to this one. Save states are synced.',
+    'RetroDECK gives PCSX2 one memory card shared by every PS2 game, so there is no save file that belongs to this one. Convert the card to a folder in PCSX2’s memory card settings to sync saves game by game. Save states are synced.',
   'saves.retrodeckDuckstation':
     'RetroDECK gives DuckStation one memory card shared by every PS1 game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.pcsx2':
-    'PCSX2 keeps one memory card shared by every PS2 game, so there is no save file that belongs to this one. Save states are synced.',
+    'PCSX2 keeps one memory card shared by every PS2 game, so there is no save file that belongs to this one. Convert the card to a folder in PCSX2’s memory card settings to sync saves game by game. Save states are synced.',
+  'saves.pcsx2NoSerial':
+    'PCSX2 files saves on a folder card under the serial inside the disc image, which RomMix can read from an ISO or CSO image but not from this one.',
+  'saves.pcsx2Cards':
+    'PCSX2 has more than one folder card here, and RomMix cannot tell which one this game writes to.',
   'saves.dolphin':
     'Dolphin keeps one GameCube memory card per region, shared by every game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.primehack':

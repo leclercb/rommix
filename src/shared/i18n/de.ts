@@ -619,11 +619,15 @@ export const de: Catalog = {
   'saves.deleted': '{file} gelöscht {where}',
   // -- was ein bestimmter Emulator nicht abgleichen kann, und was er braucht --
   'saves.retrodeckPcsx2':
-    'RetroDECK gibt PCSX2 eine einzige Memory Card für alle PS2-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
+    'RetroDECK gibt PCSX2 eine einzige Memory Card für alle PS2-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Wandle die Karte in den Memory-Card-Einstellungen von PCSX2 in einen Ordner um, um Spielstände pro Spiel zu synchronisieren. Savestates werden synchronisiert.',
   'saves.retrodeckDuckstation':
     'RetroDECK gibt DuckStation eine einzige Memory Card für alle PS1-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
   'saves.pcsx2':
-    'PCSX2 führt eine einzige Memory Card für alle PS2-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
+    'PCSX2 führt eine einzige Memory Card für alle PS2-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Wandle die Karte in den Memory-Card-Einstellungen von PCSX2 in einen Ordner um, um Spielstände pro Spiel zu synchronisieren. Savestates werden synchronisiert.',
+  'saves.pcsx2NoSerial':
+    'PCSX2 legt Spielstände auf einer Ordner-Karte unter der Seriennummer im Disc-Image ab, die RomMix aus einem ISO- oder CSO-Image lesen kann, aber nicht aus diesem.',
+  'saves.pcsx2Cards':
+    'PCSX2 hat hier mehr als eine Ordner-Karte, und RomMix kann nicht erkennen, auf welche dieses Spiel schreibt.',
   'saves.dolphin':
     'Dolphin führt eine GameCube-Memory-Card pro Region für alle GameCube-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
   'saves.primehack':
