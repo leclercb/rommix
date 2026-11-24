@@ -597,7 +597,9 @@ rather than a public issue — see [SECURITY.md](SECURITY.md).
 
 MIT — see [LICENSE](LICENSE).
 
-The two pixel themes are set in [VT323](https://fonts.google.com/specimen/VT323)
-and [Silkscreen](https://fonts.google.com/specimen/Silkscreen), both under the
-SIL Open Font License 1.1. The fonts ship with RomMix, and each licence sits
-beside its file in `src/renderer/src/assets/fonts/`.
+The interface is set in [Inter](https://fonts.google.com/specimen/Inter) and
+[JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono), and the two
+pixel themes in [VT323](https://fonts.google.com/specimen/VT323) and
+[Silkscreen](https://fonts.google.com/specimen/Silkscreen), all under the SIL
+Open Font License 1.1. The fonts ship with RomMix, and each licence sits beside
+its file in `src/renderer/src/assets/fonts/`.

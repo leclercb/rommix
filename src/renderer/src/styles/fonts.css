@@ -1,25 +1,53 @@
 /*
  * The faces RomMix carries with it.
  *
- * Only the ones no machine can be assumed to have, which is the two the pixel
- * themes are set in. Everything else is whatever the desktop provides — see
- * `--font`, whose default names the faces to try in order — because a font file
- * is bytes in every AppImage, and a television RomMix is offline on has no
- * network to fetch one from.
+ * Every face the interface is set in. On some machines Chromium inside the
+ * AppImage draws nothing from the fonts the system has, though they are
+ * installed — the interface comes up with every icon and not one letter — and a
+ * face loaded from RomMix's own files does not go through the system to be
+ * drawn. Carried rather than fetched, because a television RomMix is offline on
+ * has no network to fetch one from.
  *
  * The Latin subset of each, as Google Fonts serves them under that name: it
  * carries the accents the four languages RomMix speaks are written with, and a
- * character outside it falls through to the next face in the stack rather than
- * to nothing.
+ * character outside it — a game's title in Japanese — falls through to the next
+ * face in the stack rather than to nothing.
  *
- * Both are under the SIL Open Font License 1.1, and the text of each sits
- * beside the files.
+ * Each is under the SIL Open Font License 1.1, and the text of each sits beside
+ * the files.
  *
- * `font-display: block` on both: the face is the theme, so a fallback drawn
+ * `font-display: block` on every one: the face is the theme, so a fallback drawn
  * first is the interface visibly changing font a moment after it is opened.
  * The files are local and tens of kilobytes, so the wait being paid for is not
  * one anybody sees.
  */
+
+/*
+ * Inter, the face of every theme that is not a pixel one.
+ *
+ * Variable, so one file covers every weight the stylesheets ask for, and the
+ * name `--font` already put first: where the system has Inter too, this one
+ * wins, and the interface looks the same on every machine.
+ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url('../assets/fonts/inter-latin.woff2') format('woff2');
+}
+
+/*
+ * JetBrains Mono, for the few places a column of characters has to line up —
+ * see `.release__name--file`. Variable for the same reason as Inter.
+ */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: block;
+  src: url('../assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+}
 
 /*
  * VT323, a terminal's face, for the dark pixel theme.

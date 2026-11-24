@@ -13,8 +13,8 @@
    * The face everything is set in.
    *
    * A token because a theme may replace it — two of them are drawn in
-   * pixels — and a stack rather than a file because the faces named here are
-   * ones a desktop already has. See `fonts.css` for the one exception.
+   * pixels. Inter is carried with RomMix (see `fonts.css`), and the rest of
+   * the stack is for the characters its Latin subset does not have.
    */
   --font: 'Inter', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /*

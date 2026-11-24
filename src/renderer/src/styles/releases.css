@@ -59,7 +59,7 @@
  * findable at a glance.
  */
 .release__name--file {
-  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
   font-size: calc(15px * var(--type-scale));
   font-weight: 600;
   overflow-wrap: anywhere;
