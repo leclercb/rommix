@@ -37,14 +37,19 @@ const MAX_METADATA = 64
 const MAX_SELF_DEPTH = 8
 
 /**
- * The last CHD's map and layout, by path and the SHA-1 its header records.
+ * Sectors already read out of the last CHD, by path and the SHA-1 its header
+ * records.
  *
- * Decoding the map means reading every entry of it, which for a whole DVD is
- * long enough to notice, and a sync asks for the same disc's serial several
- * times over. The SHA-1 changes with the image, so a file replaced at the same
- * path is decoded afresh.
+ * The first sector read out of a CHD costs decoding its whole map, which for a
+ * whole DVD is long enough to notice, and a sync asks for the same disc's
+ * serial several times over. A serial takes a handful of sectors, so those are
+ * what is kept rather than the map. Only a sector that was read is kept: one
+ * that could not be is tried again on the next read. The SHA-1 changes with the
+ * image, so a file replaced at the same path is read afresh.
  */
-let decoded: { key: string; map: HunkMap | null; layout: Layout | null } | null = null
+let remembered = { key: '', sectors: new Map<number, string>() }
+/** How many sectors are kept: a serial's few, and a bound for a reader asking for more. */
+const MAX_REMEMBERED = 64
 
 /** A map entry's compression: a codec slot, kept as it is, or another hunk's. */
 const CODEC_LAST = 3
@@ -108,25 +113,35 @@ interface Layout {
   sectors: number
 }
 
-/** A reader over the disc in a CHD, or null where the CHD is not one read here. */
+/**
+ * A reader over the disc in a CHD, or null where the header says it is not one
+ * read here. A map or a hunk that turns out unreadable reads as null.
+ */
 export function chdReader(env: SaveEnvironment, path: string): ReadAt | null {
   const header = readHeader(env, path)
   if (!header) return null
   const key = `${path}\0${header.sha1}`
-  if (decoded?.key !== key) {
-    const map = readMap(env, path, header)
-    decoded = { key, map, layout: map && readLayout(env, path, header) }
+  if (remembered.key !== key) remembered = { key, sectors: new Map() }
+  const known = remembered.sectors
+
+  // Decoded on the first sector that is not already known, and only once.
+  let disc: { map: HunkMap; layout: Layout } | null | undefined
+  const open = (): { map: HunkMap; layout: Layout } | null => {
+    if (disc === undefined) {
+      const map = readMap(env, path, header)
+      const layout = map && readLayout(env, path, header)
+      disc = map && layout ? { map, layout } : null
+    }
+    return disc
   }
-  const { map, layout } = decoded
-  if (!map || !layout) return null
 
   const codecs = header.codecs.map((tag) => codecFor(env, tag))
   const cache = new Map<number, Hunk>()
 
-  const hunk = (index: number, depth = 0): Hunk => {
+  const hunk = (map: HunkMap, index: number, depth = 0): Hunk => {
     const cached = cache.get(index)
     if (cached !== undefined) return cached
-    const data = readHunk(index, depth)
+    const data = readHunk(map, index, depth)
     // A null at depth is the chain cut short, not the hunk itself unreadable.
     if (data === null && depth > 0) return data
     if (cache.size > 16) cache.clear()
@@ -134,13 +149,13 @@ export function chdReader(env: SaveEnvironment, path: string): ReadAt | null {
     return data
   }
 
-  const readHunk = (index: number, depth: number): Hunk => {
+  const readHunk = (map: HunkMap, index: number, depth: number): Hunk => {
     const { types, lengths, offsets, crcs, compressed } = map
     const type = types[index]
     if (type === SELF) {
       const target = offsets[index]
       if (target >= header.hunks || target === index || depth >= MAX_SELF_DEPTH) return null
-      return hunk(target, depth + 1)
+      return hunk(map, target, depth + 1)
     }
     if (type === PARENT) return null
 
@@ -155,15 +170,23 @@ export function chdReader(env: SaveEnvironment, path: string): ReadAt | null {
     return data
   }
 
-  const sector = (index: number): Uint8Array | null => {
-    if (index >= layout.sectors) return null
+  const sector = (index: number): string | null => {
+    const kept = known.get(index)
+    if (kept !== undefined) return kept
+    const opened = open()
+    if (!opened || index >= opened.layout.sectors) return null
+    const { layout, map } = opened
     const at = (layout.firstUnit + index) * layout.unitBytes + layout.dataOffset
     const first = Math.floor(at / header.hunkBytes)
     const from = at - first * header.hunkBytes
     if (first >= header.hunks) return null
     // A unit never spans two hunks, the hunk being a whole number of them.
-    const data = hunk(first)
-    return data ? data.subarray(from, from + SECTOR) : null
+    const data = hunk(map, first)
+    if (!data) return null
+    const text = toText(data.subarray(from, from + SECTOR))
+    if (known.size >= MAX_REMEMBERED) known.clear()
+    known.set(index, text)
+    return text
   }
 
   return (offset, length) => {
@@ -173,8 +196,8 @@ export function chdReader(env: SaveEnvironment, path: string): ReadAt | null {
     let bytes = ''
     for (let index = first; index <= last; index += 1) {
       const data = sector(index)
-      if (!data) return null
-      bytes += toText(data)
+      if (data === null) return null
+      bytes += data
     }
     const from = offset - first * SECTOR
     return bytes.slice(from, from + length)
@@ -343,7 +366,7 @@ function readLayout(env: SaveEnvironment, path: string, header: Header): Layout 
     if (tag === 'CHGD') return null
     if (tag === 'CHT2' || tag === 'CHTR') {
       const text = env.read(path, at + 16, length)
-      if (!text) return null
+      if (text === null || text.length < length) return null
       const fields = Object.fromEntries(
         Array.from(text.matchAll(/([A-Z]+):(\S*)/g), (match) => [
           match[1],

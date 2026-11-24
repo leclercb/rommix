@@ -323,7 +323,7 @@ describe('the serial in a CHD of a DVD', () => {
 })
 
 describe('a CHD read again', () => {
-  test('keeps its decoded map, the image being the same', () => {
+  test('keeps the sectors it read, the image being the same', () => {
     const image = dvd()
     reads = 0
     serial(image)
@@ -337,6 +337,16 @@ describe('a CHD read again', () => {
     assert.equal(serial(dvd()), SERIAL)
     assert.equal(serial(dvd({ badCrc: [9] })), null)
     assert.equal(serial(dvd({ coding: () => 'zstd' })), SERIAL)
+  })
+
+  test('and tries again after a read that failed, rather than keeping the failure', () => {
+    const image = dvd({ coding: () => 'huff' })
+    // Everything past the header unreadable, as a file still being written is.
+    const failing = reading(image)
+    const read = failing.read
+    failing.read = (path, offset, length) => (offset < 124 ? read(path, offset, length) : null)
+    assert.equal(ps2Serial(failing, '/roms/ps2/game.chd'), null)
+    assert.equal(serial(image), SERIAL)
   })
 })
 
@@ -366,6 +376,22 @@ describe('the serial in a CHD of a CD', () => {
 })
 
 describe('no serial', () => {
+  test('from track metadata cut short of the length it claims', () => {
+    const image = Buffer.from(
+      chd(mode2Frames(DISC), {
+        hunkBytes: 8 * CD_FRAME,
+        unitBytes: CD_FRAME,
+        codecs: ['cdzl'],
+        coding: () => 'cdzl',
+        metadata: [['CHT2', 'TRACK:1 TYPE:MODE2_RAW SUBTYPE:NONE FRAMES:20 PREGAP:0 PGTYPE:MODE1']]
+      }),
+      'latin1'
+    )
+    // The entry right after the header, its length running past the end of the file.
+    image.writeUIntBE(0xffffff, 124 + 5, 3)
+    assert.equal(serial(image.toString('latin1')), null)
+  })
+
   test('from a hunk that does not come out as its checksum says', () => {
     // The hunk holding SYSTEM.CNF: sector 19, two to a hunk.
     assert.equal(serial(dvd({ badCrc: [9] })), null)
