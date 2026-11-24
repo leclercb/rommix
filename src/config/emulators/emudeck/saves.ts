@@ -111,9 +111,17 @@ export const FOLDERS: Readonly<Record<string, FolderSaves>> = {
       { saves: joinPath(root, 'saves'), states: joinPath(root, 'states') }
     ),
 
-  /** States are per-game; the card is a folder card's alone — see `pcsx2Saves`. */
+  /**
+   * States are per-game; the card is a folder card's alone — see `pcsx2Saves`.
+   * EmuDeck runs PCSX2 as an AppImage, which keeps its configuration in the
+   * home's `.config`, and older installs ran the Flatpak, which keeps it in
+   * its own folder under `.var`.
+   */
   pcsx2: (ctx, root) => ({
-    ...pcsx2Saves(ctx, joinPath(root, 'saves'), 'saves.pcsx2'),
+    ...pcsx2Saves(ctx, joinPath(root, 'saves'), 'saves.pcsx2', [
+      joinPath(ctx.home, '.config', 'PCSX2'),
+      joinPath(ctx.home, '.var', 'app', 'net.pcsx2.PCSX2', 'config', 'PCSX2')
+    ]),
     states: perRom(joinPath(root, 'states'), [root])
   }),
 

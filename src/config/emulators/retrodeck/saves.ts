@@ -63,7 +63,8 @@ export const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
     ...pcsx2Saves(
       ctx,
       under(savesRoot(ctx), ctx.system, 'pcsx2', 'memcards'),
-      'saves.retrodeckPcsx2'
+      'saves.retrodeckPcsx2',
+      ctx.configDir ? [joinPath(ctx.configDir, 'PCSX2')] : []
     ),
     states: at(under(statesRoot(ctx), ctx.system, 'pcsx2'), (dir) => perRom(dir))
   }),

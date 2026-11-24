@@ -65,7 +65,7 @@ function machine(spec: FakeMachine): SaveEnvironment {
   const dirs = spec.dirs ?? {}
   return {
     exists: (path) => path in files || path in dirs,
-    dirs: (path) => dirs[path] ?? [],
+    dirs: (path) => (dirs[path] ?? []).filter((name) => !(`${path}/${name}` in files)),
     files: (path) => (dirs[path] ?? []).filter((name) => `${path}/${name}` in files),
     text: (path) => files[path] ?? null,
     head: (path, bytes) => (spec.heads?.[path] ?? files[path] ?? null)?.slice(0, bytes) ?? null,
@@ -407,9 +407,11 @@ function retroDeck(options: {
   system: string
   gamelist?: string
   dirs?: Record<string, string[]>
+  files?: Record<string, string>
 }): SavePaths {
   const files: Record<string, string> = {
-    '/var/rd/config/retroarch/retroarch.cfg': RETRODECK_CFG
+    '/var/rd/config/retroarch/retroarch.cfg': RETRODECK_CFG,
+    ...options.files
   }
   if (options.gamelist) {
     files[`/home/deck/retrodeck/ES-DE/gamelists/${options.system}/gamelist.xml`] = options.gamelist
@@ -606,7 +608,7 @@ test('a PCSX2 folder card syncs the folders that begin with the disc serial', ()
 })
 
 test('with no serial, a PCSX2 folder card stays shared and says why', () => {
-  // A CHD, which is not read.
+  // An image with nothing in it to read.
   const ps2 = retroDeck({
     romPath: '/home/deck/retrodeck/roms/ps2/game.chd',
     system: 'ps2',
@@ -628,6 +630,110 @@ test('of several PCSX2 folder cards, the one holding the game is used', () => {
     }
   })
   assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Mcd002.ps2`)
+})
+
+/** PCSX2's `[MemoryCards]`, as RetroDECK writes it, with the slots given. */
+function pcsx2Ini(slot1: string | null, slot2: string | null): string {
+  return [
+    '[EmuCore]',
+    'McdFolderAutoManage = true',
+    '',
+    '[MemoryCards]',
+    `Slot1_Enable = ${slot1 !== null}`,
+    `Slot1_Filename = ${slot1 ?? 'Mcd001.ps2'}`,
+    `Slot2_Enable = ${slot2 !== null}`,
+    `Slot2_Filename = ${slot2 ?? 'Mcd002.ps2'}`,
+    '',
+    '[Folders]',
+    `MemoryCards = ${RD_MEMCARDS}`
+  ].join('\n')
+}
+
+const RD_PCSX2 = '/var/rd/config/PCSX2'
+
+test('of several PCSX2 folder cards, the one in an enabled slot is used', () => {
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Mcd001.ps2', 'Mcd002.ps2'] },
+    files: { [`${RD_PCSX2}/inis/PCSX2.ini`]: pcsx2Ini('Mcd002.ps2', null) }
+  })
+  assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Mcd002.ps2`)
+})
+
+test('a PCSX2 card in the slots kept as a file stays shared, whatever folder card is beside it', () => {
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Card.ps2', 'Mcd002.ps2'] },
+    files: {
+      [`${RD_PCSX2}/inis/PCSX2.ini`]: pcsx2Ini('Card.ps2', null),
+      [`${RD_MEMCARDS}/Card.ps2`]: 'a card kept as one file'
+    }
+  })
+  assert.equal(ps2.saves?.match, 'shared')
+  assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /folder/i)
+})
+
+test('a PCSX2 card set for the game in its own settings wins over the global one', () => {
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: {
+      [RD_MEMCARDS]: ['Mcd001.ps2', 'Game.ps2'],
+      [`${RD_PCSX2}/gamesettings`]: ['SLUS-20312_1A2B3C4D.ini', 'SLES-50366_00000000.ini']
+    },
+    files: {
+      [`${RD_PCSX2}/inis/PCSX2.ini`]: pcsx2Ini('Mcd001.ps2', null),
+      [`${RD_PCSX2}/gamesettings/SLUS-20312_1A2B3C4D.ini`]:
+        '[MemoryCards]\nSlot1_Filename = Game.ps2\n',
+      [`${RD_PCSX2}/gamesettings/SLES-50366_00000000.ini`]:
+        '[MemoryCards]\nSlot1_Filename = Other.ps2\n'
+    }
+  })
+  assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Game.ps2`)
+})
+
+test('PCSX2 settings that leave the slots out mean the cards PCSX2 defaults to', () => {
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Mcd001.ps2', 'Other.ps2'] },
+    files: { [`${RD_PCSX2}/inis/PCSX2.ini`]: '[EmuCore]\nMcdFolderAutoManage = true\n' }
+  })
+  assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Mcd001.ps2`)
+})
+
+test('PCSX2 slots naming a card not there yet leave the choice to the cards that are', () => {
+  // PCSX2 makes the card on the next boot; until then the folder card beside
+  // it is the one the game's folders are on, if any.
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: { [RD_MEMCARDS]: ['Mcd001.ps2'] },
+    files: { [`${RD_PCSX2}/inis/PCSX2.ini`]: pcsx2Ini('New.ps2', null) }
+  })
+  assert.equal(ps2.saves?.dir, `${RD_MEMCARDS}/Mcd001.ps2`)
+})
+
+test('PCSX2 settings for the same serial that disagree name no card', () => {
+  // Two revisions of the game, told apart by a CRC the disc does not give up.
+  const ps2 = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/ps2/game.iso',
+    system: 'ps2',
+    dirs: {
+      [RD_MEMCARDS]: ['Mcd001.ps2', 'Game.ps2'],
+      [`${RD_PCSX2}/gamesettings`]: ['SLUS-20312_1A2B3C4D.ini', 'SLUS-20312_5E6F7A8B.ini']
+    },
+    files: {
+      [`${RD_PCSX2}/inis/PCSX2.ini`]: pcsx2Ini('Mcd001.ps2', null),
+      [`${RD_PCSX2}/gamesettings/SLUS-20312_1A2B3C4D.ini`]:
+        '[MemoryCards]\nSlot1_Filename = Game.ps2\n',
+      [`${RD_PCSX2}/gamesettings/SLUS-20312_5E6F7A8B.ini`]: '[EmuCore]\nEnableCheats = true\n'
+    }
+  })
+  assert.equal(ps2.saves?.match, 'shared')
+  assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /more than one folder card/i)
 })
 
 test('of several PCSX2 folder cards none holding the game, none is guessed', () => {
@@ -715,6 +821,7 @@ function emuDeck(options: {
   system: string
   variant?: string
   dirs?: Record<string, string[]>
+  files?: Record<string, string>
 }): SavePaths {
   return resolve(emudeck, {
     romPath: options.romPath,
@@ -726,6 +833,7 @@ function emuDeck(options: {
       saves: `${HOME}/Emulation/saves`
     },
     env: machine({
+      files: options.files,
       dirs: {
         [`${HOME}/Emulation/saves/eden/saves/0000000000000000`]: [
           '00000000000000000000000000000001'
@@ -821,8 +929,34 @@ test('EmuDeck resolves a PS2 game on a folder card to the folders of its serial'
   assert.match(localize(file.unsyncableReason, ENGLISH) ?? '', /folder/i)
 })
 
+test('EmuDeck reads the PCSX2 slots from the configuration its AppImage keeps', () => {
+  const saves = `${HOME}/Emulation/saves/pcsx2/saves`
+  const ps2 = emuDeck({
+    romPath: `${HOME}/Emulation/roms/ps2/game.iso`,
+    system: 'ps2',
+    dirs: { [saves]: ['Mcd001.ps2', 'Mcd002.ps2'] },
+    files: { [`${HOME}/.config/PCSX2/inis/PCSX2.ini`]: pcsx2Ini(null, 'Mcd002.ps2') }
+  })
+  assert.equal(ps2.saves?.dir, `${saves}/Mcd002.ps2`)
+})
+
+test('with both the AppImage and the Flatpak configured, EmuDeck reads neither slot list', () => {
+  const saves = `${HOME}/Emulation/saves/pcsx2/saves`
+  const ps2 = emuDeck({
+    romPath: `${HOME}/Emulation/roms/ps2/game.iso`,
+    system: 'ps2',
+    dirs: { [saves]: ['Mcd001.ps2', 'Mcd002.ps2'] },
+    files: {
+      [`${HOME}/.config/PCSX2/inis/PCSX2.ini`]: pcsx2Ini(null, 'Mcd002.ps2'),
+      [`${HOME}/.var/app/net.pcsx2.PCSX2/config/PCSX2/inis/PCSX2.ini`]: pcsx2Ini('Mcd001.ps2', null)
+    }
+  })
+  assert.equal(ps2.saves?.match, 'shared')
+  assert.match(localize(ps2.unsyncableReason, ENGLISH) ?? '', /more than one folder card/i)
+})
+
 test('with no disc id, EmuDeck keeps the PPSSPP saves shared and says why', () => {
-  // A CHD, which is not read — and which no folder in SAVEDATA can be named for.
+  // An image with nothing in it to read — and which no folder in SAVEDATA can be named for.
   const psp = emuDeck({ romPath: `${HOME}/Emulation/roms/psp/other.chd`, system: 'psp' })
   assert.equal(psp.saves?.match, 'shared')
   assert.equal(psp.saves?.dir, `${HOME}/Emulation/saves/ppsspp/saves`)
