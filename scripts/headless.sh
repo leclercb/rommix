@@ -129,7 +129,14 @@ if on_desktop; then
   echo "==> Drawing on this desktop, as ROMMIX_ON_DISPLAY asks"
   window=()
 else
-  window=(xvfb-run -a --server-args="-screen 0 1920x1080x24")
+  # Xvfb is an X server, and Electron does not look for one in a Wayland
+  # session: it takes the backend from `XDG_SESSION_TYPE`, and the hint
+  # variable overrides even that. Left alone, the window opens on the desktop
+  # compositor at the desktop's size and scale, and Xvfb sits there unused.
+  window=(
+    env -u WAYLAND_DISPLAY -u ELECTRON_OZONE_PLATFORM_HINT XDG_SESSION_TYPE=x11
+    xvfb-run -a --server-args="-screen 0 1920x1080x24"
+  )
 fi
 
 exec "${window[@]}" "$@"
