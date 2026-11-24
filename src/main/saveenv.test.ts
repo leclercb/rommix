@@ -3,7 +3,7 @@ import { afterEach, describe, test } from 'node:test'
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { deflateRawSync } from 'node:zlib'
+import { deflateRawSync, zstdCompressSync } from 'node:zlib'
 import { fileSystemEnvironment } from './saveenv.ts'
 
 /**
@@ -113,6 +113,22 @@ describe('inflating a block', () => {
 
     assert.equal(env.inflateRaw(deflated, 2048), null)
     assert.equal(env.inflateRaw('not a deflate stream', 64), null)
+  })
+})
+
+describe('decompressing a Zstandard frame', () => {
+  test('a frame comes back whole', () => {
+    const hunk = Buffer.from([0xff, 0x00, ...Buffer.from('BOOT2 = cdrom0:')])
+    const compressed = zstdCompressSync(hunk).toString('latin1')
+
+    assert.equal(env.zstd(compressed, 64), hunk.toString('latin1'))
+  })
+
+  test('a frame past the limit, or no frame at all, is nothing rather than a failed sync', () => {
+    const compressed = zstdCompressSync(Buffer.alloc(1 << 20)).toString('latin1')
+
+    assert.equal(env.zstd(compressed, 2048), null)
+    assert.equal(env.zstd('not a zstd frame', 64), null)
   })
 })
 

@@ -237,7 +237,7 @@ export const example: EmulatorDescriptor = {
    * game, which profile owns a title. `ctx` carries the discovered roots, the
    * game, the chosen variant, and `ctx.env` — a read-only view of the disk with
    * `exists`, `dirs`, `files`, `text`, `head`, `read` and `newest`, and
-   * `inflateRaw` for an image that deflates its blocks.
+   * `inflateRaw` and `zstd` for an image that compresses its blocks.
    *
    * Return a location per kind, or null where there is none. `match` is the
    * important part:

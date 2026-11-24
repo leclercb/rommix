@@ -1,3 +1,4 @@
+import { chdReader } from './chd.ts'
 import type { SaveEnvironment } from './savepaths.ts'
 
 /**
@@ -7,14 +8,15 @@ import type { SaveEnvironment } from './savepaths.ts'
  * the root of the disc — `UMD_DATA.BIN` on a PSP, `SYSTEM.CNF` on a PS2 — and
  * the file can sit anywhere in the image, so this follows the filesystem rather
  * than reading a fixed offset: the primary volume descriptor names the root
- * directory, and the root directory names the file. Two containers are read:
+ * directory, and the root directory names the file. Three containers are read:
  *
  *  - a plain `.iso`, which is the filesystem as it is;
  *  - CSO, which cuts the image into blocks and deflates each one on its own, so
- *    a sector is found through the block index and only its block inflated.
+ *    a sector is found through the block index and only its block inflated;
+ *  - CHD, the same idea with several codecs — see `chdReader`.
  *
- * ZSO and CSO v2 compress blocks with LZ4, and CHD with any of several codecs;
- * none of them is read. A file that cannot be read is null rather than a guess.
+ * ZSO and CSO v2 compress blocks with LZ4, which is not read. A file that
+ * cannot be read is null rather than a guess.
  */
 
 const SECTOR = 2048
@@ -32,7 +34,7 @@ const MIN_RECORD = 34
 const MAX_ROOT_BYTES = 16 * SECTOR
 
 /** Bytes of the disc at an offset into it, wherever the container keeps them. */
-type ReadAt = (offset: number, length: number) => string | null
+export type ReadAt = (offset: number, length: number) => string | null
 
 /** Where one file or directory is on the disc. */
 interface Extent {
@@ -56,8 +58,9 @@ function discReader(env: SaveEnvironment, path: string): ReadAt | null {
   const magic = env.read(path, 0, 4)
   if (magic === null) return null
   if (magic === 'CISO') return csoReader(env, path)
+  if (magic === 'MCom') return chdReader(env, path)
   // Anything else is taken as a plain image and has to prove it by carrying a
-  // volume descriptor where one belongs — which a ZSO, a CHD or a zip does not.
+  // volume descriptor where one belongs — which a ZSO or a zip does not.
   return (offset, length) => env.read(path, offset, length)
 }
 

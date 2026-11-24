@@ -76,6 +76,7 @@ function disk(files: Record<string, string> = {}): SaveEnvironment {
     head: () => null,
     read: () => null,
     inflateRaw: () => null,
+    zstd: () => null,
     newest: () => 0
   }
 }

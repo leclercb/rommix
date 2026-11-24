@@ -1,6 +1,6 @@
 import { closeSync, openSync, readSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { inflateRawSync } from 'node:zlib'
+import { inflateRawSync, zstdDecompressSync } from 'node:zlib'
 import type { SaveEnvironment } from '@config/emulators'
 
 /**
@@ -82,6 +82,16 @@ export function fileSystemEnvironment(): SaveEnvironment {
         return inflateRawSync(Buffer.from(data, 'latin1'), { maxOutputLength: maxBytes }).toString(
           'latin1'
         )
+      } catch {
+        return null
+      }
+    },
+
+    zstd(data, maxBytes) {
+      try {
+        return zstdDecompressSync(Buffer.from(data, 'latin1'), {
+          maxOutputLength: maxBytes
+        }).toString('latin1')
       } catch {
         return null
       }

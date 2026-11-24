@@ -335,8 +335,8 @@ export function libretroSavePaths(
    * Asked of the system rather than the core: Flycast is the one libretro core
    * that runs it, and where the core cannot be read the last one loaded is no
    * answer. By default one VMU under the system folder holds every game's
-   * saves. Its per-game VMUs are named after the disc's product number, which a
-   * CHD does not give up without decompressing it, so none of them is synced.
+   * saves. Its per-game VMUs are named after the disc's product number, which is
+   * not read out of a GD-ROM image, so none of them is synced.
    */
   const vmu = ctx.system === 'dreamcast'
 

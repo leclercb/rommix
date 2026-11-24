@@ -620,7 +620,7 @@ export const fr: Catalog = {
   'saves.pcsx2':
     "PCSX2 garde une seule carte mémoire partagée par tous les jeux PS2 : aucune sauvegarde n'appartient donc à celui-ci. Convertissez la carte en dossier dans les réglages des cartes mémoire de PCSX2 pour synchroniser les sauvegardes jeu par jeu. Les états de sauvegarde sont synchronisés.",
   'saves.pcsx2NoSerial':
-    "Sur une carte dossier, PCSX2 range les sauvegardes sous le numéro de série inscrit dans l'image du disque, que RomMix sait lire dans une image ISO ou CSO mais pas dans celle-ci.",
+    "Sur une carte dossier, PCSX2 range les sauvegardes sous le numéro de série inscrit dans l'image du disque, que RomMix sait lire dans une image ISO, CSO ou CHD mais pas dans celle-ci.",
   'saves.pcsx2Cards':
     'PCSX2 a ici plus d’une carte dossier, et RomMix ne peut pas savoir sur laquelle ce jeu écrit.',
   'saves.dolphin':
@@ -628,7 +628,7 @@ export const fr: Catalog = {
   'saves.primehack':
     "PrimeHack garde une seule carte mémoire pour tous les jeux : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
   'saves.ppsspp':
-    "PPSSPP classe ses sauvegardes sous l'identifiant de jeu inscrit dans l'image disque, que RomMix sait lire dans une image ISO ou CSO mais pas dans celle-ci.",
+    "PPSSPP classe ses sauvegardes sous l'identifiant de jeu inscrit dans l'image disque, que RomMix sait lire dans une image ISO, CSO ou CHD mais pas dans celle-ci.",
   'saves.rpcs3':
     "RPCS3 classe ses sauvegardes sous l'identifiant de titre PS3 plutôt que sous le nom de la ROM, que RomMix ne peut pas rattacher à ce jeu.",
   'saves.cemu':

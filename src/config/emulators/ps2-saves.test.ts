@@ -33,6 +33,6 @@ test('and none from a disc with no BOOT2 line, or one naming no serial', () => {
   assert.equal(serial('BOOT2 = cdrom0:\\MAIN.ELF;1\r\n'), null)
 })
 
-test('and none from an image that is not an ISO', () => {
-  assert.equal(ps2Serial(reading('MComprHD'.padEnd(40 * SECTOR, '\0')), '/roms/ps2/game.chd'), null)
+test('and none from an image in a container not read', () => {
+  assert.equal(ps2Serial(reading('ZISO'.padEnd(40 * SECTOR, '\0')), '/roms/ps2/game.zso'), null)
 })

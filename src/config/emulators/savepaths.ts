@@ -160,6 +160,12 @@ export interface SaveEnvironment {
    * of a disc on its own.
    */
   inflateRaw(data: string, maxBytes: number): string | null
+  /**
+   * A Zstandard frame, decompressed; null where it is not one or would come
+   * out longer than `maxBytes`. For CHD, which compresses hunks of a disc this
+   * way, and for the same reason as `inflateRaw`.
+   */
+  zstd(data: string, maxBytes: number): string | null
   /** Newest modification time (ms) of any file under `path`; 0 when there is none. */
   newest(path: string): number
 }

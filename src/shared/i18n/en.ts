@@ -621,7 +621,7 @@ export const en = {
   'saves.pcsx2':
     'PCSX2 keeps one memory card shared by every PS2 game, so there is no save file that belongs to this one. Convert the card to a folder in PCSX2’s memory card settings to sync saves game by game. Save states are synced.',
   'saves.pcsx2NoSerial':
-    'PCSX2 files saves on a folder card under the serial inside the disc image, which RomMix can read from an ISO or CSO image but not from this one.',
+    'PCSX2 files saves on a folder card under the serial inside the disc image, which RomMix can read from an ISO, CSO or CHD image but not from this one.',
   'saves.pcsx2Cards':
     'PCSX2 has more than one folder card here, and RomMix cannot tell which one this game writes to.',
   'saves.dolphin':
@@ -629,7 +629,7 @@ export const en = {
   'saves.primehack':
     'PrimeHack keeps one memory card for every game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.ppsspp':
-    'PPSSPP files saves under the game id inside the disc image, which RomMix can read from an ISO or CSO image but not from this one.',
+    'PPSSPP files saves under the game id inside the disc image, which RomMix can read from an ISO, CSO or CHD image but not from this one.',
   'saves.rpcs3':
     'RPCS3 files saves under the PS3 title id rather than the ROM name, which RomMix cannot match to this game.',
   'saves.cemu':

@@ -73,6 +73,7 @@ function machine(spec: FakeMachine): SaveEnvironment {
       (spec.heads?.[path] ?? files[path] ?? null)?.slice(offset, offset + bytes) ?? null,
     // No image here is compressed, so nothing is ever asked to be inflated.
     inflateRaw: () => null,
+    zstd: () => null,
     newest: (path) => spec.mtimes?.[path] ?? 0
   }
 }
