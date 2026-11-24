@@ -45,7 +45,9 @@ const MAX_SELF_DEPTH = 8
  * serial several times over. A serial takes a handful of sectors, so those are
  * what is kept rather than the map. Only a sector that was read is kept: one
  * that could not be is tried again on the next read. The SHA-1 changes with the
- * image, so a file replaced at the same path is read afresh.
+ * image, so a file replaced at the same path is read afresh. A header that
+ * leaves it zero, as a tool other than `chdman` may, says nothing about which
+ * image it is, and nothing read out of that one is kept.
  */
 let remembered = { key: '', sectors: new Map<number, string>() }
 /** How many sectors are kept: a serial's few, and a bound for a reader asking for more. */
@@ -121,8 +123,9 @@ export function chdReader(env: SaveEnvironment, path: string): ReadAt | null {
   const header = readHeader(env, path)
   if (!header) return null
   const key = `${path}\0${header.sha1}`
-  if (remembered.key !== key) remembered = { key, sectors: new Map() }
-  const known = remembered.sectors
+  const identified = /[^\0]/.test(header.sha1)
+  if (identified && remembered.key !== key) remembered = { key, sectors: new Map() }
+  const known = identified ? remembered.sectors : new Map<number, string>()
 
   // Decoded on the first sector that is not already known, and only once.
   let disc: { map: HunkMap; layout: Layout } | null | undefined

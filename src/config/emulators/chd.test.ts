@@ -279,8 +279,8 @@ function reading(bytes: string): SaveEnvironment {
 
 const serial = (image: string): string | null => ps2Serial(reading(image), '/roms/ps2/game.chd')
 
-const dvd = (options: Partial<ChdOptions> = {}): string =>
-  chd(Buffer.from(DISC, 'latin1'), {
+const dvd = (options: Partial<ChdOptions> = {}, disc = DISC): string =>
+  chd(Buffer.from(disc, 'latin1'), {
     hunkBytes: 2 * SECTOR,
     unitBytes: SECTOR,
     codecs: ['zlib', 'zstd', 'huff', '\0\0\0\0'],
@@ -337,6 +337,14 @@ describe('a CHD read again', () => {
     assert.equal(serial(dvd()), SERIAL)
     assert.equal(serial(dvd({ badCrc: [9] })), null)
     assert.equal(serial(dvd({ coding: () => 'zstd' })), SERIAL)
+  })
+
+  test('but keeps nothing from an image whose header leaves its SHA-1 zero', () => {
+    const zeroed = (image: string): string =>
+      image.slice(0, 84) + '\0'.repeat(20) + image.slice(104)
+    assert.equal(serial(zeroed(dvd())), SERIAL)
+    // Another game at the same path, its header no different where the SHA-1 is.
+    assert.equal(serial(zeroed(dvd({}, ps2Disc('SLES_503.66')))), 'SLES-50366')
   })
 
   test('and tries again after a read that failed, rather than keeping the failure', () => {
