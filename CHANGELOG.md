@@ -4,6 +4,18 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.26.0 — 2026-11-24
+
+- fix: draw test:app on Xvfb in a Wayland session (cee8ac4)
+- fix: keep no CHD sectors when the header has no SHA-1 (5523285)
+- feat: choose the PS2 memory card from PCSX2's settings (cfafadc)
+- fix: keep only the CHD sectors that were read (978e757)
+- fix: ship the interface fonts with RomMix (d30285e)
+- chore: update the dependencies (e21827d)
+- feat: read the PS2 and PSP serial from a CHD image (487da41)
+- feat: add RPCS3 for the PS3 (8ae674e)
+- feat: sync PS2 saves from a PCSX2 folder card (0499d97)
+
 ## 0.25.0 — 2026-11-19
 
 - test(app): expect the AppImage picker beside Flathub (b696b61)
