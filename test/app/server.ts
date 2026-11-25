@@ -98,6 +98,14 @@ export interface FakeRomm {
    * until it is let go.
    */
   stallSlowGame: (stalled: boolean) => void
+  /**
+   * Switch on RomM's in-browser player, its streaming, or both, for every
+   * platform it serves.
+   *
+   * Off by default, as on a server nobody has set either up on: the heartbeat
+   * says nothing about emulation and the streaming config is not there to ask.
+   */
+  offerPlayers: (players: { browser: boolean; stream: boolean }) => void
   /** The token a client must present. See `seedCredentials`. */
   token: string
   /** What the sign-in screen's other two modes need typed into them. */
@@ -701,6 +709,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   const uploadedFiles = new Set<number>()
   let uploadsHeld = false
   let slowStalled = false
+  let players = { browser: false, stream: false }
   const held: { save: RommSave; content: string }[] = []
   /** States this server holds, seeded by `holdState` or left by a push. */
   const heldStates: { state: RommState; content: string }[] = []
@@ -830,7 +839,12 @@ export async function startFakeRomm(): Promise<FakeRomm> {
 
       // The one endpoint that answers before there are credentials: it is how
       // the connect screen decides whether an address is a RomM at all.
-      if (url.pathname === '/api/heartbeat') return json({ SYSTEM: { VERSION: VERSION } })
+      if (url.pathname === '/api/heartbeat') {
+        return json({
+          SYSTEM: { VERSION: VERSION },
+          ...(players.browser ? { EMULATION: { DISABLE_EMULATOR_JS: false } } : {})
+        })
+      }
 
       // Pairing is how a client gets a token, so neither of these can be behind
       // one. That is the whole point of the flow: nothing secret is typed on
@@ -981,6 +995,10 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       }
 
       if (url.pathname === '/api/users/me') return json(user)
+      if (url.pathname === '/api/streaming/config' && players.stream) {
+        const served = [megadrive, gameboy, nintendoSwitch, segacd]
+        return json({ enabled: true, containers: served.map((one) => ({ platform: one.slug })) })
+      }
       if (url.pathname === '/api/platforms')
         return json([megadrive, gameboy, nintendoSwitch, segacd])
       /**
@@ -1285,6 +1303,9 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     asked,
     stallSlowGame: (stalled) => {
       slowStalled = stalled
+    },
+    offerPlayers: (offered) => {
+      players = offered
     },
     platforms: [megadrive, gameboy, nintendoSwitch, segacd],
     uploaded,

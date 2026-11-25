@@ -981,6 +981,53 @@ describe('putting a game on a shelf', () => {
   })
 })
 
+/**
+ * RomM's own players, offered beside Play.
+ *
+ * One button whichever of the two the server offers, and a question only where
+ * it offers both. The dialog is as far as this goes: pressing either answer
+ * opens RomM's page in a separate window, which is `RommPlayerWindow`'s to
+ * test, not the game screen's.
+ */
+describe('playing a game on RomM instead', () => {
+  after(() => server.offerPlayers({ browser: false, stream: false }))
+
+  test('a server that offers both asks which, behind one button', async () => {
+    server.offerPlayers({ browser: true, stream: true })
+    await app.goTo('library')
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(
+      `document.querySelector('[data-action="play-on-romm"]')`,
+      'the button for RomM to appear'
+    )
+    // One button on the screen for both players, rather than one each.
+    assert.equal(
+      await app.read<number>(
+        `document.querySelectorAll('.game-hero [data-action="play-on-romm"]').length`
+      ),
+      1
+    )
+    assert.equal(
+      await app.read<boolean>(
+        `[...document.querySelectorAll('.game-hero .btn-row > *')]` +
+          `.some((one) => one.textContent.includes(${JSON.stringify(en['game.rommStream'])}))`
+      ),
+      false,
+      'the stream should wait behind the RomM button, not sit beside it'
+    )
+
+    await app.choose('[data-action="play-on-romm"]')
+    await app.waitFor(
+      `document.querySelector('.overlay [data-action="romm-browser"]')?.dataset.focused === 'true'` +
+        ` && !!document.querySelector('.overlay [data-action="romm-stream"]')`,
+      'both players offered, the browser one first'
+    )
+
+    await app.press('Escape')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
+  })
+})
+
 describe('saying how far through a game you are', () => {
   test('the dialog opens on the answer already given', async () => {
     await app.goTo('library')
