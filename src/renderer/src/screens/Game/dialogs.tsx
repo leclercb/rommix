@@ -3,6 +3,7 @@ import { folderOf } from '@shared/gamefiles'
 import type {
   InstalledRom,
   LaunchChoice,
+  RommPlayer,
   SaveAsset,
   SaveDeleteScope,
   SavePushPreview
@@ -57,6 +58,46 @@ export function LaunchVariantDialog({
             {option.note ? ` · ${option.note}` : ''}
           </FocusButton>
         ))}
+      </div>
+      <div className="btn-row">
+        <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>
+          {t('action.cancel')}
+        </FocusButton>
+      </div>
+    </Overlay>
+  )
+}
+
+/**
+ * Which of RomM's players to open, asked only where the server offers both.
+ *
+ * The browser one first and focused: it is RomM's own and needs nothing more
+ * from the server than the game, where a stream needs an emulator running on
+ * it.
+ */
+export function RommPlayerDialog({
+  onPick,
+  onCancel
+}: {
+  onPick: (player: RommPlayer) => void
+  onCancel: () => void
+}): JSX.Element {
+  const { t } = useI18n()
+  return (
+    <Overlay title={t('game.playOnRomm')} icon="server" onDismiss={onCancel}>
+      <div className="btn-row">
+        <FocusButton
+          icon="homepage"
+          action="romm-browser"
+          variant="primary"
+          onSelect={() => onPick('browser')}
+          autoFocus
+        >
+          {t('game.rommBrowser')}
+        </FocusButton>
+        <FocusButton icon="server" action="romm-stream" onSelect={() => onPick('stream')}>
+          {t('game.rommStream')}
+        </FocusButton>
       </div>
       <div className="btn-row">
         <FocusButton icon="cancel" variant="ghost" onSelect={onCancel}>

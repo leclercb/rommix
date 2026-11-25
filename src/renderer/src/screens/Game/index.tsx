@@ -20,6 +20,7 @@ import {
   LaunchVariantDialog,
   NoEmulatorDialog,
   PushConfirmDialog,
+  RommPlayerDialog,
   UninstallDialog
 } from './dialogs'
 import {
@@ -70,6 +71,7 @@ export function GameScreen({
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<GameTab>('details')
   const [choosingStatus, setChoosingStatus] = useState(false)
+  const [choosingPlayer, setChoosingPlayer] = useState(false)
   const [bios, setBios] = useState<BiosPlatform | null>(null)
   /** True while the shelves this game is on are being looked at or changed. */
   const [choosingCollections, setChoosingCollections] = useState(false)
@@ -523,27 +525,23 @@ export function GameScreen({
         {entry && download?.adding && interruptible ? stopButtons(false) : null}
 
         {/* RomM's own ways to play, after the primary button because they are
-            the other way round: nothing here, everything on the server. Only
-            where the server says it can, so a button never opens a page that
-            has nothing to play. */}
-        {players.browser ? (
+            the other way round: nothing here, everything on the server. One
+            button for both, since a row this long has no room for two ways to
+            do the same thing — it asks which only where the server offers
+            both. Only where the server says it can, so a button never opens a
+            page that has nothing to play. */}
+        {players.browser || players.stream ? (
           <FocusButton
-            icon="homepage"
+            icon="server"
             action="play-on-romm"
-            onSelect={() => void playOnRomm('browser')}
+            onSelect={() =>
+              players.browser && players.stream
+                ? setChoosingPlayer(true)
+                : void playOnRomm(players.browser ? 'browser' : 'stream')
+            }
             disabled={working || running}
           >
             {t('game.playOnRomm')}
-          </FocusButton>
-        ) : null}
-        {players.stream ? (
-          <FocusButton
-            icon="server"
-            action="stream-from-romm"
-            onSelect={() => void playOnRomm('stream')}
-            disabled={working || running}
-          >
-            {t('game.streamFromRomm')}
           </FocusButton>
         ) : null}
 
@@ -848,6 +846,16 @@ export function GameScreen({
         <div className="notice notice--warn">
           {settings?.confirmSavePush ? t('game.runningAsk') : t('game.runningAuto')}
         </div>
+      ) : null}
+
+      {choosingPlayer ? (
+        <RommPlayerDialog
+          onPick={(player) => {
+            setChoosingPlayer(false)
+            void playOnRomm(player)
+          }}
+          onCancel={() => setChoosingPlayer(false)}
+        />
       ) : null}
 
       {choosingStatus ? (
