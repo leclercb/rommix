@@ -191,6 +191,17 @@ describe('checking for a new version', () => {
     assert.ok(status.checkedAt)
   })
 
+  test('when the last check was survives a restart', async () => {
+    const dir = join(scratch(), 'config')
+    const subject = new Updater(new Store(dir), () => undefined)
+    serve(() => release('v0.9.0', [image]))
+
+    const { checkedAt } = await subject.check()
+
+    assert.ok(checkedAt)
+    assert.equal(new Updater(new Store(dir), () => undefined).status.checkedAt, checkedAt)
+  })
+
   test('a newer release is reported with its notes and the page it is on', async () => {
     process.env.APPIMAGE = join(scratch(), image)
     const { updater: subject } = updater()

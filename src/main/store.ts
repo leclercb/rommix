@@ -102,6 +102,7 @@ function defaultSettings(): Settings {
     // A release candidate is published to be tried, not to be rolled out, so it
     // is offered only to installations that asked for one.
     updatePrereleases: false,
+    updateCheckedAt: null,
     deviceId: randomUUID(),
     deviceName: `RomMix @ ${hostname()}`
   }
@@ -114,6 +115,8 @@ const isBoolean: Check<boolean> = (value): value is boolean => typeof value === 
 const isNumber: Check<number> = (value): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 const isString: Check<string> = (value): value is string => typeof value === 'string'
+const isStringOrNull: Check<string | null> = (value): value is string | null =>
+  value === null || isString(value)
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const isStringList: Check<string[]> = (value): value is string[] =>
@@ -159,6 +162,7 @@ const SETTINGS_SHAPE: { [K in keyof Settings]: Check<Settings[K]> } = {
   dateFormat: oneOf(DATE_FORMATS),
   updates: oneOf(UPDATE_POLICIES),
   updatePrereleases: isBoolean,
+  updateCheckedAt: isStringOrNull,
   deviceId: isString,
   deviceName: isString
 }

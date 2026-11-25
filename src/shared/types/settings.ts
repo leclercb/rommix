@@ -264,6 +264,15 @@ export interface Settings {
    * run one. See `Updater.check`.
    */
   updatePrereleases: boolean
+  /**
+   * When RomMix last asked GitHub for a new version, as an ISO timestamp, or
+   * null where it never has.
+   *
+   * Written by the updater rather than by anyone in Settings. Kept here so the
+   * update panel can say when the last check was across a restart, instead of
+   * "never" until the first scheduled check comes round. See `Updater.schedule`.
+   */
+  updateCheckedAt: string | null
   /** Stable identifier reported to RomM as this device. */
   deviceId: string
   deviceName: string

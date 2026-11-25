@@ -427,6 +427,9 @@ export class Updater {
   constructor(store: Store, emit: (status: UpdateStatus) => void) {
     this.store = store
     this.emit = emit
+    // The one part of a status that outlives the process: when the last check
+    // was is still true after a restart, and nothing else here is.
+    this.current = { ...this.current, checkedAt: store.settings.updateCheckedAt }
   }
 
   get status(): UpdateStatus {
@@ -870,6 +873,9 @@ export class Updater {
   /** Fold a change into the status and tell the interface. */
   private update(patch: Partial<UpdateStatus>): void {
     this.current = { ...this.current, ...patch }
+    if (patch.checkedAt && patch.checkedAt !== this.store.settings.updateCheckedAt) {
+      this.store.updateSettings({ updateCheckedAt: patch.checkedAt })
+    }
     this.emit(this.current)
   }
 }

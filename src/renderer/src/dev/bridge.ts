@@ -582,6 +582,7 @@ const SETTINGS: Settings = {
   uiScale: 0,
   updates: 'auto',
   updatePrereleases: false,
+  updateCheckedAt: null,
   deviceId: 'web-preview',
   deviceName: 'RomMix @ web preview'
 }
