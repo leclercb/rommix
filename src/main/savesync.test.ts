@@ -22,6 +22,7 @@ import { RommError, type RommClient } from './romm/index.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
 import { extractZip, zipDirectory } from './zip.ts'
 import { umd } from '@config/emulators/test/discs.ts'
+import { ncsd } from '@config/emulators/test/n3ds.ts'
 import { Store } from './store.ts'
 
 /**
@@ -1295,6 +1296,106 @@ describe('a save the emulator keeps as a folder', () => {
      * what this reaches.
      */
     const { sync, target, uploaded } = switchGame()
+
+    await sync.pushNow(target)
+
+    assert.deepEqual(uploaded, [])
+  })
+})
+
+describe('a 3DS save kept as a folder', () => {
+  /**
+   * A 3DS game and the emulated SD card its saves sit in, reached through
+   * EmuDeck's `azahar/saves` link.
+   *
+   * The id is read out of the ROM's own header, so the ROM is a real file here:
+   * an NCSD naming the title, which is all `n3dsTitleId` looks at.
+   */
+  const ZERO = '0'.repeat(32)
+
+  function n3dsGame(
+    options: Parameters<typeof setUp>[0] = {}
+  ): ReturnType<typeof setUp> & { gameDir: string } {
+    const made = setUp(options)
+    const saves = join(made.saveDir, '..', 'emulation', 'saves')
+    const sdmc = join(saves, 'azahar', 'saves')
+    const gameDir = join(sdmc, 'Nintendo 3DS', ZERO, ZERO, 'title', '00040000', '00030800', 'data')
+    mkdirSync(gameDir, { recursive: true })
+
+    const romPath = join(made.target.romPath, '..', 'Game.3ds')
+    writeFileSync(romPath, ncsd('0004000000030800'), 'latin1')
+
+    made.target = {
+      ...made.target,
+      rom: { ...made.target.rom, fs_name: 'Game.3ds', fs_name_no_ext: 'Game' } as RommRom,
+      romPath,
+      system: 'n3ds',
+      emulator: {
+        ...made.target.emulator,
+        id: 'emudeck',
+        name: 'EmuDeck',
+        paths: { ...made.target.emulator.paths, saves }
+      } as EmulatorState
+    }
+    return { ...made, gameDir }
+  }
+
+  test('a folder with something in it is sent as one archive, outside the shared slot', async () => {
+    const { sync, target, gameDir, uploaded } = n3dsGame()
+    writeFileSync(join(gameDir, '00000001.sav'), 'progress')
+
+    await sync.pushNow(target)
+
+    assert.equal(uploaded.length, 1)
+    assert.match(uploaded[0].fileName, /\.rommix-save\.zip$/)
+    assert.equal(uploaded[0].slot, null)
+  })
+
+  test('a folder another emulator wrote is left alone', async () => {
+    const { sync, target, gameDir } = n3dsGame({
+      saves: [save({ file_name: 'Game.rommix-save.zip', emulator: 'citra' })],
+      archive: { '00000001.sav': 'from the server' }
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 0)
+    assert.equal(existsSync(join(gameDir, '00000001.sav')), false)
+  })
+
+  test('the folder is copied aside whole before the archive is unpacked over it', async () => {
+    const { sync, target, gameDir, backups } = n3dsGame({
+      saves: [
+        save({
+          file_name: 'Game.rommix-save.zip',
+          emulator: 'azahar',
+          updated_at: '2026-08-01T12:00:00.000Z'
+        })
+      ],
+      archive: { '00000001.sav': 'from the server' }
+    })
+    for (const [name, contents] of Object.entries({
+      '00000001.sav': 'played here',
+      'extra/other.bin': 'played here too'
+    })) {
+      mkdirSync(join(gameDir, name, '..'), { recursive: true })
+      writeFileSync(join(gameDir, name), contents)
+      const older = new Date('2026-01-01T00:00:00.000Z')
+      utimesSync(join(gameDir, name), older, older)
+    }
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    assert.equal(readFileSync(join(gameDir, '00000001.sav'), 'utf8'), 'from the server')
+    const [copy] = readdirSync(join(backups, '7'))
+    const kept = join(backups, '7', copy)
+    assert.equal(readFileSync(join(kept, '00000001.sav'), 'utf8'), 'played here')
+    assert.equal(readFileSync(join(kept, 'extra/other.bin'), 'utf8'), 'played here too')
+  })
+
+  test('an empty folder is not uploaded as if it were a save', async () => {
+    const { sync, target, uploaded } = n3dsGame()
 
     await sync.pushNow(target)
 

@@ -4,6 +4,7 @@ import { joinPath, perRom, shared } from '../savepaths.ts'
 import { dolphinSaves, dolphinStates } from '../dolphin-saves.ts'
 import { ppssppSaves } from '../psp-saves.ts'
 import { pcsx2Saves } from '../ps2-saves.ts'
+import { n3dsSavePaths } from '../n3ds-saves.ts'
 import { switchSavePaths } from '../switch-saves.ts'
 import type { SaveContext, SavePaths } from '../savepaths.ts'
 
@@ -166,10 +167,13 @@ export const FOLDERS: Readonly<Record<string, FolderSaves>> = {
     states: null,
     unsyncableReason: 'saves.vita3k'
   }),
-  azahar: (_ctx, root) => ({
-    saves: shared(joinPath(root, 'saves')),
-    states: perRom(joinPath(root, 'states'), [root]),
-    unsyncableReason: 'saves.azaharStates'
+  /**
+   * EmuDeck links `azahar/saves` at the emulated SD card, whose saves are keyed
+   * by title id — see `n3dsSavePaths`. States are named after the ROM.
+   */
+  azahar: (ctx, root) => ({
+    ...n3dsSavePaths(ctx, joinPath(root, 'saves'), 'Azahar'),
+    states: perRom(joinPath(root, 'states'), [root])
   }),
   xemu: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),

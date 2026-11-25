@@ -635,10 +635,6 @@ export const es: Catalog = {
   'saves.xemu':
     'Xemu mantiene un solo disco duro de Xbox emulado para todos los juegos, así que no hay ninguna partida guardada que pertenezca a este.',
   'saves.xroar': 'XRoar no escribe partidas en batería; solo se sincronizan sus estados.',
-  'saves.azahar':
-    'Azahar guarda las partidas dentro de un árbol de tarjeta SD emulada indexado por identificador de título, que RomMix no puede asociar a este juego.',
-  'saves.azaharStates':
-    'Azahar guarda las partidas dentro de un árbol de tarjeta SD emulada indexado por identificador de título, que RomMix no puede asociar a este juego. Los estados guardados sí se sincronizan.',
   'saves.shadps4NoData': 'RomMix no ha encontrado dónde guarda shadPS4 sus datos de partida.',
   'saves.shadps4NoSerial':
     'Este juego no indica ningún número de serie de PS4, así que RomMix no puede saber cuál de las carpetas de guardado de shadPS4 es la suya.',
@@ -671,6 +667,10 @@ export const es: Catalog = {
   'saves.switchNoProfile':
     '{emulator} aún no tiene ningún perfil de usuario, así que una partida no tiene adónde ir. ' +
     'Ábrelo una vez y crea un perfil.',
+  'saves.n3dsNoTitleId':
+    'RomMix no pudo leer un identificador de título para este juego, con el que {emulator} ' +
+    'nombra su carpeta de partidas. Un .3ds, .cci, .cxi o .cia sin modificar se resuelve ' +
+    'automáticamente.',
 
   // -- los detalles de un juego ---------------------------------------------
 

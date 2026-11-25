@@ -643,10 +643,6 @@ export const en = {
   'saves.xemu':
     'Xemu keeps one emulated Xbox hard disk for every game, so there is no save file that belongs to this one.',
   'saves.xroar': 'XRoar writes no battery saves; only its states are synced.',
-  'saves.azahar':
-    'Azahar keeps saves inside an emulated SD card tree keyed by title id, which RomMix cannot match to this game.',
-  'saves.azaharStates':
-    'Azahar keeps saves inside an emulated SD card tree keyed by title id, which RomMix cannot match to this game. Save states are synced.',
   'saves.shadps4NoData': 'RomMix has not found where shadPS4 keeps its save data.',
   'saves.shadps4NoSerial':
     "This game states no PS4 serial, so RomMix cannot tell which of shadPS4's save folders is its own.",
@@ -680,6 +676,9 @@ export const en = {
   'saves.switchNoProfile':
     '{emulator} has no user profile yet, so there is nowhere for a save to go. Start it once and ' +
     'create a profile.',
+  'saves.n3dsNoTitleId':
+    'RomMix could not read a title id for this game, which is how {emulator} names its save ' +
+    'folder. An unmodified .3ds, .cci, .cxi or .cia resolves automatically.',
 
   // -- a game's details -----------------------------------------------------
 

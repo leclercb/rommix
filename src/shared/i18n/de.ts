@@ -648,10 +648,6 @@ export const de: Catalog = {
     'Xemu führt eine einzige emulierte Xbox-Festplatte für alle Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel.',
   'saves.xroar':
     'XRoar schreibt keine Batterie-Speicherstände; nur seine Savestates werden synchronisiert.',
-  'saves.azahar':
-    'Azahar legt Spielstände in einem emulierten SD-Karten-Baum ab, der nach Title-ID sortiert ist und den RomMix diesem Spiel nicht zuordnen kann.',
-  'saves.azaharStates':
-    'Azahar legt Spielstände in einem emulierten SD-Karten-Baum ab, der nach Title-ID sortiert ist und den RomMix diesem Spiel nicht zuordnen kann. Savestates werden synchronisiert.',
   'saves.shadps4NoData': 'RomMix hat nicht gefunden, wo shadPS4 seine Spielstände ablegt.',
   'saves.shadps4NoSerial':
     'Dieses Spiel nennt keine PS4-Seriennummer, deshalb kann RomMix nicht erkennen, welcher der Spielstandsordner von shadPS4 zu ihm gehört.',
@@ -686,6 +682,10 @@ export const de: Catalog = {
   'saves.switchNoProfile':
     '{emulator} hat noch kein Benutzerprofil, ein Spielstand hat also nirgendwo hin. Starten Sie ' +
     'ihn einmal und legen Sie ein Profil an.',
+  'saves.n3dsNoTitleId':
+    'RomMix konnte für dieses Spiel keine Title-ID lesen, nach der {emulator} seinen ' +
+    'Spielstandordner benennt. Eine unveränderte .3ds-, .cci-, .cxi- oder .cia-Datei wird ' +
+    'automatisch erkannt.',
 
   // -- die Details eines Spiels ---------------------------------------------
 
