@@ -25,6 +25,7 @@ import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 import { createI18n, localize } from '@shared/i18n'
 import { ps2Disc, umd } from './test/discs.ts'
+import { cia, ncsd } from './test/n3ds.ts'
 import { BASE, nup, UPDATE } from './test/nup.ts'
 
 /**
@@ -433,7 +434,8 @@ function retroDeck(options: {
         '/home/deck/retrodeck/roms/gc/game.rvz': rvz('GALE01'),
         '/home/deck/retrodeck/roms/wii/game.rvz': rvz('RSBE01'),
         '/home/deck/retrodeck/roms/psp/game.iso': umd('ULUS-10064'),
-        '/home/deck/retrodeck/roms/ps2/game.iso': ps2Disc('SLUS_203.12')
+        '/home/deck/retrodeck/roms/ps2/game.iso': ps2Disc('SLUS_203.12'),
+        '/home/deck/retrodeck/roms/n3ds/game.3ds': ncsd('0004000000030800')
       }
     })
   })
@@ -528,7 +530,102 @@ test('RetroDECK standalone components each get their own arrangement', () => {
   assert.equal(psp.saves?.dir, '/home/deck/retrodeck/saves/PSP/PPSSPP-SA')
 
   const n3ds = retroDeck({ romPath: '/home/deck/retrodeck/roms/n3ds/game.3ds', system: 'n3ds' })
-  assert.equal(n3ds.saves?.dir, '/home/deck/retrodeck/saves/n3ds/azahar/sdmc')
+  // Keyed by the title id the ROM declares, under the default console ids.
+  const zero = '00000000000000000000000000000000'
+  assert.deepEqual(n3ds.saves, {
+    dir: `/home/deck/retrodeck/saves/n3ds/azahar/sdmc/Nintendo 3DS/${zero}/${zero}/title/00040000/00030800/data`,
+    match: 'directory'
+  })
+  assert.equal(n3ds.emulator, 'azahar')
+})
+
+test('RetroDECK says so when the 3DS ROM declares no title id', () => {
+  const n3ds = retroDeck({
+    romPath: '/home/deck/retrodeck/roms/n3ds/homebrew.3dsx',
+    system: 'n3ds'
+  })
+  assert.equal(n3ds.saves, null)
+  assert.match(localize(n3ds.unsyncableReason, ENGLISH) ?? '', /title id/i)
+})
+
+test('EmuDeck finds Azahar’s save folder by title id and still syncs its states', () => {
+  const zero = '00000000000000000000000000000000'
+  const paths = emuDeck({ romPath: `${HOME}/Emulation/roms/n3ds/game.3ds`, system: 'n3ds' })
+  assert.deepEqual(paths.saves, {
+    dir: `${HOME}/Emulation/saves/azahar/saves/Nintendo 3DS/${zero}/${zero}/title/00040000/00030800/data`,
+    match: 'directory'
+  })
+  assert.equal(paths.states?.dir, `${HOME}/Emulation/saves/azahar/states`)
+  assert.equal(paths.emulator, 'azahar')
+})
+
+test('EmuDeck finds Lime3DS and Citra saves by title id too', () => {
+  for (const variant of ['lime3ds', 'citra']) {
+    const paths = emuDeck({
+      romPath: `${HOME}/Emulation/roms/n3ds/game.3ds`,
+      system: 'n3ds',
+      variant
+    })
+    assert.match(
+      paths.saves?.dir ?? '',
+      new RegExp(`/saves/${variant}/saves/Nintendo 3DS/.+/title/00040000/00030800/data$`)
+    )
+    assert.equal(paths.states?.dir, `${HOME}/Emulation/saves/${variant}/states`)
+  }
+})
+
+test('EmuDeck puts an update’s Azahar saves in the base game’s folder', () => {
+  const zero = '00000000000000000000000000000000'
+  const paths = emuDeck({
+    romPath: `${HOME}/Emulation/roms/n3ds/update.cia`,
+    system: 'n3ds',
+    heads: { [`${HOME}/Emulation/roms/n3ds/update.cia`]: cia('0004000E00030800') }
+  })
+  assert.match(paths.saves?.dir ?? '', new RegExp(`/${zero}/title/00040000/00030800/data$`))
+})
+
+test('in Azahar’s tree the profile already holding the title beats the one played last', () => {
+  const root = `${HOME}/Emulation/saves/azahar/saves/Nintendo 3DS`
+  const first = '11111111111111111111111111111111'
+  const second = '22222222222222222222222222222222'
+  const paths = emuDeck({
+    romPath: `${HOME}/Emulation/roms/n3ds/game.3ds`,
+    system: 'n3ds',
+    dirs: {
+      [root]: [first, second],
+      [`${root}/${first}`]: [first],
+      [`${root}/${second}`]: [second],
+      [`${root}/${first}/${first}/title/00040000/00030800`]: ['data']
+    },
+    mtimes: { [`${root}/${second}/${second}`]: 9 }
+  })
+  assert.match(paths.saves?.dir ?? '', new RegExp(`/${first}/${first}/title/`))
+})
+
+test('with no title id, Azahar syncs nothing rather than something wrong', () => {
+  const paths = emuDeck({
+    romPath: `${HOME}/Emulation/roms/n3ds/homebrew.3dsx`,
+    system: 'n3ds'
+  })
+  assert.equal(paths.saves, null)
+  assert.match(localize(paths.unsyncableReason, ENGLISH) ?? '', /title id/i)
+  assert.equal(paths.states?.dir, `${HOME}/Emulation/saves/azahar/states`)
+})
+
+test('a 3DS demo keeps its own save folder and downloadable content has none', () => {
+  const demo = emuDeck({
+    romPath: `${HOME}/Emulation/roms/n3ds/demo.3ds`,
+    system: 'n3ds',
+    heads: { [`${HOME}/Emulation/roms/n3ds/demo.3ds`]: ncsd('0004000200030800') }
+  })
+  assert.match(demo.saves?.dir ?? '', /title\/00040002\/00030800\/data$/)
+
+  const dlc = emuDeck({
+    romPath: `${HOME}/Emulation/roms/n3ds/dlc.cia`,
+    system: 'n3ds',
+    heads: { [`${HOME}/Emulation/roms/n3ds/dlc.cia`]: cia('0004008C00030800') }
+  })
+  assert.equal(dlc.saves, null)
 })
 
 test('Dolphin states sit outside the system tree entirely', () => {
@@ -822,6 +919,8 @@ function emuDeck(options: {
   variant?: string
   dirs?: Record<string, string[]>
   files?: Record<string, string>
+  heads?: Record<string, string>
+  mtimes?: Record<string, number>
 }): SavePaths {
   return resolve(emudeck, {
     romPath: options.romPath,
@@ -840,12 +939,15 @@ function emuDeck(options: {
         ],
         ...options.dirs
       },
+      mtimes: options.mtimes,
       heads: {
+        ...options.heads,
         [`${HOME}/Emulation/roms/switch/game.nsp`]: 'junk 010012300ABCD000.cnmt more',
         [`${HOME}/Emulation/roms/gc/game.rvz`]: rvz('GALE01'),
         [`${HOME}/Emulation/roms/wii/game.rvz`]: rvz('RSBE01'),
         [`${HOME}/Emulation/roms/psp/game.iso`]: umd('ULUS-10064'),
-        [`${HOME}/Emulation/roms/ps2/game.iso`]: ps2Disc('SLUS_203.12')
+        [`${HOME}/Emulation/roms/ps2/game.iso`]: ps2Disc('SLUS_203.12'),
+        [`${HOME}/Emulation/roms/n3ds/game.3ds`]: ncsd('0004000000030800')
       }
     })
   })
@@ -1863,16 +1965,7 @@ function emuDeckFolders(): { folders: Set<string>; scripts: Set<string> } {
  * change rather than a silent one. Anything here keeping a shared card rather
  * than per-game files is a bug waiting on somebody with that emulator.
  */
-const UNDESCRIBED = new Set([
-  'BigPEmu',
-  'RMG',
-  'citra',
-  'lime3ds',
-  'melonds',
-  'mgba',
-  'scummvm',
-  'supermodel'
-])
+const UNDESCRIBED = new Set(['BigPEmu', 'RMG', 'melonds', 'mgba', 'scummvm', 'supermodel'])
 
 /**
  * Rows no launcher reaches yet.

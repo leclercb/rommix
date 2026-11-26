@@ -643,10 +643,6 @@ export const fr: Catalog = {
   'saves.xemu':
     "Xemu garde un seul disque dur Xbox émulé pour tous les jeux : aucune sauvegarde n'appartient donc à celui-ci.",
   'saves.xroar': "XRoar n'écrit aucune sauvegarde sur pile ; seuls ses états sont synchronisés.",
-  'saves.azahar':
-    'Azahar range ses sauvegardes dans une arborescence de carte SD émulée indexée par identifiant de titre, que RomMix ne peut pas rattacher à ce jeu.',
-  'saves.azaharStates':
-    'Azahar range ses sauvegardes dans une arborescence de carte SD émulée indexée par identifiant de titre, que RomMix ne peut pas rattacher à ce jeu. Les états de sauvegarde sont synchronisés.',
   'saves.shadps4NoData': "RomMix n'a pas trouvé où shadPS4 range ses données de sauvegarde.",
   'saves.shadps4NoSerial':
     "Ce jeu n'indique aucun numéro de série PS4 : RomMix ne peut donc pas savoir lequel des dossiers de sauvegarde de shadPS4 lui appartient.",
@@ -681,6 +677,10 @@ export const fr: Catalog = {
   'saves.switchNoProfile':
     '{emulator} n’a pas encore de profil utilisateur : une sauvegarde n’a nulle part où aller. ' +
     'Lancez-le une fois et créez un profil.',
+  'saves.n3dsNoTitleId':
+    '{emulator} range les sauvegardes sous l’identifiant de titre 3DS, et RomMix n’en a trouvé ' +
+    'aucun dans ce fichier qui ait des sauvegardes. Le contenu téléchargeable, les titres ' +
+    'système et les homebrews .3dsx n’en ont pas.',
 
   // -- les détails d'un jeu -------------------------------------------------
 

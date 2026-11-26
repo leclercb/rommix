@@ -3,6 +3,7 @@ import { coreForSystem } from '../../systems.ts'
 import { libretroSavePaths, readLibretroConfig, LIBRETRO_TAG } from '../libretro.ts'
 import { dolphinSaves, dolphinStates } from '../dolphin-saves.ts'
 import { ppssppSaves } from '../psp-saves.ts'
+import { n3dsSavePaths } from '../n3ds-saves.ts'
 import { pcsx2Saves } from '../ps2-saves.ts'
 import { baseName, directory, joinPath, perRom, shared } from '../savepaths.ts'
 import type { SaveContext, SaveLocation, SavePaths } from '../savepaths.ts'
@@ -137,10 +138,13 @@ export const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
     states: null,
     unsyncableReason: 'saves.vita3k'
   }),
+  /**
+   * RetroDECK links `saves/n3ds/azahar/sdmc` at the emulated SD card, whose
+   * saves are keyed by title id — see `n3dsSavePaths`.
+   */
   azahar: (ctx) => ({
-    saves: at(under(savesRoot(ctx), ctx.system, 'azahar', 'sdmc'), shared),
-    states: null,
-    unsyncableReason: 'saves.azahar'
+    ...n3dsSavePaths(ctx, under(savesRoot(ctx), ctx.system, 'azahar', 'sdmc'), 'Azahar'),
+    states: null
   }),
   xemu: (ctx) => ({
     saves: at(under(savesRoot(ctx), ctx.system, 'xemu'), shared),

@@ -4,6 +4,7 @@ import { joinPath, perRom, shared } from '../savepaths.ts'
 import { dolphinSaves, dolphinStates } from '../dolphin-saves.ts'
 import { ppssppSaves } from '../psp-saves.ts'
 import { pcsx2Saves } from '../ps2-saves.ts'
+import { n3dsSavePaths } from '../n3ds-saves.ts'
 import { switchSavePaths } from '../switch-saves.ts'
 import type { SaveContext, SavePaths } from '../savepaths.ts'
 
@@ -76,6 +77,18 @@ function standard(root: string): SavePaths {
 /** The Wii NAND for a Wii game, the memory cards otherwise — see `dolphinSaves`. */
 function dolphinSaveDir(ctx: SaveContext, root: string): string {
   return joinPath(root, ctx.system === 'wii' ? 'Wii' : 'GC')
+}
+
+/**
+ * EmuDeck links a Citra-lineage emulator's `saves` at its emulated SD card,
+ * whose saves are keyed by title id — see `n3dsSavePaths`. States are named
+ * after the ROM.
+ */
+function n3dsFolder(emulatorName: string): FolderSaves {
+  return (ctx, root) => ({
+    ...n3dsSavePaths(ctx, joinPath(root, 'saves'), emulatorName),
+    states: perRom(joinPath(root, 'states'), [root])
+  })
 }
 
 export const FOLDERS: Readonly<Record<string, FolderSaves>> = {
@@ -166,11 +179,9 @@ export const FOLDERS: Readonly<Record<string, FolderSaves>> = {
     states: null,
     unsyncableReason: 'saves.vita3k'
   }),
-  azahar: (_ctx, root) => ({
-    saves: shared(joinPath(root, 'saves')),
-    states: perRom(joinPath(root, 'states'), [root]),
-    unsyncableReason: 'saves.azaharStates'
-  }),
+  azahar: n3dsFolder('Azahar'),
+  lime3ds: n3dsFolder('Lime3DS'),
+  citra: n3dsFolder('Citra'),
   xemu: (_ctx, root) => ({
     saves: shared(joinPath(root, 'saves')),
     states: null,

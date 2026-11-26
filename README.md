@@ -285,8 +285,8 @@ one RomMix folder you point every emulator at.
 - **Ask before sending saves to RomM** — on by default. Lists the files and
   sends only what you approve.
 
-Saves named after the ROM sync cleanly, Switch-family saves are matched by
-title id, Wii saves by the game id on the disc, and PSP saves by the disc id in
+Saves named after the ROM sync cleanly, Switch-family and 3DS saves are
+matched by title id, Wii saves by the game id on the disc, and PSP saves by the disc id in
 an ISO, CSO or CHD image. PS2 saves sync when PCSX2's memory card is a folder
 card, matched by the serial in an ISO, CSO or CHD image. Emulators that share
 one memory card between every game cannot be synced, and RomMix says so rather
